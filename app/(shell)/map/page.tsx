@@ -828,8 +828,11 @@ export default function MapDiscoveryPage() {
                 {selectedPlace.address}
               </p>
             ) : null}
-            {/* Same four-action row as RoameoCard everywhere else: primary
-                contextual verb / Ask Roameo / Directions / Save. */}
+            {/* Same action-row shape as RoameoCard's hero variant: primary
+                contextual verb / Ask Roameo / Directions / Save. The map pin
+                keeps this inline (v1.1 W3's one legitimate map exception)
+                rather than sending the user to /place/[id] for it — "View
+                full details" below is the one that does. */}
             <div className="mt-1 flex flex-wrap items-center gap-2">
               {trip ? (
                 <button

@@ -152,8 +152,8 @@ function GapBlockView({ gap, deviceId, tripId }: { gap: GapBlock; deviceId: stri
       <h4 className="mb-2 text-label-md font-bold text-primary">Worth a look for the gap</h4>
       <div className="flex gap-2.5 overflow-x-auto pb-1 [&::-webkit-scrollbar]:hidden">
         {gap.candidates.map((c) => (
-          <div key={`${c.subject.type}:${c.subject.id}`} className="w-[160px] shrink-0">
-            <RoameoCard candidate={c} variant="grid" deviceId={deviceId} tripId={tripId} />
+          <div key={`${c.subject.type}:${c.subject.id}`} className="shrink-0">
+            <RoameoCard candidate={c} variant="tile" deviceId={deviceId} tripId={tripId} />
           </div>
         ))}
       </div>

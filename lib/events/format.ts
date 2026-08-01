@@ -1,8 +1,8 @@
 // Client-safe event formatting helpers — imported by both the /api/events
 // route (indirectly, via shared logic) and Phase 2's UI components. This
 // file deliberately has NO `import "server-only"`, unlike everything else in
-// lib/events/: it runs in client components (EventCard, EventDetailSheet,
-// the /events page, the Home carousel).
+// lib/events/: it runs in client components (EventCard, the /event/[id] and
+// /events pages, the Home carousel).
 import type { EventItem } from "@/lib/types";
 
 const DAY_MS = 24 * 60 * 60 * 1000;

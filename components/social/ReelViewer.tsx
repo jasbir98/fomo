@@ -2,18 +2,18 @@
 
 import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { getDeviceId } from "@/lib/device";
 import { createItem } from "@/lib/db/items";
 import { recordCardSignal } from "@/lib/db/signals";
 import { isSaved, saveItem, unsaveItem } from "@/lib/db/saved";
 import { buildAskRoameoHref } from "@/lib/chat-seed";
+import { buildSearchMapUrl } from "@/lib/maps/links";
 import type { CardSubjectType, Place, SocialPost } from "@/lib/types";
 import { resolvePlaceForReel } from "@/lib/social/reel-place";
 import { proxiedThumbnailUrl } from "@/lib/social/media-proxy";
 import { Icon } from "@/components/ui";
 import { VideoEmbed } from "./VideoEmbed";
-import { PlaceDetailSheet } from "./PlaceDetailSheet";
 
 /**
  * card_signals.card_type this file writes with, kept distinct from each
@@ -96,11 +96,12 @@ export type ReelViewerProps = {
  * threshold = like (persisted to localStorage, device-scoped) and advance;
  * drag left = skip and advance. Visible Like/Skip buttons cover
  * accessibility and non-touch input. A bottom "place bar" is its own
- * pointer target — drag it up (or tap it) to open a slide-up
- * PlaceDetailSheet with the resolved place's details; while that sheet is
- * open, the card's horizontal like/skip drag is paused.
+ * pointer target — drag it up (or tap it) to navigate to the resolved
+ * place's own /place/[id] page (v1.1 W3: content always opens a page, never
+ * a sheet), or to a maps search when no place resolved for this reel.
  */
 export function ReelViewer({ reels, startIndex, places, tripId }: ReelViewerProps) {
+  const router = useRouter();
   // ReelViewer only ever mounts client-side (the page above gates on an
   // async data fetch before rendering it), so it's safe to read the device
   // id directly here rather than through the SSR-deferred useDeviceId hook.
@@ -112,13 +113,12 @@ export function ReelViewer({ reels, startIndex, places, tripId }: ReelViewerProp
   const pointerId = useRef<number | null>(null);
   const startX = useRef(0);
 
-  const [sheetOpen, setSheetOpen] = useState(false);
   const [barDragY, setBarDragY] = useState(0);
   const barPointerId = useRef<number | null>(null);
   const barStartY = useRef(0);
 
   function commitSwipe(action: "like" | "skip") {
-    if (phase === "exiting" || sheetOpen) return;
+    if (phase === "exiting") return;
     const current = reels[index];
     if (action === "like" && current) {
       persistLike(deviceId, current.id);
@@ -154,7 +154,7 @@ export function ReelViewer({ reels, startIndex, places, tripId }: ReelViewerProp
   }
 
   function handlePointerDown(e: ReactPointerEvent<HTMLDivElement>) {
-    if (phase === "exiting" || sheetOpen) return;
+    if (phase === "exiting") return;
     e.currentTarget.setPointerCapture(e.pointerId);
     pointerId.current = e.pointerId;
     startX.current = e.clientX;
@@ -162,12 +162,12 @@ export function ReelViewer({ reels, startIndex, places, tripId }: ReelViewerProp
   }
 
   function handlePointerMove(e: ReactPointerEvent<HTMLDivElement>) {
-    if (phase !== "dragging" || sheetOpen || e.pointerId !== pointerId.current) return;
+    if (phase !== "dragging" || e.pointerId !== pointerId.current) return;
     setDragX(e.clientX - startX.current);
   }
 
   function handlePointerUp(e: ReactPointerEvent<HTMLDivElement>) {
-    if (phase !== "dragging" || sheetOpen || e.pointerId !== pointerId.current) return;
+    if (phase !== "dragging" || e.pointerId !== pointerId.current) return;
     pointerId.current = null;
     const dx = e.clientX - startX.current;
     if (dx > SWIPE_THRESHOLD) {
@@ -198,7 +198,6 @@ export function ReelViewer({ reels, startIndex, places, tripId }: ReelViewerProp
   // here never bubbles into the card's horizontal like/skip handlers above.
   function handleBarPointerDown(e: ReactPointerEvent<HTMLDivElement>) {
     e.stopPropagation();
-    if (sheetOpen) return;
     e.currentTarget.setPointerCapture(e.pointerId);
     barPointerId.current = e.pointerId;
     barStartY.current = e.clientY;
@@ -211,6 +210,12 @@ export function ReelViewer({ reels, startIndex, places, tripId }: ReelViewerProp
     setBarDragY(Math.min(0, e.clientY - barStartY.current));
   }
 
+  // Tap and drag-up on the place bar both navigate to the resolved place's
+  // own detail page (v1.1 W3 — content always opens a page, never a sheet;
+  // this replaces the old slide-up PlaceDetailSheet). When a reel has no
+  // resolved Place, there's no page to route to, so this falls back to the
+  // same "search on maps" deep-link PlaceDetailSheet used to offer for that
+  // case, opened directly instead of via a sheet.
   function handleBarPointerUp(e: ReactPointerEvent<HTMLDivElement>) {
     e.stopPropagation();
     if (barPointerId.current !== e.pointerId) return;
@@ -218,12 +223,17 @@ export function ReelViewer({ reels, startIndex, places, tripId }: ReelViewerProp
     const dy = e.clientY - barStartY.current;
     setBarDragY(0);
     if (dy < BAR_OPEN_DRAG_THRESHOLD) {
-      setSheetOpen(true);
+      if (place) {
+        router.push(`/place/${place.id}`);
+      } else {
+        const query = current.location ?? current.caption ?? current.destination ?? "";
+        if (query) window.open(buildSearchMapUrl(query), "_blank", "noopener");
+      }
     }
   }
 
   // Same reasoning as handlePointerCancel above: a cancelled bar gesture
-  // must not be able to open the sheet off of stale/zeroed coordinates.
+  // must not be able to trigger navigation off of stale/zeroed coordinates.
   function handleBarPointerCancel(e: ReactPointerEvent<HTMLDivElement>) {
     e.stopPropagation();
     if (barPointerId.current !== e.pointerId) return;
@@ -283,8 +293,6 @@ export function ReelViewer({ reels, startIndex, places, tripId }: ReelViewerProp
     // iframe height, so no fixed offset is safe; keeping our chrome off the
     // player entirely is the only durable fix. It also matches the swipe
     // stack's Tinder-style card + action row idiom.
-    // relative + overflow-hidden: PlaceDetailSheet positions against this and
-    // parks off-screen (translate-y-full) when closed, so it needs both.
     <div className="relative flex h-full w-full flex-col overflow-hidden">
       <div className="relative min-h-0 flex-1 overflow-hidden bg-black">
         {/* Peek at the next card in the stack, static (no embed) to avoid double video loads. */}
@@ -369,16 +377,14 @@ export function ReelViewer({ reels, startIndex, places, tripId }: ReelViewerProp
 
       {/* RoameoCard-parity row: primary contextual action / Ask Roameo / Save.
           Added alongside (not replacing) the like/skip swipe mechanic below —
-          keyed (prefixed, since it's a sibling of PlaceDetailSheet's own
-          per-reel key below and duplicate keys among siblings both resolve
-          to `current.id` otherwise) so its saved/added state resets per-reel. */}
+          keyed (prefixed) so its saved/added state resets per-reel. */}
       <ReelActionRow key={`action-${current.id}`} reel={current} place={place} deviceId={deviceId} tripId={tripId} />
 
       {/* Action strip — place bar + Like/Skip, below the player so none of it
           can intercept taps meant for the embed. */}
       <div className="flex shrink-0 items-center gap-3 px-4 pb-4 pt-3">
         {/* Place bar keeps its own pointer target (see handleBar* above): drag
-            up or tap to open the PlaceDetailSheet. */}
+            up or tap navigates to the place's detail page. */}
         <div
           onPointerDown={handleBarPointerDown}
           onPointerMove={handleBarPointerMove}
@@ -422,17 +428,6 @@ export function ReelViewer({ reels, startIndex, places, tripId }: ReelViewerProp
           <Icon name="favorite" filled size={26} />
         </button>
       </div>
-
-      {/* key={current.id}: remounts the sheet per-reel so its internal
-          add-to-trip/drag state resets naturally instead of via an effect. */}
-      <PlaceDetailSheet
-        key={current.id}
-        open={sheetOpen}
-        onClose={() => setSheetOpen(false)}
-        reel={current}
-        place={place}
-        deviceId={deviceId}
-      />
     </div>
   );
 }

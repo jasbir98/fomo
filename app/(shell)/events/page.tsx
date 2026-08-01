@@ -2,13 +2,14 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useDeviceId } from "@/lib/device";
 import { getCurrentTrip } from "@/lib/db";
 import type { EventItem, Trip } from "@/lib/types";
 import { distanceKm, sortByDistance, useGeolocation, type Coordinates } from "@/lib/geo";
 import { useInfiniteList } from "@/lib/useInfiniteList";
 import { Chip, Icon, PageHeader, SegmentedControl } from "@/components/ui";
-import { EventCard, EventDetailSheet } from "@/components/events";
+import { EventCard } from "@/components/events";
 
 // Page size for the infinite-scroll fetch below. /api/events itself has no
 // true offset pagination (it's a cache-first-then-provider-fan-out lookup
@@ -74,12 +75,12 @@ function eventCoords(event: EventItem): Coordinates | null {
 
 export default function EventsPage() {
   const deviceId = useDeviceId();
+  const router = useRouter();
   const [trip, setTrip] = useState<Trip | null>(null);
   const [tripChecked, setTripChecked] = useState(false);
   const [dateWindow, setDateWindow] = useState<DateWindow>("tonight");
   const [activeSlug, setActiveSlug] = useState<string | null>(null);
   const [degraded, setDegraded] = useState<string | null>(null);
-  const [selectedEvent, setSelectedEvent] = useState<EventItem | null>(null);
   const { coords } = useGeolocation();
 
   const destination = trip?.destination ?? null;
@@ -250,7 +251,7 @@ export default function EventsPage() {
                   event={event}
                   variant="list"
                   distanceKm={dist}
-                  onClick={() => setSelectedEvent(event)}
+                  onClick={() => router.push(`/event/${event.id}`)}
                 />
               );
             })}
@@ -264,13 +265,6 @@ export default function EventsPage() {
           </div>
         )}
       </section>
-
-      <EventDetailSheet
-        open={selectedEvent !== null}
-        onClose={() => setSelectedEvent(null)}
-        event={selectedEvent}
-        deviceId={deviceId}
-      />
     </div>
   );
 }

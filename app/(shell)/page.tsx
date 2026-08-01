@@ -314,7 +314,7 @@ export default function TripHomePage() {
             </div>
             <div className="flex gap-3 overflow-x-auto pb-2 snap-x snap-mandatory [&::-webkit-scrollbar]:hidden">
               {now.rail.items.map((item) => (
-                <div key={`${item.subject.type}:${item.subject.id}`} className="w-[150px] shrink-0 snap-start">
+                <div key={`${item.subject.type}:${item.subject.id}`} className="shrink-0 snap-start">
                   <RoameoCard candidate={item} variant="tile" deviceId={deviceId} tripId={trip.id} />
                 </div>
               ))}

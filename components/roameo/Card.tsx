@@ -4,15 +4,13 @@ import { useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { Icon } from "@/components/ui";
-import { EventDetailSheet } from "@/components/events";
 import { buildAskRoameoHref } from "@/lib/chat-seed";
 import { createItem } from "@/lib/db/items";
 import { recordCardSignal } from "@/lib/db/signals";
 import { saveItem, unsaveItem } from "@/lib/db/saved";
-import { getEvent } from "@/lib/db/events";
 import { describeSupabaseError } from "@/lib/db/errors";
 import type { Candidate, CardKind } from "@/lib/now/types";
-import type { CardSubjectType, EventItem } from "@/lib/types";
+import type { CardSubjectType } from "@/lib/types";
 
 export type CardVariant = "hero" | "tile" | "grid";
 
@@ -56,11 +54,19 @@ function directionsUrl(coords: { lat: number; lng: number }): string {
 }
 
 /**
- * One card, one action row, rendered identically everywhere — Home rail,
- * Plan gaps, chip discover grids, Reels. The action row's job is to be the
- * thing that stitches the six features together (plan-v1-home-pivot.md §8),
- * so it deliberately does NOT vary its actions by surface, only its size
- * (`tile` compacts to icon-only for the horizontal rail).
+ * One card, rendered identically everywhere — Home rail, Plan gaps, chip
+ * discover grids, Reels. Geometry is fixed per variant (v1.1 W3,
+ * plan-v1.1-overhaul.md) rather than intrinsic, which is what previously
+ * produced ragged rail/grid bottoms: `tile` is 168×204 (112 photo + 92 fixed
+ * copy), `grid` is fluid-width×232 (128 photo + 104 fixed copy), `hero` is
+ * full-width with an intrinsic copy block (208 photo, min 132 copy — no
+ * siblings to misalign against).
+ *
+ * `tile`/`grid` carry ONLY a floating bookmark button over the photo —
+ * tapping the card body (photo, headline, meta — everything except the
+ * bookmark) navigates to the subject's own detail page. `hero` keeps the
+ * full action row (primary · Ask Roameo · Directions · Save · Nah): the
+ * four actions tile/grid used to expose live on the detail page instead.
  */
 export function RoameoCard({
   candidate,
@@ -76,9 +82,6 @@ export function RoameoCard({
   const [added, setAdded] = useState(false);
   const [saved, setSaved] = useState(false);
   const [busy, setBusy] = useState(false);
-  const [eventSheetOpen, setEventSheetOpen] = useState(false);
-  const [eventDetail, setEventDetail] = useState<EventItem | null>(null);
-  const [eventLoading, setEventLoading] = useState(false);
 
   const askHref = buildAskRoameoHref({
     type: candidate.subject.type,
@@ -154,44 +157,32 @@ export function RoameoCard({
     }
   }
 
-  // Tapping the card body (photo/why/headline/detail — everything except
-  // the action row) opens the subject's own detail surface. Every subject
-  // type except "event" has a real route; events have no `/event/[id]`
-  // page (the rest of the app already shows them in a BottomSheet, see
-  // app/(shell)/events/page.tsx), so that one case fetches-then-opens the
-  // shared EventDetailSheet instead of navigating.
+  // Tapping the card body (photo/headline/meta — everything except the
+  // bookmark on tile/grid, or the action row on hero) opens the subject's
+  // own detail page. Every subject type now has a real route — including
+  // "event" (app/(shell)/event/[id]/page.tsx, new in v1.1 W3) — so this is a
+  // plain navigation, never a fetch-then-open-sheet.
   const detailHref =
     candidate.subject.type === "place"
       ? `/place/${candidate.subject.id}`
-      : candidate.subject.type === "experience"
-        ? `/experience/${candidate.subject.id}`
-        : candidate.subject.type === "itinerary_item"
-          ? `/plan/item/${candidate.subject.id}`
-          : candidate.subject.type === "reel"
-            ? `/social/${candidate.subject.id}`
-            : null;
+      : candidate.subject.type === "event"
+        ? `/event/${candidate.subject.id}`
+        : candidate.subject.type === "experience"
+          ? `/experience/${candidate.subject.id}`
+          : candidate.subject.type === "itinerary_item"
+            ? `/plan/item/${candidate.subject.id}`
+            : candidate.subject.type === "reel"
+              ? `/social/${candidate.subject.id}`
+              : null;
 
-  async function handleOpenDetails() {
+  function handleOpenDetails() {
     signal("opened");
-    if (candidate.subject.type === "event") {
-      if (eventLoading) return;
-      if (eventDetail && eventDetail.id === candidate.subject.id) {
-        setEventSheetOpen(true);
-        return;
-      }
-      setEventLoading(true);
-      try {
-        const event = await getEvent(candidate.subject.id);
-        setEventDetail(event);
-        if (event) setEventSheetOpen(true);
-      } catch (err) {
-        console.error(`[roameo] event detail lookup failed ${describeSupabaseError(err)}`);
-      } finally {
-        setEventLoading(false);
-      }
-      return;
-    }
     if (detailHref) router.push(detailHref);
+  }
+
+  function handleBookmarkClick(e: React.MouseEvent) {
+    e.stopPropagation();
+    void handleSave();
   }
 
   function handlePrimary() {
@@ -209,15 +200,20 @@ export function RoameoCard({
     // "swap"/"location" need a caller-supplied onPrimary to do anything.
   }
 
-  const compact = variant === "tile";
+  const isHero = variant === "hero";
   // Hero requires a validated 'ok' image (plan-v1-home-pivot.md §11); tiles
   // and grid cards accept 'thin' too — only 'none' falls back to the
   // gradient+glyph placeholder below.
   const hasRealPhoto =
     candidate.image.url != null &&
-    (variant === "hero" ? candidate.image.quality === "ok" : candidate.image.quality !== "none");
+    (isHero ? candidate.image.quality === "ok" : candidate.image.quality !== "none");
   const showAskRoameo = candidate.primaryAction.kind !== "tell";
   const showDirections = candidate.primaryAction.kind !== "directions" && candidate.coords != null;
+  // Meta line for tile/grid — one sensible fact per subject, sourced from
+  // whatever the ranker already populated (generators.ts writes contextual
+  // text into `detail`: walk time, price/duration, best-time tips, etc.)
+  // rather than inventing new fields for this presentation-only change.
+  const metaLine = candidate.detail || candidate.railMeta || null;
 
   // Typographic fallback (plan-v1-home-pivot.md §11.2) for the copy block
   // below the photo. The photo box itself always renders now (real image or
@@ -247,17 +243,17 @@ export function RoameoCard({
     />
   );
 
+  const photoHeight = isHero ? "h-52" : variant === "grid" ? "h-32" : "h-28";
+
   return (
     <div
       className={`group relative flex h-full flex-col overflow-hidden rounded-xl border ${
         dark ? "border-transparent bg-primary text-on-primary" : "border-outline-variant/60 bg-surface-container-lowest"
-      } ${className}`}
+      } ${variant === "tile" ? "w-[168px]" : "w-full"} ${className}`}
     >
       <div
-        onClick={() => void handleOpenDetails()}
-        className={`relative w-full shrink-0 cursor-pointer bg-surface-container ${
-          variant === "hero" ? "h-52" : variant === "grid" ? "h-28" : "h-24"
-        }`}
+        onClick={handleOpenDetails}
+        className={`relative w-full shrink-0 cursor-pointer bg-surface-container ${photoHeight}`}
       >
         {hasRealPhoto ? (
           /* eslint-disable-next-line @next/next/no-img-element */
@@ -271,133 +267,133 @@ export function RoameoCard({
           <span className="rounded-full bg-secondary-container px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-on-secondary-container">
             {candidate.pill}
           </span>
+          {!isHero ? (
+            <button
+              type="button"
+              aria-label={saved ? "Remove from saved" : "Save"}
+              onClick={handleBookmarkClick}
+              disabled={busy}
+              className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-black/35 text-white backdrop-blur-sm transition-colors hover:bg-black/50 disabled:opacity-60"
+            >
+              <Icon name={saved ? "bookmark" : "bookmark_add"} filled={saved} size={14} />
+            </button>
+          ) : null}
         </div>
       </div>
 
-      <div
-        className={`flex flex-1 flex-col gap-1 ${
-          dark && variant === "hero" ? "gap-2 p-5 pt-4" : compact ? "p-2.5" : "p-3.5"
-        }`}
-      >
-        <div onClick={() => void handleOpenDetails()} className="flex cursor-pointer flex-col gap-1">
-          {dark ? (
+      {isHero ? (
+        <div
+          className={`flex min-h-[132px] flex-1 flex-col gap-1 ${dark ? "gap-2 p-5 pt-4" : "p-3.5"}`}
+        >
+          <div onClick={handleOpenDetails} className="flex cursor-pointer flex-col gap-1">
+            {dark ? (
+              <span className="mb-1 w-fit rounded-full bg-secondary-container px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-on-secondary-container">
+                {candidate.pill}
+              </span>
+            ) : null}
             <span
-              className={`mb-1 w-fit rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide ${
-                variant === "hero"
-                  ? "bg-secondary-container text-on-secondary-container"
-                  : "bg-on-primary/15 text-on-primary"
+              className={`font-semibold uppercase tracking-wide text-label-md ${
+                dark ? "text-secondary-fixed-dim" : "text-secondary"
               }`}
-            >
-              {candidate.pill}
-            </span>
-          ) : null}
-          {!compact ? (
-            <span
-              className={`font-semibold uppercase tracking-wide ${
-                dark && variant === "hero" ? "text-label-md text-secondary-fixed-dim" : "text-[11px]"
-              } ${dark ? (variant === "hero" ? "" : "text-secondary-fixed-dim") : "text-secondary"}`}
             >
               {candidate.why}
             </span>
+            <h3
+              className={`font-bold text-headline-md line-clamp-3 ${dark ? "text-on-primary" : "text-primary"}`}
+            >
+              {candidate.headline}
+            </h3>
+            {candidate.detail ? (
+              <p
+                className={`text-body-lg line-clamp-3 ${dark ? "text-on-primary/75" : "text-on-surface-variant"}`}
+              >
+                {candidate.detail}
+              </p>
+            ) : null}
+          </div>
+
+          <div className="mt-auto flex flex-wrap items-center gap-1.5 pt-3">
+            <button
+              type="button"
+              onClick={handlePrimary}
+              disabled={busy || (candidate.primaryAction.kind === "add" && added)}
+              className="flex shrink-0 items-center gap-1 rounded-full bg-secondary-container px-3 py-1.5 text-label-sm font-semibold text-on-secondary-container transition-opacity hover:opacity-90 disabled:opacity-60"
+            >
+              {added && candidate.primaryAction.kind === "add" ? "Added" : candidate.primaryAction.label}
+              {primaryIcon}
+            </button>
+
+            {showAskRoameo ? (
+              <Link
+                href={askHref}
+                onClick={() => signal("opened")}
+                className={`flex shrink-0 items-center gap-1 rounded-full border px-3 py-1.5 text-label-sm font-semibold transition-colors ${ghostButton}`}
+              >
+                Ask Roameo
+                <Icon name="chat" size={16} />
+              </Link>
+            ) : null}
+
+            {showDirections ? (
+              <button
+                type="button"
+                onClick={() => candidate.coords && window.open(directionsUrl(candidate.coords), "_blank", "noopener")}
+                className={`flex shrink-0 items-center gap-1 rounded-full border px-3 py-1.5 text-label-sm font-semibold transition-colors ${ghostButton}`}
+              >
+                Directions
+                <Icon name="directions" size={16} />
+              </button>
+            ) : null}
+
+            <button
+              type="button"
+              aria-label={saved ? "Remove from saved" : "Save"}
+              onClick={handleBookmarkClick}
+              disabled={busy}
+              className={`ml-auto flex shrink-0 items-center justify-center rounded-full border p-1.5 transition-colors disabled:opacity-60 ${ghostButton}`}
+            >
+              <Icon name={saved ? "bookmark" : "bookmark_add"} filled={saved} size={16} />
+            </button>
+          </div>
+
+          {onDismiss ? (
+            <button
+              type="button"
+              onClick={() => {
+                signal("dismissed");
+                onDismiss();
+              }}
+              className={`absolute right-2.5 top-2.5 rounded-full px-2.5 py-1 text-[11px] font-semibold backdrop-blur-sm transition-opacity hover:opacity-90 ${
+                dark ? "bg-on-primary/15 text-on-primary" : "bg-primary/70 text-on-primary"
+              }`}
+            >
+              Nah
+            </button>
           ) : null}
+        </div>
+      ) : (
+        <div
+          onClick={handleOpenDetails}
+          className={`flex cursor-pointer flex-col gap-1 overflow-hidden ${
+            variant === "tile" ? "h-[92px] p-2.5" : "h-[104px] p-3"
+          }`}
+        >
           <h3
-            className={`font-bold ${dark ? "text-on-primary" : "text-primary"} ${
-              compact
-                ? "text-label-md line-clamp-2"
-                : dark && variant === "hero"
-                  ? "text-headline-md line-clamp-3"
-                  : "text-headline-sm line-clamp-2"
+            className={`font-bold line-clamp-2 ${dark ? "text-on-primary" : "text-primary"} ${
+              variant === "tile" ? "text-label-md" : "text-headline-sm"
             }`}
           >
             {candidate.headline}
           </h3>
-          {candidate.detail ? (
+          {metaLine ? (
             <p
-              className={`${dark ? "text-on-primary/75" : "text-on-surface-variant"} ${
-                compact
-                  ? "text-[11px] line-clamp-1"
-                  : dark && variant === "hero"
-                    ? "text-body-lg line-clamp-3"
-                    : "text-body-md line-clamp-2"
-              }`}
+              className={`line-clamp-1 text-[11px] ${dark ? "text-on-primary/75" : "text-on-surface-variant"}`}
             >
-              {candidate.detail}
+              {metaLine}
             </p>
           ) : null}
         </div>
-
-        <div
-          className={`mt-auto flex items-center gap-1.5 overflow-x-auto ${
-            dark && variant === "hero" ? "pt-3" : "pt-2"
-          } ${compact ? "" : "flex-wrap"}`}
-        >
-          <button
-            type="button"
-            onClick={handlePrimary}
-            disabled={busy || (candidate.primaryAction.kind === "add" && added)}
-            className="flex shrink-0 items-center gap-1 rounded-full bg-secondary-container px-3 py-1.5 text-label-sm font-semibold text-on-secondary-container transition-opacity hover:opacity-90 disabled:opacity-60"
-          >
-            {!compact ? (added && candidate.primaryAction.kind === "add" ? "Added" : candidate.primaryAction.label) : null}
-            {primaryIcon}
-          </button>
-
-          {showAskRoameo ? (
-            <Link
-              href={askHref}
-              onClick={() => signal("opened")}
-              className={`flex shrink-0 items-center gap-1 rounded-full border px-3 py-1.5 text-label-sm font-semibold transition-colors ${ghostButton}`}
-            >
-              {!compact ? "Ask Roameo" : null}
-              <Icon name="chat" size={16} />
-            </Link>
-          ) : null}
-
-          {showDirections ? (
-            <button
-              type="button"
-              onClick={() => candidate.coords && window.open(directionsUrl(candidate.coords), "_blank", "noopener")}
-              className={`flex shrink-0 items-center gap-1 rounded-full border px-3 py-1.5 text-label-sm font-semibold transition-colors ${ghostButton}`}
-            >
-              {!compact ? "Directions" : null}
-              <Icon name="directions" size={16} />
-            </button>
-          ) : null}
-
-          <button
-            type="button"
-            aria-label={saved ? "Remove from saved" : "Save"}
-            onClick={handleSave}
-            disabled={busy}
-            className={`ml-auto flex shrink-0 items-center justify-center rounded-full border p-1.5 transition-colors disabled:opacity-60 ${ghostButton}`}
-          >
-            <Icon name={saved ? "bookmark" : "bookmark_add"} filled={saved} size={16} />
-          </button>
-        </div>
-      </div>
-
-      {onDismiss ? (
-        <button
-          type="button"
-          onClick={() => {
-            signal("dismissed");
-            onDismiss();
-          }}
-          className={`absolute right-2.5 top-2.5 rounded-full px-2.5 py-1 text-[11px] font-semibold backdrop-blur-sm transition-opacity hover:opacity-90 ${
-            dark ? "bg-on-primary/15 text-on-primary" : "bg-primary/70 text-on-primary"
-          }`}
-        >
-          Nah
-        </button>
-      ) : null}
-
-      {candidate.subject.type === "event" ? (
-        <EventDetailSheet
-          open={eventSheetOpen}
-          onClose={() => setEventSheetOpen(false)}
-          event={eventDetail}
-          deviceId={deviceId}
-        />
-      ) : null}
+      )}
     </div>
   );
 }
