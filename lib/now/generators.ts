@@ -281,7 +281,8 @@ function cityGuess(destination: string | null): string | null {
  */
 const PLACEHOLDER_VENUE = /^(virtual event|online|tbc|tba|secret location|various)\b/i;
 
-function venueLabel(name: string | null): string | null {
+/** Exported so app/api/saved/route.ts can build the same detail line for a saved event outside a full RankContext. */
+export function venueLabel(name: string | null): string | null {
   if (!name || PLACEHOLDER_VENUE.test(name.trim())) return null;
   return name;
 }

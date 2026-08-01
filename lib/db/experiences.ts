@@ -25,6 +25,18 @@ export async function listExperiencesByDestination(
   return data ?? [];
 }
 
+/**
+ * Batch-fetch experiences by id — mirrors listPlacesByIds (lib/db/places.ts)
+ * and listEventsByIds (lib/db/events.ts). Used by GET /api/saved to resolve
+ * saved_items rows with subject_type "experience" back into full rows.
+ */
+export async function listExperiencesByIds(ids: string[]): Promise<Experience[]> {
+  if (ids.length === 0) return [];
+  const { data, error } = await supabase.from("experiences").select("*").in("id", ids);
+  if (error) throw error;
+  return data ?? [];
+}
+
 /** Fetch a single experience by id. Returns null if not found. */
 export async function getExperience(id: string): Promise<Experience | null> {
   const { data, error } = await supabase

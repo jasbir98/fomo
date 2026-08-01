@@ -17,6 +17,30 @@ export async function listSavedItems(
   return data ?? [];
 }
 
+/**
+ * One page of a device's saved items, newest first — the /saved page
+ * (app/(shell)/saved/page.tsx) reads through this via GET /api/saved for
+ * lib/useInfiniteList.ts pagination, instead of listSavedItems' fetch-all
+ * (which stays as-is for lib/now/context.ts's ranker read, where the whole
+ * shortlist is small and needed in one shot). Deliberately NOT trip-scoped —
+ * mirrors listSavedItems' own default and the `saved` rail's "any trip"
+ * doc comment (lib/now/types.ts) — a saved item stays visible after the
+ * traveler starts a new trip.
+ */
+export async function listSavedItemsPage(
+  deviceId: string,
+  { limit, offset }: { limit: number; offset: number }
+): Promise<SavedItem[]> {
+  const { data, error } = await supabase
+    .from("saved_items")
+    .select("*")
+    .eq("device_id", deviceId)
+    .order("created_at", { ascending: false })
+    .range(offset, offset + limit - 1);
+  if (error) throw error;
+  return data ?? [];
+}
+
 /** Whether a specific subject is already saved by this device. */
 export async function isSaved(
   deviceId: string,
