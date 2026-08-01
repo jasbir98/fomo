@@ -495,7 +495,13 @@ export default function PlanPage() {
               with afterItemId=null renders before the first item, others
               render immediately after the item they follow. */}
           <div className="flex flex-1 flex-col gap-4 px-5 pb-32 pt-2">
-            {selectedItems.length === 0 && (dayPlan?.gaps.length ?? 0) === 0 ? (
+            {/* `dayPlan.gaps.length === 0` alone doesn't guarantee anything
+                renders below: an uncovered city can still produce a gap
+                *window* with zero fillable candidates, and GapBlockView
+                renders nothing for those (see GapBlockView above) — the two
+                null-outs combine into a silently blank screen. Checking for
+                at least one gap with real candidates closes that hole. */}
+            {selectedItems.length === 0 && !(dayPlan?.gaps ?? []).some((g) => g.candidates.length > 0) ? (
               <p className="mt-8 text-center text-body-md text-on-surface-variant">
                 Nothing planned for this day yet.
               </p>

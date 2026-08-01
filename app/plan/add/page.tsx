@@ -30,7 +30,9 @@ function AddItemMenu() {
   const day = searchParams.get("day");
 
   function close() {
-    router.push("/plan");
+    // Return to wherever the user actually opened this sheet from (Home,
+    // Plan, a place page, ...) instead of always dumping them on /plan.
+    router.back();
   }
 
   function choose(option: AddOption) {

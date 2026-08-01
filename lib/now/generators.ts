@@ -210,7 +210,9 @@ function closingSoon(ctx: RankContext, exclude: Set<string>): Candidate[] {
       railMeta: "nearby",
     });
   }
-  return out.sort((a, b) => a.score - b.score).slice(0, 3);
+  // Descending — highest score first — so slice(0, 3) keeps the top-scoring
+  // candidates. Sorting ascending here kept the *lowest*-scoring ones.
+  return out.sort((a, b) => b.score - a.score).slice(0, 3);
 }
 
 // ---------------------------------------------------------------------------
@@ -340,7 +342,9 @@ function eventTonight(ctx: RankContext): Candidate[] {
         railMeta: `${candidates.length} on`,
       };
     })
-    .sort((a, b) => a.score - b.score)
+    // Descending — highest score first — so slice(0, 2) keeps the top-scoring
+    // candidates. Sorting ascending here kept the *lowest*-scoring ones.
+    .sort((a, b) => b.score - a.score)
     .slice(0, 2);
 }
 
@@ -533,7 +537,9 @@ function reelEcho(ctx: RankContext, exclude: Set<string>): Candidate[] {
       railMeta: `${fmtMin(minutes)} away`,
     });
   }
-  return out.sort((a, b) => a.score - b.score).slice(0, 3);
+  // Descending — highest score first — so slice(0, 3) keeps the top-scoring
+  // candidates. Sorting ascending here kept the *lowest*-scoring ones.
+  return out.sort((a, b) => b.score - a.score).slice(0, 3);
 }
 
 /**

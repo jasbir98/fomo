@@ -232,8 +232,8 @@ export async function buildRankContext(input: BuildContextInput): Promise<RankCo
           })
       : Promise.resolve([]),
     trip.destination
-      ? getForecastForDestination(trip.destination).catch(() => ({ center: null, days: [], degraded: "error" }))
-      : Promise.resolve({ center: null, days: [], degraded: "no-destination" }),
+      ? getForecastForDestination(trip.destination).catch(() => ({ center: null, days: [], utcOffsetSeconds: null, degraded: "error" }))
+      : Promise.resolve({ center: null, days: [], utcOffsetSeconds: null, degraded: "no-destination" }),
   ]);
 
   const weather = pickForecastDay(forecast.days, today);

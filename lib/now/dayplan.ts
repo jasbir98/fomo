@@ -19,6 +19,15 @@ function itemEnd(item: ItineraryItem): Date | null {
   return new Date(new Date(item.starts_at).getTime() + (item.duration_minutes ?? DEFAULT_DURATION_MINUTES) * 60_000);
 }
 
+/** Formats a UTC-offset in seconds as an ISO offset suffix, e.g. 32400 -> "+09:00", -18000 -> "-05:00". */
+function offsetSuffix(utcOffsetSeconds: number): string {
+  const sign = utcOffsetSeconds >= 0 ? "+" : "-";
+  const abs = Math.abs(utcOffsetSeconds);
+  const hh = String(Math.floor(abs / 3600)).padStart(2, "0");
+  const mm = String(Math.floor((abs % 3600) / 60)).padStart(2, "0");
+  return `${sign}${hh}:${mm}`;
+}
+
 function gapLabel(minutes: number): string {
   // Round the total first, then split into h/m — rounding each part
   // separately can carry a 59.6min remainder up to "60m" (e.g. "18h 60m").
@@ -34,10 +43,22 @@ function gapLabel(minutes: number): string {
  * future, so gaps here run day-start (08:00) to day-end (22:00) rather than
  * from the live clock). Returns each gap tagged with the item it follows, so
  * the caller can interleave gap blocks into the timeline in render order.
+ *
+ * `utcOffsetSeconds` anchors 08:00/22:00 to the *destination's* local time
+ * (from Open-Meteo's `timezone=auto` lookup, see lib/weather.ts) rather than
+ * UTC — building day bounds in UTC silently shifts them by the
+ * destination's offset (e.g. Tokyo's day would run 17:00-07:00 local).
+ * Falls back to UTC when the offset couldn't be resolved (no destination,
+ * geocode/forecast failure) — degrades rather than throwing.
  */
-function computeDayGaps(day: string, items: ItineraryItem[]): { startsAt: Date; endsAt: Date; minutes: number; afterItemId: string | null }[] {
-  const dayStart = new Date(`${day}T${String(DAY_START_HOUR).padStart(2, "0")}:00:00Z`);
-  const dayEnd = new Date(`${day}T${String(DAY_END_HOUR).padStart(2, "0")}:00:00Z`);
+function computeDayGaps(
+  day: string,
+  items: ItineraryItem[],
+  utcOffsetSeconds: number | null
+): { startsAt: Date; endsAt: Date; minutes: number; afterItemId: string | null }[] {
+  const suffix = utcOffsetSeconds != null ? offsetSuffix(utcOffsetSeconds) : "Z";
+  const dayStart = new Date(`${day}T${String(DAY_START_HOUR).padStart(2, "0")}:00:00${suffix}`);
+  const dayEnd = new Date(`${day}T${String(DAY_END_HOUR).padStart(2, "0")}:00:00${suffix}`);
   const scheduled = items
     .filter((i) => i.starts_at != null)
     .sort((a, b) => new Date(a.starts_at!).getTime() - new Date(b.starts_at!).getTime());
@@ -93,8 +114,8 @@ export async function buildDayPlan(input: BuildDayPlanInput): Promise<DayPlanRes
     }),
     loadCandidatePlaces(trip.destination, coords),
     trip.destination
-      ? getForecastForDestination(trip.destination).catch(() => ({ center: null, days: [], degraded: "error" }))
-      : Promise.resolve({ center: null, days: [], degraded: "no-destination" }),
+      ? getForecastForDestination(trip.destination).catch(() => ({ center: null, days: [], utcOffsetSeconds: null, degraded: "error" }))
+      : Promise.resolve({ center: null, days: [], utcOffsetSeconds: null, degraded: "no-destination" }),
   ]);
 
   const weather = pickForecastDay(forecast.days, day);
@@ -123,7 +144,7 @@ export async function buildDayPlan(input: BuildDayPlanInput): Promise<DayPlanRes
     }
   }
 
-  const rawGaps = computeDayGaps(day, items);
+  const rawGaps = computeDayGaps(day, items, forecast.utcOffsetSeconds);
   const used = new Set<string>();
   const gaps: GapBlock[] = rawGaps.map((g) => {
     const candidates = candidatesForGap(candidatePlaces, g, isRaining, used, coords, 3);

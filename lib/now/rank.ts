@@ -163,17 +163,37 @@ function buildNext(ctx: RankContext): NextCard {
   };
 }
 
+/**
+ * Every candidate chip that's actually relevant right now is built first,
+ * each carrying a fixed priority — only THEN is the set ranked and capped at
+ * 3. The old version pushed gap/eat/tonight unconditionally and only
+ * considered "book" for whatever slot was left over, so on any day with an
+ * open gap the quota was already full before book was ever weighed — it
+ * could structurally never render. Ranking the full relevant set instead
+ * means every intent gets a fair shot based on context, not push order.
+ */
 function buildChips(ctx: RankContext): DiscoverChip[] {
   const isRaining = ctx.weather?.condition === "rainy" || ctx.weather?.condition === "windy";
   const hasGap = ctx.gaps.length > 0;
-  const chips: DiscoverChip[] = [];
+  const hasEvents = ctx.candidateEvents.length > 0;
+  const hasExperiences = ctx.candidateExperiences.length > 0;
 
-  if (hasGap) chips.push({ intent: isRaining ? "indoors" : "gap", label: isRaining ? "Indoors near me" : "A few hours" });
-  chips.push({ intent: "eat", label: "Eat near me" });
-  chips.push({ intent: "tonight", label: "Tonight" });
-  if (ctx.candidateExperiences.length > 0 && chips.length < 3) chips.push({ intent: "book", label: "Book something" });
+  const candidates: (DiscoverChip & { priority: number })[] = [];
+  if (hasGap) {
+    candidates.push({
+      intent: isRaining ? "indoors" : "gap",
+      label: isRaining ? "Indoors near me" : "A few hours",
+      priority: 4,
+    });
+  }
+  if (hasEvents) candidates.push({ intent: "tonight", label: "Tonight", priority: 3 });
+  if (hasExperiences) candidates.push({ intent: "book", label: "Book something", priority: 2 });
+  candidates.push({ intent: "eat", label: "Eat near me", priority: 1 });
 
-  return chips.slice(0, 3);
+  return candidates
+    .sort((a, b) => b.priority - a.priority)
+    .slice(0, 3)
+    .map(({ intent, label }) => ({ intent, label }));
 }
 
 const RAIL_SIZE = 5;

@@ -46,6 +46,35 @@ function defaultColorTag(category: string): string {
   }
 }
 
+/**
+ * Best-effort parse of the free-text `time_label` field ("3:00 PM", "15:30",
+ * "9am") against `day_date`, producing the ISO `starts_at` the ranker's gap
+ * math depends on (lib/types.ts:116-118 — "backfilled from time_label +
+ * day_date"). Returns null when it doesn't parse, matching that field's
+ * documented contract: an unscheduled item, never guessed.
+ */
+function parseStartsAt(dayDate: string, timeLabel: string): string | null {
+  if (!dayDate) return null;
+  const match = timeLabel.trim().match(/^(\d{1,2})(?::(\d{2}))?\s*(am|pm)?$/i);
+  if (!match) return null;
+  let hour = Number(match[1]);
+  const minute = match[2] ? Number(match[2]) : 0;
+  const meridiem = match[3]?.toLowerCase();
+  if (minute > 59) return null;
+  if (meridiem) {
+    if (hour < 1 || hour > 12) return null;
+    if (meridiem === "pm" && hour < 12) hour += 12;
+    if (meridiem === "am" && hour === 12) hour = 0;
+  } else if (hour > 23) {
+    return null;
+  }
+  const hh = String(hour).padStart(2, "0");
+  const mm = String(minute).padStart(2, "0");
+  const date = new Date(`${dayDate}T${hh}:${mm}:00`);
+  if (Number.isNaN(date.getTime())) return null;
+  return date.toISOString();
+}
+
 function weekdayFor(dayDate: string): string | null {
   if (!dayDate) return null;
   try {
@@ -217,14 +246,20 @@ function EditItemForm() {
     if (!deviceId || !trip || saving || !title.trim()) return;
     setSaving(true);
     try {
+      const trimmedTimeLabel = timeLabel.trim();
+      // No end-time/duration field exists in this form yet, so duration_minutes
+      // isn't written here — downstream gap math falls back to a default
+      // duration (lib/now/dayplan.ts's DEFAULT_DURATION_MINUTES) for items
+      // that only have a start.
       const patch = {
         title: title.trim(),
         category,
         day_date: dayDate || null,
-        time_label: timeLabel.trim() || null,
+        time_label: trimmedTimeLabel || null,
         location: location.trim() || null,
         weather_alert: weatherAlert,
         place_id: placeId,
+        starts_at: dayDate && trimmedTimeLabel ? parseStartsAt(dayDate, trimmedTimeLabel) : null,
       };
       if (isNew) {
         await createItem(deviceId, {

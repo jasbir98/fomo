@@ -139,9 +139,13 @@ export default function EventsPage() {
   // when location is unavailable/denied (silent fallback, per lib/geo.ts).
   const sortedEvents = useMemo(() => sortByDistance(events, coords, eventCoords), [events, coords]);
 
-  const listRootRef = useRef<HTMLDivElement>(null);
+  // This is a vertical page list with no inner scrolling container -- the
+  // viewport itself is what scrolls, so root must be `null` (viewport), not
+  // a ref to the non-scrolling wrapper div below (that root never scrolls,
+  // so the sentinel's intersection never fires and the list dead-ends at
+  // the first `step` batch).
   const listSentinelRef = useRef<HTMLDivElement>(null);
-  const visibleCount = useProgressiveReveal(sortedEvents.length, listRootRef, listSentinelRef);
+  const visibleCount = useProgressiveReveal(sortedEvents.length, null, listSentinelRef, { vertical: true });
 
   // No active trip — invite the traveler to create one (events need a destination).
   if (tripChecked && !trip) {
@@ -219,7 +223,7 @@ export default function EventsPage() {
             No events found for this window yet.
           </p>
         ) : (
-          <div ref={listRootRef} className="flex flex-col gap-3">
+          <div className="flex flex-col gap-3">
             {sortedEvents.slice(0, visibleCount).map((event) => {
               const c = eventCoords(event);
               const dist = coords && c ? distanceKm(coords, c) : null;

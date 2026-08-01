@@ -36,6 +36,17 @@ const CATEGORY_BY_SUBJECT: Record<CardSubjectType, string> = {
   reel: "activity",
 };
 
+// Category glyph shown in the photo box's navy-gradient fallback when a
+// subject has no usable image (quality === "none") — keeps the box's height
+// instead of collapsing it (see `hasRealPhoto` below).
+const CATEGORY_GLYPH: Record<CardSubjectType, string> = {
+  place: "location_on",
+  event: "event",
+  experience: "confirmation_number",
+  itinerary_item: "bookmark",
+  reel: "movie",
+};
+
 function todayISODate(iso: string): string {
   return iso.slice(0, 10);
 }
@@ -201,17 +212,18 @@ export function RoameoCard({
   const compact = variant === "tile";
   // Hero requires a validated 'ok' image (plan-v1-home-pivot.md §11); tiles
   // and grid cards accept 'thin' too — only 'none' falls back to the
-  // typographic card everywhere.
-  const showPhoto =
+  // gradient+glyph placeholder below.
+  const hasRealPhoto =
     candidate.image.url != null &&
     (variant === "hero" ? candidate.image.quality === "ok" : candidate.image.quality !== "none");
   const showAskRoameo = candidate.primaryAction.kind !== "tell";
   const showDirections = candidate.primaryAction.kind !== "directions" && candidate.coords != null;
 
-  // Typographic fallback (plan-v1-home-pivot.md §11.2). The whole card goes
-  // navy and the type scales up — it must NOT keep the photo box and render
-  // it empty, which is what leaves a dead slab above the copy.
-  const dark = !showPhoto;
+  // Typographic fallback (plan-v1-home-pivot.md §11.2) for the copy block
+  // below the photo. The photo box itself always renders now (real image or
+  // a navy gradient + glyph placeholder) — it must never collapse, which is
+  // what used to leave a ~96px height gap versus neighboring cards.
+  const dark = !hasRealPhoto;
   const ghostButton = dark
     ? "border-on-primary/30 text-on-primary hover:bg-on-primary/10"
     : "border-outline-variant/60 text-primary hover:bg-surface-container";
@@ -237,26 +249,30 @@ export function RoameoCard({
 
   return (
     <div
-      className={`group relative flex flex-col overflow-hidden rounded-xl border ${
+      className={`group relative flex h-full flex-col overflow-hidden rounded-xl border ${
         dark ? "border-transparent bg-primary text-on-primary" : "border-outline-variant/60 bg-surface-container-lowest"
       } ${className}`}
     >
-      {showPhoto ? (
-        <div
-          onClick={() => void handleOpenDetails()}
-          className={`relative w-full shrink-0 cursor-pointer bg-surface-container ${
-            variant === "hero" ? "h-52" : variant === "grid" ? "h-28" : "h-24"
-          }`}
-        >
-          {/* eslint-disable-next-line @next/next/no-img-element */}
+      <div
+        onClick={() => void handleOpenDetails()}
+        className={`relative w-full shrink-0 cursor-pointer bg-surface-container ${
+          variant === "hero" ? "h-52" : variant === "grid" ? "h-28" : "h-24"
+        }`}
+      >
+        {hasRealPhoto ? (
+          /* eslint-disable-next-line @next/next/no-img-element */
           <img src={candidate.image.url!} alt="" loading="lazy" className="h-full w-full object-cover" />
-          <div className="absolute inset-x-0 top-0 flex items-start justify-between p-2">
-            <span className="rounded-full bg-secondary-container px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-on-secondary-container">
-              {candidate.pill}
-            </span>
+        ) : (
+          <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-primary to-primary-container">
+            <Icon name={CATEGORY_GLYPH[candidate.subject.type]} size={32} filled className="text-on-primary/70" />
           </div>
+        )}
+        <div className="absolute inset-x-0 top-0 flex items-start justify-between p-2">
+          <span className="rounded-full bg-secondary-container px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-on-secondary-container">
+            {candidate.pill}
+          </span>
         </div>
-      ) : null}
+      </div>
 
       <div
         className={`flex flex-1 flex-col gap-1 ${
