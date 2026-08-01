@@ -1,7 +1,8 @@
 "use client";
 
-import { use, useEffect, useState } from "react";
+import { Suspense, use, useEffect, useState } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { useDeviceId } from "@/lib/device";
 import { getCurrentTrip } from "@/lib/db";
 import { useGeolocation } from "@/lib/geo";
@@ -28,12 +29,21 @@ const VALID_INTENTS: DiscoverIntentSlug[] = [
  * intent chip opens into. Always pre-filtered by GET /api/discover; there is
  * no blank-search entry point into this route.
  */
-export default function DiscoverPage({ params }: { params: Promise<{ intent: string }> }) {
+function DiscoverPageInner({ params }: { params: Promise<{ intent: string }> }) {
   const { intent } = use(params);
   const deviceId = useDeviceId();
   const [trip, setTrip] = useState<Trip | null>(null);
   const [result, setResult] = useState<DiscoverResponse | null>(null);
   const { coords } = useGeolocation();
+  const searchParams = useSearchParams();
+  // "More for this gap →" (Plan's gap blocks, plan-v1.1-overhaul.md W4 #3)
+  // passes the free-minute count — see lib/now/discover.ts's `minutes` doc
+  // comment for what it does (and doesn't) affect. /plan/add's "Browse
+  // what's nearby" (W4 #7) links here scoped to the selected day, but no
+  // `day` filter exists on this surface yet — that link is a plain
+  // navigation for now, same "at minimum just navigate there" allowance the
+  // brief gives `minutes`.
+  const minutesParam = searchParams.get("minutes");
 
   const validIntent = VALID_INTENTS.includes(intent as DiscoverIntentSlug) ? (intent as DiscoverIntentSlug) : null;
 
@@ -63,6 +73,7 @@ export default function DiscoverPage({ params }: { params: Promise<{ intent: str
           params2.set("lat", String(coords.lat));
           params2.set("lng", String(coords.lng));
         }
+        if (minutesParam) params2.set("minutes", minutesParam);
         const res = await fetch(`/api/discover?${params2.toString()}`);
         const json = (await res.json()) as DiscoverResponse;
         if (!cancelled) setResult(json);
@@ -73,7 +84,7 @@ export default function DiscoverPage({ params }: { params: Promise<{ intent: str
     return () => {
       cancelled = true;
     };
-  }, [deviceId, trip, validIntent, coords]);
+  }, [deviceId, trip, validIntent, coords, minutesParam]);
 
   return (
     <div className="flex min-h-dvh flex-col">
@@ -123,5 +134,13 @@ export default function DiscoverPage({ params }: { params: Promise<{ intent: str
         )}
       </div>
     </div>
+  );
+}
+
+export default function DiscoverPage(props: { params: Promise<{ intent: string }> }) {
+  return (
+    <Suspense fallback={null}>
+      <DiscoverPageInner {...props} />
+    </Suspense>
   );
 }

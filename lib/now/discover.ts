@@ -124,11 +124,20 @@ export interface BuildDiscoverInput {
   coords: Coordinates | null;
   limit?: number;
   offset?: number;
+  /**
+   * Free-minutes hint from Plan's "More for this gap →" link
+   * (plan-v1.1-overhaul.md W4 #3, app/(shell)/plan/page.tsx). No per-place
+   * duration data exists in this schema to actually fit candidates to the
+   * window, so this doesn't reorder/filter `items` — it only makes the
+   * meta line honest about what it was computed for, rather than adding a
+   * filter that would silently be a no-op.
+   */
+  minutes?: number;
 }
 
 /** Chip-opened picture grid (plan-v1-home-pivot.md §6). Never a blank search — arrives pre-filtered and pre-answered. */
 export async function buildDiscoverResponse(input: BuildDiscoverInput): Promise<DiscoverResponse> {
-  const { deviceId, tripId, intent, coords } = input;
+  const { deviceId, tripId, intent, coords, minutes } = input;
   const limit = input.limit ?? DEFAULT_DISCOVER_LIMIT;
   const offset = input.offset ?? 0;
   const trip = await getTrip(deviceId, tripId);
@@ -249,7 +258,11 @@ export async function buildDiscoverResponse(input: BuildDiscoverInput): Promise<
       .map((p) => placeToCandidate(p, coords));
   }
 
-  const meta = coords ? `${items.length} things, walkable` : `${items.length} things`;
+  const minutesSuffix =
+    intent === "gap" && minutes != null && minutes > 0
+      ? ` for your ${minutes >= 60 ? `${Math.floor(minutes / 60)}h ${minutes % 60}m` : `${minutes}m`} window`
+      : "";
+  const meta = (coords ? `${items.length} things, walkable` : `${items.length} things`) + minutesSuffix;
   // Only the first page reports "empty" as a degrade — an empty later page
   // just means pagination reached the end (same rationale as
   // lib/experiences/getForDestination.ts's offset > 0 branch).

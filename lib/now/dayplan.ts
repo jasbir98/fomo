@@ -19,8 +19,8 @@ function itemEnd(item: ItineraryItem): Date | null {
   return new Date(new Date(item.starts_at).getTime() + (item.duration_minutes ?? DEFAULT_DURATION_MINUTES) * 60_000);
 }
 
-/** Formats a UTC-offset in seconds as an ISO offset suffix, e.g. 32400 -> "+09:00", -18000 -> "-05:00". */
-function offsetSuffix(utcOffsetSeconds: number): string {
+/** Formats a UTC-offset in seconds as an ISO offset suffix, e.g. 32400 -> "+09:00", -18000 -> "-05:00". Exported so lib/now/draftDay.ts can anchor its suggested slot times to the destination's local time the same way, rather than the server's. */
+export function offsetSuffix(utcOffsetSeconds: number): string {
   const sign = utcOffsetSeconds >= 0 ? "+" : "-";
   const abs = Math.abs(utcOffsetSeconds);
   const hh = String(Math.floor(abs / 3600)).padStart(2, "0");
@@ -121,14 +121,40 @@ export async function buildDayPlan(input: BuildDayPlanInput): Promise<DayPlanRes
   const weather = pickForecastDay(forecast.days, day);
   const isRaining = weather?.condition === "rainy" || weather?.condition === "windy";
 
+  const used = new Set<string>();
+
   let disruption: DisruptionBlock | null = null;
   if (weather?.isDisruptive && trip.destination) {
-    const flagged = items.find((i) => i.weather_alert);
+    // Primary trigger is the real forecast, not a manual toggle
+    // (plan-v1.1-overhaul.md W4 #5): an explicit `weather_alert` flag from
+    // the item form is still honored first when present (a
+    // traveller-authored override), but absent that, any scheduled
+    // "activity" item — the closest proxy this schema has for "outdoor,
+    // on-foot plan" (see CATEGORY_META's hiking icon,
+    // app/(shell)/plan/page.tsx) — on a day the forecast actually flags as
+    // disruptive now fires the block on its own.
+    const flagged =
+      items.find((i) => i.weather_alert) ??
+      items.find((i) => i.category === "activity" && i.starts_at != null);
     if (flagged) {
       const alert = buildDisruptionAlert(weather, flagged.title);
       const { alternatives } = await getAlternatives(trip.destination);
       const pick = alternatives[0];
       if (pick) {
+        // "Other options" (plan-v1.1-overhaul.md W4 #5) — reuses the same
+        // gap-candidate generation the gap blocks below use, windowed to the
+        // flagged item's own scheduled slot rather than a free gap, so the
+        // disruption block can offer more than just the single top pick.
+        const flaggedEnd = itemEnd(flagged) ?? new Date(new Date(flagged.starts_at!).getTime() + DEFAULT_DURATION_MINUTES * 60_000);
+        const otherOptions = candidatesForGap(
+          candidatePlaces,
+          { startsAt: new Date(flagged.starts_at!), endsAt: flaggedEnd, minutes: DEFAULT_DURATION_MINUTES },
+          true,
+          used,
+          coords,
+          6
+        );
+        for (const c of otherOptions) used.add(`${c.subject.type}:${c.subject.id}`);
         disruption = {
           itemId: flagged.id,
           itemTitle: flagged.title ?? "Your plan",
@@ -139,15 +165,17 @@ export async function buildDayPlan(input: BuildDayPlanInput): Promise<DayPlanRes
           alternativeCategory: pick.category,
           alternativeLocation: pick.location,
           alternativeImage: { url: pick.image_url, quality: pick.image_url ? "thin" : "none" },
+          otherOptions,
         };
       }
     }
   }
 
   const rawGaps = computeDayGaps(day, items, forecast.utcOffsetSeconds);
-  const used = new Set<string>();
   const gaps: GapBlock[] = rawGaps.map((g) => {
-    const candidates = candidatesForGap(candidatePlaces, g, isRaining, used, coords, 3);
+    // 3 -> 6 (plan-v1.1-overhaul.md W4 #3) — Plan previously showed 3
+    // candidates per gap with no way to see more.
+    const candidates = candidatesForGap(candidatePlaces, g, isRaining, used, coords, 6);
     for (const c of candidates) used.add(`${c.subject.type}:${c.subject.id}`);
     return {
       afterItemId: g.afterItemId,

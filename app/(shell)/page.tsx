@@ -42,6 +42,13 @@ const QUICK_ACTIONS: { key: string; label: string; icon: string; href: string }[
   { key: "saved", label: "Saved", icon: "bookmark", href: "/saved" },
 ];
 
+function toISODateLocal(d: Date): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
 function dayOfTrip(trip: Trip, at: Date): string | null {
   if (!trip.start_date) return null;
   const start = new Date(`${trip.start_date}T00:00:00`);
@@ -289,7 +296,22 @@ export default function TripHomePage() {
 
         {now?.next ? (
           <Link
-            href={now.next.kind === "anchor" && now.next.itemId ? `/plan/item/${now.next.itemId}` : "/plan/add"}
+            href={
+              now.next.kind === "anchor" && now.next.itemId
+                ? `/plan/item/${now.next.itemId}`
+                : // "Nothing booked today — tap to let Roameo build you one"
+                  // (lib/now/rank.ts's buildNext) only ever shows that copy
+                  // when planDensity is "none", which is exactly when
+                  // NowResponse.mode is "drifter" — so this is the same
+                  // condition without threading planDensity through NextCard.
+                  // Points at Plan's new "Draft my day" flow (W4 #4) instead
+                  // of the old four-tile /plan/add menu, so the copy is
+                  // actually true. Plan owns the UI; Home just hands it the
+                  // day to draft (today) via query params.
+                  now?.mode === "drifter" && clock
+                    ? `/plan?day=${toISODateLocal(clock)}&draftDay=1`
+                    : "/plan/add"
+            }
             className="flex items-center gap-3 rounded-xl border border-outline-variant/60 bg-surface-container-lowest p-2.5 transition-shadow hover:shadow-sm"
           >
             <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-surface-container text-on-surface-variant">

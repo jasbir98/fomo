@@ -52,8 +52,15 @@ export async function GET(request: Request) {
   const rawOffset = rawOffsetParam == null ? NaN : Number(rawOffsetParam);
   const offset = Number.isFinite(rawOffset) ? Math.max(Math.trunc(rawOffset), 0) : undefined;
 
+  // Plan's "More for this gap →" link (app/(shell)/plan/page.tsx) passes the
+  // gap's free-minute count through — see lib/now/discover.ts's `minutes`
+  // doc comment for what this does (and doesn't) affect.
+  const rawMinutesParam = searchParams.get("minutes");
+  const rawMinutes = rawMinutesParam == null ? NaN : Number(rawMinutesParam);
+  const minutes = Number.isFinite(rawMinutes) ? Math.max(Math.trunc(rawMinutes), 0) : undefined;
+
   try {
-    const result = await buildDiscoverResponse({ deviceId, tripId, intent, coords, limit, offset });
+    const result = await buildDiscoverResponse({ deviceId, tripId, intent, coords, limit, offset, minutes });
     return NextResponse.json<DiscoverResponse>(result);
   } catch (err) {
     console.error("[api/discover] failed", err);

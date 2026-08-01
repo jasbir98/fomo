@@ -153,6 +153,8 @@ export interface DisruptionBlock {
   alternativeCategory: string;
   alternativeLocation: string;
   alternativeImage: CardImage;
+  /** Alternative candidates for the flagged item's time slot (v1.1 W4 #5) — reuses candidatesForGap, the same generation the gap blocks below use, so "Other options" isn't a second parallel implementation. */
+  otherOptions: Candidate[];
 }
 
 export interface GapBlock {

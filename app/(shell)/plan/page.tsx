@@ -1,16 +1,17 @@
 "use client";
 
-import { Fragment, useEffect, useMemo, useState } from "react";
+import { Fragment, Suspense, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useDeviceId } from "@/lib/device";
-import { getCurrentTrip, listItems, updateItem } from "@/lib/db";
-import type { ItineraryItem, Trip } from "@/lib/types";
+import { createItem, getCurrentTrip, listItems, listPlacesByIds, updateItem } from "@/lib/db";
+import type { ItineraryItem, Place, Trip } from "@/lib/types";
 import type { DayForecast, WeatherCondition } from "@/lib/weather";
 import { WEATHER_THEME } from "@/lib/weatherUi";
-import { useGeolocation } from "@/lib/geo";
+import { distanceKm, useGeolocation, walkMinutes } from "@/lib/geo";
 import type { DayPlanResponse, GapBlock } from "@/lib/now/types";
-import { Card, Icon, SegmentedControl, StatusPill } from "@/components/ui";
+import type { DraftDayResponse, DraftItemSuggestion } from "@/lib/now/draftDay";
+import { Button, Card, Icon, SegmentedControl, StatusPill } from "@/components/ui";
 import { RoameoCard } from "@/components/roameo/Card";
 
 /**
@@ -139,34 +140,319 @@ function formatTripDates(start: string | null, end: string | null): string | nul
 const WEEKDAY_HEADERS = ["S", "M", "T", "W", "T", "F", "S"];
 
 /**
- * A gap over 90 minutes, rendered as a dashed block holding real candidates
- * (plan-v1-home-pivot.md §5.3) — `90-minute-wins`'s replacement: gap-length
- * aware, location aware, weather aware, drawn from real places instead of a
- * hardcoded array.
+ * Straight-line-distance leave-by estimate for a timeline row (v1.1 W4 #1) —
+ * "Leave 19:05 · 12 min walk". No routing/ETA API is wired up anywhere in
+ * this codebase (lib/now/generators.ts's server-only `walkMinutes` is the
+ * same approximation the ranker already uses for every other walk-time
+ * line), so this reuses that same ~4.8km/h straight-line heuristic via the
+ * client copy in lib/geo.ts. `origin` is the previous stop's place (or the
+ * traveller's live location for the day's first stop) — see
+ * `itemsWithLogistics` below for how that's threaded through the day.
  */
-function GapBlockView({ gap, deviceId, tripId }: { gap: GapBlock; deviceId: string; tripId: string }) {
-  if (gap.candidates.length === 0) return null;
+function computeLogistics(
+  item: ItineraryItem,
+  origin: { lat: number; lng: number } | null,
+  dest: { lat: number; lng: number } | null
+): { leaveLabel: string; walkLabel: string } | null {
+  if (!item.starts_at || !origin || !dest) return null;
+  const minutes = walkMinutes(distanceKm(origin, dest));
+  const leaveAt = new Date(new Date(item.starts_at).getTime() - minutes * 60_000);
+  return {
+    leaveLabel: leaveAt.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+    walkLabel: `${minutes} min walk`,
+  };
+}
+
+/**
+ * A thin rule between timeline rows carrying the gap's free time
+ * (plan-v1.1-overhaul.md W4 #2) — tapping it expands the same candidate list
+ * the old always-open GapBlockView rendered (now 6 cards, W4 #3), rather
+ * than being a second parallel implementation of gap-candidate rendering.
+ */
+function GapConnector({
+  gap,
+  expanded,
+  onToggle,
+  deviceId,
+  tripId,
+  onAdded,
+}: {
+  gap: GapBlock;
+  expanded: boolean;
+  onToggle: () => void;
+  deviceId: string;
+  tripId: string;
+  onAdded: () => void;
+}) {
   return (
-    <div className="rounded-xl border border-dashed border-outline-variant p-3">
-      <p className="text-[11px] font-semibold uppercase tracking-wide text-secondary">{gap.label}</p>
-      <h4 className="mb-2 text-label-md font-bold text-primary">Worth a look for the gap</h4>
-      <div className="flex gap-2.5 overflow-x-auto pb-1 [&::-webkit-scrollbar]:hidden">
-        {gap.candidates.map((c) => (
-          <div key={`${c.subject.type}:${c.subject.id}`} className="shrink-0">
-            <RoameoCard candidate={c} variant="tile" deviceId={deviceId} tripId={tripId} />
+    <div className="flex flex-col gap-2">
+      <button
+        type="button"
+        onClick={onToggle}
+        aria-expanded={expanded}
+        className="flex items-center gap-2 px-1 py-1 text-left"
+      >
+        <span className="h-px flex-1 bg-outline-variant/60" aria-hidden="true" />
+        <span className="flex shrink-0 items-center gap-1 text-[11px] font-semibold uppercase tracking-wide text-secondary">
+          {gap.label}
+          <Icon name={expanded ? "expand_less" : "expand_more"} size={14} />
+        </span>
+        <span className="h-px flex-1 bg-outline-variant/60" aria-hidden="true" />
+      </button>
+      {expanded ? (
+        gap.candidates.length === 0 ? (
+          <p className="px-1 pb-1 text-label-sm text-on-surface-variant">Nothing lines up for this window yet.</p>
+        ) : (
+          <div className="flex flex-col gap-2.5 rounded-xl border border-dashed border-outline-variant p-3">
+            <div className="flex gap-2.5 overflow-x-auto pb-1 [&::-webkit-scrollbar]:hidden">
+              {gap.candidates.map((c) => (
+                <div key={`${c.subject.type}:${c.subject.id}`} className="shrink-0">
+                  <RoameoCard candidate={c} variant="tile" deviceId={deviceId} tripId={tripId} onAdded={onAdded} />
+                </div>
+              ))}
+            </div>
+            <Link
+              href={`/discover/gap?minutes=${Math.max(0, Math.round(gap.minutes))}`}
+              className="flex w-fit items-center gap-1 text-label-sm font-semibold text-primary hover:underline"
+            >
+              More for this gap
+              <Icon name="arrow_forward" size={14} />
+            </Link>
           </div>
-        ))}
-      </div>
+        )
+      ) : null}
     </div>
   );
 }
 
-export default function PlanPage() {
+/**
+ * "Draft my day" (plan-v1.1-overhaul.md W4 #4) — the empty-day state. Calls
+ * `POST /api/now/draft-day`, shows ~3 suggested items, and lets the
+ * traveller accept (reuses the same `createItem` mutation every other
+ * "Add to today" action in the app uses) or ignore each one individually.
+ * `autoOpen` fires the draft automatically — Home's "Nothing booked today"
+ * entry point (app/(shell)/page.tsx) links here with `?draftDay=1` rather
+ * than opening a menu of four tiles that all led to the same form.
+ */
+function DraftDayBlock({
+  day,
+  deviceId,
+  tripId,
+  coords,
+  autoOpen,
+  onAccepted,
+}: {
+  day: string;
+  deviceId: string;
+  tripId: string;
+  coords: { lat: number; lng: number } | null;
+  autoOpen: boolean;
+  onAccepted: () => void;
+}) {
+  // Lazy-initialized from `autoOpen` (Home's ?draftDay=1 entry point) rather
+  // than set from inside an effect — the parent gives this component a
+  // `key={selectedDay}` so a fresh instance (and a fresh initializer run)
+  // exists per day, same as any other per-day reset here.
+  const [status, setStatus] = useState<"idle" | "loading" | "ready" | "empty">(() =>
+    autoOpen ? "loading" : "idle"
+  );
+  const [suggestions, setSuggestions] = useState<DraftItemSuggestion[]>([]);
+  const [resolvedIds, setResolvedIds] = useState<Set<string>>(new Set());
+  const [addingId, setAddingId] = useState<string | null>(null);
+
+  // Pure data fetch — deliberately calls no setState itself. The
+  // set-state-in-effect lint rule flags *any* setState reachable from a
+  // function invoked directly inside an effect body, even behind an
+  // `await`, so (matching every other effect in this file) the actual
+  // setState calls below live inline in each call site's own async IIFE
+  // instead of inside a shared named async function.
+  async function fetchDraft(): Promise<DraftDayResponse> {
+    const res = await fetch("/api/now/draft-day", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ deviceId, tripId, day, lat: coords?.lat, lng: coords?.lng }),
+    });
+    return (await res.json()) as DraftDayResponse;
+  }
+
+  function draft() {
+    setStatus("loading");
+    (async () => {
+      try {
+        const json = await fetchDraft();
+        setSuggestions(json.suggestions);
+        setResolvedIds(new Set());
+        setStatus(json.suggestions.length > 0 ? "ready" : "empty");
+      } catch (err) {
+        console.error("[plan] draft-day failed", err);
+        setStatus("empty");
+      }
+    })();
+  }
+
+  useEffect(() => {
+    if (!autoOpen) return;
+    // `status` already starts "loading" (see the initializer above) — this
+    // just kicks off the fetch that fills it in. Fires once per mount when
+    // Home links in with ?draftDay=1 — deliberately not re-running on `day`
+    // changes (switching days manually shouldn't silently re-trigger a
+    // draft fetch the traveller didn't ask for again).
+    let cancelled = false;
+    (async () => {
+      try {
+        const json = await fetchDraft();
+        if (cancelled) return;
+        setSuggestions(json.suggestions);
+        setResolvedIds(new Set());
+        setStatus(json.suggestions.length > 0 ? "ready" : "empty");
+      } catch (err) {
+        if (!cancelled) {
+          console.error("[plan] draft-day failed", err);
+          setStatus("empty");
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoOpen]);
+
+  async function accept(s: DraftItemSuggestion) {
+    if (addingId) return;
+    setAddingId(s.id);
+    try {
+      await createItem(deviceId, {
+        trip_id: tripId,
+        day_date: day,
+        time_label: s.timeLabel,
+        starts_at: s.startsAt,
+        duration_minutes: null,
+        category: s.category,
+        title: s.title,
+        location: s.location,
+        weather_alert: false,
+        color_tag: s.category === "dining" ? "orange" : "green",
+        place_id: s.subject.id,
+      });
+      setResolvedIds((prev) => new Set(prev).add(s.id));
+      onAccepted();
+    } catch (err) {
+      console.error("[plan] draft accept failed", err);
+    } finally {
+      setAddingId(null);
+    }
+  }
+
+  function ignore(s: DraftItemSuggestion) {
+    setResolvedIds((prev) => new Set(prev).add(s.id));
+  }
+
+  if (status === "idle") {
+    return (
+      <div className="mt-6 flex flex-col items-center gap-3 rounded-xl border border-dashed border-outline-variant/60 p-6 text-center">
+        <div className="flex h-14 w-14 items-center justify-center rounded-full bg-primary-fixed text-primary">
+          <Icon name="auto_awesome" size={26} filled />
+        </div>
+        <div>
+          <h3 className="text-headline-sm text-primary">Nothing planned for this day yet</h3>
+          <p className="mt-1 text-body-md text-on-surface-variant">Let Roameo put a few ideas together.</p>
+        </div>
+        <Button variant="navy" onClick={() => void draft()}>
+          Draft my day
+        </Button>
+      </div>
+    );
+  }
+
+  if (status === "loading") {
+    return (
+      <div className="mt-6 flex flex-col items-center gap-2 py-10 text-center">
+        <Icon name="auto_awesome" size={28} className="animate-pulse text-primary" />
+        <p className="text-body-md text-on-surface-variant">Putting a day together…</p>
+      </div>
+    );
+  }
+
+  if (status === "empty") {
+    return (
+      <div className="mt-6 flex flex-col items-center gap-3 rounded-xl border border-dashed border-outline-variant/60 p-6 text-center">
+        <p className="text-body-md text-on-surface-variant">
+          Roameo doesn&rsquo;t know this area well enough yet to draft a day here — try adding something yourself.
+        </p>
+      </div>
+    );
+  }
+
+  const remaining = suggestions.filter((s) => !resolvedIds.has(s.id));
+
+  return (
+    <div className="mt-4 flex flex-col gap-3">
+      <div>
+        <h3 className="text-headline-sm text-primary">A day, drafted</h3>
+        <p className="mt-0.5 text-body-md text-on-surface-variant">Accept what you like, ignore the rest.</p>
+      </div>
+      {remaining.length === 0 ? (
+        <p className="text-body-md text-on-surface-variant">
+          All set — {suggestions.length > 1 ? "those" : "that"} either made it onto your day or got skipped.
+        </p>
+      ) : (
+        remaining.map((s) => (
+          <div
+            key={s.id}
+            className="flex items-center gap-3 rounded-xl border border-outline-variant/60 bg-surface-container-lowest p-3"
+          >
+            <div className="h-14 w-14 shrink-0 overflow-hidden rounded-lg bg-surface-container">
+              {s.image.url ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={s.image.url} alt="" className="h-full w-full object-cover" />
+              ) : (
+                <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-primary to-primary-container">
+                  <Icon name={categoryMeta(s.category).icon} size={20} filled className="text-on-primary/70" />
+                </div>
+              )}
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="text-[11px] font-medium text-on-surface-variant">
+                {s.timeLabel} · {categoryMeta(s.category).label}
+              </p>
+              <h4 className="truncate text-label-md font-bold text-primary">{s.title}</h4>
+              <p className="truncate text-label-sm text-on-surface-variant">{s.why}</p>
+            </div>
+            <div className="flex shrink-0 flex-col gap-1.5">
+              <button
+                type="button"
+                disabled={addingId === s.id}
+                onClick={() => void accept(s)}
+                aria-label="Accept"
+                className="flex h-8 w-8 items-center justify-center rounded-full bg-secondary-container text-on-secondary-container disabled:opacity-60"
+              >
+                <Icon name="check" size={18} />
+              </button>
+              <button
+                type="button"
+                onClick={() => ignore(s)}
+                aria-label="Ignore"
+                className="flex h-8 w-8 items-center justify-center rounded-full border border-outline-variant text-on-surface-variant"
+              >
+                <Icon name="close" size={18} />
+              </button>
+            </div>
+          </div>
+        ))
+      )}
+    </div>
+  );
+}
+
+function PlanPageInner() {
   const deviceId = useDeviceId();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [loading, setLoading] = useState(true);
   const [trip, setTrip] = useState<Trip | null>(null);
   const [items, setItems] = useState<ItineraryItem[]>([]);
+  const [placesById, setPlacesById] = useState<Record<string, Place>>({});
   const [view, setView] = useState<PlanView>("timeline");
   const [selectedDay, setSelectedDay] = useState<string | null>(null);
   const [calMonth, setCalMonth] = useState<{ year: number; month: number } | null>(null);
@@ -178,7 +464,26 @@ export default function PlanPage() {
   // needed at all.
   const [dismissedForDay, setDismissedForDay] = useState<string | null>(null);
   const disruptionDismissed = dismissedForDay === selectedDay;
+  // Same trick as dismissedForDay above — track *which* day "Other options"
+  // is open for and compare against selectedDay, rather than a plain
+  // boolean + an effect to reset it when the day changes.
+  const [otherOptionsShownForDay, setOtherOptionsShownForDay] = useState<string | null>(null);
+  const showOtherOptions = otherOptionsShownForDay === selectedDay;
+  // Gap keys are each gap's full ISO startsAt, which already encodes the
+  // day — entries from a previously-viewed day simply never match any gap
+  // rendered for a different day, so this needs no day-keyed reset either.
+  const [expandedGaps, setExpandedGaps] = useState<Set<string>>(new Set());
+  // Bumped after any local mutation (a swap, an accepted draft suggestion, a
+  // gap/disruption candidate added inline) that the dayPlan/items fetches
+  // wouldn't otherwise notice — same pattern app/(shell)/events/page.tsx
+  // uses for its own refreshTick (v1.1 W4 #6). Included in the dayPlan
+  // fetch's dependency array below so a swap or an add elsewhere on this
+  // page actually refreshes gaps/disruption instead of going stale.
+  const [refreshTick, setRefreshTick] = useState(0);
   const { coords } = useGeolocation();
+
+  const dayParam = searchParams.get("day");
+  const autoOpenDraft = searchParams.get("draftDay") === "1";
 
   useEffect(() => {
     if (!deviceId) return;
@@ -232,6 +537,31 @@ export default function PlanPage() {
     };
   }, [deviceId, trip]);
 
+  // Batch-resolve each item's place_id (timeline thumbnails + leave-by
+  // origin/destination, v1.1 W4 #1) via the existing listPlacesByIds
+  // batch-fetch helper (lib/db/places.ts) — no new query shape needed.
+  useEffect(() => {
+    const ids = Array.from(new Set(items.map((i) => i.place_id).filter((id): id is string => !!id)));
+    // No place-bearing items — leave any previously-resolved entries as-is
+    // rather than resetting synchronously in the effect body (same
+    // no-op-when-empty convention the forecast effect below uses); stale
+    // entries for place_ids no longer on this day are harmless since lookups
+    // below are always by the current item's own place_id.
+    if (ids.length === 0) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const rows = await listPlacesByIds(ids);
+        if (!cancelled) setPlacesById(Object.fromEntries(rows.map((p) => [p.id, p])));
+      } catch (err) {
+        console.error("[plan] place lookup failed", err);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [items]);
+
   // Real per-day forecast for the timeline cards' weather background, fetched
   // per place (see weatherKeyFor) so a multi-city trip's Kyoto day gets
   // Kyoto's forecast rather than the trip's overall destination. Same
@@ -271,7 +601,9 @@ export default function PlanPage() {
   // Plan's per-day view (plan-v1-home-pivot.md §5) — the disruption block and
   // gap-filler candidates for whichever day is selected. Distinct from
   // Home's /api/now: this isn't anchored to "right now", it shows the whole
-  // selected day, past or future.
+  // selected day, past or future. `refreshTick` (v1.1 W4 #6) is the fix for
+  // this previously never refreshing after a swap or an add elsewhere on
+  // this same page.
   useEffect(() => {
     if (!deviceId || !trip || !selectedDay) return;
     let cancelled = false;
@@ -292,7 +624,20 @@ export default function PlanPage() {
     return () => {
       cancelled = true;
     };
-  }, [deviceId, trip, selectedDay, coords]);
+  }, [deviceId, trip, selectedDay, coords, refreshTick]);
+
+  /** Re-fetches both `items` and (via `refreshTick`) the day plan — the single mutation-completion hook every local write on this page funnels through (v1.1 W4 #6). */
+  async function refetchAll() {
+    if (deviceId && trip) {
+      try {
+        const rows = await listItems(deviceId, trip.id);
+        setItems(rows);
+      } catch (err) {
+        console.error("[plan] refetch failed", err);
+      }
+    }
+    setRefreshTick((t) => t + 1);
+  }
 
   async function applySwap() {
     if (!deviceId || !dayPlan?.disruption) return;
@@ -304,12 +649,20 @@ export default function PlanPage() {
         location: d.alternativeLocation,
         weather_alert: false,
       });
-      const rows = trip ? await listItems(deviceId, trip.id) : [];
-      setItems(rows);
+      await refetchAll();
       setDismissedForDay(selectedDay);
     } catch (err) {
       console.error("[plan] swap failed", err);
     }
+  }
+
+  function toggleGap(key: string) {
+    setExpandedGaps((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
   }
 
   const startDate = trip?.start_date ?? null;
@@ -340,12 +693,15 @@ export default function PlanPage() {
 
   // Default the selected day to the first day (in trip order) that actually
   // has items, falling back to the trip's first day — mirrors the prototype,
-  // which always shows exactly one pre-selected day. Adjusting state during
-  // render (converging: the guard is false once set) is the React-sanctioned
+  // which always shows exactly one pre-selected day. A `?day=` query param
+  // (Home's draft-day entry point, or any future deep link) wins over both
+  // when it names a real day in this trip. Adjusting state during render
+  // (converging: the guard is false once set) is the React-sanctioned
   // pattern for deriving initial state from freshly-loaded data.
   if (!selectedDay && days.length > 0) {
+    const fromQuery = dayParam && days.includes(dayParam) ? dayParam : null;
     const firstWithItems = days.find((d) => (itemsByDay.get(d)?.length ?? 0) > 0);
-    setSelectedDay(firstWithItems ?? days[0]);
+    setSelectedDay(fromQuery ?? firstWithItems ?? days[0]);
   }
 
   if (!calMonth && startDate) {
@@ -374,6 +730,32 @@ export default function PlanPage() {
     const day = selectedDay ?? trip?.start_date ?? "";
     router.push(day ? `/plan/add?day=${day}` : "/plan/add");
   }
+
+  const selectedItems = useMemo(
+    () => (selectedDay ? itemsByDay.get(selectedDay) ?? [] : []),
+    [selectedDay, itemsByDay]
+  );
+
+  // Threads each row's leave-by origin from the previous stop's resolved
+  // place coordinates, falling back to the traveller's live location for the
+  // day's first stop (v1.1 W4 #1) — computed once per render of the selected
+  // day's items rather than inline per-row, since each row's origin depends
+  // on the row before it. A plain loop (not `.map()`) so the running
+  // `origin` is a local variable reassigned once per iteration inside a
+  // single function body, not a closure mutated across separate `.map()`
+  // callback invocations.
+  const itemsWithLogistics = useMemo(() => {
+    const result: { item: ItineraryItem; place: Place | null; logistics: ReturnType<typeof computeLogistics> }[] = [];
+    let origin = coords;
+    for (const item of selectedItems) {
+      const place = item.place_id ? placesById[item.place_id] : null;
+      const dest = place && place.lat != null && place.lng != null ? { lat: place.lat, lng: place.lng } : null;
+      const logistics = computeLogistics(item, origin, dest);
+      if (dest) origin = dest;
+      result.push({ item, place, logistics });
+    }
+    return result;
+  }, [selectedItems, placesById, coords]);
 
   if (!deviceId || loading) {
     return (
@@ -410,8 +792,6 @@ export default function PlanPage() {
       </div>
     );
   }
-
-  const selectedItems = selectedDay ? itemsByDay.get(selectedDay) ?? [] : [];
 
   return (
     <div className="flex min-h-dvh flex-col">
@@ -463,7 +843,9 @@ export default function PlanPage() {
 
           {/* Disruption block (plan-v1-home-pivot.md §5.1) — full reasoning,
               unlike Home's one-line hero. Reuses lib/disruption.ts's real
-              weather + real per-city alternatives via /api/now/day. */}
+              weather + real per-city alternatives via /api/now/day, and now
+              fires from that real forecast rather than requiring the manual
+              weather_alert toggle (v1.1 W4 #5). */}
           {dayPlan?.disruption && !disruptionDismissed ? (
             <div className="mx-5 mt-2 rounded-xl bg-primary p-4 text-on-primary">
               <p className="text-[11px] font-semibold uppercase tracking-wide text-secondary-container">
@@ -487,96 +869,160 @@ export default function PlanPage() {
                   Leave it
                 </button>
               </div>
+              {dayPlan.disruption.otherOptions.length > 0 ? (
+                <div className="mt-3">
+                  <button
+                    type="button"
+                    onClick={() => setOtherOptionsShownForDay((prev) => (prev === selectedDay ? null : selectedDay))}
+                    aria-expanded={showOtherOptions}
+                    className="flex items-center gap-1 text-label-sm font-semibold text-on-primary/90 hover:underline"
+                  >
+                    Other options
+                    <Icon name={showOtherOptions ? "expand_less" : "expand_more"} size={16} />
+                  </button>
+                  {showOtherOptions ? (
+                    <div className="mt-2 flex gap-2.5 overflow-x-auto pb-1 [&::-webkit-scrollbar]:hidden">
+                      {dayPlan.disruption.otherOptions.map((c) => (
+                        <div key={`${c.subject.type}:${c.subject.id}`} className="shrink-0">
+                          <RoameoCard
+                            candidate={c}
+                            variant="tile"
+                            deviceId={deviceId}
+                            tripId={trip.id}
+                            onAdded={() => void refetchAll()}
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  ) : null}
+                </div>
+              ) : null}
             </div>
           ) : null}
 
-          {/* Item cards for the selected day, with gap blocks
-              (plan-v1-home-pivot.md §5.3) interleaved by position — a gap
-              with afterItemId=null renders before the first item, others
-              render immediately after the item they follow. */}
-          <div className="flex flex-1 flex-col gap-4 px-5 pb-32 pt-2">
-            {/* `dayPlan.gaps.length === 0` alone doesn't guarantee anything
-                renders below: an uncovered city can still produce a gap
-                *window* with zero fillable candidates, and GapBlockView
-                renders nothing for those (see GapBlockView above) — the two
-                null-outs combine into a silently blank screen. Checking for
-                at least one gap with real candidates closes that hole. */}
-            {selectedItems.length === 0 && !(dayPlan?.gaps ?? []).some((g) => g.candidates.length > 0) ? (
-              <p className="mt-8 text-center text-body-md text-on-surface-variant">
-                Nothing planned for this day yet.
-              </p>
+          {/* Item cards for the selected day, with gap connectors
+              (plan-v1-home-pivot.md §5.3, v1.1 W4 #2/#3) interleaved by
+              position — a gap with afterItemId=null renders before the
+              first item, others render immediately after the item they
+              follow. An empty day never renders blank text (v1.1 W4 #4): it
+              renders the real "Draft my day" block instead. */}
+          <div className="flex flex-1 flex-col gap-3 px-5 pb-32 pt-2">
+            {selectedItems.length === 0 ? (
+              <DraftDayBlock
+                // Remounts per day (fresh status/suggestions state) rather
+                // than reusing one instance across day switches — also what
+                // lets `status`'s lazy initializer below react to `autoOpen`
+                // correctly on first mount instead of needing an effect to
+                // set it.
+                key={selectedDay ?? "draft"}
+                day={selectedDay ?? trip.start_date ?? ""}
+                deviceId={deviceId}
+                tripId={trip.id}
+                coords={coords}
+                autoOpen={autoOpenDraft && selectedDay === dayParam}
+                onAccepted={() => void refetchAll()}
+              />
             ) : (
               <>
                 {dayPlan?.gaps
                   .filter((g) => g.afterItemId === null)
-                  .map((gap) => <GapBlockView key={`${gap.startsAt}-lead`} gap={gap} deviceId={deviceId} tripId={trip.id} />)}
-                {selectedItems.map((item) => {
-                const meta = categoryMeta(item.category);
-                const barClass = item.weather_alert ? "bg-error" : colorTagClass(item.color_tag);
-                const weatherKey = weatherKeyFor(item.location, trip.destination);
-                const dayForecast = forecastForDay(
-                  weatherKey ? forecastByPlace[weatherKey] ?? [] : [],
-                  item.day_date
-                );
-                const weatherTheme = dayForecast ? WEATHER_THEME[dayForecast.condition] : null;
-                const trailingGaps = dayPlan?.gaps.filter((g) => g.afterItemId === item.id) ?? [];
-                return (
-                  <Fragment key={item.id}>
-                  <Card
-                    noPadding
-                    role="button"
-                    tabIndex={0}
-                    onClick={() => router.push(`/plan/item/${item.id}`)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter" || e.key === " ") {
-                        e.preventDefault();
-                        router.push(`/plan/item/${item.id}`);
-                      }
-                    }}
-                    className="relative flex min-h-[72px] cursor-pointer overflow-hidden transition-opacity hover:opacity-90"
-                    style={
-                      dayForecast ? { backgroundColor: CARD_WEATHER_BG[dayForecast.condition] } : undefined
-                    }
-                  >
-                    <span className={`absolute left-0 top-0 bottom-0 w-1 ${barClass}`} aria-hidden="true" />
-                    <div className="flex w-full flex-col justify-center py-3 pl-5 pr-4">
-                      <div className="mb-1 flex items-center justify-between gap-2">
-                        <span className="flex items-center gap-1.5 text-[11px] font-medium text-on-surface-variant">
-                          <Icon name={meta.icon} size={14} />
-                          {[item.time_label, meta.label].filter(Boolean).join(" • ")}
-                        </span>
-                        {item.weather_alert ? (
-                          <StatusPill label="Rain expected" tone="error" icon="warning" />
-                        ) : weatherTheme ? (
-                          <span
-                            className={`flex items-center gap-1 text-[11px] font-semibold ${weatherTheme.iconClass}`}
-                          >
-                            <Icon name={weatherTheme.icon} size={14} filled />
-                            {weatherTheme.label}
-                          </span>
-                        ) : null}
-                      </div>
-                      <h3 className="text-[16px] font-bold leading-tight text-primary">{item.title}</h3>
-                      {item.location ? (
-                        <p className="mt-0.5 text-label-sm text-on-surface-variant">{item.location}</p>
-                      ) : null}
-                      {item.weather_alert ? (
-                        <Link
-                          href={`/plan/disruption/${item.id}`}
-                          onClick={(e) => e.stopPropagation()}
-                          className="mt-1 flex items-center gap-1 text-[12px] font-bold text-secondary hover:underline"
-                        >
-                          Tap for a covered alternative
-                          <Icon name="arrow_forward" size={14} />
-                        </Link>
-                      ) : null}
-                    </div>
-                  </Card>
-                  {trailingGaps.map((gap) => (
-                    <GapBlockView key={gap.startsAt} gap={gap} deviceId={deviceId} tripId={trip.id} />
+                  .map((gap) => (
+                    <GapConnector
+                      key={`${gap.startsAt}-lead`}
+                      gap={gap}
+                      expanded={expandedGaps.has(gap.startsAt)}
+                      onToggle={() => toggleGap(gap.startsAt)}
+                      deviceId={deviceId}
+                      tripId={trip.id}
+                      onAdded={() => void refetchAll()}
+                    />
                   ))}
-                  </Fragment>
-                );
+                {itemsWithLogistics.map(({ item, place, logistics }) => {
+                  const meta = categoryMeta(item.category);
+                  const barClass = item.weather_alert ? "bg-error" : colorTagClass(item.color_tag);
+                  const weatherKey = weatherKeyFor(item.location, trip.destination);
+                  const dayForecast = forecastForDay(
+                    weatherKey ? forecastByPlace[weatherKey] ?? [] : [],
+                    item.day_date
+                  );
+                  const weatherTheme = dayForecast ? WEATHER_THEME[dayForecast.condition] : null;
+                  const trailingGaps = dayPlan?.gaps.filter((g) => g.afterItemId === item.id) ?? [];
+                  return (
+                    <Fragment key={item.id}>
+                      <Card
+                        noPadding
+                        role="button"
+                        tabIndex={0}
+                        onClick={() => router.push(`/plan/item/${item.id}`)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" || e.key === " ") {
+                            e.preventDefault();
+                            router.push(`/plan/item/${item.id}`);
+                          }
+                        }}
+                        className="relative flex h-[88px] cursor-pointer items-center gap-3 overflow-hidden pr-4 transition-opacity hover:opacity-90"
+                        style={
+                          dayForecast ? { backgroundColor: CARD_WEATHER_BG[dayForecast.condition] } : undefined
+                        }
+                      >
+                        <span className={`absolute left-0 top-0 bottom-0 w-1 ${barClass}`} aria-hidden="true" />
+                        {/* 56×56 thumbnail (v1.1 W4 #1) — sourced from
+                            place_id → places.image_url, falling back to the
+                            same navy-gradient + category-glyph placeholder
+                            components/roameo/Card.tsx uses for a missing
+                            photo, so a photo-less item still lines up with
+                            the rest of the app rather than collapsing the
+                            layout. */}
+                        <div className="ml-4 h-14 w-14 shrink-0 overflow-hidden rounded-lg bg-surface-container">
+                          {place?.image_url ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img src={place.image_url} alt="" className="h-full w-full object-cover" />
+                          ) : (
+                            <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-primary to-primary-container">
+                              <Icon name={meta.icon} size={22} filled className="text-on-primary/70" />
+                            </div>
+                          )}
+                        </div>
+                        <div className="flex min-w-0 flex-1 flex-col justify-center gap-0.5 py-2">
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="flex min-w-0 items-center gap-1.5 truncate text-[11px] font-medium text-on-surface-variant">
+                              <Icon name={meta.icon} size={12} />
+                              {[item.time_label, meta.label].filter(Boolean).join(" • ")}
+                            </span>
+                            {item.weather_alert ? (
+                              <StatusPill label="Rain expected" tone="error" icon="warning" />
+                            ) : weatherTheme ? (
+                              <span
+                                className={`flex shrink-0 items-center gap-1 text-[11px] font-semibold ${weatherTheme.iconClass}`}
+                              >
+                                <Icon name={weatherTheme.icon} size={14} filled />
+                                {weatherTheme.label}
+                              </span>
+                            ) : null}
+                          </div>
+                          <h3 className="truncate text-[15px] font-bold leading-tight text-primary">{item.title}</h3>
+                          {logistics ? (
+                            <p className="truncate text-[11px] font-semibold text-secondary">
+                              Leave {logistics.leaveLabel} · {logistics.walkLabel}
+                            </p>
+                          ) : item.location ? (
+                            <p className="truncate text-label-sm text-on-surface-variant">{item.location}</p>
+                          ) : null}
+                        </div>
+                      </Card>
+                      {trailingGaps.map((gap) => (
+                        <GapConnector
+                          key={gap.startsAt}
+                          gap={gap}
+                          expanded={expandedGaps.has(gap.startsAt)}
+                          onToggle={() => toggleGap(gap.startsAt)}
+                          deviceId={deviceId}
+                          tripId={trip.id}
+                          onAdded={() => void refetchAll()}
+                        />
+                      ))}
+                    </Fragment>
+                  );
                 })}
               </>
             )}
@@ -706,5 +1152,13 @@ export default function PlanPage() {
         </button>
       </div>
     </div>
+  );
+}
+
+export default function PlanPage() {
+  return (
+    <Suspense fallback={null}>
+      <PlanPageInner />
+    </Suspense>
   );
 }

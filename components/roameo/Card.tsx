@@ -23,6 +23,8 @@ export interface RoameoCardProps {
   onDismiss?: () => void;
   /** Overrides the default handler for a primary action kind ("swap" needs Plan's own swap logic; "location" needs Home's permission-request flow). Receives the action's `kind` so one override can branch on it. */
   onPrimary?: (kind: CardKind) => void;
+  /** Fires after a successful default "Add to today" (handleAdd), on top of the "planned" signal already recorded — Plan's gap blocks and disruption "Other options" (plan-v1.1-overhaul.md W4 #6) use this to refetch their own item/gap state, since this card's own createItem call happens with no way for a parent otherwise to know a mutation occurred. Not called when `onPrimary` overrides the add behavior entirely. */
+  onAdded?: () => void;
   className?: string;
 }
 
@@ -75,6 +77,7 @@ export function RoameoCard({
   tripId,
   onDismiss,
   onPrimary,
+  onAdded,
   className = "",
 }: RoameoCardProps) {
   const pathname = usePathname();
@@ -125,6 +128,7 @@ export function RoameoCard({
       });
       setAdded(true);
       signal("planned");
+      onAdded?.();
     } catch (err) {
       console.error(`[roameo] add-to-plan failed ${describeSupabaseError(err)}`);
     } finally {

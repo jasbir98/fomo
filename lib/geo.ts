@@ -27,6 +27,19 @@ export function formatDistanceLabel(km: number): string {
 }
 
 /**
+ * Rough walking-time estimate from a straight-line distance — same ~4.8km/h
+ * pace and rounding lib/now/generators.ts's server-only `walkMinutes` uses,
+ * duplicated here because that module is `import "server-only"` and this one
+ * needs to run client-side (Plan's timeline "leave by" line). No
+ * turn-by-turn/routing API is wired up anywhere in this codebase, so
+ * straight-line distance is the only distance signal available; this is a
+ * deliberate approximation, not a real ETA.
+ */
+export function walkMinutes(km: number): number {
+  return Math.round((km / 4.8) * 60);
+}
+
+/**
  * Sorts `items` nearest-to-farthest from `from`. Items whose `getCoords`
  * returns null sort to the end, keeping their relative order. When `from`
  * is null (no live location yet, denied, or unsupported), returns `items`
