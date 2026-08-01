@@ -37,8 +37,8 @@ export function fmtMin(min: number): string {
   return `${Math.round(min)} min`;
 }
 
-/** `opening_hours` is `[{ day: 0-6, open: "HH:MM", close: "HH:MM" }]`; `close` can be past midnight relative to `open` on the same entry (an overnight span). */
-function minutesUntilClose(place: Place, at: Date): number | null {
+/** `opening_hours` is `[{ day: 0-6, open: "HH:MM", close: "HH:MM" }]`; `close` can be past midnight relative to `open` on the same entry (an overnight span). Exported for the `closing` rail's condition check (lib/now/rails.ts) and the `closing` discover intent (lib/now/discover.ts). */
+export function minutesUntilClose(place: Place, at: Date): number | null {
   const periods = place.opening_hours as OpeningHoursPeriod[] | null;
   if (!periods || periods.length === 0) return null;
   const day = at.getDay();
@@ -179,7 +179,8 @@ function leaveBy(ctx: RankContext): Candidate[] {
 // ---------------------------------------------------------------------------
 // closing_soon — a curated place near you shuts within 90 minutes.
 // ---------------------------------------------------------------------------
-function closingSoon(ctx: RankContext, exclude: Set<string>): Candidate[] {
+/** Exported so lib/now/rails.ts's `closing` rail can reuse it both as its generator and as a lightweight condition check ("≥2 places close within 90 min"). */
+export function closingSoon(ctx: RankContext, exclude: Set<string>): Candidate[] {
   const out: Candidate[] = [];
   for (const place of ctx.candidatePlaces) {
     if (exclude.has(`place:${place.id}`)) continue;
@@ -305,7 +306,8 @@ export function eventHeadline(name: string, destination: string | null): string 
   );
 }
 
-function eventTonight(ctx: RankContext): Candidate[] {
+/** Exported so lib/now/rails.ts's `tonight` rail can reuse it as a condition check. */
+export function eventTonight(ctx: RankContext): Candidate[] {
   const sixHoursOut = ctx.at.getTime() + 6 * 3_600_000;
   const candidates = ctx.candidateEvents.filter((e) => {
     const start = new Date(e.starts_at).getTime();
@@ -499,7 +501,8 @@ function localPick(ctx: RankContext, exclude: Set<string>): Candidate[] {
 const REEL_LIKE_CARD_TYPE = "reel_like";
 const REEL_ECHO_MAX_WALK_MIN = 30;
 
-function reelEcho(ctx: RankContext, exclude: Set<string>): Candidate[] {
+/** Exported so lib/now/rails.ts's `reels` rail can reuse it as a condition check. */
+export function reelEcho(ctx: RankContext, exclude: Set<string>): Candidate[] {
   const likedPlaceIds = new Set(
     ctx.recentSignals
       .filter((s) => s.card_type === REEL_LIKE_CARD_TYPE && s.subject_type === "place" && s.action === "saved")
@@ -542,6 +545,250 @@ function reelEcho(ctx: RankContext, exclude: Set<string>): Candidate[] {
   return out.sort((a, b) => b.score - a.score).slice(0, 3);
 }
 
+// ---------------------------------------------------------------------------
+// near_next — v1.1 W2. Every other proximity-scored generator measures
+// distance to ctx.coords (the traveller's own live/cached location); this is
+// the one that instead measures to ctx.nextAnchorCoords (the next planned
+// stop's place, resolved in lib/now/context.ts). Backs the `near_next` rail
+// (lib/now/rails.ts) — "what's around where I'm headed next", not "what's
+// around me right now".
+// ---------------------------------------------------------------------------
+const NEAR_NEXT_RADIUS_KM = 0.8;
+
+export function nearNext(ctx: RankContext, exclude: Set<string>): Candidate[] {
+  const anchor = ctx.nextAnchorCoords;
+  if (!anchor) return [];
+  const anchorTitle = ctx.nextAnchor?.title ?? "your next stop";
+  const out: Candidate[] = [];
+
+  for (const place of ctx.candidatePlaces) {
+    if (exclude.has(`place:${place.id}`)) continue;
+    if (place.id === ctx.nextAnchor?.place_id) continue; // don't recommend the anchor itself
+    const coords = placeCoords(place);
+    if (!coords) continue;
+    const dist = distanceKm(anchor, coords);
+    if (dist > NEAR_NEXT_RADIUS_KM) continue;
+    out.push({
+      generator: "near_next",
+      baseScore: 55,
+      score: 55,
+      subject: { type: "place", id: place.id },
+      pill: "Near your next stop",
+      why: `${fmtMin(walkMinutes(dist))} from ${anchorTitle}`,
+      headline: place.name ?? "Nearby",
+      detail: place.detail_line ?? `${fmtMin(walkMinutes(dist))} walk from there.`,
+      primaryAction: { label: "Add to today", kind: "add" },
+      image: placeImage(place),
+      urgency: "low",
+      validFrom: ctx.at.toISOString(),
+      validUntil: ctx.nextAnchor?.starts_at ?? new Date(ctx.at.getTime() + 6 * 3_600_000).toISOString(),
+      distanceKm: dist,
+      subjectName: place.name ?? "Nearby",
+      coords,
+      railTitle: "Near your next stop",
+      railMeta: `Around ${anchorTitle}`,
+    });
+  }
+
+  for (const event of ctx.candidateEvents) {
+    if (exclude.has(`event:${event.id}`)) continue;
+    if (event.lat == null || event.lng == null) continue;
+    const dist = distanceKm(anchor, { lat: event.lat, lng: event.lng });
+    if (dist > NEAR_NEXT_RADIUS_KM) continue;
+    const title = eventHeadline(event.name, ctx.trip.destination);
+    out.push({
+      generator: "near_next",
+      baseScore: 55,
+      score: 55,
+      subject: { type: "event", id: event.id },
+      pill: "Near your next stop",
+      why: `${fmtMin(walkMinutes(dist))} from ${anchorTitle}`,
+      headline: title,
+      detail: [venueLabel(event.venue_name), `${fmtMin(walkMinutes(dist))} walk`].filter(Boolean).join(" · "),
+      primaryAction: { label: "Add to today", kind: "add" },
+      image: { url: event.image_url, quality: event.image_url ? "thin" : "none" },
+      urgency: "low",
+      validFrom: ctx.at.toISOString(),
+      validUntil: event.starts_at,
+      distanceKm: dist,
+      subjectName: title,
+      coords: placeCoords(event),
+      railTitle: "Near your next stop",
+      railMeta: `Around ${anchorTitle}`,
+    });
+  }
+
+  // Descending — highest score first — consistent with every other
+  // multi-candidate generator in this file.
+  return out.sort((a, b) => b.score - a.score).slice(0, 10);
+}
+
+// ---------------------------------------------------------------------------
+// indoor_pick — v1.1 W2. Backs the `indoors` rail. Unlike gapFiller's
+// isRaining branch (which only fires inside an open gap), this fires
+// independent of the day plan — the `indoors` rail's own condition
+// (lib/now/rails.ts) is what gates it on the weather actually being
+// disruptive; this generator just does the place filtering.
+// ---------------------------------------------------------------------------
+export function indoorPick(ctx: RankContext, exclude: Set<string>): Candidate[] {
+  const pool = ctx.candidatePlaces
+    .filter((p) => !exclude.has(`place:${p.id}`) && isIndoorish(p))
+    .sort((a, b) => (b.mention_count ?? 0) - (a.mention_count ?? 0) || (b.rating ?? 0) - (a.rating ?? 0));
+
+  return pool.slice(0, 10).map((place): Candidate => {
+    const dist = placeDistanceKm(ctx.coords, place);
+    return {
+      generator: "indoor_pick",
+      baseScore: 45,
+      score: 45,
+      subject: { type: "place", id: place.id },
+      pill: "Indoors",
+      why: "Because it's raining out",
+      headline: place.name ?? "Nearby",
+      detail: place.detail_line ?? (dist != null ? `${fmtMin(walkMinutes(dist))} walk.` : ""),
+      primaryAction: { label: "Add to today", kind: "add" },
+      image: placeImage(place),
+      urgency: "low",
+      validFrom: ctx.at.toISOString(),
+      validUntil: new Date(ctx.at.getTime() + 4 * 3_600_000).toISOString(),
+      distanceKm: dist,
+      subjectName: place.name ?? "Nearby",
+      coords: placeCoords(place),
+      railTitle: "Somewhere dry",
+      railMeta: "it's raining",
+    };
+  });
+}
+
+// ---------------------------------------------------------------------------
+// experience_pick — v1.1 W2. Backs the `book` rail. experienceLeadtime above
+// is deliberately narrow (afternoon/evening only, one pick, feeds the
+// hero/next-up slot) — the `book` rail's condition is just "any bookable
+// experience exists", any time of day, so it needs its own unconstrained,
+// multi-item generator rather than reusing experienceLeadtime's single pick.
+// ---------------------------------------------------------------------------
+export function experiencePick(ctx: RankContext): Candidate[] {
+  const pool = [...ctx.candidateExperiences].sort((a, b) => (b.rating ?? 0) - (a.rating ?? 0));
+  return pool.slice(0, 10).map((exp): Candidate => ({
+    generator: "experience_pick",
+    baseScore: 50,
+    score: 50,
+    subject: { type: "experience", id: exp.id },
+    pill: exp.duration_label ?? "Experience",
+    why: exp.rating != null ? `${exp.rating.toFixed(1)}★ rated` : "Worth booking ahead",
+    headline: exp.title,
+    detail: [exp.duration_label, exp.price_from ? `from ${exp.currency ?? ""}${exp.price_from}` : null]
+      .filter(Boolean)
+      .join(" · "),
+    primaryAction: { label: "Book", kind: "book" },
+    image: { url: exp.image_url, quality: exp.image_url ? "thin" : "none" },
+    urgency: "low",
+    validFrom: ctx.at.toISOString(),
+    validUntil: new Date(ctx.at.getTime() + 48 * 3_600_000).toISOString(),
+    distanceKm: null,
+    subjectName: exp.title,
+    coords: placeCoords(exp),
+    railTitle: "Worth booking ahead",
+    railMeta: "book today",
+  }));
+}
+
+// ---------------------------------------------------------------------------
+// saved_pick — v1.1 W2. Backs the `saved` rail, reading ctx.savedItems
+// (lib/db/saved.ts's saved_items, loaded in lib/now/context.ts). Best-effort:
+// only resolves against subjects already in this request's candidate pools
+// (places/events/experiences for the current destination), matching
+// reelEcho's precedent above of not issuing a fresh per-subject lookup query.
+// A saved place/event/experience from a different trip/city, or a saved
+// itinerary_item/reel (no lookup pool here), simply won't surface — the
+// `saved` rail's minItems then drops the rail rather than showing nothing.
+// ---------------------------------------------------------------------------
+export function savedPick(ctx: RankContext, exclude: Set<string>): Candidate[] {
+  if (ctx.savedItems.length === 0) return [];
+  const out: Candidate[] = [];
+
+  for (const saved of ctx.savedItems) {
+    const key = `${saved.subject_type}:${saved.subject_id}`;
+    if (exclude.has(key)) continue;
+
+    if (saved.subject_type === "place") {
+      const place = ctx.candidatePlaces.find((p) => p.id === saved.subject_id);
+      if (!place) continue;
+      const dist = placeDistanceKm(ctx.coords, place);
+      out.push({
+        generator: "saved_pick",
+        baseScore: 50,
+        score: 50,
+        subject: { type: "place", id: place.id },
+        pill: "Saved",
+        why: "You saved this",
+        headline: place.name ?? "Saved place",
+        detail: place.detail_line ?? (dist != null ? `${fmtMin(walkMinutes(dist))} walk.` : ""),
+        primaryAction: { label: "Add to today", kind: "add" },
+        image: placeImage(place),
+        urgency: "low",
+        validFrom: ctx.at.toISOString(),
+        validUntil: new Date(ctx.at.getTime() + 24 * 3_600_000).toISOString(),
+        distanceKm: dist,
+        subjectName: place.name ?? "Saved place",
+        coords: placeCoords(place),
+        railTitle: "You saved these",
+        railMeta: "from your saves",
+      });
+    } else if (saved.subject_type === "event") {
+      const event = ctx.candidateEvents.find((e) => e.id === saved.subject_id);
+      if (!event) continue;
+      const title = eventHeadline(event.name, ctx.trip.destination);
+      out.push({
+        generator: "saved_pick",
+        baseScore: 50,
+        score: 50,
+        subject: { type: "event", id: event.id },
+        pill: "Saved",
+        why: "You saved this",
+        headline: title,
+        detail: venueLabel(event.venue_name) ?? "",
+        primaryAction: { label: "Add to today", kind: "add" },
+        image: { url: event.image_url, quality: event.image_url ? "thin" : "none" },
+        urgency: "low",
+        validFrom: ctx.at.toISOString(),
+        validUntil: event.starts_at,
+        distanceKm: null,
+        subjectName: title,
+        coords: placeCoords(event),
+        railTitle: "You saved these",
+        railMeta: "from your saves",
+      });
+    } else if (saved.subject_type === "experience") {
+      const exp = ctx.candidateExperiences.find((e) => e.id === saved.subject_id);
+      if (!exp) continue;
+      out.push({
+        generator: "saved_pick",
+        baseScore: 50,
+        score: 50,
+        subject: { type: "experience", id: exp.id },
+        pill: "Saved",
+        why: "You saved this",
+        headline: exp.title,
+        detail: exp.price_from != null ? `From ${exp.currency ?? ""}${exp.price_from}` : exp.duration_label ?? "",
+        primaryAction: { label: "Book", kind: "book" },
+        image: { url: exp.image_url, quality: exp.image_url ? "thin" : "none" },
+        urgency: "low",
+        validFrom: ctx.at.toISOString(),
+        validUntil: new Date(ctx.at.getTime() + 48 * 3_600_000).toISOString(),
+        distanceKm: null,
+        subjectName: exp.title,
+        coords: placeCoords(exp),
+        railTitle: "You saved these",
+        railMeta: "from your saves",
+      });
+    }
+    // subject_type "itinerary_item" / "reel": no lookup pool here — skipped.
+  }
+
+  return out;
+}
+
 /**
  * Runs every generator and returns the raw candidate pool (unscored,
  * un-deduped beyond each generator's own exclusion pass) — lib/now/rank.ts
@@ -562,6 +809,10 @@ export async function generateCandidates(ctx: RankContext): Promise<Candidate[]>
     ...gapFiller(ctx, exclude),
     ...experienceLeadtime(ctx),
     ...reelEcho(ctx, exclude),
+    ...nearNext(ctx, exclude),
+    ...indoorPick(ctx, exclude),
+    ...experiencePick(ctx),
+    ...savedPick(ctx, exclude),
     ...localPick(ctx, exclude),
   ];
 

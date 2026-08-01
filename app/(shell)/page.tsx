@@ -11,7 +11,7 @@ import { rememberDeviceLocation, forgetDeviceLocation } from "@/lib/now/location
 import type { CardKind, NowResponse } from "@/lib/now/types";
 import type { WeatherCondition } from "@/lib/weather";
 import { WEATHER_THEME } from "@/lib/weatherUi";
-import { Icon } from "@/components/ui";
+import { Icon, SectionHeader } from "@/components/ui";
 import { RoameoCard } from "@/components/roameo/Card";
 import { TripSwitcher } from "@/components/shell/TripSwitcher";
 
@@ -21,6 +21,26 @@ interface HomeWeather {
   condition: WeatherCondition;
   tempC: number | null;
 }
+
+/**
+ * Fixed quick-action row (v1.1 W2) — replaces the old context-dependent
+ * chip row (`buildChips`, lib/now/rank.ts) that structurally could truncate
+ * "Book something" off the end. Always these five, always this order, always
+ * navigable — unpredictable navigation is what made events read as "hidden".
+ * "Nearby" has no dedicated discover intent in the app today, so it points
+ * at the closest fit: the new generic "nearby" intent (lib/now/discover.ts,
+ * added alongside this phase) — everything in the candidate pool, unfiltered
+ * and distance-sorted, as opposed to "eat" (food-only) or "gap" (time-fit
+ * framing). "Saved" points at /saved, which doesn't exist until Phase F — a
+ * 404 there is expected for now, not a bug in this phase.
+ */
+const QUICK_ACTIONS: { key: string; label: string; icon: string; href: string }[] = [
+  { key: "eat", label: "Eat", icon: "restaurant", href: "/discover/eat" },
+  { key: "tonight", label: "Tonight", icon: "nightlife", href: "/events" },
+  { key: "book", label: "Book", icon: "confirmation_number", href: "/experiences" },
+  { key: "nearby", label: "Nearby", icon: "explore", href: "/discover/nearby" },
+  { key: "saved", label: "Saved", icon: "bookmark", href: "/saved" },
+];
 
 function dayOfTrip(trip: Trip, at: Date): string | null {
   if (!trip.start_date) return null;
@@ -54,11 +74,14 @@ async function fetchNowResponse(
 }
 
 /**
- * Roameo v1 Home — the "right now" surface (plan-v1-home-pivot.md §4).
- * Replaces the old distance-sorted nearby-places/events/experiences
- * dashboard entirely: one photo hero (top-ranked candidate from
- * GET /api/now), a next-anchor row, up to three intent chips, and a
- * horizontal photo rail. No other sections — that cap is deliberate, see §4.1.
+ * Roameo Home — the "right now" surface (plan-v1-home-pivot.md §4, extended
+ * by v1.1 W2's situational-depth rework). One photo hero (top-ranked
+ * candidate from GET /api/now), a next-anchor row, the fixed five-icon
+ * quick-action row (QUICK_ACTIONS above), then an ordered list of
+ * conditional, situationally-named rails (`now.rails`, built server-side by
+ * lib/now/rails.ts's registry) — the section set is data, not markup, so
+ * Home shows 3 rails on a busy morning and 5-6 on a free evening without any
+ * client-side branching here.
  */
 export default function TripHomePage() {
   const deviceId = useDeviceId();
@@ -288,39 +311,47 @@ export default function TripHomePage() {
           </Link>
         ) : null}
 
-        {now?.chips && now.chips.length > 0 ? (
-          // Outlined, not filled: three solid orange chips compete with the
-          // hero's orange primary action, which is the one thing on Home that
-          // should be shouting.
-          <div className="flex gap-2 overflow-x-auto [&::-webkit-scrollbar]:hidden">
-            {now.chips.map((chip) => (
-              <Link
-                key={chip.intent}
-                href={`/discover/${chip.intent}`}
-                className="flex shrink-0 items-center gap-1 rounded-full border border-outline-variant/60 bg-surface-container-lowest px-3.5 py-2 text-label-sm font-semibold text-primary transition-colors hover:bg-surface-container"
-              >
-                {chip.label}
-                <Icon name="chevron_right" size={16} className="text-outline" />
-              </Link>
-            ))}
-          </div>
-        ) : null}
+        {/* Fixed quick-action row (v1.1 W2) — always these five, always this order. */}
+        <div className="grid grid-cols-5 gap-1">
+          {QUICK_ACTIONS.map((action) => (
+            <Link
+              key={action.key}
+              href={action.href}
+              className="flex flex-col items-center gap-1.5 rounded-xl py-1 transition-colors hover:bg-surface-container"
+            >
+              <span className="flex h-12 w-12 items-center justify-center rounded-full border border-outline-variant/60 bg-surface-container-lowest text-primary">
+                <Icon name={action.icon} size={22} />
+              </span>
+              <span className="text-label-sm font-medium text-on-surface-variant">{action.label}</span>
+            </Link>
+          ))}
+        </div>
 
-        {now?.rail && now.rail.items.length > 0 ? (
-          <section>
-            <div className="mb-3 flex items-baseline justify-between">
-              <h3 className="text-label-md font-bold text-primary">{now.rail.title}</h3>
-              <span className="text-label-sm text-on-surface-variant">{now.rail.meta}</span>
-            </div>
+        {/* Ordered, conditional situational rails (v1.1 W2) — the section
+            set is data (lib/now/rails.ts's registry), not markup. A rail
+            simply isn't in this array on a request where its condition
+            didn't hold, so an empty array here is a normal, expected state
+            (e.g. a fully-booked morning with no gap, no rain, nothing on
+            tonight). */}
+        {now?.rails.map((rail) => (
+          <section key={rail.id}>
+            <SectionHeader title={rail.title} meta={rail.meta} seeAllHref={rail.seeAllHref} />
             <div className="flex gap-3 overflow-x-auto pb-2 snap-x snap-mandatory [&::-webkit-scrollbar]:hidden">
-              {now.rail.items.map((item) => (
+              {rail.items.map((item) => (
                 <div key={`${item.subject.type}:${item.subject.id}`} className="shrink-0 snap-start">
                   <RoameoCard candidate={item} variant="tile" deviceId={deviceId} tripId={trip.id} />
                 </div>
               ))}
+              <Link
+                href={rail.seeAllHref}
+                aria-label={`See all — ${rail.title}`}
+                className="flex h-full w-11 shrink-0 snap-start items-center justify-center rounded-xl border border-dashed border-outline-variant/60 text-primary transition-colors hover:bg-surface-container"
+              >
+                <Icon name="arrow_forward" size={20} />
+              </Link>
             </div>
           </section>
-        ) : null}
+        ))}
       </div>
     </div>
   );

@@ -3,6 +3,7 @@ import { getTrip } from "@/lib/db/trips";
 import { listItems } from "@/lib/db/items";
 import { getPreferences } from "@/lib/db/preferences";
 import { listRecentSignals } from "@/lib/db/signals";
+import { listSavedItems } from "@/lib/db/saved";
 import { listPlacesByCity } from "@/lib/db/places";
 import { getEventsForDestination } from "@/lib/events/getForDestination";
 import { getExperiencesForDestination } from "@/lib/experiences/getForDestination";
@@ -179,13 +180,17 @@ export async function buildRankContext(input: BuildContextInput): Promise<RankCo
     }
   }
 
-  const [allItems, prefs, recentSignals] = await Promise.all([
+  const [allItems, prefs, recentSignals, savedItems] = await Promise.all([
     listItems(deviceId, tripId).catch((err) => {
       console.error("[now/context] listItems failed", err);
       return [] as ItineraryItem[];
     }),
     getPreferences(deviceId).catch(() => null),
     listRecentSignals(deviceId).catch(() => []),
+    listSavedItems(deviceId).catch((err) => {
+      console.error("[now/context] listSavedItems failed", err);
+      return [];
+    }),
   ]);
 
   const today = isoDate(at);
@@ -238,6 +243,18 @@ export async function buildRankContext(input: BuildContextInput): Promise<RankCo
 
   const weather = pickForecastDay(forecast.days, today);
 
+  // Proximity target for the `near_next` generator (lib/now/generators.ts) —
+  // measured against the next anchor's *place*, not the traveller's own
+  // coords. Computed here (after candidatePlaces resolves) rather than
+  // alongside `nextAnchor` above, since it depends on the place lookup.
+  const nextAnchorPlace = nextAnchor?.place_id
+    ? candidatePlaces.find((p) => p.id === nextAnchor.place_id)
+    : null;
+  const nextAnchorCoords =
+    nextAnchorPlace && nextAnchorPlace.lat != null && nextAnchorPlace.lng != null
+      ? { lat: nextAnchorPlace.lat, lng: nextAnchorPlace.lng }
+      : null;
+
   return {
     deviceId,
     trip,
@@ -257,5 +274,7 @@ export async function buildRankContext(input: BuildContextInput): Promise<RankCo
     candidateExperiences,
     prefs,
     recentSignals,
+    nextAnchorCoords,
+    savedItems,
   };
 }

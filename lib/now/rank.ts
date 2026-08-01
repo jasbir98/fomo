@@ -1,6 +1,7 @@
 import "server-only";
 import type { Candidate, DiscoverChip, NextCard, NowResponse, RankContext } from "@/lib/now/types";
 import { generateCandidates } from "@/lib/now/generators";
+import { buildRails } from "@/lib/now/rails";
 
 // ---------------------------------------------------------------------------
 // Scoring — plan-v1-home-pivot.md §9.4:
@@ -104,12 +105,15 @@ function pickHeroIndex(deduped: Candidate[]): number {
 }
 
 /**
- * Diversity-constrained selection (plan-v1-home-pivot.md §9.5): highest
- * score wins the hero, the rail fills with the remaining pool at most one
- * card per generator — this is the rule that stops the rail collapsing back
- * into "nearby places / nearby events / nearby experiences" shelves.
+ * Picks the hero (highest score, with the photo-preference nudge from
+ * `pickHeroIndex`) and returns the rest of the subject-deduped pool for
+ * lib/now/rails.ts to bucket into situational rails (v1.1 W2). Before W2,
+ * this also built a single diversity-constrained "rail" (one card per
+ * generator) — that's now unnecessary: each rail already draws from exactly
+ * one generator family, so diversity across the page comes from having
+ * multiple rails rather than from forcing variety into one.
  */
-function selectTop(ranked: Candidate[], railSize: number): { hero: Candidate | null; rail: Candidate[] } {
+function selectHeroAndPool(ranked: Candidate[]): { hero: Candidate | null; pool: Candidate[] } {
   const seenSubjects = new Set<string>();
   const deduped: Candidate[] = [];
   for (const c of ranked) {
@@ -118,7 +122,7 @@ function selectTop(ranked: Candidate[], railSize: number): { hero: Candidate | n
     seenSubjects.add(key);
     deduped.push(c);
   }
-  if (deduped.length === 0) return { hero: null, rail: [] };
+  if (deduped.length === 0) return { hero: null, pool: [] };
 
   // Home is image-led (plan-v1-home-pivot.md §4), and only an `ok` image can
   // carry a photo hero (§11.2). A thin-image candidate may still win outright
@@ -128,40 +132,9 @@ function selectTop(ranked: Candidate[], railSize: number): { hero: Candidate | n
   // and every Home open lands on the typographic fallback (§15, risk 2).
   const heroIndex = pickHeroIndex(deduped);
   const hero = deduped[heroIndex];
-  const remaining = deduped.filter((_, i) => i !== heroIndex);
+  const pool = deduped.filter((_, i) => i !== heroIndex);
 
-  // Pass 1 — one card per generator, seeded with the hero's own generator so
-  // the rail's first pass doesn't just repeat the hero's shelf. This is the
-  // rule that stops the rail collapsing into "nearby places / nearby events /
-  // nearby experiences" (plan-v1-home-pivot.md §9.5).
-  const seenGenerators = new Set<string>([hero.generator]);
-  const railSubjects = new Set<string>();
-  const rail: Candidate[] = [];
-  for (const c of remaining) {
-    if (rail.length >= railSize) break;
-    if (seenGenerators.has(c.generator)) continue;
-    seenGenerators.add(c.generator);
-    railSubjects.add(subjectKey(c));
-    rail.push(c);
-  }
-
-  // Pass 2 — the strict one-per-generator pass above caps the rail at
-  // (distinct-generator count) items, which starves it below `railSize` on
-  // any day where few generators fire even though plenty of good candidates
-  // remain. Relax the one-per-generator rule and fill the remaining slots
-  // with whatever scored next, still respecting subject-level dedup (a
-  // candidate already in the rail, or already the hero, is never repeated).
-  // The rail should end up size-limited, not generator-starved.
-  if (rail.length < railSize) {
-    for (const c of remaining) {
-      if (rail.length >= railSize) break;
-      if (railSubjects.has(subjectKey(c))) continue;
-      railSubjects.add(subjectKey(c));
-      rail.push(c);
-    }
-  }
-
-  return { hero, rail };
+  return { hero, pool };
 }
 
 function buildNext(ctx: RankContext): NextCard {
@@ -195,8 +168,15 @@ function buildNext(ctx: RankContext): NextCard {
  * open gap the quota was already full before book was ever weighed — it
  * could structurally never render. Ranking the full relevant set instead
  * means every intent gets a fair shot based on context, not push order.
+ *
+ * v1.1 W2: Home no longer renders these — it has a fixed five-icon
+ * quick-action row instead (app/(shell)/page.tsx), which is the direct fix
+ * for the "book" chip's structural unrenderability this comment describes.
+ * Kept (and exported) because `/discover/[intent]` still keys off the same
+ * `DiscoverChip.intent` slugs this produces; nothing currently calls this
+ * function, but it isn't dead in the sense of being safe to delete.
  */
-function buildChips(ctx: RankContext): DiscoverChip[] {
+export function buildChips(ctx: RankContext): DiscoverChip[] {
   const isRaining = ctx.weather?.condition === "rainy" || ctx.weather?.condition === "windy";
   const hasGap = ctx.gaps.length > 0;
   const hasEvents = ctx.candidateEvents.length > 0;
@@ -220,8 +200,6 @@ function buildChips(ctx: RankContext): DiscoverChip[] {
     .map(({ intent, label }) => ({ intent, label }));
 }
 
-const RAIL_SIZE = 10;
-
 export async function buildNowResponse(ctx: RankContext): Promise<NowResponse> {
   const raw = await generateCandidates(ctx);
   const filtered = raw.filter((c) => passesHardFilters(ctx, c));
@@ -230,8 +208,7 @@ export async function buildNowResponse(ctx: RankContext): Promise<NowResponse> {
     .filter((c) => c.score > 0)
     .sort((a, b) => b.score - a.score);
 
-  const { hero, rail } = selectTop(scored, RAIL_SIZE);
-  const railMeta = rail[0] ?? hero;
+  const { hero, pool } = selectHeroAndPool(scored);
 
   let degraded: NowResponse["degraded"] = null;
   if (!ctx.coords) degraded = "no-location";
@@ -241,12 +218,7 @@ export async function buildNowResponse(ctx: RankContext): Promise<NowResponse> {
     mode: ctx.planDensity === "none" ? "drifter" : "planner",
     hero,
     next: buildNext(ctx),
-    chips: buildChips(ctx),
-    rail: {
-      title: railMeta?.railTitle ?? "Near you now",
-      meta: railMeta?.railMeta ?? "",
-      items: rail,
-    },
+    rails: buildRails(ctx, pool),
     degraded,
   };
 }

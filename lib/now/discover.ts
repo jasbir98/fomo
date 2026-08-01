@@ -1,5 +1,6 @@
 import "server-only";
 import { getTrip } from "@/lib/db/trips";
+import { listItems } from "@/lib/db/items";
 import { getEventsForDestination } from "@/lib/events/getForDestination";
 import { getExperiencesForDestination } from "@/lib/experiences/getForDestination";
 import { loadCandidatePlaces } from "@/lib/now/context";
@@ -7,12 +8,13 @@ import {
   distanceKm,
   fmtMin,
   isIndoorish,
+  minutesUntilClose,
   placeCoords,
   placeDistanceKm,
   placeImage,
   walkMinutes,
 } from "@/lib/now/generators";
-import type { EventItem, Experience, Place } from "@/lib/types";
+import type { EventItem, Experience, ItineraryItem, Place } from "@/lib/types";
 import type { Coordinates } from "@/lib/geo";
 import type { Candidate, DiscoverIntentSlug, DiscoverResponse } from "@/lib/now/types";
 
@@ -184,6 +186,59 @@ export async function buildDiscoverResponse(input: BuildDiscoverInput): Promise<
       .sort((a, b) => byMentionThenRating(a, b) || (placeDistanceKm(coords, a) ?? 99) - (placeDistanceKm(coords, b) ?? 99))
       .slice(offset, offset + limit)
       .map((p) => placeToCandidate(p, coords));
+  } else if (intent === "nearby") {
+    // See-all target for the quick-action row's "Nearby" tile
+    // (app/(shell)/page.tsx, v1.1 W2) — the generic, unfiltered "everything
+    // around me" browse, distinct from "eat" (food-only) and "gap"
+    // (time-fit framing over the same underlying pool).
+    title = "Near you";
+    items = candidatePlaces
+      .sort(
+        (a, b) =>
+          (placeDistanceKm(coords, a) ?? Number.POSITIVE_INFINITY) -
+            (placeDistanceKm(coords, b) ?? Number.POSITIVE_INFINITY) || byMentionThenRating(a, b)
+      )
+      .slice(offset, offset + limit)
+      .map((p) => placeToCandidate(p, coords));
+  } else if (intent === "near-next") {
+    // See-all target for the `near_next` rail (lib/now/rails.ts) — proximity
+    // to the next planned anchor, not to the traveller. Mirrors
+    // lib/now/context.ts's nextAnchor/nextAnchorCoords resolution rather than
+    // importing buildRankContext wholesale (this route only needs the one
+    // derived value, not the full ranker context).
+    title = "Near your next stop";
+    const now = new Date();
+    const todayIso = now.toISOString().slice(0, 10);
+    const allItems = await listItems(deviceId, tripId).catch((err) => {
+      console.error("[now/discover] listItems failed", err);
+      return [] as ItineraryItem[];
+    });
+    const nextAnchor =
+      allItems
+        .filter((i) => i.day_date === todayIso && i.starts_at && new Date(i.starts_at) > now)
+        .sort((a, b) => new Date(a.starts_at!).getTime() - new Date(b.starts_at!).getTime())[0] ?? null;
+    const anchorPlace = nextAnchor?.place_id ? candidatePlaces.find((p) => p.id === nextAnchor.place_id) : null;
+    const anchorCoords =
+      anchorPlace && anchorPlace.lat != null && anchorPlace.lng != null
+        ? { lat: anchorPlace.lat, lng: anchorPlace.lng }
+        : null;
+    items = anchorCoords
+      ? candidatePlaces
+          .filter((p) => p.id !== anchorPlace?.id && p.lat != null && p.lng != null)
+          .map((p) => ({ place: p, dist: distanceKm(anchorCoords, { lat: p.lat!, lng: p.lng! }) }))
+          .sort((a, b) => a.dist - b.dist)
+          .slice(offset, offset + limit)
+          .map(({ place }) => placeToCandidate(place, coords))
+      : [];
+  } else if (intent === "closing") {
+    // See-all target for the `closing` rail (lib/now/rails.ts).
+    title = "Closing within the hour";
+    items = candidatePlaces
+      .map((p) => ({ place: p, minsLeft: minutesUntilClose(p, new Date()) }))
+      .filter((x): x is { place: Place; minsLeft: number } => x.minsLeft != null && x.minsLeft > 0 && x.minsLeft <= 90)
+      .sort((a, b) => a.minsLeft - b.minsLeft)
+      .slice(offset, offset + limit)
+      .map(({ place }) => placeToCandidate(place, coords));
   } else {
     // gap | indoors
     title = intent === "indoors" ? "Indoors near me" : "A few hours";

@@ -10,7 +10,18 @@ import type { Trip } from "@/lib/types";
 import { Icon } from "@/components/ui";
 import { RoameoCard } from "@/components/roameo/Card";
 
-const VALID_INTENTS: DiscoverIntentSlug[] = ["tonight", "book", "eat", "gap", "indoors"];
+const VALID_INTENTS: DiscoverIntentSlug[] = [
+  "tonight",
+  "book",
+  "eat",
+  "gap",
+  "indoors",
+  // v1.1 W2 additions — see-all targets for Home's quick-action "Nearby"
+  // tile and the near_next/closing rails (lib/now/rails.ts).
+  "nearby",
+  "near-next",
+  "closing",
+];
 
 /**
  * Chip discover surface (plan-v1-home-pivot.md §6) — the picture-grid a Home

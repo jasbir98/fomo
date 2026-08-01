@@ -38,8 +38,7 @@ export async function GET(request: Request) {
         mode: "drifter",
         hero: null,
         next: null,
-        chips: [],
-        rail: { title: "", meta: "", items: [] },
+        rails: [],
         degraded: "no-trip",
       });
     }
@@ -67,8 +66,7 @@ export async function GET(request: Request) {
         mode: "drifter",
         hero: null,
         next: null,
-        chips: [],
-        rail: { title: "", meta: "", items: [] },
+        rails: [],
         degraded: "no-trip",
       });
     }
@@ -80,8 +78,7 @@ export async function GET(request: Request) {
       mode: "drifter",
       hero: null,
       next: null,
-      chips: [],
-      rail: { title: "", meta: "", items: [] },
+      rails: [],
       degraded: "no-coverage",
     });
   }

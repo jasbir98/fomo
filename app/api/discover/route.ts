@@ -11,7 +11,16 @@ import type { DiscoverIntentSlug, DiscoverResponse } from "@/lib/now/types";
 
 export const runtime = "nodejs";
 
-const VALID_INTENTS: DiscoverIntentSlug[] = ["tonight", "book", "eat", "gap", "indoors"];
+const VALID_INTENTS: DiscoverIntentSlug[] = [
+  "tonight",
+  "book",
+  "eat",
+  "gap",
+  "indoors",
+  "nearby",
+  "near-next",
+  "closing",
+];
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);

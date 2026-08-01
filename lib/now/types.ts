@@ -6,6 +6,7 @@ import type {
   Experience,
   ItineraryItem,
   Place,
+  SavedItem,
   Trip,
   TravelPreferences,
 } from "@/lib/types";
@@ -43,6 +44,17 @@ export interface RankContext {
   candidateExperiences: Experience[];
   prefs: TravelPreferences | null;
   recentSignals: CardSignal[];
+  /**
+   * Coordinates of `nextAnchor`'s underlying place, when it has one — distinct
+   * from `coords` (the traveller's own live/cached location). Nothing in the
+   * ranker measured proximity to the next planned stop before v1.1 W2; this
+   * is what the `near_next` generator (lib/now/generators.ts) anchors on
+   * instead of `coords`. Null whenever there's no next anchor, or its place
+   * has no resolvable lat/lng.
+   */
+  nextAnchorCoords: { lat: number; lng: number } | null;
+  /** This device's saved_items rows (any trip) — backs the `saved` rail (lib/now/rails.ts) and its `saved_pick` generator. */
+  savedItems: SavedItem[];
 }
 
 export type CardKind =
@@ -103,12 +115,26 @@ export interface DiscoverChip {
   label: string;
 }
 
+/**
+ * One resolved, situational Home section (v1.1 W2) — a `RailSpec` from
+ * lib/now/rails.ts whose `condition` passed and whose generated items met
+ * `minItems`, with title/reason/items/seeAll already computed server-side.
+ */
+export interface Rail {
+  id: string;
+  title: string;
+  /** One causal line — "why this rail, why now" (SectionHeader's `meta`). */
+  meta: string;
+  items: Candidate[];
+  seeAllHref: string;
+}
+
 export interface NowResponse {
   mode: "planner" | "drifter";
   hero: Candidate | null;
   next: NextCard | null;
-  chips: DiscoverChip[];
-  rail: { title: string; meta: string; items: Candidate[] };
+  /** Ordered, conditional Home sections — replaces the old single `rail` (v1.1 W2). Empty array is a valid, common state (e.g. a fully-booked morning). */
+  rails: Rail[];
   degraded: "no-location" | "no-coverage" | "no-trip" | null;
 }
 
@@ -149,7 +175,19 @@ export interface DayPlanResponse {
 // Chip discover surface (plan-v1-home-pivot.md §6) — the picture-grid a
 // Home chip opens into. Always pre-filtered, never a blank search.
 // ---------------------------------------------------------------------------
-export type DiscoverIntentSlug = "tonight" | "book" | "eat" | "gap" | "indoors";
+export type DiscoverIntentSlug =
+  | "tonight"
+  | "book"
+  | "eat"
+  | "gap"
+  | "indoors"
+  // v1.1 W2 additions — backing the fixed quick-action row's "Nearby" slot and
+  // the `near_next`/`closing` rails' See-all links (app/(shell)/page.tsx,
+  // lib/now/rails.ts). See app/(shell)/discover/[intent]/page.tsx's
+  // VALID_INTENTS for the client-side allowlist.
+  | "nearby"
+  | "near-next"
+  | "closing";
 
 export interface DiscoverResponse {
   title: string;
