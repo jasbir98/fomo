@@ -1,11 +1,15 @@
 /**
  * Roameo Places — real POI data for the map (server-only).
  *
- * GET /api/places?destination=<string>&category=<slug>&q=<text>&limit=<n>
+ * GET /api/places?destination=<string>&category=<slug>&q=<text>&limit=<n>&offset=<n>
  *   category: food | photo | lockers | transport  (omit for a general mix)
  *   q:        free-text search (e.g. a place name); when present it drives
  *             the Google Text Search query instead of category+destination
- *   limit:    default 12, max 20
+ *   limit:    default 24, max 60
+ *   offset:   default 0 — paginates the curated/seed rows exactly (they're
+ *             unbounded in the DB); paginates the live-Google branch only up
+ *             to Google's own 20-result-per-call ceiling (no pageToken
+ *             support yet — see the comment at the live-fetch call site)
  *
  * Pipeline: Mapbox-geocode the destination → Google Places (New) Text Search
  * (minimal field mask) → upsert into the `places` table (dedupe on
@@ -92,13 +96,19 @@ export async function GET(request: Request) {
   // Number(null) is 0 (not NaN) — Number.isFinite(0) is true, so without this
   // explicit null check the "no limit given" case was silently clamped to
   // Math.max(0, 1) = 1 instead of falling through to the intended default of
-  // 12. The Map page never sends `limit`, so every category-chip/free-text
-  // live Google search has been silently capped to a single result.
+  // 24. The Map page now always sends `limit` explicitly (see
+  // app/(shell)/map/page.tsx), but this guard still protects every other
+  // caller (chat seed links, discover, etc) that may omit it.
   const rawLimitParam = searchParams.get("limit");
   const rawLimit = rawLimitParam == null ? NaN : Number(rawLimitParam);
   const limit = Number.isFinite(rawLimit)
-    ? Math.min(Math.max(Math.trunc(rawLimit), 1), 20)
-    : 12;
+    ? Math.min(Math.max(Math.trunc(rawLimit), 1), 60)
+    : 24;
+
+  // Same null-vs-0 guard for `offset`.
+  const rawOffsetParam = searchParams.get("offset");
+  const rawOffset = rawOffsetParam == null ? NaN : Number(rawOffsetParam);
+  const offset = Number.isFinite(rawOffset) ? Math.max(Math.trunc(rawOffset), 0) : 0;
 
   // 1. Geocode → map center (null-safe; text search still works without it).
   const center = await geocodeDestination(destination);
@@ -113,7 +123,13 @@ export async function GET(request: Request) {
       try {
         const curated = await listPlacesByCity(cityGuess);
         if (curated.length > 0) {
-          return NextResponse.json<PlacesResponse>({ center, places: curated });
+          // listPlacesByCity is unbounded (lib/db/places.ts) — this is the
+          // one branch where offset-based pagination is exact, since the
+          // whole curated set is already in memory.
+          return NextResponse.json<PlacesResponse>({
+            center,
+            places: curated.slice(offset, offset + limit),
+          });
         }
       } catch (err) {
         console.error("[api/places] curated lookup failed, falling through to live search", err);
@@ -123,24 +139,35 @@ export async function GET(request: Request) {
 
   // 2. No Google key → degrade to seeded rows so the map still shows something.
   if (!process.env.GOOGLE_PLACES_API_KEY) {
+    const seeded = await safeSeedPlaces(category, q);
     return NextResponse.json<PlacesResponse>({
       center,
-      places: await safeSeedPlaces(category, q),
+      places: seeded.slice(offset, offset + limit),
       degraded: "no-google-key",
     });
   }
 
-  // 3. Fetch live POIs.
+  // 3. Fetch live POIs. Google Places (New) Text Search's `maxResultCount`
+  // caps at 20 per call and this codebase doesn't carry a pageToken through
+  // yet, so true offset-based pagination isn't available on the live branch.
+  // Best-effort approximation within that ceiling: ask for enough rows to
+  // cover this page (capped at 20) and slice out the requested window: exact
+  // for offset+limit <= 20, empty (not wrong data) once offset reaches
+  // Google's own limit. The curated branch above is the one that's actually
+  // unbounded and where offset pagination matters for the pilot cities.
   let mapped: MappedPlace[];
   try {
-    mapped = await searchPlaces({ destination, category, limit, center, q });
+    const googleLimit = Math.min(offset + limit, 20);
+    const fetched = await searchPlaces({ destination, category, limit: googleLimit, center, q });
+    mapped = offset < fetched.length ? fetched.slice(offset, offset + limit) : [];
   } catch (err) {
     const reason =
       err instanceof GooglePlacesError ? "places-error" : "places-error";
     console.error(`[api/places] google places search failed (${reason})`, err);
+    const seeded = await safeSeedPlaces(category, q);
     return NextResponse.json<PlacesResponse>({
       center,
-      places: await safeSeedPlaces(category, q),
+      places: seeded.slice(offset, offset + limit),
       degraded: reason,
     });
   }

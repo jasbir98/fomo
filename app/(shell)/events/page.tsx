@@ -1,14 +1,22 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useDeviceId } from "@/lib/device";
 import { getCurrentTrip } from "@/lib/db";
 import type { EventItem, Trip } from "@/lib/types";
 import { distanceKm, sortByDistance, useGeolocation, type Coordinates } from "@/lib/geo";
-import { useProgressiveReveal } from "@/lib/useProgressiveReveal";
+import { useInfiniteList } from "@/lib/useInfiniteList";
 import { Chip, Icon, PageHeader, SegmentedControl } from "@/components/ui";
 import { EventCard, EventDetailSheet } from "@/components/events";
+
+// Page size for the infinite-scroll fetch below. /api/events itself has no
+// true offset pagination (it's a cache-first-then-provider-fan-out lookup
+// keyed on `limit` alone, not skip/take) — the fetchPage adapter below works
+// within that by asking for `offset + limit` rows each page and slicing out
+// the new tail, capped at the route's own max (100, see app/api/events/route.ts).
+const PAGE_SIZE = 24;
+const EVENTS_API_MAX = 100;
 
 /** Shape of GET /api/events' response (route.ts's EventsResponse isn't exported). */
 interface EventsApiResponse {
@@ -70,13 +78,28 @@ export default function EventsPage() {
   const [tripChecked, setTripChecked] = useState(false);
   const [dateWindow, setDateWindow] = useState<DateWindow>("tonight");
   const [activeSlug, setActiveSlug] = useState<string | null>(null);
-  const [events, setEvents] = useState<EventItem[]>([]);
-  const [loading, setLoading] = useState(true);
   const [degraded, setDegraded] = useState<string | null>(null);
   const [selectedEvent, setSelectedEvent] = useState<EventItem | null>(null);
   const { coords } = useGeolocation();
 
   const destination = trip?.destination ?? null;
+
+  // Events can also land via the Home carousel's fetch elsewhere in the app —
+  // bumping this on tab focus (same as before this refactor) forces the
+  // infinite-list hook's page-1 effect to re-run by including it in `deps`
+  // below, so a stale list doesn't linger after switching back to this tab.
+  const [refreshTick, setRefreshTick] = useState(0);
+  useEffect(() => {
+    function onVisibilityChange() {
+      if (document.visibilityState === "visible") setRefreshTick((t) => t + 1);
+    }
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    window.addEventListener("focus", onVisibilityChange);
+    return () => {
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+      window.removeEventListener("focus", onVisibilityChange);
+    };
+  }, []);
 
   // Load the active trip once — no auto-seed, mirrors app/(shell)/map/page.tsx.
   useEffect(() => {
@@ -97,55 +120,49 @@ export default function EventsPage() {
     };
   }, [deviceId]);
 
-  // Fetch events whenever the destination, date window, or category changes.
-  useEffect(() => {
-    if (!destination) return; // guards the initial mount — loading stays true
-    let cancelled = false;
-    const { from, to } = windowRange(dateWindow, new Date());
-    const params = new URLSearchParams({ destination, from, to, limit: "100" });
-    if (activeSlug) params.set("category", activeSlug);
-
-    async function load() {
-      setLoading(true);
-      try {
+  // Paginated fetch — shared infinite-scroll machinery lives in
+  // lib/useInfiniteList.ts (same hook as app/(shell)/experiences/page.tsx).
+  // Not attaching `rootRef` to anything below keeps the IntersectionObserver
+  // `root` at `null` (the viewport) — the Phase A fix this page needed: it's
+  // a vertical page list with no inner scrolling container, so a root
+  // pointed at a non-scrolling wrapper div would never fire the sentinel's
+  // intersection at all.
+  const {
+    items: events,
+    loading,
+    loadingMore,
+    hasMore,
+    sentinelRef: listSentinelRef,
+  } = useInfiniteList<EventItem>(
+    {
+      enabled: !!destination,
+      pageSize: PAGE_SIZE,
+      getId: (e) => e.id,
+      onError: (err, phase) =>
+        console.error(`[events] events ${phase === "initial" ? "load" : "load more"} failed`, err),
+      fetchPage: async ({ limit, offset }) => {
+        if (!destination) return [];
+        const { from, to } = windowRange(dateWindow, new Date());
+        const params = new URLSearchParams({
+          destination,
+          from,
+          to,
+          limit: String(Math.min(offset + limit, EVENTS_API_MAX)),
+        });
+        if (activeSlug) params.set("category", activeSlug);
         const res = await fetch(`/api/events?${params.toString()}`);
         const data = (await res.json()) as EventsApiResponse;
-        if (cancelled) return;
-        setEvents(data.events ?? []);
         setDegraded(data.degraded ?? null);
-      } catch (err) {
-        if (!cancelled) console.error("[events] events load failed", err);
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    }
-    void load();
-
-    // Events can also land via the Home carousel's fetch elsewhere in the
-    // app — refetch on tab focus so a stale list doesn't linger.
-    function onVisibilityChange() {
-      if (document.visibilityState === "visible") void load();
-    }
-    document.addEventListener("visibilitychange", onVisibilityChange);
-    window.addEventListener("focus", onVisibilityChange);
-    return () => {
-      cancelled = true;
-      document.removeEventListener("visibilitychange", onVisibilityChange);
-      window.removeEventListener("focus", onVisibilityChange);
-    };
-  }, [destination, dateWindow, activeSlug]);
+        const fetched = data.events ?? [];
+        return offset < fetched.length ? fetched.slice(offset, offset + limit) : [];
+      },
+    },
+    [destination, dateWindow, activeSlug, refreshTick]
+  );
 
   // Nearest-to-farthest from the device's live location; unchanged order
   // when location is unavailable/denied (silent fallback, per lib/geo.ts).
   const sortedEvents = useMemo(() => sortByDistance(events, coords, eventCoords), [events, coords]);
-
-  // This is a vertical page list with no inner scrolling container -- the
-  // viewport itself is what scrolls, so root must be `null` (viewport), not
-  // a ref to the non-scrolling wrapper div below (that root never scrolls,
-  // so the sentinel's intersection never fires and the list dead-ends at
-  // the first `step` batch).
-  const listSentinelRef = useRef<HTMLDivElement>(null);
-  const visibleCount = useProgressiveReveal(sortedEvents.length, null, listSentinelRef, { vertical: true });
 
   // No active trip — invite the traveler to create one (events need a destination).
   if (tripChecked && !trip) {
@@ -224,7 +241,7 @@ export default function EventsPage() {
           </p>
         ) : (
           <div className="flex flex-col gap-3">
-            {sortedEvents.slice(0, visibleCount).map((event) => {
+            {sortedEvents.map((event) => {
               const c = eventCoords(event);
               const dist = coords && c ? distanceKm(coords, c) : null;
               return (
@@ -237,7 +254,13 @@ export default function EventsPage() {
                 />
               );
             })}
-            <div ref={listSentinelRef} className="h-px w-full shrink-0" />
+            {hasMore ? (
+              <div ref={listSentinelRef} className="flex justify-center py-4">
+                {loadingMore ? (
+                  <Icon name="hourglass_top" size={22} className="animate-pulse text-primary" />
+                ) : null}
+              </div>
+            ) : null}
           </div>
         )}
       </section>

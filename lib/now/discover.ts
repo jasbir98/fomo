@@ -112,16 +112,23 @@ function byMentionThenRating(a: Place, b: Place): number {
   return (b.mention_count ?? 0) - (a.mention_count ?? 0) || (b.rating ?? 0) - (a.rating ?? 0);
 }
 
+/** Default page size for the discover surface — see lib/useInfiniteList.ts, the shared hook a future /discover/[intent] page will drive this with. */
+const DEFAULT_DISCOVER_LIMIT = 40;
+
 export interface BuildDiscoverInput {
   deviceId: string;
   tripId: string;
   intent: DiscoverIntentSlug;
   coords: Coordinates | null;
+  limit?: number;
+  offset?: number;
 }
 
 /** Chip-opened picture grid (plan-v1-home-pivot.md §6). Never a blank search — arrives pre-filtered and pre-answered. */
 export async function buildDiscoverResponse(input: BuildDiscoverInput): Promise<DiscoverResponse> {
   const { deviceId, tripId, intent, coords } = input;
+  const limit = input.limit ?? DEFAULT_DISCOVER_LIMIT;
+  const offset = input.offset ?? 0;
   const trip = await getTrip(deviceId, tripId);
   if (!trip) return { title: "", meta: "", items: [], degraded: "no-trip" };
 
@@ -133,8 +140,12 @@ export async function buildDiscoverResponse(input: BuildDiscoverInput): Promise<
     title = "What's on tonight";
     const midnight = new Date();
     midnight.setHours(26, 0, 0, 0); // 2am "tomorrow"
+    // Ask for enough events to cover this page (the events pipeline doesn't
+    // carry a true offset through to its providers — see lib/events/getForDestination.ts
+    // — so, like /api/places' live-Google branch, this over-fetches to
+    // `offset + limit` and windows the result below).
     const events = trip.destination
-      ? await getEventsForDestination({ destination: trip.destination, to: midnight.toISOString(), limit: 20 })
+      ? await getEventsForDestination({ destination: trip.destination, to: midnight.toISOString(), limit: offset + limit })
           .then((r) => r.events)
           .catch((err) => {
             console.error("[now/discover] events lookup failed", err);
@@ -147,14 +158,18 @@ export async function buildDiscoverResponse(input: BuildDiscoverInput): Promise<
       const filler = candidatePlaces
         .filter((p) => isNightlifeish(p) && !usedIds.has(p.id))
         .sort(byMentionThenRating)
-        .slice(0, 6 - items.length)
+        .slice(0, Math.max(6, limit) - items.length)
         .map((p) => placeToCandidate(p, coords));
       items = [...items, ...filler];
     }
+    items = items.slice(offset, offset + limit);
   } else if (intent === "book") {
     title = "Book something";
+    // getExperiencesForDestination already supports limit/offset natively
+    // (it fans out to the provider APIs with those params) — pass them
+    // straight through instead of over-fetching-and-slicing.
     const experiences = trip.destination
-      ? await getExperiencesForDestination({ destination: trip.destination })
+      ? await getExperiencesForDestination({ destination: trip.destination, limit, offset })
           .then((r) => r.experiences)
           .catch((err) => {
             console.error("[now/discover] experiences lookup failed", err);
@@ -167,7 +182,7 @@ export async function buildDiscoverResponse(input: BuildDiscoverInput): Promise<
     items = candidatePlaces
       .filter(isFoodish)
       .sort((a, b) => byMentionThenRating(a, b) || (placeDistanceKm(coords, a) ?? 99) - (placeDistanceKm(coords, b) ?? 99))
-      .slice(0, 20)
+      .slice(offset, offset + limit)
       .map((p) => placeToCandidate(p, coords));
   } else {
     // gap | indoors
@@ -175,10 +190,13 @@ export async function buildDiscoverResponse(input: BuildDiscoverInput): Promise<
     items = candidatePlaces
       .filter((p) => (intent === "indoors" ? isIndoorish(p) : true))
       .sort(byMentionThenRating)
-      .slice(0, 20)
+      .slice(offset, offset + limit)
       .map((p) => placeToCandidate(p, coords));
   }
 
   const meta = coords ? `${items.length} things, walkable` : `${items.length} things`;
-  return { title, meta, items, degraded: items.length === 0 ? "empty" : null };
+  // Only the first page reports "empty" as a degrade — an empty later page
+  // just means pagination reached the end (same rationale as
+  // lib/experiences/getForDestination.ts's offset > 0 branch).
+  return { title, meta, items, degraded: items.length === 0 && offset === 0 ? "empty" : null };
 }

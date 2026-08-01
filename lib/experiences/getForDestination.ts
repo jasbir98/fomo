@@ -25,7 +25,7 @@ import {
 } from "@/lib/experiences/viator";
 import { searchGetYourGuideExperiences } from "@/lib/experiences/getyourguide";
 
-const DEFAULT_LIMIT = 12;
+const DEFAULT_LIMIT = 24;
 
 // The two adapters each define their own local MappedExperience type (by
 // design — see getyourguide.ts's file comment) that differ slightly in

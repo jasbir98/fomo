@@ -113,7 +113,7 @@ export async function loadCandidatePlaces(destination: string | null, coords: Co
   if (!destination || !process.env.GOOGLE_PLACES_API_KEY) return [];
   try {
     const center = coords ?? (await geocodeDestination(destination));
-    const mapped = await searchPlaces({ destination, limit: 20, center });
+    const mapped = await searchPlaces({ destination, limit: 40, center });
     return mapped.map((m) => ({
       id: m.google_place_id,
       name: m.name,
@@ -216,7 +216,7 @@ export async function buildRankContext(input: BuildContextInput): Promise<RankCo
   const [candidatePlaces, candidateEvents, candidateExperiences, forecast] = await Promise.all([
     loadCandidatePlaces(trip.destination, coords),
     trip.destination
-      ? getEventsForDestination({ destination: trip.destination, limit: 20 })
+      ? getEventsForDestination({ destination: trip.destination, limit: 40 })
           .then((r) => r.events)
           .catch((err) => {
             console.error("[now/context] events lookup failed", err);

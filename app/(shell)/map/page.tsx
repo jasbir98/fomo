@@ -84,6 +84,11 @@ const ITINERARY_MARKER_COLOR = "#22c55e"; // green — matches the "Activity" le
 /** Fallback center (Tokyo) when geocoding is unavailable. */
 const DEFAULT_CENTER: [number, number] = [139.767, 35.681];
 
+// Matches /api/places' new default (app/api/places/route.ts) — sent
+// explicitly so the Map page's page size stays visible here rather than
+// depending on whatever the route defaults to.
+const PLACES_LIMIT = 24;
+
 const MAPBOX_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_TOKEN ?? "";
 
 interface PlacesResponse {
@@ -166,7 +171,11 @@ export default function MapDiscoveryPage() {
     if (!destination) return; // guards the initial mount — loading stays true
     let cancelled = false;
     const trimmedSearch = search.trim();
-    const params = new URLSearchParams({ destination });
+    // Explicitly send `limit` — see the null-vs-0 guard comment in
+    // app/api/places/route.ts: relying on the route's own default here would
+    // work today, but pinning it keeps this page's page-size decision
+    // visible and independent of the API's default changing later.
+    const params = new URLSearchParams({ destination, limit: String(PLACES_LIMIT) });
     if (trimmedSearch) {
       params.set("q", trimmedSearch);
     } else if (activeSlug) {
@@ -335,7 +344,9 @@ export default function MapDiscoveryPage() {
       const entries = await Promise.all(
         pending.map(async (q) => {
           try {
-            const params = new URLSearchParams({ destination, q });
+            // Only the first hit is used below — limit=1 keeps this
+            // per-item geocode resolve cheap instead of pulling a full page.
+            const params = new URLSearchParams({ destination, q, limit: "1" });
             const res = await fetch(`/api/places?${params.toString()}`);
             const data = (await res.json()) as { places?: Place[] };
             const hit = data.places?.[0];

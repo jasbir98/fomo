@@ -4,9 +4,9 @@
  * GET /api/experiences?destination=<string>&q=<text>&category=<slug>&limit=<n>&offset=<n>
  *   q:        free-text search, passed through to both provider adapters
  *   category: passed through to both provider adapters
- *   limit:    default 12, max 20
+ *   limit:    default 24, max 60
  *   offset:   default 0 — how many results to skip, for infinite-scroll
- *             pagination (page 2 of a browse is offset=12, etc.)
+ *             pagination (page 2 of a browse is offset=24, etc.)
  *
  * Pipeline: Mapbox-geocode the destination → live-fetch-and-cache via
  * getExperiencesForDestination() (lib/experiences/getForDestination.ts —
@@ -46,13 +46,14 @@ export async function GET(request: Request) {
   // Number(null) is 0 (not NaN) — Number.isFinite(0) is true, so without this
   // explicit null check the "no limit given" case was silently clamped to
   // Math.max(0, 1) = 1 instead of falling through to the intended default of
-  // 12. Confirmed live: the browse page (which never sends `limit`) was
-  // always capped to a single result per destination because of this.
+  // 24. The browse page (app/(shell)/experiences/page.tsx) now always sends
+  // `limit` explicitly via lib/useInfiniteList.ts, but this guard still
+  // protects any other caller that omits it.
   const rawLimitParam = searchParams.get("limit");
   const rawLimit = rawLimitParam == null ? NaN : Number(rawLimitParam);
   const limit = Number.isFinite(rawLimit)
-    ? Math.min(Math.max(Math.trunc(rawLimit), 1), 20)
-    : 12;
+    ? Math.min(Math.max(Math.trunc(rawLimit), 1), 60)
+    : 24;
   const rawOffsetParam = searchParams.get("offset");
   const rawOffset = rawOffsetParam == null ? NaN : Number(rawOffsetParam);
   const offset = Number.isFinite(rawOffset) ? Math.max(Math.trunc(rawOffset), 0) : 0;

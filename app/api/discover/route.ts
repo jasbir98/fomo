@@ -1,5 +1,7 @@
 /**
- * Roameo chip discover surface (server-only). GET /api/discover?intent=&deviceId=&tripId=&lat=&lng=
+ * Roameo chip discover surface (server-only). GET /api/discover?intent=&deviceId=&tripId=&lat=&lng=&limit=&offset=
+ *   limit:  default 40, max 60
+ *   offset: default 0 — pagination, see lib/now/discover.ts
  * See lib/now/discover.ts — this route is purely request parsing + response shaping.
  */
 import "server-only";
@@ -32,8 +34,17 @@ export async function GET(request: Request) {
   const lng = lngParam == null ? NaN : Number(lngParam);
   const coords = Number.isFinite(lat) && Number.isFinite(lng) ? { lat, lng } : null;
 
+  // Same null-vs-0 guard as lat/lng above and as /api/places' limit param.
+  const rawLimitParam = searchParams.get("limit");
+  const rawLimit = rawLimitParam == null ? NaN : Number(rawLimitParam);
+  const limit = Number.isFinite(rawLimit) ? Math.min(Math.max(Math.trunc(rawLimit), 1), 60) : undefined;
+
+  const rawOffsetParam = searchParams.get("offset");
+  const rawOffset = rawOffsetParam == null ? NaN : Number(rawOffsetParam);
+  const offset = Number.isFinite(rawOffset) ? Math.max(Math.trunc(rawOffset), 0) : undefined;
+
   try {
-    const result = await buildDiscoverResponse({ deviceId, tripId, intent, coords });
+    const result = await buildDiscoverResponse({ deviceId, tripId, intent, coords, limit, offset });
     return NextResponse.json<DiscoverResponse>(result);
   } catch (err) {
     console.error("[api/discover] failed", err);

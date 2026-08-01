@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useDeviceId } from "@/lib/device";
 import { getCurrentTrip } from "@/lib/db";
 import type { Experience, Trip } from "@/lib/types";
 import { formatExperiencePrice, formatExperienceRating } from "@/lib/experiences/format";
+import { useInfiniteList } from "@/lib/useInfiniteList";
 import { Chip, Icon, PageHeader } from "@/components/ui";
 
 /** Category chip → the slug the /api/experiences route understands. */
@@ -24,9 +25,9 @@ interface ExperiencesResponse {
 }
 
 // One provider search page's worth of results — matches the /api/experiences
-// route's own default so a "load more" scroll fetches the same page size as
-// the initial load.
-const PAGE_SIZE = 12;
+// route's own default (lib/experiences/getForDestination.ts's DEFAULT_LIMIT)
+// so a "load more" scroll fetches the same page size as the initial load.
+const PAGE_SIZE = 24;
 
 /** Human-readable badge for a provider slug ("viator" | "getyourguide"). */
 function providerLabel(provider: string): string {
@@ -42,26 +43,9 @@ export default function ExperiencesBrowsePage() {
   const [tripChecked, setTripChecked] = useState(false);
   const [search, setSearch] = useState("");
   const [activeSlug, setActiveSlug] = useState<string | null>(null);
-  const [experiences, setExperiences] = useState<Experience[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [loadingMore, setLoadingMore] = useState(false);
-  const [hasMore, setHasMore] = useState(true);
   const [degraded, setDegraded] = useState<string | null>(null);
 
   const destination = trip?.destination ?? null;
-  const sentinelRef = useRef<HTMLDivElement>(null);
-  // Mutable mirrors read by the IntersectionObserver callback below, so the
-  // observer only needs to be attached once per destination rather than torn
-  // down and recreated on every keystroke/page fetch — same "read latest
-  // value via ref" rationale as lib/useProgressiveReveal.ts.
-  const liveRef = useRef({ destination, search, activeSlug, hasMore, loadingMore, experiences });
-  useEffect(() => {
-    liveRef.current = { destination, search, activeSlug, hasMore, loadingMore, experiences };
-  });
-  // Bumped on every filter change so a "load more" response that resolves
-  // after the user has already switched search/category/destination gets
-  // discarded instead of appending stale rows to the new list.
-  const requestIdRef = useRef(0);
 
   // Load the active trip. No auto-seed — a device with no trip gets an empty
   // state that routes into the create-trip flow (mirrors app/(shell)/map/page.tsx).
@@ -83,93 +67,37 @@ export default function ExperiencesBrowsePage() {
     };
   }, [deviceId]);
 
-  // Fetch page 1 whenever destination, search, or category changes — resets
-  // the accumulated list and pagination state. Debounced 300ms, same pattern
-  // as app/(shell)/map/page.tsx.
-  useEffect(() => {
-    if (!destination) return;
-    let cancelled = false;
-    const myRequestId = ++requestIdRef.current;
-    const trimmedSearch = search.trim();
-    const params = new URLSearchParams({ destination, limit: String(PAGE_SIZE) });
-    if (trimmedSearch) params.set("q", trimmedSearch);
-    if (activeSlug) params.set("category", activeSlug);
-    const timer = setTimeout(() => {
-      (async () => {
-        setLoading(true);
-        try {
-          const res = await fetch(`/api/experiences?${params.toString()}`);
-          const data = (await res.json()) as ExperiencesResponse;
-          if (cancelled || requestIdRef.current !== myRequestId) return;
-          const rows = data.experiences ?? [];
-          setExperiences(rows);
-          setDegraded(data.degraded ?? null);
-          setHasMore(rows.length >= PAGE_SIZE);
-        } catch (err) {
-          if (!cancelled) console.error("[experiences] load failed", err);
-        } finally {
-          if (!cancelled) setLoading(false);
-        }
-      })();
-    }, 300);
-    return () => {
-      cancelled = true;
-      clearTimeout(timer);
-    };
-  }, [destination, activeSlug, search]);
-
-  // Infinite scroll: load the next page when the trailing sentinel scrolls
-  // into view. Reads the current filters/accumulated-count via liveRef so it
-  // doesn't need tearing down and recreating on every page fetch or
-  // keystroke — but it DOES need `loading` in its deps: the sentinel <div>
-  // only mounts once the first page has rendered (it lives inside the
-  // "not loading" branch below), so `sentinelRef.current` is still null the
-  // first time this effect runs (right when `destination` is set, while
-  // `loading` is still true) — without re-running once `loading` flips to
-  // false, the observer would never get attached to the real node at all.
-  useEffect(() => {
-    const node = sentinelRef.current;
-    if (!node || !destination) return;
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (!entries[0]?.isIntersecting) return;
-        const { destination: dest, search: s, activeSlug: slug, hasMore: more, loadingMore: busy, experiences: current } =
-          liveRef.current;
-        if (!dest || !more || busy) return;
-
-        const myRequestId = requestIdRef.current;
-        setLoadingMore(true);
-        const params = new URLSearchParams({
-          destination: dest,
-          limit: String(PAGE_SIZE),
-          offset: String(current.length),
-        });
-        const trimmed = s.trim();
-        if (trimmed) params.set("q", trimmed);
-        if (slug) params.set("category", slug);
-
-        fetch(`/api/experiences?${params.toString()}`)
-          .then((res) => res.json())
-          .then((data: ExperiencesResponse) => {
-            if (requestIdRef.current !== myRequestId) return; // filters changed mid-fetch
-            const rows = data.experiences ?? [];
-            setExperiences((prev) => {
-              const seen = new Set(prev.map((p) => p.id));
-              const fresh = rows.filter((r) => !seen.has(r.id));
-              return fresh.length > 0 ? [...prev, ...fresh] : prev;
-            });
-            setHasMore(rows.length >= PAGE_SIZE);
-          })
-          .catch((err) => console.error("[experiences] load more failed", err))
-          .finally(() => {
-            if (requestIdRef.current === myRequestId) setLoadingMore(false);
-          });
+  // Paginated fetch — shared infinite-scroll machinery (liveRef mirror,
+  // fetch-generation counter, hasMore-from-page-size) lives in
+  // lib/useInfiniteList.ts now; this page only supplies the request shape.
+  const {
+    items: experiences,
+    loading,
+    loadingMore,
+    hasMore,
+    sentinelRef,
+  } = useInfiniteList<Experience>(
+    {
+      enabled: !!destination,
+      pageSize: PAGE_SIZE,
+      debounceMs: 300,
+      getId: (e) => e.id,
+      onError: (err, phase) =>
+        console.error(`[experiences] ${phase === "initial" ? "load" : "load more"} failed`, err),
+      fetchPage: async ({ limit, offset }) => {
+        if (!destination) return [];
+        const trimmedSearch = search.trim();
+        const params = new URLSearchParams({ destination, limit: String(limit), offset: String(offset) });
+        if (trimmedSearch) params.set("q", trimmedSearch);
+        if (activeSlug) params.set("category", activeSlug);
+        const res = await fetch(`/api/experiences?${params.toString()}`);
+        const data = (await res.json()) as ExperiencesResponse;
+        setDegraded(data.degraded ?? null);
+        return data.experiences ?? [];
       },
-      { rootMargin: "0px 0px 600px 0px", threshold: 0 }
-    );
-    observer.observe(node);
-    return () => observer.disconnect();
-  }, [destination, loading]);
+    },
+    [destination, activeSlug, search]
+  );
 
   // No active trip — invite the traveler to create one (experiences need a destination).
   if (tripChecked && !trip) {

@@ -129,14 +129,38 @@ function selectTop(ranked: Candidate[], railSize: number): { hero: Candidate | n
   const heroIndex = pickHeroIndex(deduped);
   const hero = deduped[heroIndex];
   const remaining = deduped.filter((_, i) => i !== heroIndex);
-  const seenGenerators = new Set<string>();
+
+  // Pass 1 — one card per generator, seeded with the hero's own generator so
+  // the rail's first pass doesn't just repeat the hero's shelf. This is the
+  // rule that stops the rail collapsing into "nearby places / nearby events /
+  // nearby experiences" (plan-v1-home-pivot.md §9.5).
+  const seenGenerators = new Set<string>([hero.generator]);
+  const railSubjects = new Set<string>();
   const rail: Candidate[] = [];
   for (const c of remaining) {
+    if (rail.length >= railSize) break;
     if (seenGenerators.has(c.generator)) continue;
     seenGenerators.add(c.generator);
+    railSubjects.add(subjectKey(c));
     rail.push(c);
-    if (rail.length >= railSize) break;
   }
+
+  // Pass 2 — the strict one-per-generator pass above caps the rail at
+  // (distinct-generator count) items, which starves it below `railSize` on
+  // any day where few generators fire even though plenty of good candidates
+  // remain. Relax the one-per-generator rule and fill the remaining slots
+  // with whatever scored next, still respecting subject-level dedup (a
+  // candidate already in the rail, or already the hero, is never repeated).
+  // The rail should end up size-limited, not generator-starved.
+  if (rail.length < railSize) {
+    for (const c of remaining) {
+      if (rail.length >= railSize) break;
+      if (railSubjects.has(subjectKey(c))) continue;
+      railSubjects.add(subjectKey(c));
+      rail.push(c);
+    }
+  }
+
   return { hero, rail };
 }
 
@@ -196,7 +220,7 @@ function buildChips(ctx: RankContext): DiscoverChip[] {
     .map(({ intent, label }) => ({ intent, label }));
 }
 
-const RAIL_SIZE = 5;
+const RAIL_SIZE = 10;
 
 export async function buildNowResponse(ctx: RankContext): Promise<NowResponse> {
   const raw = await generateCandidates(ctx);

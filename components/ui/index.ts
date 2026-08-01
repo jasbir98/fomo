@@ -28,5 +28,7 @@ export { ProgressDots } from "./ProgressDots";
 export type { ProgressDotsProps } from "./ProgressDots";
 export { PageHeader } from "./PageHeader";
 export type { PageHeaderProps } from "./PageHeader";
+export { SectionHeader } from "./SectionHeader";
+export type { SectionHeaderProps } from "./SectionHeader";
 export { PhotoCarousel } from "./PhotoCarousel";
 export type { PhotoCarouselProps, CarouselPhoto } from "./PhotoCarousel";
