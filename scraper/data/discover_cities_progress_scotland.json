@@ -1,0 +1,162 @@
+{
+  "City of Edinburgh": {
+    "status": "done",
+    "city_count": 3,
+    "excluded_count": 0
+  },
+  "East Lothian": {
+    "status": "done",
+    "city_count": 6,
+    "excluded_count": 0
+  },
+  "Midlothian": {
+    "status": "done",
+    "city_count": 3,
+    "excluded_count": 0
+  },
+  "West Lothian": {
+    "status": "done",
+    "city_count": 4,
+    "excluded_count": 0
+  },
+  "Glasgow City": {
+    "status": "done",
+    "city_count": 5,
+    "excluded_count": 0
+  },
+  "North Lanarkshire": {
+    "status": "done",
+    "city_count": 5,
+    "excluded_count": 0
+  },
+  "South Lanarkshire": {
+    "status": "done",
+    "city_count": 5,
+    "excluded_count": 0
+  },
+  "East Renfrewshire": {
+    "status": "done",
+    "city_count": 5,
+    "excluded_count": 0
+  },
+  "Renfrewshire": {
+    "status": "done",
+    "city_count": 3,
+    "excluded_count": 0
+  },
+  "Inverclyde": {
+    "status": "done",
+    "city_count": 3,
+    "excluded_count": 0
+  },
+  "East Dunbartonshire": {
+    "status": "done",
+    "city_count": 3,
+    "excluded_count": 0
+  },
+  "West Dunbartonshire": {
+    "status": "done",
+    "city_count": 4,
+    "excluded_count": 0
+  },
+  "Highland": {
+    "status": "done",
+    "city_count": 8,
+    "excluded_count": 0
+  },
+  "Aberdeen City": {
+    "status": "done",
+    "city_count": 2,
+    "excluded_count": 0
+  },
+  "Aberdeenshire": {
+    "status": "done",
+    "city_count": 6,
+    "excluded_count": 0
+  },
+  "Moray": {
+    "status": "done",
+    "city_count": 5,
+    "excluded_count": 0
+  },
+  "Argyll and Bute": {
+    "status": "done",
+    "city_count": 8,
+    "excluded_count": 0
+  },
+  "Fife": {
+    "status": "done",
+    "city_count": 7,
+    "excluded_count": 0
+  },
+  "Perth and Kinross": {
+    "status": "done",
+    "city_count": 8,
+    "excluded_count": 0
+  },
+  "Stirling": {
+    "status": "done",
+    "city_count": 4,
+    "excluded_count": 0
+  },
+  "Clackmannanshire": {
+    "status": "done",
+    "city_count": 4,
+    "excluded_count": 0
+  },
+  "Falkirk": {
+    "status": "done",
+    "city_count": 4,
+    "excluded_count": 0
+  },
+  "East Ayrshire": {
+    "status": "done",
+    "city_count": 4,
+    "excluded_count": 0
+  },
+  "South Ayrshire": {
+    "status": "done",
+    "city_count": 7,
+    "excluded_count": 0
+  },
+  "North Ayrshire": {
+    "status": "done",
+    "city_count": 5,
+    "excluded_count": 0
+  },
+  "Scottish Borders": {
+    "status": "done",
+    "city_count": 8,
+    "excluded_count": 0
+  },
+  "Dumfries and Galloway": {
+    "status": "done",
+    "city_count": 6,
+    "excluded_count": 0
+  },
+  "Angus": {
+    "status": "done",
+    "city_count": 5,
+    "excluded_count": 0
+  },
+  "Dundee City": {
+    "status": "done",
+    "city_count": 2,
+    "excluded_count": 0
+  },
+  "Na h-Eileanan Siar": {
+    "status": "done",
+    "city_count": 4,
+    "excluded_count": 0
+  },
+  "Orkney Islands": {
+    "status": "done",
+    "city_count": 3,
+    "excluded_count": 0
+  },
+  "Shetland Islands": {
+    "status": "done",
+    "city_count": 4,
+    "excluded_count": 0
+  }
+}

@@ -1,0 +1,1073 @@
+[
+  {
+    "prefecture": "City of Edinburgh",
+    "city": "Edinburgh",
+    "region": "Edinburgh & Lothians",
+    "tier": "major",
+    "reason": "Scotland's capital with world-renowned attractions including Edinburgh Castle, the Royal Mile, Holyrood Palace, and a major festival hub"
+  },
+  {
+    "prefecture": "City of Edinburgh",
+    "city": "Leith",
+    "region": "Edinburgh & Lothians",
+    "tier": "mid",
+    "reason": "Historic port district with The Shore waterfront, ocean terminal, and regenerated cultural venues attracting visitors to Edinburgh's waterfront"
+  },
+  {
+    "prefecture": "City of Edinburgh",
+    "city": "Dean Village",
+    "region": "Edinburgh & Lothians",
+    "tier": "minor",
+    "reason": "Picturesque historic village within Edinburgh featuring the Water of Leith, artisan galleries, and boutique shops"
+  },
+  {
+    "prefecture": "East Lothian",
+    "city": "North Berwick",
+    "region": "Edinburgh & Lothians",
+    "tier": "mid",
+    "reason": "Coastal town with sandy beaches, golf courses, and the iconic Bass Rock seabird sanctuary."
+  },
+  {
+    "prefecture": "East Lothian",
+    "city": "Dunbar",
+    "region": "Edinburgh & Lothians",
+    "tier": "mid",
+    "reason": "Historic coastal town with Dunbar Castle ruins, harbourside charm, and John Muir's birthplace museum."
+  },
+  {
+    "prefecture": "East Lothian",
+    "city": "Musselburgh",
+    "region": "Edinburgh & Lothians",
+    "tier": "mid",
+    "reason": "Historic royal burgh near Edinburgh with golf heritage, riverside walks, and traditional Scottish character."
+  },
+  {
+    "prefecture": "East Lothian",
+    "city": "East Linton",
+    "region": "Edinburgh & Lothians",
+    "tier": "minor",
+    "reason": "Picturesque village known for Preston Mill and Phantassie Doocot, notable historic structures."
+  },
+  {
+    "prefecture": "East Lothian",
+    "city": "Haddington",
+    "region": "Edinburgh & Lothians",
+    "tier": "mid",
+    "reason": "County town with well-preserved Georgian architecture, Jane Austen connections, and the historic St Mary's Church."
+  },
+  {
+    "prefecture": "East Lothian",
+    "city": "Tantallon",
+    "region": "Edinburgh & Lothians",
+    "tier": "minor",
+    "reason": "Home to the dramatic ruins of Tantallon Castle, a fourteenth-century stronghold on the coast."
+  },
+  {
+    "prefecture": "Midlothian",
+    "city": "Dalkeith",
+    "region": "Edinburgh & Lothians",
+    "tier": "mid",
+    "reason": "Home to Dalkeith Palace and a historic market town with strong heritage tourism appeal."
+  },
+  {
+    "prefecture": "Midlothian",
+    "city": "Penicuik",
+    "region": "Edinburgh & Lothians",
+    "tier": "minor",
+    "reason": "Gateway to the Pentland Hills with outdoor recreation and countryside walks."
+  },
+  {
+    "prefecture": "Midlothian",
+    "city": "Bonnyrigg",
+    "region": "Edinburgh & Lothians",
+    "tier": "minor",
+    "reason": "Historic coal-mining town with heritage sites and proximity to riverside walks."
+  },
+  {
+    "prefecture": "West Lothian",
+    "city": "Linlithgow",
+    "region": "Edinburgh & Lothians",
+    "tier": "mid",
+    "reason": "Historic royal burgh home to the ruins of Linlithgow Palace, birthplace of Mary Queen of Scots."
+  },
+  {
+    "prefecture": "West Lothian",
+    "city": "South Queensferry",
+    "region": "Edinburgh & Lothians",
+    "tier": "major",
+    "reason": "Gateway to the iconic Forth Bridge and Forth Road Bridge, major tourist transport landmarks."
+  },
+  {
+    "prefecture": "West Lothian",
+    "city": "Bathgate",
+    "region": "Edinburgh & Lothians",
+    "tier": "minor",
+    "reason": "Industrial heritage site with the historic Bathgate High Street and local museums."
+  },
+  {
+    "prefecture": "West Lothian",
+    "city": "Livingston",
+    "region": "Edinburgh & Lothians",
+    "tier": "mid",
+    "reason": "New town with Livingston Designer Outlet and Almond Valley Heritage Centre, popular shopping and family destination."
+  },
+  {
+    "prefecture": "Glasgow City",
+    "city": "Glasgow city centre",
+    "region": "Glasgow & Clyde Valley",
+    "tier": "major",
+    "reason": "Major cultural hub with world-class museums (Burrell Collection, Kelvingrove), Victorian architecture, shopping, and nightlife."
+  },
+  {
+    "prefecture": "Glasgow City",
+    "city": "Merchant City",
+    "region": "Glasgow & Clyde Valley",
+    "tier": "mid",
+    "reason": "Historic quarter with converted warehouses, galleries, restaurants, and bars; focal point of Glasgow's cultural scene."
+  },
+  {
+    "prefecture": "Glasgow City",
+    "city": "West End",
+    "region": "Glasgow & Clyde Valley",
+    "tier": "mid",
+    "reason": "Vibrant area featuring the University of Glasgow, Botanic Gardens, Byres Road shopping and dining, and Victorian tenements."
+  },
+  {
+    "prefecture": "Glasgow City",
+    "city": "Southside",
+    "region": "Glasgow & Clyde Valley",
+    "tier": "minor",
+    "reason": "Home to Pollok Country Park and Pollok House, offering green space and country-house history."
+  },
+  {
+    "prefecture": "Glasgow City",
+    "city": "East End",
+    "region": "Glasgow & Clyde Valley",
+    "tier": "minor",
+    "reason": "Features the Barras market and Calton Entry, offering a glimpse of Glasgow's working-class heritage and street art."
+  },
+  {
+    "prefecture": "North Lanarkshire",
+    "city": "Motherwell",
+    "region": "Glasgow & Clyde Valley",
+    "tier": "mid",
+    "reason": "Home to the National Museum of Rural Life and Strathclyde Country Park, a major recreational and cultural hub."
+  },
+  {
+    "prefecture": "North Lanarkshire",
+    "city": "Wishaw",
+    "region": "Glasgow & Clyde Valley",
+    "tier": "minor",
+    "reason": "Historic industrial town with connections to Scottish steel and coal heritage; local historical interest."
+  },
+  {
+    "prefecture": "North Lanarkshire",
+    "city": "Airdrie",
+    "region": "Glasgow & Clyde Valley",
+    "tier": "mid",
+    "reason": "Gateway to the council area with Summerlee Heritage Centre exploring Scottish industrial history and outdoor leisure facilities."
+  },
+  {
+    "prefecture": "North Lanarkshire",
+    "city": "Coatbridge",
+    "region": "Glasgow & Clyde Valley",
+    "tier": "minor",
+    "reason": "Industrial heritage interest with nearby Monklands Canal and connections to Scotland's iron and steel past."
+  },
+  {
+    "prefecture": "North Lanarkshire",
+    "city": "Cumbernauld",
+    "region": "Glasgow & Clyde Valley",
+    "tier": "minor",
+    "reason": "Planned new town with Cumbernauld House and Country Park offering heritage and outdoor recreation."
+  },
+  {
+    "prefecture": "South Lanarkshire",
+    "city": "Lanark",
+    "region": "Glasgow & Clyde Valley",
+    "tier": "mid",
+    "reason": "Historic royal burgh home to New Lanark UNESCO World Heritage Site, an 18th-century cotton mill village."
+  },
+  {
+    "prefecture": "South Lanarkshire",
+    "city": "Strathaven",
+    "region": "Glasgow & Clyde Valley",
+    "tier": "mid",
+    "reason": "Attractive market town with Strathaven Castle ruins and strong local shopping and dining appeal."
+  },
+  {
+    "prefecture": "South Lanarkshire",
+    "city": "Hamilton",
+    "region": "Glasgow & Clyde Valley",
+    "tier": "mid",
+    "reason": "Council area's largest town with Hamilton Palace heritage, Low Parks Museum, and shopping amenities."
+  },
+  {
+    "prefecture": "South Lanarkshire",
+    "city": "Carluke",
+    "region": "Glasgow & Clyde Valley",
+    "tier": "minor",
+    "reason": "Small town with local heritage attractions and access to the Clyde Valley countryside."
+  },
+  {
+    "prefecture": "South Lanarkshire",
+    "city": "Larkhall",
+    "region": "Glasgow & Clyde Valley",
+    "tier": "minor",
+    "reason": "Industrial town with some local historical interest and proximity to Clyde Valley scenic areas."
+  },
+  {
+    "prefecture": "East Renfrewshire",
+    "city": "Giffnock",
+    "region": "Glasgow & Clyde Valley",
+    "tier": "mid",
+    "reason": "Affluent suburb with shopping, dining, and proximity to Pollok Country Park and Glasgow attractions."
+  },
+  {
+    "prefecture": "East Renfrewshire",
+    "city": "Newton Mearns",
+    "region": "Glasgow & Clyde Valley",
+    "tier": "mid",
+    "reason": "Village with historic charm, Mearns Castle, and scenic countryside access near Glasgow."
+  },
+  {
+    "prefecture": "East Renfrewshire",
+    "city": "Clarkston",
+    "region": "Glasgow & Clyde Valley",
+    "tier": "minor",
+    "reason": "Residential area with Busby and local green spaces, gateway to rural East Renfrewshire."
+  },
+  {
+    "prefecture": "East Renfrewshire",
+    "city": "Eaglesham",
+    "region": "Glasgow & Clyde Valley",
+    "tier": "mid",
+    "reason": "Picturesque planned village with historic architecture, village green, and rural walking routes."
+  },
+  {
+    "prefecture": "East Renfrewshire",
+    "city": "Waterfoot",
+    "region": "Glasgow & Clyde Valley",
+    "tier": "minor",
+    "reason": "Small village in attractive countryside with local walks and access to Rouken Glen Park."
+  },
+  {
+    "prefecture": "Renfrewshire",
+    "city": "Paisley",
+    "region": "Glasgow & Clyde Valley",
+    "tier": "major",
+    "reason": "Historic former thread-manufacturing hub with stunning Paisley Abbey, art galleries, and museums; the iconic Paisley Pattern is globally recognized."
+  },
+  {
+    "prefecture": "Renfrewshire",
+    "city": "Renfrew",
+    "region": "Glasgow & Clyde Valley",
+    "tier": "mid",
+    "reason": "Historic riverside town with connections to Scottish history and the River Clyde; home to Renfrew Ferry and Inchinnan heritage sites."
+  },
+  {
+    "prefecture": "Renfrewshire",
+    "city": "Johnstone",
+    "region": "Glasgow & Clyde Valley",
+    "tier": "minor",
+    "reason": "Market town with local heritage and proximity to Clyde Valley attractions; modest tourist appeal for heritage seekers."
+  },
+  {
+    "prefecture": "Inverclyde",
+    "city": "Greenock",
+    "region": "Glasgow & Clyde Valley",
+    "tier": "mid",
+    "reason": "Port town with Greenock Cut, Victorian architecture, and maritime heritage museum; gateway to Clyde coast."
+  },
+  {
+    "prefecture": "Inverclyde",
+    "city": "Gourock",
+    "region": "Glasgow & Clyde Valley",
+    "tier": "mid",
+    "reason": "Seaside resort with promenade, coastal walks, ferry access to Dunoon, and panoramic Firth of Clyde views."
+  },
+  {
+    "prefecture": "Inverclyde",
+    "city": "Port Glasgow",
+    "region": "Glasgow & Clyde Valley",
+    "tier": "minor",
+    "reason": "Historic shipbuilding town with Newark Castle and industrial heritage along the Clyde."
+  },
+  {
+    "prefecture": "East Dunbartonshire",
+    "city": "Kirkintilloch",
+    "region": "Glasgow & Clyde Valley",
+    "tier": "mid",
+    "reason": "Historic canal town on the Forth & Clyde Canal with museums, pubs, and waterfront walks popular with visitors."
+  },
+  {
+    "prefecture": "East Dunbartonshire",
+    "city": "Bearsden",
+    "region": "Glasgow & Clyde Valley",
+    "tier": "minor",
+    "reason": "Affluent suburb with the Antonine Wall Roman heritage site and access to Mugdock Country Park."
+  },
+  {
+    "prefecture": "East Dunbartonshire",
+    "city": "Milngavie",
+    "region": "Glasgow & Clyde Valley",
+    "tier": "minor",
+    "reason": "Gateway to the West Highland Way long-distance trail and home to the Lillie Art Gallery."
+  },
+  {
+    "prefecture": "West Dunbartonshire",
+    "city": "Dumbarton",
+    "region": "Glasgow & Clyde Valley",
+    "tier": "mid",
+    "reason": "Historic castle overlooking the Clyde estuary and a former shipbuilding hub with maritime heritage."
+  },
+  {
+    "prefecture": "West Dunbartonshire",
+    "city": "Helensburgh",
+    "region": "Glasgow & Clyde Valley",
+    "tier": "mid",
+    "reason": "Seaside resort town on the Firth of Clyde known for beaches, the iconic Hill House by Charles Rennie Mackintosh, and Victorian architecture."
+  },
+  {
+    "prefecture": "West Dunbartonshire",
+    "city": "Alexandria",
+    "region": "Glasgow & Clyde Valley",
+    "tier": "minor",
+    "reason": "Industrial heritage site with the Vale of Leven, former centre of the dyeing and calico printing industry."
+  },
+  {
+    "prefecture": "West Dunbartonshire",
+    "city": "Balloch",
+    "region": "Glasgow & Clyde Valley",
+    "tier": "mid",
+    "reason": "Gateway to Loch Lomond with waterfront attractions, boat trips, and access to the Loch Lomond & The Trossachs National Park."
+  },
+  {
+    "prefecture": "Highland",
+    "city": "Inverness",
+    "region": "Highlands",
+    "tier": "major",
+    "reason": "Regional capital and gateway to the Highlands; historic castle, riverside attractions, and major transport hub."
+  },
+  {
+    "prefecture": "Highland",
+    "city": "Fort William",
+    "region": "Highlands",
+    "tier": "major",
+    "reason": "Gateway to Ben Nevis (UK's highest peak), outdoor adventure hub, and West Highland Way terminus."
+  },
+  {
+    "prefecture": "Highland",
+    "city": "Ullapool",
+    "region": "Highlands",
+    "tier": "mid",
+    "reason": "Charming west-coast fishing village and ferry gateway to the Outer Hebrides with scenic coastal walks."
+  },
+  {
+    "prefecture": "Highland",
+    "city": "Aviemore",
+    "region": "Highlands",
+    "tier": "mid",
+    "reason": "Mountain resort village in the Cairngorms with skiing, hiking, and outdoor activity center."
+  },
+  {
+    "prefecture": "Highland",
+    "city": "Portree",
+    "region": "Highlands",
+    "tier": "mid",
+    "reason": "Capital of Isle of Skye; colorful harbor village with gateway to dramatic island landscapes and hiking."
+  },
+  {
+    "prefecture": "Highland",
+    "city": "Fort Augustus",
+    "region": "Highlands",
+    "tier": "mid",
+    "reason": "Loch Ness-side town famous for monster-spotting tourism and Caledonian Canal boat trips."
+  },
+  {
+    "prefecture": "Highland",
+    "city": "Glencoe",
+    "region": "Highlands",
+    "tier": "minor",
+    "reason": "Spectacular mountain valley iconic for dramatic Highland scenery and hiking trails."
+  },
+  {
+    "prefecture": "Highland",
+    "city": "Plockton",
+    "region": "Highlands",
+    "tier": "minor",
+    "reason": "Picturesque small village on a sheltered bay, known for charm and coastal views."
+  },
+  {
+    "prefecture": "Aberdeen City",
+    "city": "Aberdeen",
+    "region": "Aberdeenshire & Grampian",
+    "tier": "major",
+    "reason": "Scotland's third-largest city, known for its granite architecture, Royal Deeside proximity, and North Sea oil heritage; major gateway to Aberdeenshire attractions."
+  },
+  {
+    "prefecture": "Aberdeen City",
+    "city": "Cults",
+    "region": "Aberdeenshire & Grampian",
+    "tier": "minor",
+    "reason": "Affluent suburb west of Aberdeen with the scenic Deeside location and access to Royal Deeside walks and scenic countryside."
+  },
+  {
+    "prefecture": "Aberdeenshire",
+    "city": "Aberdeen",
+    "region": "Aberdeenshire & Grampian",
+    "tier": "major",
+    "reason": "Scotland's third-largest city; major port, oil industry hub, museums, galleries, and historic granite architecture."
+  },
+  {
+    "prefecture": "Aberdeenshire",
+    "city": "Braemar",
+    "region": "Aberdeenshire & Grampian",
+    "tier": "mid",
+    "reason": "Famous for the Royal Braemar Gathering and gateway to the Cairngorms; popular for hiking, skiing, and Highland scenery."
+  },
+  {
+    "prefecture": "Aberdeenshire",
+    "city": "Ballater",
+    "region": "Aberdeenshire & Grampian",
+    "tier": "mid",
+    "reason": "Royal burgh and Cairngorms gateway; charming Victorian village with shops, restaurants, and proximity to Balmoral Castle region."
+  },
+  {
+    "prefecture": "Aberdeenshire",
+    "city": "Banchory",
+    "region": "Aberdeenshire & Grampian",
+    "tier": "minor",
+    "reason": "Riverside village on Deeside with scenic walks and local appeal along the River Dee."
+  },
+  {
+    "prefecture": "Aberdeenshire",
+    "city": "Stonehaven",
+    "region": "Aberdeenshire & Grampian",
+    "tier": "mid",
+    "reason": "Coastal town with picturesque harbour, sandy beaches, and historic Dunnottar Castle nearby."
+  },
+  {
+    "prefecture": "Aberdeenshire",
+    "city": "Alford",
+    "region": "Aberdeenshire & Grampian",
+    "tier": "minor",
+    "reason": "Home to the Grampian Transport Museum; notable for rural heritage and local attractions."
+  },
+  {
+    "prefecture": "Moray",
+    "city": "Elgin",
+    "region": "Aberdeenshire & Grampian",
+    "tier": "major",
+    "reason": "Historic cathedral town and administrative hub with Elgin Cathedral, a masterpiece of Scottish Gothic architecture."
+  },
+  {
+    "prefecture": "Moray",
+    "city": "Forres",
+    "region": "Aberdeenshire & Grampian",
+    "tier": "mid",
+    "reason": "Picturesque market town with strong Pictish heritage, Sueno's Stone, and gateways to Speyside whisky region."
+  },
+  {
+    "prefecture": "Moray",
+    "city": "Lossiemouth",
+    "region": "Aberdeenshire & Grampian",
+    "tier": "mid",
+    "reason": "Coastal resort and fishing town with sandy beaches, seafront walks, and family holiday appeal."
+  },
+  {
+    "prefecture": "Moray",
+    "city": "Fochabers",
+    "region": "Aberdeenshire & Grampian",
+    "tier": "minor",
+    "reason": "Village on River Spey with distillery heritage and proximity to Speyside whisky trails."
+  },
+  {
+    "prefecture": "Moray",
+    "city": "Dufftown",
+    "region": "Aberdeenshire & Grampian",
+    "tier": "mid",
+    "reason": "Whisky capital of Speyside with multiple working distilleries and whisky heritage attractions."
+  },
+  {
+    "prefecture": "Argyll and Bute",
+    "city": "Oban",
+    "region": "Argyll & the Isles",
+    "tier": "major",
+    "reason": "Gateway to the Hebrides with a scenic waterfront, McCaig's Tower, and significant ferry hub for island tourism."
+  },
+  {
+    "prefecture": "Argyll and Bute",
+    "city": "Dunoon",
+    "region": "Argyll & the Isles",
+    "tier": "mid",
+    "reason": "Popular Clyde Coast resort town with beaches, the Cowal Games, and Victorian seaside charm."
+  },
+  {
+    "prefecture": "Argyll and Bute",
+    "city": "Inveraray",
+    "region": "Argyll & the Isles",
+    "tier": "mid",
+    "reason": "Historic castle town featuring Inveraray Castle, picturesque Georgian architecture, and scenic loch setting."
+  },
+  {
+    "prefecture": "Argyll and Bute",
+    "city": "Tobermory",
+    "region": "Argyll & the Isles",
+    "tier": "mid",
+    "reason": "Iconic Isle of Mull village famous for its colourful waterfront and as the fictional setting of a beloved children's TV series."
+  },
+  {
+    "prefecture": "Argyll and Bute",
+    "city": "Tarbert",
+    "region": "Argyll & the Isles",
+    "tier": "minor",
+    "reason": "Kintyre peninsula harbour town with Tarbert Castle ruins and access to scenic coastal walks."
+  },
+  {
+    "prefecture": "Argyll and Bute",
+    "city": "Helensburgh",
+    "region": "Argyll & the Isles",
+    "tier": "minor",
+    "reason": "Firth of Clyde coastal town with Art Nouveau mansions (notably Hill House by Charles Rennie Mackintosh) and sandy beaches."
+  },
+  {
+    "prefecture": "Argyll and Bute",
+    "city": "Iona",
+    "region": "Argyll & the Isles",
+    "tier": "mid",
+    "reason": "Historic isle with early Christian heritage, ancient abbey, and spiritual significance attracting pilgrims and visitors."
+  },
+  {
+    "prefecture": "Argyll and Bute",
+    "city": "Mull",
+    "region": "Argyll & the Isles",
+    "tier": "mid",
+    "reason": "Largest Inner Hebridean island offering dramatic landscapes, wildlife, and outdoor pursuits including the Mull of Oa scenic area."
+  },
+  {
+    "prefecture": "Fife",
+    "city": "St Andrews",
+    "region": "Fife",
+    "tier": "major",
+    "reason": "Home to the University of St Andrews and the Old Course, one of the world's most famous golf destinations."
+  },
+  {
+    "prefecture": "Fife",
+    "city": "Dunfermline",
+    "region": "Fife",
+    "tier": "mid",
+    "reason": "Historic royal burgh with Dunfermline Abbey and Palace, significant in Scottish medieval history."
+  },
+  {
+    "prefecture": "Fife",
+    "city": "Kirkcaldy",
+    "region": "Fife",
+    "tier": "mid",
+    "reason": "Coastal town with the Kirkcaldy Galleries and seafront promenade, known for traditional linoleum production heritage."
+  },
+  {
+    "prefecture": "Fife",
+    "city": "Culross",
+    "region": "Fife",
+    "tier": "mid",
+    "reason": "Picturesque historic village with restored 17th-century townscape, popular for photography and heritage tourism."
+  },
+  {
+    "prefecture": "Fife",
+    "city": "East Neuk of Fife",
+    "region": "Fife",
+    "tier": "mid",
+    "reason": "Scenic coastal region encompassing charming fishing villages like Crail, Pittenweem, and Anstruther with harbors and seafood dining."
+  },
+  {
+    "prefecture": "Fife",
+    "city": "Glenrothes",
+    "region": "Fife",
+    "tier": "minor",
+    "reason": "Modern town with Glenrothes Library and cultural venues, regional shopping and entertainment destination."
+  },
+  {
+    "prefecture": "Fife",
+    "city": "Loch Leven",
+    "region": "Fife",
+    "tier": "minor",
+    "reason": "Scenic loch offering water sports, nature reserve access, and historic Loch Leven Castle on an island."
+  },
+  {
+    "prefecture": "Perth and Kinross",
+    "city": "Perth",
+    "region": "Perthshire",
+    "tier": "major",
+    "reason": "Historic city on the River Tay with castles, museums, Georgian architecture, and cultural attractions."
+  },
+  {
+    "prefecture": "Perth and Kinross",
+    "city": "Pitlochry",
+    "region": "Perthshire",
+    "tier": "major",
+    "reason": "Picturesque Highland village famous for its theatre, salmon ladder, scenic beauty, and gateway to Highlands tourism."
+  },
+  {
+    "prefecture": "Perth and Kinross",
+    "city": "Crieff",
+    "region": "Perthshire",
+    "tier": "mid",
+    "reason": "Victorian spa town with Crieff Hydro resort, distilleries (Famous Grouse, Glenturret), and Perthshire heritage attractions."
+  },
+  {
+    "prefecture": "Perth and Kinross",
+    "city": "Auchterarder",
+    "region": "Perthshire",
+    "tier": "mid",
+    "reason": "Home to Gleneagles golf resort and luxury destination; gateway to Perthshire countryside."
+  },
+  {
+    "prefecture": "Perth and Kinross",
+    "city": "Scone",
+    "region": "Perthshire",
+    "tier": "mid",
+    "reason": "Historic location of Scone Palace, coronation site of Scottish kings, and significant cultural heritage venue."
+  },
+  {
+    "prefecture": "Perth and Kinross",
+    "city": "Dunkeld",
+    "region": "Perthshire",
+    "tier": "mid",
+    "reason": "Beautiful riverside village with historic cathedral ruins, picturesque high street, and walks along the River Tay."
+  },
+  {
+    "prefecture": "Perth and Kinross",
+    "city": "Blairgowrie",
+    "region": "Perthshire",
+    "tier": "mid",
+    "reason": "Market town in Perthshire known for soft fruits, skiing gateway (Glenshee nearby), and rural Highland tourism."
+  },
+  {
+    "prefecture": "Perth and Kinross",
+    "city": "Aberfeldy",
+    "region": "Perthshire",
+    "tier": "minor",
+    "reason": "Village with Aberfeldy Distillery, historic Wade's Bridge, and access to Tay Forest walks."
+  },
+  {
+    "prefecture": "Stirling",
+    "city": "Stirling",
+    "region": "Stirling & Trossachs",
+    "tier": "major",
+    "reason": "Home to Stirling Castle, a UNESCO World Heritage site and one of Scotland's most iconic historic landmarks."
+  },
+  {
+    "prefecture": "Stirling",
+    "city": "Callander",
+    "region": "Stirling & Trossachs",
+    "tier": "mid",
+    "reason": "Gateway to the Trossachs and Loch Katrine, a popular base for hiking and Scottish Highland scenery."
+  },
+  {
+    "prefecture": "Stirling",
+    "city": "Dunblane",
+    "region": "Stirling & Trossachs",
+    "tier": "minor",
+    "reason": "Historic cathedral town with medieval charm and proximity to Stirling."
+  },
+  {
+    "prefecture": "Stirling",
+    "city": "Bridge of Allan",
+    "region": "Stirling & Trossachs",
+    "tier": "minor",
+    "reason": "Victorian spa town with historic architecture and walks along the Allan Water."
+  },
+  {
+    "prefecture": "Clackmannanshire",
+    "city": "Alloa",
+    "region": "Stirling & Trossachs",
+    "tier": "mid",
+    "reason": "Historic brewing town on the River Forth with Alloa Tower, a restored medieval fortress, and the revived Alloa Brewery heritage site."
+  },
+  {
+    "prefecture": "Clackmannanshire",
+    "city": "Dunfermline",
+    "region": "Stirling & Trossachs",
+    "tier": "major",
+    "reason": "Historic royal burgh home to Dunfermline Abbey and Palace, birthplace of Andrew Carnegie, with significant medieval heritage."
+  },
+  {
+    "prefecture": "Clackmannanshire",
+    "city": "Dollar",
+    "region": "Stirling & Trossachs",
+    "tier": "minor",
+    "reason": "Small village known for Castle Campbell, a dramatic hilltop fortress in the Ochil Hills."
+  },
+  {
+    "prefecture": "Clackmannanshire",
+    "city": "Tillicoultry",
+    "region": "Stirling & Trossachs",
+    "tier": "minor",
+    "reason": "Village at the foot of the Ochil Hills with access to outdoor walking routes and mill heritage."
+  },
+  {
+    "prefecture": "Falkirk",
+    "city": "Falkirk",
+    "region": "Stirling & Trossachs",
+    "tier": "major",
+    "reason": "Home to the Falkirk Wheel, a rotating boat lift and UNESCO World Heritage site, plus the historic Falkirk Steeple and town center attractions."
+  },
+  {
+    "prefecture": "Falkirk",
+    "city": "Stirling",
+    "region": "Stirling & Trossachs",
+    "tier": "major",
+    "reason": "Dominated by Stirling Castle, one of Scotland's most important historical fortress, with a vibrant old town and national heritage significance."
+  },
+  {
+    "prefecture": "Falkirk",
+    "city": "Grangemouth",
+    "region": "Stirling & Trossachs",
+    "tier": "minor",
+    "reason": "Industrial port town with the historic Bo'ness & Kinneil Railway nearby and waterfront heritage interest."
+  },
+  {
+    "prefecture": "Falkirk",
+    "city": "Callendar Park",
+    "region": "Stirling & Trossachs",
+    "tier": "minor",
+    "reason": "Historic estate and country park with Callendar House, a museum offering insight into Falkirk's heritage."
+  },
+  {
+    "prefecture": "East Ayrshire",
+    "city": "Kilmarnock",
+    "region": "Ayrshire & Arran",
+    "tier": "mid",
+    "reason": "Historic industrial town, home to Kilmarnock Football Club and the Dick Institute museum."
+  },
+  {
+    "prefecture": "East Ayrshire",
+    "city": "Irvine",
+    "region": "Ayrshire & Arran",
+    "tier": "mid",
+    "reason": "Coastal town with beaches, Scottish Maritime Museum, and the Irvine Harbour area."
+  },
+  {
+    "prefecture": "East Ayrshire",
+    "city": "Newmilns",
+    "region": "Ayrshire & Arran",
+    "tier": "minor",
+    "reason": "Small historic town known for lace-making heritage and local countryside walks."
+  },
+  {
+    "prefecture": "East Ayrshire",
+    "city": "Darvel",
+    "region": "Ayrshire & Arran",
+    "tier": "minor",
+    "reason": "Village with textile heritage and proximity to scenic Ayrshire countryside."
+  },
+  {
+    "prefecture": "South Ayrshire",
+    "city": "Ayr",
+    "region": "Ayrshire & Arran",
+    "tier": "major",
+    "reason": "Historic Victorian seafront town and county town with long sandy beach, promenade, and cultural attractions"
+  },
+  {
+    "prefecture": "South Ayrshire",
+    "city": "Alloway",
+    "region": "Ayrshire & Arran",
+    "tier": "major",
+    "reason": "Home to Burns Cottage and Museum, the birthplace of Robert Burns, Scotland's national poet"
+  },
+  {
+    "prefecture": "South Ayrshire",
+    "city": "Turnberry",
+    "region": "Ayrshire & Arran",
+    "tier": "major",
+    "reason": "World-renowned golf resort and championship course overlooking the Firth of Clyde"
+  },
+  {
+    "prefecture": "South Ayrshire",
+    "city": "Girvan",
+    "region": "Ayrshire & Arran",
+    "tier": "mid",
+    "reason": "Coastal seaside town with access to Ailsa Craig and popular beaches and walks"
+  },
+  {
+    "prefecture": "South Ayrshire",
+    "city": "Stranraer",
+    "region": "Ayrshire & Arran",
+    "tier": "mid",
+    "reason": "Historic port town and gateway to Dumfries & Galloway with seafront promenade and shopping"
+  },
+  {
+    "prefecture": "South Ayrshire",
+    "city": "Prestwick",
+    "region": "Ayrshire & Arran",
+    "tier": "mid",
+    "reason": "Seaside town with airport, beaches, and coastal attractions near Ayr"
+  },
+  {
+    "prefecture": "South Ayrshire",
+    "city": "Maybole",
+    "region": "Ayrshire & Arran",
+    "tier": "minor",
+    "reason": "Historic market town with Maybole Castle and local historical interest"
+  },
+  {
+    "prefecture": "North Ayrshire",
+    "city": "Largs",
+    "region": "Ayrshire & Arran",
+    "tier": "mid",
+    "reason": "Seaside resort town with beach, pier, and gateway to Isle of Cumbrae via ferry."
+  },
+  {
+    "prefecture": "North Ayrshire",
+    "city": "Isle of Arran",
+    "region": "Ayrshire & Arran",
+    "tier": "mid",
+    "reason": "Popular island destination known for hiking, Goat Fell mountain, and scenic landscapes."
+  },
+  {
+    "prefecture": "North Ayrshire",
+    "city": "Irvine",
+    "region": "Ayrshire & Arran",
+    "tier": "mid",
+    "reason": "Coastal town with beach, the Scottish Maritime Museum, and Magnum leisure centre."
+  },
+  {
+    "prefecture": "North Ayrshire",
+    "city": "Saltcoats",
+    "region": "Ayrshire & Arran",
+    "tier": "minor",
+    "reason": "Seaside town with beach and local character, part of the Ayrshire coast."
+  },
+  {
+    "prefecture": "North Ayrshire",
+    "city": "Ardrossan",
+    "region": "Ayrshire & Arran",
+    "tier": "minor",
+    "reason": "Coastal town with harbour and ferry access to Isle of Arran."
+  },
+  {
+    "prefecture": "Scottish Borders",
+    "city": "Peebles",
+    "region": "Scottish Borders",
+    "tier": "mid",
+    "reason": "Historic Borders town on the Tweed with literary heritage, outdoor recreation, and the popular Peebles Hydro Hotel."
+  },
+  {
+    "prefecture": "Scottish Borders",
+    "city": "Melrose",
+    "region": "Scottish Borders",
+    "tier": "mid",
+    "reason": "Home to the iconic ruined Melrose Abbey, a major historical site and center for Borders heritage tourism."
+  },
+  {
+    "prefecture": "Scottish Borders",
+    "city": "Jedburgh",
+    "region": "Scottish Borders",
+    "tier": "mid",
+    "reason": "Historic Borders town featuring Jedburgh Abbey, medieval architecture, and traditional Common Ridings festivals."
+  },
+  {
+    "prefecture": "Scottish Borders",
+    "city": "Kelso",
+    "region": "Scottish Borders",
+    "tier": "mid",
+    "reason": "Picturesque town with Kelso Abbey, the scenic River Tweed, and proximity to Floors Castle."
+  },
+  {
+    "prefecture": "Scottish Borders",
+    "city": "Hawick",
+    "region": "Scottish Borders",
+    "tier": "minor",
+    "reason": "Historic knitwear and textile heritage center with museums and traditional Common Riding event."
+  },
+  {
+    "prefecture": "Scottish Borders",
+    "city": "Galashiels",
+    "region": "Scottish Borders",
+    "tier": "minor",
+    "reason": "Textile heritage town with the Borders Textile Towerhouse and historical significance in Scottish mill industry."
+  },
+  {
+    "prefecture": "Scottish Borders",
+    "city": "Innerleithen",
+    "region": "Scottish Borders",
+    "tier": "minor",
+    "reason": "Small Tweed Valley town with outdoor activities and connection to Sir Walter Scott heritage."
+  },
+  {
+    "prefecture": "Scottish Borders",
+    "city": "Selkirk",
+    "region": "Scottish Borders",
+    "tier": "minor",
+    "reason": "Historic Borders town with Walter Scott connections and traditional Common Ridings cultural events."
+  },
+  {
+    "prefecture": "Dumfries and Galloway",
+    "city": "Dumfries",
+    "region": "Dumfries & Galloway",
+    "tier": "major",
+    "reason": "Historic county town with significant literary heritage (Robert Burns), Georgian architecture, and the evocative ruins of Lincluden Abbey."
+  },
+  {
+    "prefecture": "Dumfries and Galloway",
+    "city": "Stranraer",
+    "region": "Dumfries & Galloway",
+    "tier": "mid",
+    "reason": "Gateway to Northern Ireland with the historic Castle of St John and proximity to scenic coastal and rural attractions."
+  },
+  {
+    "prefecture": "Dumfries and Galloway",
+    "city": "Kirkcudbright",
+    "region": "Dumfries & Galloway",
+    "tier": "mid",
+    "reason": "Picturesque artists' town with colorful harbourside setting, galleries, and strong cultural heritage that draws visitors to the Stewartry region."
+  },
+  {
+    "prefecture": "Dumfries and Galloway",
+    "city": "Castle Douglas",
+    "region": "Dumfries & Galloway",
+    "tier": "minor",
+    "reason": "Market town with scenic Carlingwark Loch and a base for exploring the surrounding Galloway hills and lochs."
+  },
+  {
+    "prefecture": "Dumfries and Galloway",
+    "city": "Wigtown",
+    "region": "Dumfries & Galloway",
+    "tier": "minor",
+    "reason": "Historic market town now known as Scotland's National Book Town with numerous bookshops and literary tourism appeal."
+  },
+  {
+    "prefecture": "Dumfries and Galloway",
+    "city": "New Abbey",
+    "region": "Dumfries & Galloway",
+    "tier": "minor",
+    "reason": "Home to the impressive ruins of Sweetheart Abbey, a major medieval monument and popular visitor attraction."
+  },
+  {
+    "prefecture": "Angus",
+    "city": "Arbroath",
+    "region": "Angus & Dundee",
+    "tier": "mid",
+    "reason": "Coastal town famous for Arbroath Abbey and traditional smoked haddies (Arbroath smokies)."
+  },
+  {
+    "prefecture": "Angus",
+    "city": "Montrose",
+    "region": "Angus & Dundee",
+    "tier": "mid",
+    "reason": "Historic coastal town with a scenic basin, beach, and gateway to nearby Montrose Basin Wildlife Reserve."
+  },
+  {
+    "prefecture": "Angus",
+    "city": "Forfar",
+    "region": "Angus & Dundee",
+    "tier": "minor",
+    "reason": "County town with historical interest and the traditional Forfar bridie pastry."
+  },
+  {
+    "prefecture": "Angus",
+    "city": "Kirriemuir",
+    "region": "Angus & Dundee",
+    "tier": "minor",
+    "reason": "Birthplace of author J.M. Barrie (Peter Pan) with museum and literary heritage appeal."
+  },
+  {
+    "prefecture": "Angus",
+    "city": "Brechin",
+    "region": "Angus & Dundee",
+    "tier": "minor",
+    "reason": "Small cathedral town with the notable Brechin Round Tower and historic charm."
+  },
+  {
+    "prefecture": "Dundee City",
+    "city": "Dundee",
+    "region": "Angus & Dundee",
+    "tier": "major",
+    "reason": "Waterfront destination with museums, the V&A, RRS Discovery ship, and thriving cultural scene."
+  },
+  {
+    "prefecture": "Dundee City",
+    "city": "Broughty Ferry",
+    "region": "Angus & Dundee",
+    "tier": "mid",
+    "reason": "Popular seaside suburb with beach, castle, and traditional Scottish coastal charm."
+  },
+  {
+    "prefecture": "Na h-Eileanan Siar",
+    "city": "Stornoway",
+    "region": "Outer Hebrides",
+    "tier": "major",
+    "reason": "Capital of the Isle of Lewis, ferry hub, and gateway to the Outer Hebrides with cultural attractions and harbor charm."
+  },
+  {
+    "prefecture": "Na h-Eileanan Siar",
+    "city": "Tarbert",
+    "region": "Outer Hebrides",
+    "tier": "mid",
+    "reason": "Main settlement on the Isle of Harris, known for Harris Tweed heritage and access to scenic beaches and coastal walks."
+  },
+  {
+    "prefecture": "Na h-Eileanan Siar",
+    "city": "Lochmaddy",
+    "region": "Outer Hebrides",
+    "tier": "minor",
+    "reason": "Historic port town on North Uist with traditional charm and access to local outdoor activities."
+  },
+  {
+    "prefecture": "Na h-Eileanan Siar",
+    "city": "Benbecula",
+    "region": "Outer Hebrides",
+    "tier": "minor",
+    "reason": "Central island settlement bridging North and South Uist with modest local attractions and transport links."
+  },
+  {
+    "prefecture": "Orkney Islands",
+    "city": "Kirkwall",
+    "region": "Orkney",
+    "tier": "major",
+    "reason": "Capital of Orkney with iconic St. Magnus Cathedral, historic old town, and major transport hub for island visitors."
+  },
+  {
+    "prefecture": "Orkney Islands",
+    "city": "Stromness",
+    "region": "Orkney",
+    "tier": "mid",
+    "reason": "Historic coastal town with Georgian architecture, literary heritage, and ferry gateway to the western islands."
+  },
+  {
+    "prefecture": "Orkney Islands",
+    "city": "Skara Brae",
+    "region": "Orkney",
+    "tier": "major",
+    "reason": "UNESCO World Heritage Site featuring one of Europe's oldest and best-preserved prehistoric settlements (5000 years old)."
+  },
+  {
+    "prefecture": "Shetland Islands",
+    "city": "Lerwick",
+    "region": "Shetland",
+    "tier": "major",
+    "reason": "Capital of Shetland with the iconic Up Helly Aa festival, historic Old Town, and main transport hub for island exploration."
+  },
+  {
+    "prefecture": "Shetland Islands",
+    "city": "Scalloway",
+    "region": "Shetland",
+    "tier": "mid",
+    "reason": "Historic former capital featuring Scalloway Castle and a charming working harbor, popular for coastal walks and seafood dining."
+  },
+  {
+    "prefecture": "Shetland Islands",
+    "city": "Unst",
+    "region": "Shetland",
+    "tier": "minor",
+    "reason": "Britain's northernmost inhabited island with dramatic cliffs at Hermaness and traditional Shetland heritage attractions."
+  },
+  {
+    "prefecture": "Shetland Islands",
+    "city": "Yell",
+    "region": "Shetland",
+    "tier": "minor",
+    "reason": "Remote island known for its peat moorlands, Shetland wildlife, and the historic Old Haa of Yell."
+  }
+]

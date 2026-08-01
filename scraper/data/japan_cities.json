@@ -1,0 +1,1997 @@
+[
+  {
+    "prefecture": "Hokkaido",
+    "city": "Sapporo",
+    "region": "Hokkaido",
+    "tier": "major",
+    "reason": "Japan's fifth-largest city and Hokkaido's capital; renowned for the Snow Festival, ramen, and urban attractions."
+  },
+  {
+    "prefecture": "Hokkaido",
+    "city": "Asahikawa",
+    "region": "Hokkaido",
+    "tier": "mid",
+    "reason": "Hokkaido's second-largest city; known for Asahikawa ramen, outdoor activities, and winter sports access."
+  },
+  {
+    "prefecture": "Hokkaido",
+    "city": "Hakodate",
+    "region": "Hokkaido",
+    "tier": "major",
+    "reason": "Historic port city famous for night views from Goryōkaku Fort, fresh seafood, and colonial architecture."
+  },
+  {
+    "prefecture": "Hokkaido",
+    "city": "Otaru",
+    "region": "Hokkaido",
+    "tier": "mid",
+    "reason": "Charming canal town with preserved Meiji-era buildings, glassworks, and scenic coastal views."
+  },
+  {
+    "prefecture": "Hokkaido",
+    "city": "Biei",
+    "region": "Hokkaido",
+    "tier": "mid",
+    "reason": "Scenic agricultural town in Furano area known for rolling hills, flower fields, and rural landscape photography."
+  },
+  {
+    "prefecture": "Hokkaido",
+    "city": "Furano",
+    "region": "Hokkaido",
+    "tier": "mid",
+    "reason": "Popular mountain resort town with ski slopes, flower fields, and wine attractions."
+  },
+  {
+    "prefecture": "Hokkaido",
+    "city": "Niseko",
+    "region": "Hokkaido",
+    "tier": "major",
+    "reason": "World-class ski resort internationally renowned for powder snow and luxury accommodations."
+  },
+  {
+    "prefecture": "Hokkaido",
+    "city": "Lake Toya",
+    "region": "Hokkaido",
+    "tier": "mid",
+    "reason": "Scenic caldera lake region with hot springs, scenic cruises, and the active Usu volcano nearby."
+  },
+  {
+    "prefecture": "Hokkaido",
+    "city": "Akan",
+    "region": "Hokkaido",
+    "tier": "mid",
+    "reason": "Scenic lake district in eastern Hokkaido featuring Lake Akan and hot springs with Marimo algae."
+  },
+  {
+    "prefecture": "Hokkaido",
+    "city": "Shiretoko",
+    "region": "Hokkaido",
+    "tier": "mid",
+    "reason": "UNESCO World Heritage site in northeastern Hokkaido featuring pristine nature, hiking, and wildlife viewing."
+  },
+  {
+    "prefecture": "Hokkaido",
+    "city": "Daisetsuzan",
+    "region": "Hokkaido",
+    "tier": "mid",
+    "reason": "Japan's largest national park centered on Hokkaido's highest mountains; renowned for hiking and alpine scenery."
+  },
+  {
+    "prefecture": "Hokkaido",
+    "city": "Abashiri",
+    "region": "Hokkaido",
+    "tier": "minor",
+    "reason": "Coastal town known for drift ice viewing tours on the Sea of Okhotsk in winter."
+  },
+  {
+    "prefecture": "Hokkaido",
+    "city": "Muroran",
+    "region": "Hokkaido",
+    "tier": "minor",
+    "reason": "Industrial port town with dramatic coastal rock formations and night scenery."
+  },
+  {
+    "prefecture": "Aomori",
+    "city": "Hirosaki",
+    "region": "Tohoku",
+    "tier": "major",
+    "reason": "Castle town famous for Hirosaki Castle and stunning cherry blossom season"
+  },
+  {
+    "prefecture": "Aomori",
+    "city": "Aomori City",
+    "region": "Tohoku",
+    "tier": "major",
+    "reason": "Prefectural capital known for the Aomori Museum of Art and Aomori Nebuta Festival"
+  },
+  {
+    "prefecture": "Aomori",
+    "city": "Hachinohe",
+    "region": "Tohoku",
+    "tier": "mid",
+    "reason": "Coastal city with the Hachinohe Yatai Village featuring local street food and culture"
+  },
+  {
+    "prefecture": "Aomori",
+    "city": "Towada",
+    "region": "Tohoku",
+    "tier": "mid",
+    "reason": "Gateway to Lake Towada and Oirase Gorge, offering scenic nature tourism"
+  },
+  {
+    "prefecture": "Aomori",
+    "city": "Tsuruta",
+    "region": "Tohoku",
+    "tier": "minor",
+    "reason": "Known for traditional sake brewing and the Tsuruta Sake Brewery visits"
+  },
+  {
+    "prefecture": "Iwate",
+    "city": "Morioka",
+    "region": "Tohoku",
+    "tier": "major",
+    "reason": "Capital city with cultural attractions including Morioka Castle ruins, Konjikudō (Golden Hall) of Chūson-ji, and renowned ramen culture."
+  },
+  {
+    "prefecture": "Iwate",
+    "city": "Hiraizumi",
+    "region": "Tohoku",
+    "tier": "major",
+    "reason": "UNESCO World Heritage Site featuring the iconic Konjikudō (Golden Hall) and multiple historic Buddhist temples from the 12th century."
+  },
+  {
+    "prefecture": "Iwate",
+    "city": "Kamaishi",
+    "region": "Tohoku",
+    "tier": "mid",
+    "reason": "Coastal city known for its picturesque port, recovery story post-tsunami, and access to scenic coastal walks and seafood."
+  },
+  {
+    "prefecture": "Iwate",
+    "city": "Kuji",
+    "region": "Tohoku",
+    "tier": "mid",
+    "reason": "Coastal port town famous for amber (fossil resin) production and the Kuji Amber Museum, with scenic seaside attractions."
+  },
+  {
+    "prefecture": "Iwate",
+    "city": "Tono",
+    "region": "Tohoku",
+    "tier": "mid",
+    "reason": "Mountain town celebrated for traditional folklore, historic houses, and Tono Folklore Museum showcasing rural Iwate heritage."
+  },
+  {
+    "prefecture": "Iwate",
+    "city": "Miyako",
+    "region": "Tohoku",
+    "tier": "minor",
+    "reason": "Coastal city with access to scenic Sanriku Coast views and local seafood and aquaculture heritage."
+  },
+  {
+    "prefecture": "Miyagi",
+    "city": "Sendai",
+    "region": "Tohoku",
+    "tier": "major",
+    "reason": "Prefectural capital; major commercial hub and cultural center with museums, temples, and nightlife."
+  },
+  {
+    "prefecture": "Miyagi",
+    "city": "Matsushima",
+    "region": "Tohoku",
+    "tier": "major",
+    "reason": "Famous for the scenic bay with hundreds of pine-covered islands; one of Japan's most iconic coastal destinations."
+  },
+  {
+    "prefecture": "Miyagi",
+    "city": "Akiu",
+    "region": "Tohoku",
+    "tier": "mid",
+    "reason": "Mountain resort town near Sendai known for hot springs and hiking in the surrounding forests."
+  },
+  {
+    "prefecture": "Miyagi",
+    "city": "Kinkazan Island",
+    "region": "Tohoku",
+    "tier": "mid",
+    "reason": "Sacred island in Ishinomaki Bay with shrine, wildlife, and scenic coastal views accessible by boat."
+  },
+  {
+    "prefecture": "Miyagi",
+    "city": "Ishinomaki",
+    "region": "Tohoku",
+    "tier": "mid",
+    "reason": "Coastal city rebuilt after the 2011 tsunami; art museums, seafood, and contemporary reconstruction efforts."
+  },
+  {
+    "prefecture": "Miyagi",
+    "city": "Shiokamacho",
+    "region": "Tohoku",
+    "tier": "minor",
+    "reason": "Charming fishing village with traditional salt production and preserved historic streetscapes."
+  },
+  {
+    "prefecture": "Akita",
+    "city": "Akita",
+    "region": "Tohoku",
+    "tier": "major",
+    "reason": "Prefectural capital known for the Akita dog breed, Akita Kantou Festival, and traditional Kabazaiko drum performances."
+  },
+  {
+    "prefecture": "Akita",
+    "city": "Kakunodate",
+    "region": "Tohoku",
+    "tier": "major",
+    "reason": "Historic samurai town featuring well-preserved samurai residences, cherry blossoms, and traditional weeping willow-lined streets."
+  },
+  {
+    "prefecture": "Akita",
+    "city": "Tazawa",
+    "region": "Tohoku",
+    "tier": "major",
+    "reason": "Home to Lake Tazawa, Japan's deepest lake, offering scenic beauty and outdoor recreational activities."
+  },
+  {
+    "prefecture": "Akita",
+    "city": "Nyuto Onsen",
+    "region": "Tohoku",
+    "tier": "mid",
+    "reason": "Cluster of traditional hot springs nestled in mountain scenery, popular for ryokan stays and nature tourism."
+  },
+  {
+    "prefecture": "Yamagata",
+    "city": "Yamagata",
+    "region": "Tohoku",
+    "tier": "mid",
+    "reason": "Prefecture capital with Yamadera temple, traditional Mogami River scenery, and local food culture."
+  },
+  {
+    "prefecture": "Yamagata",
+    "city": "Yonezawa",
+    "region": "Tohoku",
+    "tier": "mid",
+    "reason": "Historic samurai castle town (Uesugi Castle ruins) and renowned for wagyu beef and sake brewing."
+  },
+  {
+    "prefecture": "Yamagata",
+    "city": "Ginzan Onsen",
+    "region": "Tohoku",
+    "tier": "major",
+    "reason": "Iconic hot spring resort town with Meiji-era gas-lit wooden buildings and nostalgic charm."
+  },
+  {
+    "prefecture": "Yamagata",
+    "city": "Zao",
+    "region": "Tohoku",
+    "tier": "mid",
+    "reason": "Mountain resort area with Zao Onsen hot springs, ski slopes, and the famous Zao Fox Village."
+  },
+  {
+    "prefecture": "Yamagata",
+    "city": "Kaminoyama",
+    "region": "Tohoku",
+    "tier": "minor",
+    "reason": "Historic castle town with Kaminoyama Castle and local hot spring heritage."
+  },
+  {
+    "prefecture": "Yamagata",
+    "city": "Sakata",
+    "region": "Tohoku",
+    "tier": "minor",
+    "reason": "Coastal port city with Homma Museum (samurai/merchant history) and Entsoji Temple."
+  },
+  {
+    "prefecture": "Fukushima",
+    "city": "Aizu-Wakamatsu",
+    "region": "Tohoku",
+    "tier": "major",
+    "reason": "Historic castle town famous for samurai heritage, Tsuruga Castle, and traditional crafts."
+  },
+  {
+    "prefecture": "Fukushima",
+    "city": "Koriyama",
+    "region": "Tohoku",
+    "tier": "mid",
+    "reason": "Fukushima's largest city and transport hub with shopping, museums, and local attractions."
+  },
+  {
+    "prefecture": "Fukushima",
+    "city": "Fukushima City",
+    "region": "Tohoku",
+    "tier": "mid",
+    "reason": "Prefectural capital offering Fukushima Prefecture Museum, festivals, and regional culture."
+  },
+  {
+    "prefecture": "Fukushima",
+    "city": "Bandai",
+    "region": "Tohoku",
+    "tier": "mid",
+    "reason": "Mountain resort area with hiking, scenic lakes, and access to Bandai-Asahi National Park."
+  },
+  {
+    "prefecture": "Fukushima",
+    "city": "Kitashiobara",
+    "region": "Tohoku",
+    "tier": "minor",
+    "reason": "Gateway village for Bandai-Asahi National Park with hiking trails and alpine scenery."
+  },
+  {
+    "prefecture": "Fukushima",
+    "city": "Soma",
+    "region": "Tohoku",
+    "tier": "minor",
+    "reason": "Coastal town known for the historic Soma Nomaoi festival featuring horseback archery."
+  },
+  {
+    "prefecture": "Ibaraki",
+    "city": "Mito",
+    "region": "Kanto",
+    "tier": "major",
+    "reason": "Home to Mito Kōmon, an iconic feudal lord with cultural significance, and features Kairaku-en, one of Japan's three great gardens."
+  },
+  {
+    "prefecture": "Ibaraki",
+    "city": "Kashima",
+    "region": "Kanto",
+    "tier": "mid",
+    "reason": "Site of the ancient and prestigious Kashima Shrine, one of Japan's oldest Shinto shrines with deep historical importance."
+  },
+  {
+    "prefecture": "Ibaraki",
+    "city": "Tsukuba",
+    "region": "Kanto",
+    "tier": "major",
+    "reason": "Modern city with Tsukuba Science City attractions, the iconic Mount Tsukuba for hiking, and the Tsukuba Shrine complex."
+  },
+  {
+    "prefecture": "Ibaraki",
+    "city": "Ushiku",
+    "region": "Kanto",
+    "tier": "minor",
+    "reason": "Home to Ushiku Daibutsu, one of the world's tallest bronze Buddha statues."
+  },
+  {
+    "prefecture": "Tochigi",
+    "city": "Nikko",
+    "region": "Kanto",
+    "tier": "major",
+    "reason": "UNESCO World Heritage Site home to Toshogu Shrine and scenic natural attractions including Chuzenji Lake and waterfalls."
+  },
+  {
+    "prefecture": "Tochigi",
+    "city": "Utsunomiya",
+    "region": "Kanto",
+    "tier": "mid",
+    "reason": "Prefectural capital with historic Utsunomiya Castle ruins, famous for gyoza dumplings, and gateway to local attractions."
+  },
+  {
+    "prefecture": "Tochigi",
+    "city": "Kanuma",
+    "region": "Kanto",
+    "tier": "minor",
+    "reason": "Known for traditional lacquerware production and rural charm."
+  },
+  {
+    "prefecture": "Tochigi",
+    "city": "Kurogane Onsen",
+    "region": "Kanto",
+    "tier": "mid",
+    "reason": "Historic hot spring resort town with scenic mountain surroundings and traditional bathing culture."
+  },
+  {
+    "prefecture": "Tochigi",
+    "city": "Kinugawa Onsen",
+    "region": "Kanto",
+    "tier": "mid",
+    "reason": "Major hot spring resort town along the Kinugawa River with numerous ryokan and outdoor bath facilities."
+  },
+  {
+    "prefecture": "Gunma",
+    "city": "Minakami",
+    "region": "Kanto",
+    "tier": "mid",
+    "reason": "Popular mountain resort area with hiking, skiing, and the famous Minakami Onsen hot springs."
+  },
+  {
+    "prefecture": "Gunma",
+    "city": "Nakanojo",
+    "region": "Kanto",
+    "tier": "mid",
+    "reason": "Home to Kusatsu Onsen, one of Japan's most celebrated hot spring destinations with scenic mountain surroundings."
+  },
+  {
+    "prefecture": "Saitama",
+    "city": "Kawagoe",
+    "region": "Kanto",
+    "tier": "major",
+    "reason": "Historic castle town with preserved Edo-period merchant district and Kawagoe Castle, a major cultural heritage site"
+  },
+  {
+    "prefecture": "Saitama",
+    "city": "Kumagaya",
+    "region": "Kanto",
+    "tier": "mid",
+    "reason": "Gateway to hiking in the Chichibu region, known for Kumagaya Uchiwa fans and local river access"
+  },
+  {
+    "prefecture": "Saitama",
+    "city": "Chichibu",
+    "region": "Kanto",
+    "tier": "mid",
+    "reason": "Mountain resort town famous for scenic hiking, Chichibu Shrine, and autumn foliage"
+  },
+  {
+    "prefecture": "Saitama",
+    "city": "Nagatoro",
+    "region": "Kanto",
+    "tier": "mid",
+    "reason": "Scenic riverside town in the Chichibu region with river activities and natural rock formations"
+  },
+  {
+    "prefecture": "Saitama",
+    "city": "Hanno",
+    "region": "Kanto",
+    "tier": "minor",
+    "reason": "Mountain town with access to hiking trails and rural Saitama nature"
+  },
+  {
+    "prefecture": "Saitama",
+    "city": "Yokoze",
+    "region": "Kanto",
+    "tier": "minor",
+    "reason": "Traditional mountain village known for washi (Japanese paper) production and cultural heritage"
+  },
+  {
+    "prefecture": "Chiba",
+    "city": "Chiba City",
+    "region": "Kanto",
+    "tier": "major",
+    "reason": "Prefectural capital with the Makuhari Messe convention center, seaside attractions, and urban cultural facilities."
+  },
+  {
+    "prefecture": "Chiba",
+    "city": "Kashiwa",
+    "region": "Kanto",
+    "tier": "mid",
+    "reason": "Gateway to the Boso Peninsula and serves as a transit hub for natural attractions and rural tourism."
+  },
+  {
+    "prefecture": "Chiba",
+    "city": "Kimitsu",
+    "region": "Kanto",
+    "tier": "mid",
+    "reason": "Home to Kimitsu Park and access to hiking trails in the central Boso region."
+  },
+  {
+    "prefecture": "Chiba",
+    "city": "Isumi",
+    "region": "Kanto",
+    "tier": "mid",
+    "reason": "Rural charm with the scenic Isumi Railway heritage line and traditional countryside experiences."
+  },
+  {
+    "prefecture": "Chiba",
+    "city": "Katsuura",
+    "region": "Kanto",
+    "tier": "mid",
+    "reason": "Coastal town on the Pacific Ocean known for fishing, beaches, and access to local marine experiences."
+  },
+  {
+    "prefecture": "Chiba",
+    "city": "Sawara",
+    "region": "Kanto",
+    "tier": "minor",
+    "reason": "Historic canal district and traditional merchant town preserving Edo-period charm in the Inba region."
+  },
+  {
+    "prefecture": "Tokyo",
+    "city": "Chiyoda Ward",
+    "region": "Kanto",
+    "tier": "major",
+    "reason": "Home to the Imperial Palace, Diet building, and major government/cultural institutions."
+  },
+  {
+    "prefecture": "Tokyo",
+    "city": "Minato Ward",
+    "region": "Kanto",
+    "tier": "major",
+    "reason": "Upscale area featuring Tokyo Tower, waterfront attractions, and high-end shopping in Roppongi and Daikanyama."
+  },
+  {
+    "prefecture": "Tokyo",
+    "city": "Bunkyo Ward",
+    "region": "Kanto",
+    "tier": "mid",
+    "reason": "Intellectual and cultural hub with Tokyo Dome, museums, and historic temples."
+  },
+  {
+    "prefecture": "Tokyo",
+    "city": "Sumida Ward",
+    "region": "Kanto",
+    "tier": "mid",
+    "reason": "Traditional working-class neighborhood with local culture, riverfront walks, and authentic Tokyo character."
+  },
+  {
+    "prefecture": "Tokyo",
+    "city": "Meguro Ward",
+    "region": "Kanto",
+    "tier": "mid",
+    "reason": "Popular residential and trendy area with art museums, upscale shopping, and historic neighborhoods."
+  },
+  {
+    "prefecture": "Tokyo",
+    "city": "Setagaya Ward",
+    "region": "Kanto",
+    "tier": "mid",
+    "reason": "Residential area with traditional shopping streets, temples, and local cultural attractions."
+  },
+  {
+    "prefecture": "Tokyo",
+    "city": "Hachioji",
+    "region": "Kanto",
+    "tier": "mid",
+    "reason": "Mountain gateway city with access to hiking, Takao-san, and regional attractions."
+  },
+  {
+    "prefecture": "Kanagawa",
+    "city": "Kawasaki",
+    "region": "Kanto",
+    "tier": "mid",
+    "reason": "Industrial and cultural hub with shrines, the Oji 3 Festival, and proximity to Tokyo attractions."
+  },
+  {
+    "prefecture": "Kanagawa",
+    "city": "Enoshima",
+    "region": "Kanto",
+    "tier": "mid",
+    "reason": "Coastal island retreat with shrine, beaches, and scenic views of Sagami Bay."
+  },
+  {
+    "prefecture": "Kanagawa",
+    "city": "Odawara",
+    "region": "Kanto",
+    "tier": "mid",
+    "reason": "Historic castle town with Odawara Castle and traditional Edo-period architecture near Lake Ashi."
+  },
+  {
+    "prefecture": "Kanagawa",
+    "city": "Hayama",
+    "region": "Kanto",
+    "tier": "minor",
+    "reason": "Upscale seaside village with pristine beaches and quiet residential charm on the Shonan coast."
+  },
+  {
+    "prefecture": "Kanagawa",
+    "city": "Zushi",
+    "region": "Kanto",
+    "tier": "minor",
+    "reason": "Coastal town with beaches and hiking trails in a quieter Shonan setting."
+  },
+  {
+    "prefecture": "Niigata",
+    "city": "Niigata",
+    "region": "Chubu",
+    "tier": "major",
+    "reason": "Prefectural capital with Niigata Station as a major transport hub, offering museums, shopping, and river views."
+  },
+  {
+    "prefecture": "Niigata",
+    "city": "Yuzawa",
+    "region": "Chubu",
+    "tier": "major",
+    "reason": "Gateway to Yuzawa ski resorts and hot springs, iconic winter sports and onsen destination."
+  },
+  {
+    "prefecture": "Niigata",
+    "city": "Myoko",
+    "region": "Chubu",
+    "tier": "major",
+    "reason": "Home to multiple world-class ski resorts including Akakan and Myoko Kogen, major winter sports destination."
+  },
+  {
+    "prefecture": "Niigata",
+    "city": "Nakanokuchimachi",
+    "region": "Chubu",
+    "tier": "mid",
+    "reason": "Charming riverside town in Minamiuonuma with traditional heritage and onsen culture."
+  },
+  {
+    "prefecture": "Niigata",
+    "city": "Joetsu",
+    "region": "Chubu",
+    "tier": "mid",
+    "reason": "Historic castle town with Takada Castle and traditional samurai heritage sites."
+  },
+  {
+    "prefecture": "Niigata",
+    "city": "Murakami",
+    "region": "Chubu",
+    "tier": "mid",
+    "reason": "Historic port town known for traditional lacquerware and cultural heritage along the Abukuma River."
+  },
+  {
+    "prefecture": "Niigata",
+    "city": "Kakizaki",
+    "region": "Chubu",
+    "tier": "minor",
+    "reason": "Scenic coastal village with beaches and access to Sado Island ferry services."
+  },
+  {
+    "prefecture": "Niigata",
+    "city": "Sado",
+    "region": "Chubu",
+    "tier": "mid",
+    "reason": "Island destination with UNESCO-recognized Noto Kodo performing arts, traditional gold mines, and rural charm."
+  },
+  {
+    "prefecture": "Toyama",
+    "city": "Toyama",
+    "region": "Chubu",
+    "tier": "major",
+    "reason": "Prefecture capital with Toyama Castle, traditional museums, and gateway to Toyama Bay cultural attractions."
+  },
+  {
+    "prefecture": "Toyama",
+    "city": "Nanto",
+    "region": "Chubu",
+    "tier": "mid",
+    "reason": "Gateway to Gassho-zukuri thatched-roof villages and traditional craft centers in the Gassho region."
+  },
+  {
+    "prefecture": "Toyama",
+    "city": "Unazuki",
+    "region": "Chubu",
+    "tier": "minor",
+    "reason": "Scenic riverside town known for hot springs and access to scenic gorge hiking."
+  },
+  {
+    "prefecture": "Ishikawa",
+    "city": "Kanazawa",
+    "region": "Chubu",
+    "tier": "major",
+    "reason": "Castle town with world-class gardens (Kenroku-en), samurai districts, and contemporary art museums."
+  },
+  {
+    "prefecture": "Ishikawa",
+    "city": "Komatsu",
+    "region": "Chubu",
+    "tier": "mid",
+    "reason": "Gateway city with Komatsu Airport and access to Kaga hot springs and nearby mountain temples."
+  },
+  {
+    "prefecture": "Ishikawa",
+    "city": "Kaga",
+    "region": "Chubu",
+    "tier": "mid",
+    "reason": "Historic hot spring resort town famous for traditional crafts and ryokan experiences."
+  },
+  {
+    "prefecture": "Ishikawa",
+    "city": "Yamanaka",
+    "region": "Chubu",
+    "tier": "minor",
+    "reason": "Traditional pottery town and hot spring village in the mountains."
+  },
+  {
+    "prefecture": "Ishikawa",
+    "city": "Wajima",
+    "region": "Chubu",
+    "tier": "mid",
+    "reason": "Coastal town known for lacquerware craftsmanship and morning markets; gateway to Noto Peninsula."
+  },
+  {
+    "prefecture": "Ishikawa",
+    "city": "Noto Peninsula",
+    "region": "Chubu",
+    "tier": "mid",
+    "reason": "Scenic coastal peninsula with rugged cliffs, traditional fishing villages, and rural coastal charm."
+  },
+  {
+    "prefecture": "Ishikawa",
+    "city": "Nanao",
+    "region": "Chubu",
+    "tier": "minor",
+    "reason": "Coastal city on Noto Peninsula with castle ruins and access to coastal attractions."
+  },
+  {
+    "prefecture": "Fukui",
+    "city": "Fukui City",
+    "region": "Chubu",
+    "tier": "major",
+    "reason": "Home to Fukui Castle ruins, the Fukui Prefectural Museum, and the historic Ichijo-dani Asakura Clan Ruins with well-preserved samurai town remains."
+  },
+  {
+    "prefecture": "Fukui",
+    "city": "Awara",
+    "region": "Chubu",
+    "tier": "mid",
+    "reason": "Famous hot spring resort town in the Echizen Awara area, known for traditional onsen bathing and regional cuisine."
+  },
+  {
+    "prefecture": "Fukui",
+    "city": "Katsuyama",
+    "region": "Chubu",
+    "tier": "mid",
+    "reason": "Gateway to the Kuzuryu Gorge and featuring the Japanese Dinosaur Museum, a major paleontology attraction."
+  },
+  {
+    "prefecture": "Fukui",
+    "city": "Takefu",
+    "region": "Chubu",
+    "tier": "minor",
+    "reason": "Historic townscape and center for Echizen cutlery craftsmanship, with blade-making workshops and museums."
+  },
+  {
+    "prefecture": "Fukui",
+    "city": "Echizen",
+    "region": "Chubu",
+    "tier": "minor",
+    "reason": "Traditional handmade washi paper production center, offering workshops and demonstrations of centuries-old paper-making techniques."
+  },
+  {
+    "prefecture": "Fukui",
+    "city": "Tsuruga",
+    "region": "Chubu",
+    "tier": "mid",
+    "reason": "Historic port town with Tsuruga Castle, museums, and access to Kehi Shrine; gateway to the Eiheiji Temple area."
+  },
+  {
+    "prefecture": "Yamanashi",
+    "city": "Fujiyoshida",
+    "region": "Chubu",
+    "tier": "major",
+    "reason": "Gateway to Mt. Fuji with shrines, hiking, and iconic views of Japan's most sacred mountain."
+  },
+  {
+    "prefecture": "Yamanashi",
+    "city": "Kawaguchiko",
+    "region": "Chubu",
+    "tier": "major",
+    "reason": "Fuji Five Lakes region with scenic lake, hot springs, and world-class views of Mt. Fuji."
+  },
+  {
+    "prefecture": "Yamanashi",
+    "city": "Yamanakako",
+    "region": "Chubu",
+    "tier": "mid",
+    "reason": "Largest of the Fuji Five Lakes offering water activities, fishing, and Mt. Fuji views."
+  },
+  {
+    "prefecture": "Yamanashi",
+    "city": "Kofu",
+    "region": "Chubu",
+    "tier": "mid",
+    "reason": "Prefectural capital with historic temples, gardens, and access to wine country."
+  },
+  {
+    "prefecture": "Yamanashi",
+    "city": "Isawa",
+    "region": "Chubu",
+    "tier": "minor",
+    "reason": "Historic hot spring town in southern Yamanashi with traditional onsen culture."
+  },
+  {
+    "prefecture": "Yamanashi",
+    "city": "Minobu",
+    "region": "Chubu",
+    "tier": "minor",
+    "reason": "Home to Kuon-ji Temple, a major Buddhist pilgrimage site on the Fuji sacred route."
+  },
+  {
+    "prefecture": "Nagano",
+    "city": "Matsumoto",
+    "region": "Chubu",
+    "tier": "major",
+    "reason": "Home to the iconic Matsumoto Castle, one of Japan's most photographed and well-preserved castles."
+  },
+  {
+    "prefecture": "Nagano",
+    "city": "Nagano City",
+    "region": "Chubu",
+    "tier": "major",
+    "reason": "Site of the 1998 Winter Olympics; features Zenko-ji Temple, one of Japan's most important pilgrimage destinations."
+  },
+  {
+    "prefecture": "Nagano",
+    "city": "Obuse",
+    "region": "Chubu",
+    "tier": "mid",
+    "reason": "Historic town famous for chestnuts (kuri) and art museums featuring ukiyo-e prints and works by Hokusai."
+  },
+  {
+    "prefecture": "Nagano",
+    "city": "Yumoto Onsen",
+    "region": "Chubu",
+    "tier": "mid",
+    "reason": "Scenic hot spring resort in the southern Japanese Alps with mountain views and traditional ryokan hospitality."
+  },
+  {
+    "prefecture": "Nagano",
+    "city": "Komoro",
+    "region": "Chubu",
+    "tier": "minor",
+    "reason": "Features Komoro Castle ruins and historic merchant district with traditional buildings."
+  },
+  {
+    "prefecture": "Nagano",
+    "city": "Tsumago",
+    "region": "Chubu",
+    "tier": "minor",
+    "reason": "Beautifully preserved historic post town along the Nakasendo Trail, popular with heritage tourists."
+  },
+  {
+    "prefecture": "Gifu",
+    "city": "Takayama",
+    "region": "Chubu",
+    "tier": "major",
+    "reason": "Historic post town with beautifully preserved merchant houses and traditional Edo-period streetscape in the Japanese Alps."
+  },
+  {
+    "prefecture": "Gifu",
+    "city": "Shirakawa-go",
+    "region": "Chubu",
+    "tier": "major",
+    "reason": "UNESCO World Heritage village famous for distinctive gassho-zukuri farmhouses and winter snow scene."
+  },
+  {
+    "prefecture": "Gifu",
+    "city": "Gujō Hachiman",
+    "region": "Chubu",
+    "tier": "mid",
+    "reason": "Charming castle town with waterways, traditional dance festivals, and historic merchants' houses."
+  },
+  {
+    "prefecture": "Gifu",
+    "city": "Kanayama",
+    "region": "Chubu",
+    "tier": "minor",
+    "reason": "Mountain village in the Kiso Valley known for traditional forestry heritage and rural scenery."
+  },
+  {
+    "prefecture": "Gifu",
+    "city": "Gifu City",
+    "region": "Chubu",
+    "tier": "major",
+    "reason": "Prefecture capital featuring Gifu Castle, cormorant fishing on the Nagara River, and urban attractions."
+  },
+  {
+    "prefecture": "Gifu",
+    "city": "Kani",
+    "region": "Chubu",
+    "tier": "minor",
+    "reason": "Historic post town on the Kiso Road with traditional inns and cultural heritage sites."
+  },
+  {
+    "prefecture": "Gifu",
+    "city": "Magome",
+    "region": "Chubu",
+    "tier": "mid",
+    "reason": "Historic post town and starting point for the scenic Nakasendō hiking trail through the mountains."
+  },
+  {
+    "prefecture": "Gifu",
+    "city": "Mino",
+    "region": "Chubu",
+    "tier": "mid",
+    "reason": "Traditional paper-making village famous for washi production and scenic waterfall."
+  },
+  {
+    "prefecture": "Gifu",
+    "city": "Takasu",
+    "region": "Chubu",
+    "tier": "minor",
+    "reason": "Mountain region known for alpine scenery and outdoor recreation in the Northern Japanese Alps."
+  },
+  {
+    "prefecture": "Shizuoka",
+    "city": "Shizuoka",
+    "region": "Chubu",
+    "tier": "major",
+    "reason": "Capital city; gateway to Mount Fuji region and home to Sengen Shrine"
+  },
+  {
+    "prefecture": "Shizuoka",
+    "city": "Fujisan Sengen",
+    "region": "Chubu",
+    "tier": "major",
+    "reason": "Home to Sengen Shrine and primary Mount Fuji pilgrimage access point with extensive hiking trails"
+  },
+  {
+    "prefecture": "Shizuoka",
+    "city": "Izu",
+    "region": "Chubu",
+    "tier": "mid",
+    "reason": "Peninsula destination known for hot springs, coastal scenery, and access to Izu Islands ferries"
+  },
+  {
+    "prefecture": "Shizuoka",
+    "city": "Atami",
+    "region": "Chubu",
+    "tier": "mid",
+    "reason": "Seaside hot spring town with traditional ryokan experiences and coastal attractions"
+  },
+  {
+    "prefecture": "Shizuoka",
+    "city": "Kawazu",
+    "region": "Chubu",
+    "tier": "mid",
+    "reason": "Famous for early cherry blossoms (Kawazu Cherry Festival) and scenic river gorges"
+  },
+  {
+    "prefecture": "Shizuoka",
+    "city": "Shimoda",
+    "region": "Chubu",
+    "tier": "mid",
+    "reason": "Historic port town in Izu Peninsula with coastal views and historical significance from the Meiji period"
+  },
+  {
+    "prefecture": "Shizuoka",
+    "city": "Numazu",
+    "region": "Chubu",
+    "tier": "mid",
+    "reason": "Coastal city with Mount Fuji views, deep-sea fishing heritage, and fresh seafood culture"
+  },
+  {
+    "prefecture": "Shizuoka",
+    "city": "Izu Kogen",
+    "region": "Chubu",
+    "tier": "minor",
+    "reason": "Plateau region with hot springs and hiking trails offering scenic views of Mount Fuji and the Izu Peninsula"
+  },
+  {
+    "prefecture": "Shizuoka",
+    "city": "Okabe",
+    "region": "Chubu",
+    "tier": "minor",
+    "reason": "Historic post town on the old Tokaido route with preserved architectural heritage"
+  },
+  {
+    "prefecture": "Aichi",
+    "city": "Nagoya",
+    "region": "Chubu",
+    "tier": "major",
+    "reason": "Major metropolitan hub with Nagoya Castle, temples, museums, and strong food culture; gateway to central Japan."
+  },
+  {
+    "prefecture": "Aichi",
+    "city": "Inuyama",
+    "region": "Chubu",
+    "tier": "mid",
+    "reason": "Home to Japan's oldest original castle and traditional wooden townscape along the Kiso River."
+  },
+  {
+    "prefecture": "Aichi",
+    "city": "Okazaki",
+    "region": "Chubu",
+    "tier": "mid",
+    "reason": "Historic castle town with important samurai heritage and scenic riverside gardens."
+  },
+  {
+    "prefecture": "Aichi",
+    "city": "Toyohashi",
+    "region": "Chubu",
+    "tier": "minor",
+    "reason": "Coastal city with Toyohashi Castle ruins and access to nearby beaches and Atsumi Peninsula."
+  },
+  {
+    "prefecture": "Aichi",
+    "city": "Nagashino",
+    "region": "Chubu",
+    "tier": "minor",
+    "reason": "Historic battlefield and castle ruins site with scenic surrounding countryside."
+  },
+  {
+    "prefecture": "Mie",
+    "city": "Ise",
+    "region": "Kansai",
+    "tier": "major",
+    "reason": "Home to Ise Grand Shrine (Ise Jingū), one of Japan's most sacred and visited Shinto shrines."
+  },
+  {
+    "prefecture": "Mie",
+    "city": "Toba",
+    "region": "Kansai",
+    "tier": "mid",
+    "reason": "Pearl diving heritage, Toba aquarium, and pearl cultivation tourism center."
+  },
+  {
+    "prefecture": "Mie",
+    "city": "Shima",
+    "region": "Kansai",
+    "tier": "mid",
+    "reason": "Scenic coastal area with Shima Spain Village theme park and traditional Ama diving villages."
+  },
+  {
+    "prefecture": "Mie",
+    "city": "Matsusaka",
+    "region": "Kansai",
+    "tier": "mid",
+    "reason": "Famous for Matsusaka beef, historic castle town with traditional merchant architecture."
+  },
+  {
+    "prefecture": "Mie",
+    "city": "Kumano",
+    "region": "Kansai",
+    "tier": "major",
+    "reason": "Gateway to the Kumano Kodo pilgrimage trails and Kumano Sanzan (three grand shrines), UNESCO World Heritage Site."
+  },
+  {
+    "prefecture": "Shiga",
+    "city": "Otsu",
+    "region": "Kansai",
+    "tier": "major",
+    "reason": "Capital of Shiga; home to Ishiyama-dera temple and lakeside cultural attractions on Lake Biwa."
+  },
+  {
+    "prefecture": "Shiga",
+    "city": "Hikone",
+    "region": "Kansai",
+    "tier": "major",
+    "reason": "Historic castle town featuring Hikone Castle, one of Japan's most significant feudal strongholds."
+  },
+  {
+    "prefecture": "Shiga",
+    "city": "Kusatsu",
+    "region": "Kansai",
+    "tier": "mid",
+    "reason": "Gateway town to Lake Biwa and traditional post-town with cultural heritage and hot springs."
+  },
+  {
+    "prefecture": "Shiga",
+    "city": "Takashima",
+    "region": "Kansai",
+    "tier": "mid",
+    "reason": "Scenic lakeside district known for traditional farmhouses, cherry blossoms, and rural charm."
+  },
+  {
+    "prefecture": "Shiga",
+    "city": "Omihachiman",
+    "region": "Kansai",
+    "tier": "mid",
+    "reason": "Historic merchant town with traditional canals, museums, and well-preserved Edo-period architecture."
+  },
+  {
+    "prefecture": "Shiga",
+    "city": "Moriyama",
+    "region": "Kansai",
+    "tier": "minor",
+    "reason": "Home to Moriyama Station and nearby shrines; modest regional tourism appeal."
+  },
+  {
+    "prefecture": "Shiga",
+    "city": "Koka",
+    "region": "Kansai",
+    "tier": "minor",
+    "reason": "Known for historic ninja heritage and rural mountain scenery in the southern part of the prefecture."
+  },
+  {
+    "prefecture": "Kyoto",
+    "city": "Kyoto City",
+    "region": "Kansai",
+    "tier": "major",
+    "reason": "Former imperial capital with over 2,000 temples and shrines, traditional geisha districts, and iconic landmarks like Fushimi Inari and Arashiyama."
+  },
+  {
+    "prefecture": "Kyoto",
+    "city": "Arashiyama",
+    "region": "Kansai",
+    "tier": "major",
+    "reason": "Famous bamboo grove and historic district in Kyoto known for scenic beauty, traditional temples, and mountain views."
+  },
+  {
+    "prefecture": "Kyoto",
+    "city": "Gion",
+    "region": "Kansai",
+    "tier": "major",
+    "reason": "Kyoto's most famous geisha district with preserved wooden machiya houses, traditional restaurants, and evening geisha sightings."
+  },
+  {
+    "prefecture": "Kyoto",
+    "city": "Higashiyama",
+    "region": "Kansai",
+    "tier": "major",
+    "reason": "Historic district in eastern Kyoto with traditional wooden architecture, temples including Kiyomizu-dera, and craft shops."
+  },
+  {
+    "prefecture": "Kyoto",
+    "city": "Fushimi",
+    "region": "Kansai",
+    "tier": "mid",
+    "reason": "Home to Fushimi Inari Taisha with its iconic thousands of red torii gates and historic sake brewery district."
+  },
+  {
+    "prefecture": "Kyoto",
+    "city": "Kurama",
+    "region": "Kansai",
+    "tier": "mid",
+    "reason": "Mountain village north of Kyoto known for scenic hiking, traditional hot springs, and the historic Kurama Temple."
+  },
+  {
+    "prefecture": "Kyoto",
+    "city": "Ohara",
+    "region": "Kansai",
+    "tier": "mid",
+    "reason": "Rural village with the peaceful Sanzen-in temple, moss gardens, and scenic mountain village atmosphere."
+  },
+  {
+    "prefecture": "Kyoto",
+    "city": "Uji",
+    "region": "Kansai",
+    "tier": "mid",
+    "reason": "Historic tea town south of Kyoto renowned for high-quality green tea and the iconic Byodo-in temple."
+  },
+  {
+    "prefecture": "Kyoto",
+    "city": "Sagano",
+    "region": "Kansai",
+    "tier": "mid",
+    "reason": "Scenic district west of Kyoto with bamboo groves, traditional temples, and the picturesque Sagano railway."
+  },
+  {
+    "prefecture": "Osaka",
+    "city": "Osaka",
+    "region": "Kansai",
+    "tier": "major",
+    "reason": "Japan's second-largest metropolis with iconic attractions like Osaka Castle, Dotonbori, and a major economic and cultural hub."
+  },
+  {
+    "prefecture": "Osaka",
+    "city": "Sakai",
+    "region": "Kansai",
+    "tier": "mid",
+    "reason": "Historic city known for traditional blade-making (katana and kitchen knives) and waterfront heritage."
+  },
+  {
+    "prefecture": "Osaka",
+    "city": "Hirakata",
+    "region": "Kansai",
+    "tier": "mid",
+    "reason": "Home to Universal Studios Japan (in neighboring Osaka but technically in Konohana Ward of Osaka) and riverside recreational areas."
+  },
+  {
+    "prefecture": "Osaka",
+    "city": "Dotonbori",
+    "region": "Kansai",
+    "tier": "major",
+    "reason": "World-famous entertainment and dining district in central Osaka known for neon signs, street food, and nightlife."
+  },
+  {
+    "prefecture": "Hyogo",
+    "city": "Kobe",
+    "region": "Kansai",
+    "tier": "major",
+    "reason": "Major port city and international hub with Harborland, Ijinkan (foreigners' quarter), Mount Rokko, and famous Kobe beef cuisine."
+  },
+  {
+    "prefecture": "Hyogo",
+    "city": "Himeji",
+    "region": "Kansai",
+    "tier": "major",
+    "reason": "Home to Himeji Castle, one of Japan's most iconic and beautifully preserved feudal castles, a UNESCO World Heritage site."
+  },
+  {
+    "prefecture": "Hyogo",
+    "city": "Kinosaki",
+    "region": "Kansai",
+    "tier": "mid",
+    "reason": "Traditional hot spring resort town with historic bathhouses and the picturesque Kinosaki Onsen experience."
+  },
+  {
+    "prefecture": "Hyogo",
+    "city": "Awaji Island",
+    "region": "Kansai",
+    "tier": "mid",
+    "reason": "Island destination known for the Naruto Whirlpools, traditional puppet theatre (Awaji Ningyo Joruri), and scenic coastal views."
+  },
+  {
+    "prefecture": "Hyogo",
+    "city": "Arima",
+    "region": "Kansai",
+    "tier": "mid",
+    "reason": "Historic hot spring resort with traditional bathhouses, accessible from Kobe via Mount Rokko cable car."
+  },
+  {
+    "prefecture": "Hyogo",
+    "city": "Akashi",
+    "region": "Kansai",
+    "tier": "minor",
+    "reason": "Home to the impressive Akashi Kaikyo Bridge and Akashi Castle ruins with views over the Seto Inland Sea."
+  },
+  {
+    "prefecture": "Hyogo",
+    "city": "Toyooka",
+    "region": "Kansai",
+    "tier": "minor",
+    "reason": "Gateway to Kinosaki Onsen with local craft heritage and access to nearby natural attractions."
+  },
+  {
+    "prefecture": "Nara",
+    "city": "Nara",
+    "region": "Kansai",
+    "tier": "major",
+    "reason": "Home to Todai-ji Temple, Nara Park with sacred deer, and numerous UNESCO World Heritage sites; one of Japan's most visited historical destinations."
+  },
+  {
+    "prefecture": "Nara",
+    "city": "Kashihara",
+    "region": "Kansai",
+    "tier": "mid",
+    "reason": "Contains Kashihara Jingu shrine and serves as the mythical birthplace of Japan; important historical and spiritual site."
+  },
+  {
+    "prefecture": "Nara",
+    "city": "Asuka",
+    "region": "Kansai",
+    "tier": "mid",
+    "reason": "Ancient capital with numerous archaeological sites, temples, and historical artifacts from early Japanese civilization; popular with history enthusiasts."
+  },
+  {
+    "prefecture": "Nara",
+    "city": "Ikaruga",
+    "region": "Kansai",
+    "tier": "mid",
+    "reason": "Home to Hōryū-ji Temple, one of Japan's oldest and most architecturally significant temples, a UNESCO World Heritage site."
+  },
+  {
+    "prefecture": "Nara",
+    "city": "Yoshino",
+    "region": "Kansai",
+    "tier": "major",
+    "reason": "Famous for stunning spring cherry blossoms covering mountainsides and mountain shrines; a top domestic and international cherry blossom destination."
+  },
+  {
+    "prefecture": "Nara",
+    "city": "Takayama",
+    "region": "Kansai",
+    "tier": "minor",
+    "reason": "Mountain village with traditional rural scenery and hiking access; appeals to nature-focused travelers."
+  },
+  {
+    "prefecture": "Nara",
+    "city": "Katsuragi",
+    "region": "Kansai",
+    "tier": "minor",
+    "reason": "Home to Katsuragi Shrine and mountain hiking routes; minor but established pilgrimage destination."
+  },
+  {
+    "prefecture": "Wakayama",
+    "city": "Wakayama",
+    "region": "Kansai",
+    "tier": "major",
+    "reason": "Prefectural capital with Wakayama Castle, maritime history, and serving as the main gateway to the region."
+  },
+  {
+    "prefecture": "Wakayama",
+    "city": "Koyasan (Koya)",
+    "region": "Kansai",
+    "tier": "major",
+    "reason": "UNESCO World Heritage site and sacred Buddhist mountain monastery complex attracting pilgrims and cultural tourists."
+  },
+  {
+    "prefecture": "Wakayama",
+    "city": "Kumano Hongu Taisha area (Tanabe/Hongu)",
+    "region": "Kansai",
+    "tier": "major",
+    "reason": "UNESCO World Heritage Kumano Kodo pilgrimage routes with historic shrines, a top hiking and spiritual destination."
+  },
+  {
+    "prefecture": "Wakayama",
+    "city": "Nachikatsuura",
+    "region": "Kansai",
+    "tier": "mid",
+    "reason": "Gateway to Nachi Falls (Japan's tallest waterfall) and Kumano Nachi Taisha shrine on the pilgrimage trail."
+  },
+  {
+    "prefecture": "Wakayama",
+    "city": "Shingu",
+    "region": "Kansai",
+    "tier": "mid",
+    "reason": "Home to Kumano Hayatama Taisha shrine and starting point for Kumano Kodo pilgrimage routes."
+  },
+  {
+    "prefecture": "Wakayama",
+    "city": "Kawachi",
+    "region": "Kansai",
+    "tier": "minor",
+    "reason": "Rural area with scenic Kumano Kodo hiking trails and traditional village experiences."
+  },
+  {
+    "prefecture": "Tottori",
+    "city": "Tottori",
+    "region": "Chugoku",
+    "tier": "major",
+    "reason": "Home to the famous Tottori Sand Dunes, Japan's largest sand dunes and a major natural landmark."
+  },
+  {
+    "prefecture": "Tottori",
+    "city": "Kurayoshi",
+    "region": "Chugoku",
+    "tier": "mid",
+    "reason": "Historic hot spring town known for onsen resorts and traditional townscape with sake breweries."
+  },
+  {
+    "prefecture": "Tottori",
+    "city": "Yonago",
+    "region": "Chugoku",
+    "tier": "mid",
+    "reason": "Gateway to Daisen (Mt. Daisen) and Lake Nakaumi; serves as a regional hub for mountain and lake activities."
+  },
+  {
+    "prefecture": "Tottori",
+    "city": "Misasa",
+    "region": "Chugoku",
+    "tier": "minor",
+    "reason": "Charming hot spring village famous for its radon-rich onsen and traditional atmosphere."
+  },
+  {
+    "prefecture": "Shimane",
+    "city": "Matsue",
+    "region": "Chugoku",
+    "tier": "major",
+    "reason": "Castle town with one of Japan's 12 original castles, historic samurai district, and gateway to the Izumo region."
+  },
+  {
+    "prefecture": "Shimane",
+    "city": "Izumo",
+    "region": "Chugoku",
+    "tier": "major",
+    "reason": "Home to Izumo Taisha, one of Japan's oldest and most sacred Shinto shrines, drawing pilgrims and tourists nationwide."
+  },
+  {
+    "prefecture": "Shimane",
+    "city": "Tsuwano",
+    "region": "Chugoku",
+    "tier": "mid",
+    "reason": "Beautifully preserved castle town with traditional architecture, art museums, and scenic mountain setting."
+  },
+  {
+    "prefecture": "Shimane",
+    "city": "Unnan",
+    "region": "Chugoku",
+    "tier": "minor",
+    "reason": "Rural area with the historic Tatara ironworking heritage and traditional countryside appeal."
+  },
+  {
+    "prefecture": "Okayama",
+    "city": "Okayama",
+    "region": "Chugoku",
+    "tier": "major",
+    "reason": "Home to Okayama Castle and Korakuen Garden, one of Japan's three greatest gardens."
+  },
+  {
+    "prefecture": "Okayama",
+    "city": "Kurashiki",
+    "region": "Chugoku",
+    "tier": "major",
+    "reason": "Historic merchant town with preserved Edo-period warehouse district and renowned art museums."
+  },
+  {
+    "prefecture": "Okayama",
+    "city": "Takahashi",
+    "region": "Chugoku",
+    "tier": "mid",
+    "reason": "Gateway to Daisenji Temple and scenic mountain hiking areas in central Okayama."
+  },
+  {
+    "prefecture": "Okayama",
+    "city": "Naagi",
+    "region": "Chugoku",
+    "tier": "mid",
+    "reason": "Rural mountain village known for traditional crafts, thatched houses, and scenic countryside tourism."
+  },
+  {
+    "prefecture": "Okayama",
+    "city": "Bizen",
+    "region": "Chugoku",
+    "tier": "mid",
+    "reason": "Ancient pottery town famous for Bizen ware ceramics, with numerous kilns and pottery museums."
+  },
+  {
+    "prefecture": "Okayama",
+    "city": "Ibara",
+    "region": "Chugoku",
+    "tier": "minor",
+    "reason": "Home to the historic Matsutake area and access to local mountain scenery."
+  },
+  {
+    "prefecture": "Hiroshima",
+    "city": "Hiroshima",
+    "region": "Chugoku",
+    "tier": "major",
+    "reason": "Home to the Peace Memorial Park and Museum, one of Japan's most visited sites and a World Heritage location commemorating WWII history."
+  },
+  {
+    "prefecture": "Hiroshima",
+    "city": "Miyajima (Hatsukaichi)",
+    "region": "Chugoku",
+    "tier": "major",
+    "reason": "Famous for the iconic floating Itsukushima Shrine torii gate and scenic island temple complex, a UNESCO World Heritage Site."
+  },
+  {
+    "prefecture": "Hiroshima",
+    "city": "Kure",
+    "region": "Chugoku",
+    "tier": "mid",
+    "reason": "Maritime heritage hub featuring the Yamato Museum and naval shipyard history, with scenic waterfront attractions."
+  },
+  {
+    "prefecture": "Hiroshima",
+    "city": "Onomichi",
+    "region": "Chugoku",
+    "tier": "mid",
+    "reason": "Charming canal-side town known for traditional temples, narrow lanes, and distinctive street atmosphere; featured in films and art."
+  },
+  {
+    "prefecture": "Hiroshima",
+    "city": "Takayama",
+    "region": "Chugoku",
+    "tier": "mid",
+    "reason": "Mountain resort town with hot springs (onsen) and scenic natural attractions in the northern highlands."
+  },
+  {
+    "prefecture": "Hiroshima",
+    "city": "Fukuyama",
+    "region": "Chugoku",
+    "tier": "mid",
+    "reason": "Historic castle town with Fukuyama Castle and traditional merchant quarters, representing Edo-period urban heritage."
+  },
+  {
+    "prefecture": "Hiroshima",
+    "city": "Akitakata",
+    "region": "Chugoku",
+    "tier": "minor",
+    "reason": "Gateway to scenic hiking and nature tourism in the Chugoku Mountains with traditional forest village character."
+  },
+  {
+    "prefecture": "Yamaguchi",
+    "city": "Shimonoseki",
+    "region": "Chugoku",
+    "tier": "major",
+    "reason": "Historic port city famous for the Shimonoseki Strait, Akama Shrine, and as a gateway to Kyushu; significant cultural and historical site."
+  },
+  {
+    "prefecture": "Yamaguchi",
+    "city": "Iwakuni",
+    "region": "Chugoku",
+    "tier": "major",
+    "reason": "Home to the iconic Kintai Bridge, one of Japan's most photographed historic wooden arched bridges spanning the Nishiki River."
+  },
+  {
+    "prefecture": "Yamaguchi",
+    "city": "Yamaguchi",
+    "region": "Chugoku",
+    "tier": "mid",
+    "reason": "Prefecture's inland cultural hub with historic temples like Rurikoji and traditional merchant streets; known as a \"little Kyoto.\""
+  },
+  {
+    "prefecture": "Yamaguchi",
+    "city": "Hagi",
+    "region": "Chugoku",
+    "tier": "major",
+    "reason": "Ancient castle town famous for Hagi pottery, well-preserved samurai district, and as a key site in Japanese history and traditional crafts."
+  },
+  {
+    "prefecture": "Yamaguchi",
+    "city": "Suo-Oshima",
+    "region": "Chugoku",
+    "tier": "minor",
+    "reason": "Island destination known for scenic views, citrus groves, and as a lesser-known beach and hiking retreat."
+  },
+  {
+    "prefecture": "Yamaguchi",
+    "city": "Yuu",
+    "region": "Chugoku",
+    "tier": "minor",
+    "reason": "Small town with access to scenic coastal and mountain areas; minor historical interest as a stopping point in rural Yamaguchi."
+  },
+  {
+    "prefecture": "Tokushima",
+    "city": "Tokushima City",
+    "region": "Shikoku",
+    "tier": "major",
+    "reason": "Home of the iconic Awa Odori festival, one of Japan's most famous summer dance festivals."
+  },
+  {
+    "prefecture": "Tokushima",
+    "city": "Narutō",
+    "region": "Shikoku",
+    "tier": "major",
+    "reason": "Famous for the spectacular tidal whirlpools (Naruto Whirlpools) visible from the Ōnaruto Bridge."
+  },
+  {
+    "prefecture": "Tokushima",
+    "city": "Miyoshi",
+    "region": "Shikoku",
+    "tier": "mid",
+    "reason": "Starting point for Iya Valley tourism with access to vine bridges, gorges, and hiking."
+  },
+  {
+    "prefecture": "Tokushima",
+    "city": "Mima",
+    "region": "Shikoku",
+    "tier": "minor",
+    "reason": "Home to Udatsu townscape, a preserved historic district with traditional Edo-period merchant houses."
+  },
+  {
+    "prefecture": "Kagawa",
+    "city": "Takamatsu",
+    "region": "Shikoku",
+    "tier": "major",
+    "reason": "Prefectural capital with Takamatsu Castle, traditional gardens (Ritsurin Park), and access to Seto Inland Sea attractions."
+  },
+  {
+    "prefecture": "Kagawa",
+    "city": "Naoshima",
+    "region": "Shikoku",
+    "tier": "major",
+    "reason": "Renowned art island in the Seto Inland Sea with contemporary museums, art installations, and Benesse House."
+  },
+  {
+    "prefecture": "Kagawa",
+    "city": "Teshima",
+    "region": "Shikoku",
+    "tier": "mid",
+    "reason": "Art island with the Teshima Art Museum and seasonal art festivals attracting contemporary art enthusiasts."
+  },
+  {
+    "prefecture": "Kagawa",
+    "city": "Marugame",
+    "region": "Shikoku",
+    "tier": "mid",
+    "reason": "Home to Marugame Castle and traditional udon culture, known as a gateway to Seto Inland Sea islands."
+  },
+  {
+    "prefecture": "Kagawa",
+    "city": "Kotohira",
+    "region": "Shikoku",
+    "tier": "mid",
+    "reason": "Historic town famous for Konpira Shrine, one of Japan's oldest and most important Shinto shrines perched on a mountainside."
+  },
+  {
+    "prefecture": "Kagawa",
+    "city": "Sakaide",
+    "region": "Shikoku",
+    "tier": "minor",
+    "reason": "Gateway town with the Great Seto Bridge and local salt production heritage."
+  },
+  {
+    "prefecture": "Ehime",
+    "city": "Matsuyama",
+    "region": "Shikoku",
+    "tier": "major",
+    "reason": "Home to the iconic Matsuyama Castle and the historic Dogo Onsen, Japan's oldest hot spring."
+  },
+  {
+    "prefecture": "Ehime",
+    "city": "Imabari",
+    "region": "Shikoku",
+    "tier": "mid",
+    "reason": "Known for Imabari Castle and traditional textile production; gateway to the Seto Inland Sea."
+  },
+  {
+    "prefecture": "Ehime",
+    "city": "Saijo",
+    "region": "Shikoku",
+    "tier": "mid",
+    "reason": "Famous sake-brewing town with traditional breweries and the Saijo Festival attracting many visitors."
+  },
+  {
+    "prefecture": "Ehime",
+    "city": "Takahama",
+    "region": "Shikoku",
+    "tier": "minor",
+    "reason": "Charming coastal town known for fresh seafood and access to nearby cycling routes and natural scenery."
+  },
+  {
+    "prefecture": "Ehime",
+    "city": "Kihoku",
+    "region": "Shikoku",
+    "tier": "minor",
+    "reason": "Rural mountain village known for scenic natural landscapes and traditional rural experiences."
+  },
+  {
+    "prefecture": "Kochi",
+    "city": "Kochi",
+    "region": "Shikoku",
+    "tier": "major",
+    "reason": "Castle town with historic Kochi Castle and vibrant Harimaya-bashi market; cultural and historical hub of the prefecture."
+  },
+  {
+    "prefecture": "Kochi",
+    "city": "Nahari",
+    "region": "Shikoku",
+    "tier": "mid",
+    "reason": "Gateway to the Muroto Cape scenic area and known for its coastal beauty and fresh seafood."
+  },
+  {
+    "prefecture": "Kochi",
+    "city": "Shimanto",
+    "region": "Shikoku",
+    "tier": "mid",
+    "reason": "Located along the pristine Shimanto River, renowned for river activities and nature tourism."
+  },
+  {
+    "prefecture": "Kochi",
+    "city": "Konan",
+    "region": "Shikoku",
+    "tier": "minor",
+    "reason": "Home to scenic Katsurahama Beach and local botanical gardens with seasonal appeal."
+  },
+  {
+    "prefecture": "Kochi",
+    "city": "Toyo",
+    "region": "Shikoku",
+    "tier": "minor",
+    "reason": "Coastal town featuring Muroto Cape area attractions and ocean-based outdoor activities."
+  },
+  {
+    "prefecture": "Fukuoka",
+    "city": "Fukuoka City",
+    "region": "Kyushu",
+    "tier": "major",
+    "reason": "Major urban center with Hakata Station, Dazaifu Tenmangu shrine, Canal City, and vibrant food scene."
+  },
+  {
+    "prefecture": "Fukuoka",
+    "city": "Kitakyushu City",
+    "region": "Kyushu",
+    "tier": "mid",
+    "reason": "Industrial port city with museums, castle ruins, and the Kokura entertainment district."
+  },
+  {
+    "prefecture": "Fukuoka",
+    "city": "Dazaifu",
+    "region": "Kyushu",
+    "tier": "mid",
+    "reason": "Home to the renowned Dazaifu Tenmangu shrine, a major pilgrimage and cultural site."
+  },
+  {
+    "prefecture": "Fukuoka",
+    "city": "Kurume",
+    "region": "Kyushu",
+    "tier": "mid",
+    "reason": "Known for traditional Kurume kasuri textile production and regional shopping."
+  },
+  {
+    "prefecture": "Fukuoka",
+    "city": "Yanagawa",
+    "region": "Kyushu",
+    "tier": "mid",
+    "reason": "Historic canal town famous for scenic boat tours and traditional eel cuisine."
+  },
+  {
+    "prefecture": "Fukuoka",
+    "city": "Yame",
+    "region": "Kyushu",
+    "tier": "minor",
+    "reason": "Historic tea-producing region known for high-quality green tea and tea culture tourism."
+  },
+  {
+    "prefecture": "Fukuoka",
+    "city": "Asakura",
+    "region": "Kyushu",
+    "tier": "minor",
+    "reason": "Small town known for waterfall attractions like Sengataki Falls and natural scenery."
+  },
+  {
+    "prefecture": "Saga",
+    "city": "Saga City",
+    "region": "Kyushu",
+    "tier": "major",
+    "reason": "Capital city with Saga Castle, samurai heritage, and traditional pottery districts."
+  },
+  {
+    "prefecture": "Saga",
+    "city": "Takeo",
+    "region": "Kyushu",
+    "tier": "mid",
+    "reason": "Historic hot spring town famous for its onsen and traditional bathhouse culture."
+  },
+  {
+    "prefecture": "Saga",
+    "city": "Arita",
+    "region": "Kyushu",
+    "tier": "mid",
+    "reason": "Renowned pottery town with centuries-old porcelain traditions and kiln museums."
+  },
+  {
+    "prefecture": "Saga",
+    "city": "Imari",
+    "region": "Kyushu",
+    "tier": "mid",
+    "reason": "Historic porcelain center known for Imari ware and traditional ceramic production."
+  },
+  {
+    "prefecture": "Saga",
+    "city": "Karatsu",
+    "region": "Kyushu",
+    "tier": "mid",
+    "reason": "Coastal castle town with Karatsu Castle, known for pottery and scenic harbor views."
+  },
+  {
+    "prefecture": "Saga",
+    "city": "Kashima",
+    "region": "Kyushu",
+    "tier": "minor",
+    "reason": "Home to a historic shrine and gateway to the Yoshinogari archaeological site."
+  },
+  {
+    "prefecture": "Nagasaki",
+    "city": "Nagasaki",
+    "region": "Kyushu",
+    "tier": "major",
+    "reason": "Historic atomic bomb site with Peace Memorial Park and Museum; important WWII and cultural heritage destination."
+  },
+  {
+    "prefecture": "Nagasaki",
+    "city": "Sasebo",
+    "region": "Kyushu",
+    "tier": "mid",
+    "reason": "Historic naval port city with Huis Ten Bosch Dutch theme park and scenic coastal attractions."
+  },
+  {
+    "prefecture": "Nagasaki",
+    "city": "Hirado",
+    "region": "Kyushu",
+    "tier": "mid",
+    "reason": "Historic port town famous for Dutch trading post heritage, traditional temples, and scenic coastal views."
+  },
+  {
+    "prefecture": "Nagasaki",
+    "city": "Shimabara",
+    "region": "Kyushu",
+    "tier": "mid",
+    "reason": "Gateway to Unzen volcanic region; home to reconstructed Shimabara Castle and hot spring resorts."
+  },
+  {
+    "prefecture": "Nagasaki",
+    "city": "Unzen",
+    "region": "Kyushu",
+    "tier": "mid",
+    "reason": "Active volcanic area with dramatic mountain scenery, hiking trails, and traditional hot springs."
+  },
+  {
+    "prefecture": "Nagasaki",
+    "city": "Omura",
+    "region": "Kyushu",
+    "tier": "minor",
+    "reason": "Historic castle town with reconstructed Omura Castle and traditional samurai heritage."
+  },
+  {
+    "prefecture": "Nagasaki",
+    "city": "Tsushima",
+    "region": "Kyushu",
+    "tier": "minor",
+    "reason": "Remote island with historical significance and natural coastal scenery; ferry destination for adventurous travelers."
+  },
+  {
+    "prefecture": "Kumamoto",
+    "city": "Kumamoto City",
+    "region": "Kyushu",
+    "tier": "major",
+    "reason": "Home to iconic Kumamoto Castle, a major reconstructed fortress and premier tourist destination in Kyushu."
+  },
+  {
+    "prefecture": "Kumamoto",
+    "city": "Aso",
+    "region": "Kyushu",
+    "tier": "major",
+    "reason": "Site of Mount Aso, one of the world's largest active volcanic calderas with stunning landscapes and outdoor activities."
+  },
+  {
+    "prefecture": "Kumamoto",
+    "city": "Takayama",
+    "region": "Kyushu",
+    "tier": "mid",
+    "reason": "Historic hot spring town with traditional architecture, natural hot springs, and access to scenic rural areas."
+  },
+  {
+    "prefecture": "Kumamoto",
+    "city": "Arao",
+    "region": "Kyushu",
+    "tier": "minor",
+    "reason": "Coastal town known for its scenic beaches and gateway to the Shimabara Peninsula region."
+  },
+  {
+    "prefecture": "Oita",
+    "city": "Beppu",
+    "region": "Kyushu",
+    "tier": "major",
+    "reason": "Japan's foremost hot spring destination with thousands of onsen and the iconic 'hell' thermal pools."
+  },
+  {
+    "prefecture": "Oita",
+    "city": "Yufuin",
+    "region": "Kyushu",
+    "tier": "major",
+    "reason": "Picturesque mountain hot spring town famous for its rustic charm and views of Mount Yufu."
+  },
+  {
+    "prefecture": "Oita",
+    "city": "Oita City",
+    "region": "Kyushu",
+    "tier": "mid",
+    "reason": "Prefecture capital with historical temples, local cuisine, and gateway to regional attractions."
+  },
+  {
+    "prefecture": "Oita",
+    "city": "Taketa",
+    "region": "Kyushu",
+    "tier": "mid",
+    "reason": "Historic castle town known for samurai heritage and traditional streetscapes."
+  },
+  {
+    "prefecture": "Oita",
+    "city": "Usuki",
+    "region": "Kyushu",
+    "tier": "mid",
+    "reason": "Home to Usuki Stone Buddhas, a set of 60+ Heian-era carved Buddhist statues."
+  },
+  {
+    "prefecture": "Oita",
+    "city": "Nakatsu",
+    "region": "Kyushu",
+    "tier": "minor",
+    "reason": "Riverside castle town with traditional architecture and local historical significance."
+  },
+  {
+    "prefecture": "Miyazaki",
+    "city": "Miyazaki",
+    "region": "Kyushu",
+    "tier": "major",
+    "reason": "Prefectural capital with Miyazaki Shrine, beautiful gardens, and gateway to southern Kyushu attractions"
+  },
+  {
+    "prefecture": "Miyazaki",
+    "city": "Kitagawa",
+    "region": "Kyushu",
+    "tier": "mid",
+    "reason": "Known for traditional wooden architecture and scenic mountain landscapes in the interior"
+  },
+  {
+    "prefecture": "Miyazaki",
+    "city": "Takachihō",
+    "region": "Kyushu",
+    "tier": "mid",
+    "reason": "Famous for Takachihō Gorge, a stunning canyon with boat tours and mythological significance"
+  },
+  {
+    "prefecture": "Miyazaki",
+    "city": "Nichinan",
+    "region": "Kyushu",
+    "tier": "mid",
+    "reason": "Coastal town featuring Cape Tōi with dramatic rocky cliffs and scenic coastal views"
+  },
+  {
+    "prefecture": "Miyazaki",
+    "city": "Hyūga",
+    "region": "Kyushu",
+    "tier": "minor",
+    "reason": "Charming coastal town with historic significance and access to nearby scenic beaches"
+  },
+  {
+    "prefecture": "Miyazaki",
+    "city": "Aya",
+    "region": "Kyushu",
+    "tier": "minor",
+    "reason": "Small mountain town known for traditional crafts, forests, and rural mountain tourism"
+  },
+  {
+    "prefecture": "Kagoshima",
+    "city": "Kagoshima City",
+    "region": "Kyushu",
+    "tier": "major",
+    "reason": "Capital city with Sengan-en gardens, Sakurajima volcano views, and samurai heritage museums."
+  },
+  {
+    "prefecture": "Kagoshima",
+    "city": "Ibusuki",
+    "region": "Kyushu",
+    "tier": "mid",
+    "reason": "Famous hot spring resort town known for sand baths and coastal onsen experiences."
+  },
+  {
+    "prefecture": "Kagoshima",
+    "city": "Kirishima",
+    "region": "Kyushu",
+    "tier": "mid",
+    "reason": "Mountain town centered around Kirishima National Park with scenic hiking, volcanic peaks, and hot springs."
+  },
+  {
+    "prefecture": "Kagoshima",
+    "city": "Makurazaki",
+    "region": "Kyushu",
+    "tier": "minor",
+    "reason": "Coastal fishing town with scenic cape views and local seafood attractions."
+  },
+  {
+    "prefecture": "Kagoshima",
+    "city": "Yusui",
+    "region": "Kyushu",
+    "tier": "minor",
+    "reason": "Rural town known for pristine groundwater springs and traditional water-based attractions."
+  },
+  {
+    "prefecture": "Okinawa",
+    "city": "Naha",
+    "region": "Okinawa",
+    "tier": "major",
+    "reason": "Capital city with Shuri Castle, Kokusai Street shopping district, and gateway to Okinawa tourism"
+  },
+  {
+    "prefecture": "Okinawa",
+    "city": "Shuri",
+    "region": "Okinawa",
+    "tier": "major",
+    "reason": "Historic royal capital featuring Shuri Castle, a UNESCO World Heritage Site and symbol of Ryukyuan culture"
+  },
+  {
+    "prefecture": "Okinawa",
+    "city": "Chatan",
+    "region": "Okinawa",
+    "tier": "mid",
+    "reason": "Popular beach resort town with American Village shopping and entertainment complex, known for sunset views"
+  },
+  {
+    "prefecture": "Okinawa",
+    "city": "Urasoe",
+    "region": "Okinawa",
+    "tier": "mid",
+    "reason": "Home to Urasoe Castle ruins and important Ryukyuan historical sites with cultural significance"
+  },
+  {
+    "prefecture": "Okinawa",
+    "city": "Itoman",
+    "region": "Okinawa",
+    "tier": "mid",
+    "reason": "Historic fishing port with Peace Memorial Park and museums dedicated to WWII history"
+  },
+  {
+    "prefecture": "Okinawa",
+    "city": "Yomitan",
+    "region": "Okinawa",
+    "tier": "mid",
+    "reason": "Scenic location with beaches, pottery traditions, and views of the East China Sea"
+  },
+  {
+    "prefecture": "Okinawa",
+    "city": "Ishigaki",
+    "region": "Okinawa",
+    "tier": "major",
+    "reason": "Gateway to remote Yaeyama Islands with world-class diving and tropical island attractions"
+  },
+  {
+    "prefecture": "Okinawa",
+    "city": "Nago",
+    "region": "Okinawa",
+    "tier": "mid",
+    "reason": "Northern Okinawa hub featuring Motobu attractions, Okinawa Churaumi Aquarium, and coastal scenery"
+  },
+  {
+    "prefecture": "Okinawa",
+    "city": "Tomari",
+    "region": "Okinawa",
+    "tier": "minor",
+    "reason": "Historic port district in Naha with traditional fishing culture and waterfront charm"
+  },
+  {
+    "prefecture": "Okinawa",
+    "city": "Kouri",
+    "region": "Okinawa",
+    "tier": "minor",
+    "reason": "Scenic island connected by bridge featuring pristine beaches and marine activities"
+  },
+  {
+    "prefecture": "Nagano",
+    "city": "Hakuba",
+    "region": "Chubu",
+    "tier": "major",
+    "reason": "World-class alpine ski resort village that hosted the 1998 Winter Olympics, in the Japanese Northern Alps."
+  },
+  {
+    "prefecture": "Oita",
+    "city": "Hita",
+    "region": "Kyushu",
+    "tier": "mid",
+    "reason": "Historic Edo-period merchant town known as the \"Little Kyoto of Kyushu,\" with preserved streets and hot springs."
+  }
+]

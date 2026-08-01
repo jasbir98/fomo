@@ -1,0 +1,652 @@
+{
+  "records": [
+    {
+      "batch_id": "scot-pilot-2026-07-25",
+      "dedupe_key": "name:city-of-edinburgh:dean-village:water-of-leith-walkway",
+      "region": "Edinburgh & Lothians",
+      "prefecture": "City of Edinburgh",
+      "city": "Dean Village",
+      "country": "GB",
+      "name": "Water of Leith Walkway",
+      "category": "park",
+      "description": "A 12-13 mile scenic riverside walking and cycling route running from Balerno to Leith, passing through Dean Village with views of historic mills, stone buildings, and abundant wildlife along the Water of Leith river.",
+      "tips": [],
+      "hours": null,
+      "hours_status": "unknown",
+      "station": "Haymarket",
+      "google_place_id": null,
+      "lat": 55.9537,
+      "lng": -3.221,
+      "address": "Dean Path, Edinburgh, EH4 3AY",
+      "rating": null,
+      "price_level": null,
+      "image_url": null,
+      "badges": [],
+      "source_urls": [
+        "https://www.visitscotland.com/info/see-do/dean-village-p1419651",
+        "https://en.wikipedia.org/wiki/Water_of_Leith_Walkway",
+        "https://edinburgh.org/blog/discover-the-water-of-leith-walkway/"
+      ],
+      "field_sources": {
+        "description": "https://en.wikipedia.org/wiki/Water_of_Leith_Walkway",
+        "address": "https://www.visitscotland.com/info/see-do/dean-village-p1419651",
+        "lat": "https://en.wikipedia.org/wiki/Water_of_Leith_Walkway",
+        "lng": "https://en.wikipedia.org/wiki/Water_of_Leith_Walkway",
+        "station": "https://www.nationalgalleries.org/visit/scottish-national-gallery-modern-art"
+      },
+      "photo": null,
+      "extraction_model": "claude-haiku-4-5",
+      "extraction_status": "extracted",
+      "validation_errors": [],
+      "approved": false,
+      "rejected_reason": null,
+      "fetched_at": "2026-07-25T10:37:27.056632+00:00",
+      "last_verified_at": "2026-07-25T10:37:27.056632+00:00",
+      "data_quality_flags": [
+        "missing_hours",
+        "missing_photo"
+      ]
+    },
+    {
+      "batch_id": "scot-pilot-2026-07-25",
+      "dedupe_key": "name:city-of-edinburgh:dean-village:dean-village",
+      "region": "Edinburgh & Lothians",
+      "prefecture": "City of Edinburgh",
+      "city": "Dean Village",
+      "country": "GB",
+      "name": "Dean Village",
+      "category": "historic area",
+      "description": "A picturesque historic village nestled in the Water of Leith gorge, originally a grain milling settlement from the 12th century. Features preserved cobblestone streets, charming stone buildings dating back centuries, and retains its unique fairytale-like atmosphere within minutes of Edinburgh's city centre.",
+      "tips": [],
+      "hours": null,
+      "hours_status": "unknown",
+      "station": "Haymarket",
+      "google_place_id": null,
+      "lat": 55.954,
+      "lng": -3.219,
+      "address": "Dean Path, Edinburgh, EH4 3AY",
+      "rating": null,
+      "price_level": null,
+      "image_url": null,
+      "badges": [],
+      "source_urls": [
+        "https://www.visitscotland.com/info/see-do/dean-village-p1419651",
+        "https://edinburghtourist.co.uk/attractions/dean-village/"
+      ],
+      "field_sources": {
+        "description": "https://www.visitscotland.com/info/see-do/dean-village-p1419651",
+        "address": "https://edinburghtourist.co.uk/attractions/dean-village/",
+        "lat": "https://www.visitscotland.com/info/see-do/dean-village-p1419651",
+        "lng": "https://www.visitscotland.com/info/see-do/dean-village-p1419651",
+        "station": "https://www.nationalgalleries.org/visit/scottish-national-gallery-modern-art"
+      },
+      "photo": null,
+      "extraction_model": "claude-haiku-4-5",
+      "extraction_status": "extracted",
+      "validation_errors": [],
+      "approved": false,
+      "rejected_reason": null,
+      "fetched_at": "2026-07-25T10:37:27.056632+00:00",
+      "last_verified_at": "2026-07-25T10:37:27.056632+00:00",
+      "data_quality_flags": [
+        "missing_hours",
+        "missing_photo"
+      ]
+    },
+    {
+      "batch_id": "scot-pilot-2026-07-25",
+      "dedupe_key": "name:city-of-edinburgh:dean-village:well-court",
+      "region": "Edinburgh & Lothians",
+      "prefecture": "City of Edinburgh",
+      "city": "Dean Village",
+      "country": "GB",
+      "name": "Well Court",
+      "category": "historic building",
+      "description": "A striking red sandstone housing complex completed in 1886, designed by architect Sydney Mitchell as an Arts and Crafts social housing development. Built for mill workers, it features ornate carvings, a clock tower, crow-stepped gables, and a tranquil courtyard. A UNESCO World Heritage Site landmark.",
+      "tips": [
+        {
+          "text": "Well Court is a private residential building; admire the exterior and courtyard from a respectful distance",
+          "source_url": "https://ewh.org.uk/well-court/"
+        }
+      ],
+      "hours": null,
+      "hours_status": "unknown",
+      "station": "Haymarket",
+      "google_place_id": null,
+      "lat": 55.9525,
+      "lng": -3.219,
+      "address": "Hawthornbank Lane, Edinburgh, EH4 3DW",
+      "rating": null,
+      "price_level": null,
+      "image_url": null,
+      "badges": [],
+      "source_urls": [
+        "https://ewh.org.uk/well-court/",
+        "https://www.edinburgharchitecture.co.uk/dean-village"
+      ],
+      "field_sources": {
+        "description": "https://ewh.org.uk/well-court/",
+        "address": "https://ewh.org.uk/well-court/",
+        "lat": "https://www.edinburgharchitecture.co.uk/dean-village",
+        "lng": "https://www.edinburgharchitecture.co.uk/dean-village",
+        "station": "https://www.nationalgalleries.org/visit/scottish-national-gallery-modern-art"
+      },
+      "photo": null,
+      "extraction_model": "claude-haiku-4-5",
+      "extraction_status": "extracted",
+      "validation_errors": [],
+      "approved": false,
+      "rejected_reason": null,
+      "fetched_at": "2026-07-25T10:37:27.056632+00:00",
+      "last_verified_at": "2026-07-25T10:37:27.056632+00:00",
+      "data_quality_flags": [
+        "missing_hours",
+        "missing_photo"
+      ]
+    },
+    {
+      "batch_id": "scot-pilot-2026-07-25",
+      "dedupe_key": "name:city-of-edinburgh:dean-village:dean-bridge",
+      "region": "Edinburgh & Lothians",
+      "prefecture": "City of Edinburgh",
+      "city": "Dean Village",
+      "country": "GB",
+      "name": "Dean Bridge",
+      "category": "landmark",
+      "description": "A monumental stone arch bridge completed in 1831, designed by civil engineer Thomas Telford. Spans 447 feet across four arches rising 106 feet above the Water of Leith. One of Telford's final major works before retirement, it remains a striking landmark visible from the Water of Leith Walkway below.",
+      "tips": [
+        {
+          "text": "Best viewed from the Water of Leith Walkway passing beneath the bridge for dramatic perspective",
+          "source_url": "https://www.trove.scot/place/52640"
+        }
+      ],
+      "hours": null,
+      "hours_status": "unknown",
+      "station": "Haymarket",
+      "google_place_id": null,
+      "lat": 55.9531,
+      "lng": -3.2143,
+      "address": "Queensferry Road, Edinburgh, EH3 7UA",
+      "rating": null,
+      "price_level": null,
+      "image_url": null,
+      "badges": [],
+      "source_urls": [
+        "https://en.wikipedia.org/wiki/Dean_Bridge",
+        "https://www.trove.scot/place/52640"
+      ],
+      "field_sources": {
+        "description": "https://en.wikipedia.org/wiki/Dean_Bridge",
+        "address": "https://en.wikipedia.org/wiki/Dean_Bridge",
+        "lat": "https://en.wikipedia.org/wiki/Dean_Bridge",
+        "lng": "https://en.wikipedia.org/wiki/Dean_Bridge",
+        "station": "https://www.nationalgalleries.org/visit/scottish-national-gallery-modern-art"
+      },
+      "photo": null,
+      "extraction_model": "claude-haiku-4-5",
+      "extraction_status": "extracted",
+      "validation_errors": [],
+      "approved": false,
+      "rejected_reason": null,
+      "fetched_at": "2026-07-25T10:37:27.056632+00:00",
+      "last_verified_at": "2026-07-25T10:37:27.056632+00:00",
+      "data_quality_flags": [
+        "missing_hours",
+        "missing_photo"
+      ]
+    },
+    {
+      "batch_id": "scot-pilot-2026-07-25",
+      "dedupe_key": "name:city-of-edinburgh:dean-village:st-bernard-s-well",
+      "region": "Edinburgh & Lothians",
+      "prefecture": "City of Edinburgh",
+      "city": "Dean Village",
+      "country": "GB",
+      "name": "St Bernard's Well",
+      "category": "landmark",
+      "description": "A neoclassical mineral water temple constructed in 1789, designed by landscape painter Alexander Nasymth and inspired by Rome's Temple of Vesta. Features a circular domed structure with Corinthian columns housing a marble statue of Hygieia, the Greek goddess of health, in a serene riverside setting.",
+      "tips": [
+        {
+          "text": "Interior access limited; open periodically on Edinburgh's Open Doors Day and select summer Sundays. Best viewed externally from the Water of Leith Walkway",
+          "source_url": "https://curiousedinburgh.org/2017/03/24/st-bernards-well/"
+        }
+      ],
+      "hours": null,
+      "hours_status": "unknown",
+      "station": "Haymarket",
+      "google_place_id": null,
+      "lat": 55.957,
+      "lng": -3.217,
+      "address": "Clarendon Crescent, Edinburgh, EH4 1PT",
+      "rating": null,
+      "price_level": null,
+      "image_url": null,
+      "badges": [],
+      "source_urls": [
+        "https://edinburghguide.com/venues/visitor-attractions/st-bernards-well",
+        "https://curiousedinburgh.org/2017/03/24/st-bernards-well/"
+      ],
+      "field_sources": {
+        "description": "https://edinburghguide.com/venues/visitor-attractions/st-bernards-well",
+        "address": "https://curiousedinburgh.org/2017/03/24/st-bernards-well/",
+        "lat": "https://curiousedinburgh.org/2017/03/24/st-bernards-well/",
+        "lng": "https://curiousedinburgh.org/2017/03/24/st-bernards-well/",
+        "station": "https://www.nationalgalleries.org/visit/scottish-national-gallery-modern-art"
+      },
+      "photo": null,
+      "extraction_model": "claude-haiku-4-5",
+      "extraction_status": "extracted",
+      "validation_errors": [],
+      "approved": false,
+      "rejected_reason": null,
+      "fetched_at": "2026-07-25T10:37:27.056632+00:00",
+      "last_verified_at": "2026-07-25T10:37:27.056632+00:00",
+      "data_quality_flags": [
+        "missing_hours",
+        "missing_photo"
+      ]
+    },
+    {
+      "batch_id": "scot-pilot-2026-07-25",
+      "dedupe_key": "name:city-of-edinburgh:dean-village:dean-cemetery",
+      "region": "Edinburgh & Lothians",
+      "prefecture": "City of Edinburgh",
+      "city": "Dean Village",
+      "country": "GB",
+      "name": "Dean Cemetery",
+      "category": "cemetery",
+      "description": "A historically significant Victorian cemetery opened in 1846, laid out by architect David Cousin as a fashionable burial ground for the middle and upper classes. Features ornate monuments, obelisks, and memorials in a landscaped garden cemetery setting, with gravestones documenting Scottish achievement and history.",
+      "tips": [
+        {
+          "text": "Notable burials include David Octavius Hill, pioneer of early photography, and other prominent Scottish figures",
+          "source_url": "https://www.deancemetery.org.uk/"
+        }
+      ],
+      "hours": null,
+      "hours_status": "unknown",
+      "station": "Haymarket",
+      "google_place_id": null,
+      "lat": 55.9538,
+      "lng": -3.221,
+      "address": "Belford Road, Edinburgh, EH4 3AT",
+      "rating": null,
+      "price_level": null,
+      "image_url": null,
+      "badges": [],
+      "source_urls": [
+        "https://en.wikipedia.org/wiki/Dean_Cemetery",
+        "https://www.trove.scot/place/275013"
+      ],
+      "field_sources": {
+        "description": "https://en.wikipedia.org/wiki/Dean_Cemetery",
+        "address": "https://www.trove.scot/place/275013",
+        "lat": "https://www.trove.scot/place/275013",
+        "lng": "https://www.trove.scot/place/275013",
+        "station": "https://www.nationalgalleries.org/visit/scottish-national-gallery-modern-art"
+      },
+      "photo": null,
+      "extraction_model": "claude-haiku-4-5",
+      "extraction_status": "extracted",
+      "validation_errors": [],
+      "approved": false,
+      "rejected_reason": null,
+      "fetched_at": "2026-07-25T10:37:27.056632+00:00",
+      "last_verified_at": "2026-07-25T10:37:27.056632+00:00",
+      "data_quality_flags": [
+        "missing_hours",
+        "missing_photo"
+      ]
+    },
+    {
+      "batch_id": "scot-pilot-2026-07-25",
+      "dedupe_key": "name:city-of-edinburgh:dean-village:scottish-national-gallery-of-modern-art-modern-one-modern-two",
+      "region": "Edinburgh & Lothians",
+      "prefecture": "City of Edinburgh",
+      "city": "Dean Village",
+      "country": "GB",
+      "name": "Scottish National Gallery of Modern Art (Modern One & Modern Two)",
+      "category": "gallery",
+      "description": "Two neoclassical buildings housing Scotland's national collection of modern and contemporary art from 1900 to present. Modern One features contemporary art and a world-class Surrealism collection. Modern Two occupies a former orphanage building and displays dynamic exhibitions. Surrounded by sculpture parks with works by Henry Moore, Rachel Whiteread, and other major artists.",
+      "tips": [
+        {
+          "text": "Free admission to permanent collections; a 15-minute walk from Princes Street or accessible via Water of Leith Walkway",
+          "source_url": "https://www.nationalgalleries.org/visit/scottish-national-gallery-modern-art"
+        }
+      ],
+      "hours": "10:00–17:00",
+      "hours_status": "known",
+      "station": "Haymarket",
+      "google_place_id": null,
+      "lat": 55.9508,
+      "lng": -3.2276,
+      "address": "75 Belford Road, Edinburgh, EH4 3DR",
+      "rating": null,
+      "price_level": null,
+      "image_url": null,
+      "badges": [],
+      "source_urls": [
+        "https://www.nationalgalleries.org/visit/scottish-national-gallery-modern-art",
+        "https://en.wikipedia.org/wiki/Scottish_National_Gallery_of_Modern_Art"
+      ],
+      "field_sources": {
+        "description": "https://www.nationalgalleries.org/visit/scottish-national-gallery-modern-art",
+        "address": "https://www.nationalgalleries.org/visit/scottish-national-gallery-modern-art",
+        "hours": "https://artuk.org/visit/venues/national-galleries-of-scotland-modern-7384",
+        "lat": "https://en.wikipedia.org/wiki/Scottish_National_Gallery_of_Modern_Art",
+        "lng": "https://en.wikipedia.org/wiki/Scottish_National_Gallery_of_Modern_Art",
+        "station": "https://www.nationalgalleries.org/visit/scottish-national-gallery-modern-art"
+      },
+      "photo": null,
+      "extraction_model": "claude-haiku-4-5",
+      "extraction_status": "extracted",
+      "validation_errors": [],
+      "approved": false,
+      "rejected_reason": null,
+      "fetched_at": "2026-07-25T10:37:27.056632+00:00",
+      "last_verified_at": "2026-07-25T10:37:27.056632+00:00",
+      "data_quality_flags": [
+        "missing_photo"
+      ]
+    },
+    {
+      "batch_id": "scot-pilot-2026-07-25",
+      "dedupe_key": "name:city-of-edinburgh:dean-village:bell-s-brae-bridge",
+      "region": "Edinburgh & Lothians",
+      "prefecture": "City of Edinburgh",
+      "city": "Dean Village",
+      "country": "GB",
+      "name": "Bell's Brae Bridge",
+      "category": "landmark",
+      "description": "A picturesque single-arch stone bridge constructed in the early 1830s, situated at the heart of Dean Village. Served as the original and primary crossing point of the Water of Leith, once the main access route into Edinburgh from the west. Offers characteristic views of half-timbered houses and Georgian New Town buildings.",
+      "tips": [],
+      "hours": null,
+      "hours_status": "unknown",
+      "station": "Haymarket",
+      "google_place_id": null,
+      "lat": 55.9523,
+      "lng": -3.2162,
+      "address": "Bell's Brae, Edinburgh, EH4 3DZ",
+      "rating": null,
+      "price_level": null,
+      "image_url": null,
+      "badges": [],
+      "source_urls": [
+        "https://voicemap.me/tour/edinburgh/edinburgh-s-dean-village-a-historical-wander-along-the-water-of-leith-walkway/sites/bell-s-brae-bridge"
+      ],
+      "field_sources": {
+        "description": "https://voicemap.me/tour/edinburgh/edinburgh-s-dean-village-a-historical-wander-along-the-water-of-leith-walkway/sites/bell-s-brae-bridge",
+        "address": "https://voicemap.me/tour/edinburgh/edinburgh-s-dean-village-a-historical-wander-along-the-water-of-leith-walkway/sites/bell-s-brae-bridge",
+        "lat": "https://britishlistedbuildings.co.uk/200366037-the-old-tolbooth-15-13-bells-brae-dean-village-edinburgh-edinburgh",
+        "lng": "https://britishlistedbuildings.co.uk/200366037-the-old-tolbooth-15-13-bells-brae-dean-village-edinburgh-edinburgh",
+        "station": "https://www.nationalgalleries.org/visit/scottish-national-gallery-modern-art"
+      },
+      "photo": null,
+      "extraction_model": "claude-haiku-4-5",
+      "extraction_status": "extracted",
+      "validation_errors": [],
+      "approved": false,
+      "rejected_reason": null,
+      "fetched_at": "2026-07-25T10:37:27.056632+00:00",
+      "last_verified_at": "2026-07-25T10:37:27.056632+00:00",
+      "data_quality_flags": [
+        "missing_hours",
+        "missing_photo"
+      ]
+    },
+    {
+      "batch_id": "scot-pilot-2026-07-25",
+      "dedupe_key": "name:city-of-edinburgh:dean-village:old-tolbooth-baxter-s-tollbooth",
+      "region": "Edinburgh & Lothians",
+      "prefecture": "City of Edinburgh",
+      "city": "Dean Village",
+      "country": "GB",
+      "name": "Old Tolbooth (Baxter's Tollbooth)",
+      "category": "historic building",
+      "description": "A fine double tenement with crow-stepped gables built in 1675 for the Incorporation of Baxters (bakers) as a tax collection and granary point. Features the inscription 'God bless the baxters of Edinburgh who built this house 1675' and the Baxter's coat of arms. Served variously as courthouse and prison with basement cells. Category A listed building.",
+      "tips": [
+        {
+          "text": "Now converted to private flats; view exterior and inscriptions from Bell's Brae",
+          "source_url": "https://voicemap.me/tour/edinburgh/edinburgh-s-dean-village-a-historical-wander-along-the-water-of-leith-walkway/sites/old-baxter-s-tollbooth"
+        }
+      ],
+      "hours": null,
+      "hours_status": "unknown",
+      "station": "Haymarket",
+      "google_place_id": null,
+      "lat": 55.9523,
+      "lng": -3.2162,
+      "address": "Bell's Brae, Edinburgh, EH4 3DZ",
+      "rating": null,
+      "price_level": null,
+      "image_url": null,
+      "badges": [],
+      "source_urls": [
+        "https://voicemap.me/tour/edinburgh/edinburgh-s-dean-village-a-historical-wander-along-the-water-of-leith-walkway/sites/old-baxter-s-tollbooth",
+        "https://britishlistedbuildings.co.uk/200366037-the-old-tolbooth-15-13-bells-brae-dean-village-edinburgh-edinburgh"
+      ],
+      "field_sources": {
+        "description": "https://voicemap.me/tour/edinburgh/edinburgh-s-dean-village-a-historical-wander-along-the-water-of-leith-walkway/sites/old-baxter-s-tollbooth",
+        "address": "https://britishlistedbuildings.co.uk/200366037-the-old-tolbooth-15-13-bells-brae-dean-village-edinburgh-edinburgh",
+        "lat": "https://britishlistedbuildings.co.uk/200366037-the-old-tolbooth-15-13-bells-brae-dean-village-edinburgh-edinburgh",
+        "lng": "https://britishlistedbuildings.co.uk/200366037-the-old-tolbooth-15-13-bells-brae-dean-village-edinburgh-edinburgh",
+        "station": "https://www.nationalgalleries.org/visit/scottish-national-gallery-modern-art"
+      },
+      "photo": null,
+      "extraction_model": "claude-haiku-4-5",
+      "extraction_status": "extracted",
+      "validation_errors": [],
+      "approved": false,
+      "rejected_reason": null,
+      "fetched_at": "2026-07-25T10:37:27.056632+00:00",
+      "last_verified_at": "2026-07-25T10:37:27.056632+00:00",
+      "data_quality_flags": [
+        "missing_hours",
+        "missing_photo"
+      ]
+    },
+    {
+      "batch_id": "scot-pilot-2026-07-25",
+      "dedupe_key": "name:city-of-edinburgh:dean-village:st-mary-s-cathedral",
+      "region": "Edinburgh & Lothians",
+      "prefecture": "City of Edinburgh",
+      "city": "Dean Village",
+      "country": "GB",
+      "name": "St Mary's Cathedral",
+      "category": "cathedral",
+      "description": "A magnificent Victorian Gothic revival cathedral completed in 1917, designed by renowned British architect Sir Gilbert Scott. Features three distinctive spires dominating Edinburgh's skyline, visible from Calton Hill and Arthur's Seat. The interior contains stained-glass windows by artist Eduardo Paolozzi. Located approximately 8 minutes' walk from Dean Village.",
+      "tips": [
+        {
+          "text": "Easy walk from Dean Village; admire the ornate main entrance on Palmerston Place",
+          "source_url": "https://www.chasingthelongroad.com/scotland/dean-village-edinburgh/"
+        }
+      ],
+      "hours": null,
+      "hours_status": "unknown",
+      "station": "Haymarket",
+      "google_place_id": null,
+      "lat": 55.9543,
+      "lng": -3.2252,
+      "address": "Palmerston Place, Edinburgh, EH4 1BQ",
+      "rating": null,
+      "price_level": null,
+      "image_url": null,
+      "badges": [],
+      "source_urls": [
+        "https://www.chasingthelongroad.com/scotland/dean-village-edinburgh/",
+        "https://www.edinburghexpert.com/blog/churches-of-edinburgh-st-marys-cathedral"
+      ],
+      "field_sources": {
+        "description": "https://www.chasingthelongroad.com/scotland/dean-village-edinburgh/",
+        "address": "https://www.chasingthelongroad.com/scotland/dean-village-edinburgh/",
+        "lat": "https://www.edinburghexpert.com/blog/churches-of-edinburgh-st-marys-cathedral",
+        "lng": "https://www.edinburghexpert.com/blog/churches-of-edinburgh-st-marys-cathedral",
+        "station": "https://www.nationalgalleries.org/visit/scottish-national-gallery-modern-art"
+      },
+      "photo": null,
+      "extraction_model": "claude-haiku-4-5",
+      "extraction_status": "extracted",
+      "validation_errors": [],
+      "approved": false,
+      "rejected_reason": null,
+      "fetched_at": "2026-07-25T10:37:27.056632+00:00",
+      "last_verified_at": "2026-07-25T10:37:27.056632+00:00",
+      "data_quality_flags": [
+        "missing_hours",
+        "missing_photo"
+      ]
+    },
+    {
+      "batch_id": "scot-pilot-2026-07-25",
+      "dedupe_key": "name:city-of-edinburgh:dean-village:belford-mews",
+      "region": "Edinburgh & Lothians",
+      "prefecture": "City of Edinburgh",
+      "city": "Dean Village",
+      "country": "GB",
+      "name": "Belford Mews",
+      "category": "historic area",
+      "description": "A picturesque Victorian mews street overlooked by most tourists, featuring red-coloured mews houses built in the late 19th century originally as workers' housing. The street includes a distinctive round-turreted building with conical slate roof. Close to Dean Village with charming architecture and colourful doors.",
+      "tips": [
+        {
+          "text": "A hidden spot in Edinburgh, a short walk from the centre of Dean Village",
+          "source_url": "https://www.chasingthelongroad.com/scotland/dean-village-edinburgh/"
+        }
+      ],
+      "hours": null,
+      "hours_status": "unknown",
+      "station": "Haymarket",
+      "google_place_id": null,
+      "lat": 55.955,
+      "lng": -3.222,
+      "address": "Belford Mews, Edinburgh, EH4 3BF",
+      "rating": null,
+      "price_level": null,
+      "image_url": null,
+      "badges": [],
+      "source_urls": [
+        "https://www.chasingthelongroad.com/scotland/dean-village-edinburgh/",
+        "https://justinpluslauren.com/dean-village-edinburgh/"
+      ],
+      "field_sources": {
+        "description": "https://www.chasingthelongroad.com/scotland/dean-village-edinburgh/",
+        "address": "https://www.chasingthelongroad.com/scotland/dean-village-edinburgh/",
+        "lat": "https://www.chasingthelongroad.com/scotland/dean-village-edinburgh/",
+        "lng": "https://www.chasingthelongroad.com/scotland/dean-village-edinburgh/",
+        "station": "https://www.nationalgalleries.org/visit/scottish-national-gallery-modern-art"
+      },
+      "photo": null,
+      "extraction_model": "claude-haiku-4-5",
+      "extraction_status": "extracted",
+      "validation_errors": [],
+      "approved": false,
+      "rejected_reason": null,
+      "fetched_at": "2026-07-25T10:37:27.056632+00:00",
+      "last_verified_at": "2026-07-25T10:37:27.056632+00:00",
+      "data_quality_flags": [
+        "missing_hours",
+        "missing_photo"
+      ]
+    },
+    {
+      "batch_id": "scot-pilot-2026-07-25",
+      "dedupe_key": "name:city-of-edinburgh:dean-village:hawthornbank-lane",
+      "region": "Edinburgh & Lothians",
+      "prefecture": "City of Edinburgh",
+      "city": "Dean Village",
+      "country": "GB",
+      "name": "Hawthornbank Lane",
+      "category": "historic area",
+      "description": "A steep cobblestone lane descending into Dean Village, offering picturesque views of historic stone buildings and the water of Leith. Provides access to the pedestrian bridge over the river and dramatic views of Well Court's clock tower. Exemplifies the village's charming, atmospheric architecture.",
+      "tips": [
+        {
+          "text": "Steep cobbled surface can be slippery; stairs available as alternative route",
+          "source_url": "https://www.chasingthelongroad.com/scotland/dean-village-edinburgh/"
+        }
+      ],
+      "hours": null,
+      "hours_status": "unknown",
+      "station": "Haymarket",
+      "google_place_id": null,
+      "lat": 55.9525,
+      "lng": -3.22,
+      "address": "Hawthornbank Lane, Edinburgh, EH4 3DW",
+      "rating": null,
+      "price_level": null,
+      "image_url": null,
+      "badges": [],
+      "source_urls": [
+        "https://justinpluslauren.com/dean-village-edinburgh/",
+        "https://www.chasingthelongroad.com/scotland/dean-village-edinburgh/"
+      ],
+      "field_sources": {
+        "description": "https://justinpluslauren.com/dean-village-edinburgh/",
+        "address": "https://www.chasingthelongroad.com/scotland/dean-village-edinburgh/",
+        "lat": "https://www.chasingthelongroad.com/scotland/dean-village-edinburgh/",
+        "lng": "https://www.chasingthelongroad.com/scotland/dean-village-edinburgh/",
+        "station": "https://www.nationalgalleries.org/visit/scottish-national-gallery-modern-art"
+      },
+      "photo": null,
+      "extraction_model": "claude-haiku-4-5",
+      "extraction_status": "extracted",
+      "validation_errors": [],
+      "approved": false,
+      "rejected_reason": null,
+      "fetched_at": "2026-07-25T10:37:27.056632+00:00",
+      "last_verified_at": "2026-07-25T10:37:27.056632+00:00",
+      "data_quality_flags": [
+        "missing_hours",
+        "missing_photo"
+      ]
+    },
+    {
+      "batch_id": "scot-pilot-2026-07-25",
+      "dedupe_key": "name:city-of-edinburgh:dean-village:dean-village-historic-mill-heritage",
+      "region": "Edinburgh & Lothians",
+      "prefecture": "City of Edinburgh",
+      "city": "Dean Village",
+      "country": "GB",
+      "name": "Dean Village Historic Mill Heritage",
+      "category": "historic building",
+      "description": "Throughout Dean Village, preserved remnants of its 800-year milling heritage remain visible in historic mill buildings and stone carvings. Distinctive carved plaques featuring crossed paddles and baked bread symbols commemorate the Baxters' (bakers') crucial role. Original mill houses, restored stone buildings, and architectural details document Edinburgh's industrial past.",
+      "tips": [
+        {
+          "text": "Look for mill stones and stone plaques with engraved bread and pie designs on building facades throughout the village",
+          "source_url": "https://www.chasingthelongroad.com/scotland/dean-village-edinburgh/"
+        }
+      ],
+      "hours": null,
+      "hours_status": "unknown",
+      "station": "Haymarket",
+      "google_place_id": null,
+      "lat": 55.954,
+      "lng": -3.219,
+      "address": "Various locations, Dean Village, Edinburgh, EH4 3DY",
+      "rating": null,
+      "price_level": null,
+      "image_url": null,
+      "badges": [],
+      "source_urls": [
+        "https://ewh.org.uk/dean-village/",
+        "https://www.chasingthelongroad.com/scotland/dean-village-edinburgh/"
+      ],
+      "field_sources": {
+        "description": "https://ewh.org.uk/dean-village/",
+        "address": "https://ewh.org.uk/dean-village/",
+        "lat": "https://ewh.org.uk/dean-village/",
+        "lng": "https://ewh.org.uk/dean-village/",
+        "station": "https://www.nationalgalleries.org/visit/scottish-national-gallery-modern-art"
+      },
+      "photo": null,
+      "extraction_model": "claude-haiku-4-5",
+      "extraction_status": "extracted",
+      "validation_errors": [],
+      "approved": false,
+      "rejected_reason": null,
+      "fetched_at": "2026-07-25T10:37:27.056632+00:00",
+      "last_verified_at": "2026-07-25T10:37:27.056632+00:00",
+      "data_quality_flags": [
+        "missing_hours",
+        "missing_photo"
+      ]
+    }
+  ]
+}

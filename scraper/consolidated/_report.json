@@ -1,0 +1,2434 @@
+{
+  "generated_at": "2026-07-24T16:12:26Z",
+  "source_folders": [
+    "out/jp-tokyo-wave1",
+    "out/smoketest"
+  ],
+  "enrichment_sources": [
+    "Wikipedia REST summary",
+    "Wikidata",
+    "Wikimedia Commons",
+    "OpenStreetMap Nominatim"
+  ],
+  "files": {
+    "bunkyo.json": {
+      "count": 29,
+      "records": [
+        {
+          "name": "Tokyo Dome",
+          "dedupe_key": "name:tokyo:bunkyo:tokyo-dome",
+          "category": "landmark",
+          "enrichment_note": null,
+          "remaining_gaps": [
+            "missing_hours"
+          ]
+        },
+        {
+          "name": "Tokyo Dome City Attractions",
+          "dedupe_key": "name:tokyo:bunkyo:tokyo-dome-city-attractions",
+          "category": "attraction",
+          "enrichment_note": null,
+          "remaining_gaps": [
+            "missing_station",
+            "missing_hours"
+          ]
+        },
+        {
+          "name": "Koishikawa Korakuen",
+          "dedupe_key": "name:tokyo:bunkyo:koishikawa-korakuen",
+          "category": "garden",
+          "enrichment_note": null,
+          "remaining_gaps": [
+            "missing_station",
+            "missing_hours"
+          ]
+        },
+        {
+          "name": "Rikugien",
+          "dedupe_key": "name:tokyo:bunkyo:rikugien",
+          "category": "garden",
+          "enrichment_note": null,
+          "remaining_gaps": []
+        },
+        {
+          "name": "Koishikawa Botanical Garden",
+          "dedupe_key": "name:tokyo:bunkyo:koishikawa-botanical-garden",
+          "category": "garden",
+          "enrichment_note": null,
+          "remaining_gaps": [
+            "missing_station",
+            "missing_hours"
+          ]
+        },
+        {
+          "name": "Chinzanso Garden",
+          "dedupe_key": "name:tokyo:bunkyo:chinzanso-garden",
+          "category": "garden",
+          "enrichment_note": null,
+          "remaining_gaps": [
+            "missing_hours"
+          ]
+        },
+        {
+          "name": "Higo Hosokawa Garden",
+          "dedupe_key": "name:tokyo:bunkyo:higo-hosokawa-garden",
+          "category": "garden",
+          "enrichment_note": null,
+          "remaining_gaps": []
+        },
+        {
+          "name": "Akamon (Red Gate), University of Tokyo",
+          "dedupe_key": "name:tokyo:bunkyo:akamon-red-gate-university-of-tokyo",
+          "category": "landmark",
+          "enrichment_note": null,
+          "remaining_gaps": [
+            "missing_station",
+            "missing_hours"
+          ]
+        },
+        {
+          "name": "Yasuda Auditorium, University of Tokyo",
+          "dedupe_key": "name:tokyo:bunkyo:yasuda-auditorium-university-of-tokyo",
+          "category": "landmark",
+          "enrichment_note": null,
+          "remaining_gaps": [
+            "missing_station",
+            "missing_hours"
+          ]
+        },
+        {
+          "name": "Sanshiro Pond",
+          "dedupe_key": "name:tokyo:bunkyo:sanshiro-pond",
+          "category": "landmark",
+          "enrichment_note": "web-enriched:lat/lng",
+          "remaining_gaps": [
+            "missing_station",
+            "missing_hours"
+          ]
+        },
+        {
+          "name": "Yushima Tenmangu Shrine",
+          "dedupe_key": "name:tokyo:bunkyo:yushima-tenmangu-shrine",
+          "category": "shrine",
+          "enrichment_note": null,
+          "remaining_gaps": [
+            "missing_hours"
+          ]
+        },
+        {
+          "name": "Yushima Seido",
+          "dedupe_key": "name:tokyo:bunkyo:yushima-seido",
+          "category": "temple",
+          "enrichment_note": null,
+          "remaining_gaps": [
+            "missing_station",
+            "missing_hours"
+          ]
+        },
+        {
+          "name": "Nezu Shrine",
+          "dedupe_key": "name:tokyo:bunkyo:nezu-shrine",
+          "category": "shrine",
+          "enrichment_note": null,
+          "remaining_gaps": [
+            "missing_hours"
+          ]
+        },
+        {
+          "name": "Hakusan Jinja",
+          "dedupe_key": "name:tokyo:bunkyo:hakusan-jinja",
+          "category": "shrine",
+          "enrichment_note": "web-enriched:lat/lng",
+          "remaining_gaps": [
+            "missing_hours",
+            "missing_photo"
+          ]
+        },
+        {
+          "name": "Gokokuji",
+          "dedupe_key": "name:tokyo:bunkyo:gokokuji",
+          "category": "temple",
+          "enrichment_note": null,
+          "remaining_gaps": [
+            "missing_station",
+            "missing_hours"
+          ]
+        },
+        {
+          "name": "Denzuin",
+          "dedupe_key": "name:tokyo:bunkyo:denzuin",
+          "category": "temple",
+          "enrichment_note": "web-enriched:lat/lng",
+          "remaining_gaps": [
+            "missing_photo"
+          ]
+        },
+        {
+          "name": "Bunkyo Civic Center Observation Deck",
+          "dedupe_key": "name:tokyo:bunkyo:bunkyo-civic-center-observation-deck",
+          "category": "viewpoint",
+          "enrichment_note": null,
+          "remaining_gaps": [
+            "missing_station",
+            "missing_hours"
+          ]
+        },
+        {
+          "name": "Bunkyo Museum",
+          "dedupe_key": "name:tokyo:bunkyo:bunkyo-museum",
+          "category": "museum",
+          "enrichment_note": "web-enriched:photo",
+          "remaining_gaps": []
+        },
+        {
+          "name": "Yayoi Museum",
+          "dedupe_key": "name:tokyo:bunkyo:yayoi-museum",
+          "category": "museum",
+          "enrichment_note": "web-enriched:lat/lng",
+          "remaining_gaps": [
+            "missing_station",
+            "missing_photo"
+          ]
+        },
+        {
+          "name": "Takehisa Yumeji Museum",
+          "dedupe_key": "name:tokyo:bunkyo:takehisa-yumeji-museum",
+          "category": "museum",
+          "enrichment_note": null,
+          "remaining_gaps": [
+            "missing_coords",
+            "missing_photo"
+          ]
+        },
+        {
+          "name": "Mori Ogai Memorial Museum",
+          "dedupe_key": "name:tokyo:bunkyo:mori-ogai-memorial-museum",
+          "category": "museum",
+          "enrichment_note": "web-enriched:lat/lng",
+          "remaining_gaps": [
+            "missing_photo"
+          ]
+        },
+        {
+          "name": "Tokyo Waterworks Historical Museum",
+          "dedupe_key": "name:tokyo:bunkyo:tokyo-waterworks-historical-museum",
+          "category": "museum",
+          "enrichment_note": "web-enriched:photo",
+          "remaining_gaps": [
+            "missing_hours"
+          ]
+        },
+        {
+          "name": "Yayoi 2-chome Site",
+          "dedupe_key": "name:tokyo:bunkyo:yayoi-2-chome-site",
+          "category": "landmark",
+          "enrichment_note": "web-enriched:photo",
+          "remaining_gaps": [
+            "missing_hours"
+          ]
+        },
+        {
+          "name": "Ushi-Tenjin Kitano Shrine",
+          "dedupe_key": "name:tokyo:bunkyo:ushi-tenjin-kitano-shrine",
+          "category": "shrine",
+          "enrichment_note": "web-enriched:lat/lng",
+          "remaining_gaps": [
+            "missing_station",
+            "missing_hours",
+            "missing_photo"
+          ]
+        },
+        {
+          "name": "Higuchi Ichiyo Former Residence Site (Kikuzaka)",
+          "dedupe_key": "name:tokyo:bunkyo:higuchi-ichiyo-former-residence-site-kikuzaka",
+          "category": "landmark",
+          "enrichment_note": null,
+          "remaining_gaps": [
+            "missing_coords",
+            "missing_hours",
+            "missing_photo"
+          ]
+        },
+        {
+          "name": "Basho-an (Sekiguchi Basho Hermitage)",
+          "dedupe_key": "name:tokyo:bunkyo:basho-an-sekiguchi-basho-hermitage",
+          "category": "landmark",
+          "enrichment_note": null,
+          "remaining_gaps": [
+            "missing_coords",
+            "missing_hours",
+            "missing_photo"
+          ]
+        },
+        {
+          "name": "Edogawa Park",
+          "dedupe_key": "name:tokyo:bunkyo:edogawa-park",
+          "category": "park",
+          "enrichment_note": "web-enriched:lat/lng",
+          "remaining_gaps": [
+            "missing_photo"
+          ]
+        },
+        {
+          "name": "Toyo Bunko Museum",
+          "dedupe_key": "name:tokyo:bunkyo:toyo-bunko-museum",
+          "category": "museum",
+          "enrichment_note": null,
+          "remaining_gaps": []
+        },
+        {
+          "name": "Eisei Bunko Museum",
+          "dedupe_key": "name:tokyo:bunkyo:eisei-bunko-museum",
+          "category": "museum",
+          "enrichment_note": null,
+          "remaining_gaps": [
+            "missing_station",
+            "missing_photo"
+          ]
+        }
+      ]
+    },
+    "chiyoda.json": {
+      "count": 39,
+      "records": [
+        {
+          "name": "Imperial Palace",
+          "dedupe_key": "name:tokyo:chiyoda:imperial-palace",
+          "category": "landmark",
+          "enrichment_note": null,
+          "remaining_gaps": [
+            "missing_station",
+            "missing_hours",
+            "missing_photo"
+          ]
+        },
+        {
+          "name": "Imperial Palace East Gardens",
+          "dedupe_key": "name:tokyo:chiyoda:imperial-palace-east-gardens",
+          "category": "garden",
+          "enrichment_note": null,
+          "remaining_gaps": [
+            "missing_station",
+            "missing_photo"
+          ]
+        },
+        {
+          "name": "Nijubashi Bridge",
+          "dedupe_key": "name:tokyo:chiyoda:nijubashi-bridge",
+          "category": "landmark",
+          "enrichment_note": "web-enriched:lat/lng,address",
+          "remaining_gaps": [
+            "missing_station",
+            "missing_hours"
+          ]
+        },
+        {
+          "name": "Kokyo Gaien National Garden",
+          "dedupe_key": "name:tokyo:chiyoda:kokyo-gaien-national-garden",
+          "category": "garden",
+          "enrichment_note": "web-enriched:lat/lng,address",
+          "remaining_gaps": [
+            "missing_station",
+            "missing_hours",
+            "missing_photo"
+          ]
+        },
+        {
+          "name": "Otemon Gate",
+          "dedupe_key": "name:tokyo:chiyoda:otemon-gate",
+          "category": "landmark",
+          "enrichment_note": "web-enriched:lat/lng,address",
+          "remaining_gaps": [
+            "missing_station",
+            "missing_hours",
+            "missing_photo"
+          ]
+        },
+        {
+          "name": "Sakuradamon Gate",
+          "dedupe_key": "name:tokyo:chiyoda:sakuradamon-gate",
+          "category": "landmark",
+          "enrichment_note": "web-enriched:address",
+          "remaining_gaps": [
+            "missing_station",
+            "missing_hours",
+            "missing_photo"
+          ]
+        },
+        {
+          "name": "Tayasumon Gate",
+          "dedupe_key": "name:tokyo:chiyoda:tayasumon-gate",
+          "category": "landmark",
+          "enrichment_note": "web-enriched:lat/lng,address",
+          "remaining_gaps": [
+            "missing_station",
+            "missing_hours",
+            "missing_photo"
+          ]
+        },
+        {
+          "name": "Statue of Kusunoki Masashige",
+          "dedupe_key": "name:tokyo:chiyoda:statue-of-kusunoki-masashige",
+          "category": "landmark",
+          "enrichment_note": "web-enriched:lat/lng,address",
+          "remaining_gaps": [
+            "missing_station",
+            "missing_hours",
+            "missing_photo"
+          ]
+        },
+        {
+          "name": "Wadakura Fountain Park",
+          "dedupe_key": "name:tokyo:chiyoda:wadakura-fountain-park",
+          "category": "park",
+          "enrichment_note": "web-enriched:lat/lng,address",
+          "remaining_gaps": [
+            "missing_station",
+            "missing_hours",
+            "missing_photo"
+          ]
+        },
+        {
+          "name": "Kitanomaru Park",
+          "dedupe_key": "name:tokyo:chiyoda:kitanomaru-park",
+          "category": "park",
+          "enrichment_note": "web-enriched:address",
+          "remaining_gaps": [
+            "missing_hours",
+            "missing_photo"
+          ]
+        },
+        {
+          "name": "Nippon Budokan",
+          "dedupe_key": "name:tokyo:chiyoda:nippon-budokan",
+          "category": "landmark",
+          "enrichment_note": null,
+          "remaining_gaps": [
+            "missing_hours"
+          ]
+        },
+        {
+          "name": "National Museum of Modern Art, Tokyo",
+          "dedupe_key": "name:tokyo:chiyoda:national-museum-of-modern-art-tokyo",
+          "category": "museum",
+          "enrichment_note": null,
+          "remaining_gaps": [
+            "missing_photo"
+          ]
+        },
+        {
+          "name": "Science Museum, Tokyo",
+          "dedupe_key": "name:tokyo:chiyoda:science-museum-tokyo",
+          "category": "museum",
+          "enrichment_note": "web-enriched:lat/lng",
+          "remaining_gaps": [
+            "missing_photo"
+          ]
+        },
+        {
+          "name": "National Archives of Japan",
+          "dedupe_key": "name:tokyo:chiyoda:national-archives-of-japan",
+          "category": "museum",
+          "enrichment_note": "web-enriched:address",
+          "remaining_gaps": [
+            "missing_station",
+            "missing_hours",
+            "missing_photo"
+          ]
+        },
+        {
+          "name": "Yasukuni Shrine",
+          "dedupe_key": "name:tokyo:chiyoda:yasukuni-shrine",
+          "category": "shrine",
+          "enrichment_note": null,
+          "remaining_gaps": []
+        },
+        {
+          "name": "Yushukan War Memorial Museum",
+          "dedupe_key": "name:tokyo:chiyoda:yushukan-war-memorial-museum",
+          "category": "museum",
+          "enrichment_note": null,
+          "remaining_gaps": [
+            "missing_coords",
+            "missing_hours",
+            "missing_photo"
+          ]
+        },
+        {
+          "name": "Chidorigafuchi",
+          "dedupe_key": "name:tokyo:chiyoda:chidorigafuchi",
+          "category": "park",
+          "enrichment_note": "web-enriched:lat/lng,address",
+          "remaining_gaps": [
+            "missing_station",
+            "missing_hours"
+          ]
+        },
+        {
+          "name": "National Diet Building",
+          "dedupe_key": "name:tokyo:chiyoda:national-diet-building",
+          "category": "landmark",
+          "enrichment_note": null,
+          "remaining_gaps": [
+            "missing_hours"
+          ]
+        },
+        {
+          "name": "National Diet Library",
+          "dedupe_key": "name:tokyo:chiyoda:national-diet-library",
+          "category": "landmark",
+          "enrichment_note": null,
+          "remaining_gaps": [
+            "missing_station",
+            "missing_hours",
+            "missing_photo"
+          ]
+        },
+        {
+          "name": "Supreme Court of Japan",
+          "dedupe_key": "name:tokyo:chiyoda:supreme-court-of-japan",
+          "category": "landmark",
+          "enrichment_note": null,
+          "remaining_gaps": [
+            "missing_station",
+            "missing_hours",
+            "missing_photo"
+          ]
+        },
+        {
+          "name": "Hibiya Park",
+          "dedupe_key": "name:tokyo:chiyoda:hibiya-park",
+          "category": "park",
+          "enrichment_note": null,
+          "remaining_gaps": [
+            "missing_hours"
+          ]
+        },
+        {
+          "name": "Hibiya Library and Museum",
+          "dedupe_key": "name:tokyo:chiyoda:hibiya-library-and-museum",
+          "category": "museum",
+          "enrichment_note": null,
+          "remaining_gaps": [
+            "missing_coords",
+            "missing_station",
+            "missing_photo"
+          ]
+        },
+        {
+          "name": "Tokyo Station (Marunouchi Building)",
+          "dedupe_key": "name:tokyo:chiyoda:tokyo-station-marunouchi-building",
+          "category": "landmark",
+          "enrichment_note": null,
+          "remaining_gaps": [
+            "missing_station",
+            "missing_hours"
+          ]
+        },
+        {
+          "name": "Marunouchi Building",
+          "dedupe_key": "name:tokyo:chiyoda:marunouchi-building",
+          "category": "landmark",
+          "enrichment_note": null,
+          "remaining_gaps": [
+            "missing_station",
+            "missing_hours",
+            "missing_photo"
+          ]
+        },
+        {
+          "name": "KITTE",
+          "dedupe_key": "name:tokyo:chiyoda:kitte",
+          "category": "landmark",
+          "enrichment_note": null,
+          "remaining_gaps": [
+            "missing_hours",
+            "missing_photo"
+          ]
+        },
+        {
+          "name": "Intermediatheque",
+          "dedupe_key": "name:tokyo:chiyoda:intermediatheque",
+          "category": "museum",
+          "enrichment_note": "web-enriched:lat/lng",
+          "remaining_gaps": [
+            "missing_photo"
+          ]
+        },
+        {
+          "name": "Mitsubishi Ichigokan Museum",
+          "dedupe_key": "name:tokyo:chiyoda:mitsubishi-ichigokan-museum",
+          "category": "museum",
+          "enrichment_note": null,
+          "remaining_gaps": [
+            "missing_hours",
+            "missing_photo"
+          ]
+        },
+        {
+          "name": "Idemitsu Museum of Arts",
+          "dedupe_key": "name:tokyo:chiyoda:idemitsu-museum-of-arts",
+          "category": "museum",
+          "enrichment_note": null,
+          "remaining_gaps": [
+            "missing_station",
+            "missing_hours",
+            "missing_photo"
+          ]
+        },
+        {
+          "name": "Tokyo International Forum",
+          "dedupe_key": "name:tokyo:chiyoda:tokyo-international-forum",
+          "category": "landmark",
+          "enrichment_note": null,
+          "remaining_gaps": [
+            "missing_hours",
+            "missing_photo"
+          ]
+        },
+        {
+          "name": "Kanda Myojin (Kanda Shrine)",
+          "dedupe_key": "name:tokyo:chiyoda:kanda-myojin-kanda-shrine",
+          "category": "shrine",
+          "enrichment_note": null,
+          "remaining_gaps": [
+            "missing_hours"
+          ]
+        },
+        {
+          "name": "Nikolai-do (Holy Resurrection Cathedral)",
+          "dedupe_key": "name:tokyo:chiyoda:nikolai-do-holy-resurrection-cathedral",
+          "category": "landmark",
+          "enrichment_note": null,
+          "remaining_gaps": [
+            "missing_station",
+            "missing_hours",
+            "missing_photo"
+          ]
+        },
+        {
+          "name": "Jimbocho Book Town",
+          "dedupe_key": "name:tokyo:chiyoda:jimbocho-book-town",
+          "category": "market",
+          "enrichment_note": null,
+          "remaining_gaps": [
+            "missing_coords",
+            "missing_hours",
+            "missing_photo"
+          ]
+        },
+        {
+          "name": "Meiji University Museum",
+          "dedupe_key": "name:tokyo:chiyoda:meiji-university-museum",
+          "category": "museum",
+          "enrichment_note": "web-enriched:lat/lng",
+          "remaining_gaps": [
+            "missing_station",
+            "missing_photo"
+          ]
+        },
+        {
+          "name": "Akihabara Electric Town",
+          "dedupe_key": "name:tokyo:chiyoda:akihabara-electric-town",
+          "category": "landmark",
+          "enrichment_note": "web-enriched:address",
+          "remaining_gaps": [
+            "missing_hours",
+            "missing_photo"
+          ]
+        },
+        {
+          "name": "Meiji Seimei Kan",
+          "dedupe_key": "name:tokyo:chiyoda:meiji-seimei-kan",
+          "category": "landmark",
+          "enrichment_note": "web-enriched:lat/lng",
+          "remaining_gaps": [
+            "missing_photo"
+          ]
+        },
+        {
+          "name": "National Showa Memorial Museum (Showakan)",
+          "dedupe_key": "name:tokyo:chiyoda:national-showa-memorial-museum-showakan",
+          "category": "museum",
+          "enrichment_note": null,
+          "remaining_gaps": [
+            "missing_coords",
+            "missing_photo"
+          ]
+        },
+        {
+          "name": "Hie Shrine",
+          "dedupe_key": "name:tokyo:chiyoda:hie-shrine",
+          "category": "shrine",
+          "enrichment_note": null,
+          "remaining_gaps": [
+            "missing_hours",
+            "missing_photo"
+          ]
+        },
+        {
+          "name": "National Theatre of Japan",
+          "dedupe_key": "name:tokyo:chiyoda:national-theatre-of-japan",
+          "category": "landmark",
+          "enrichment_note": null,
+          "remaining_gaps": [
+            "missing_station",
+            "missing_hours",
+            "missing_photo"
+          ]
+        },
+        {
+          "name": "Museum of the Imperial Collections",
+          "dedupe_key": "name:tokyo:chiyoda:museum-of-the-imperial-collections",
+          "category": "museum",
+          "enrichment_note": null,
+          "remaining_gaps": [
+            "missing_hours",
+            "missing_photo"
+          ]
+        }
+      ]
+    },
+    "hachioji.json": {
+      "count": 24,
+      "records": [
+        {
+          "name": "Mount Takao",
+          "dedupe_key": "name:tokyo:hachioji:mount-takao",
+          "category": "attraction",
+          "enrichment_note": "web-enriched:address",
+          "remaining_gaps": []
+        },
+        {
+          "name": "Takaosan Yakuoin Yukiji (Yakuoin Temple)",
+          "dedupe_key": "name:tokyo:hachioji:takaosan-yakuoin-yukiji",
+          "category": "temple",
+          "enrichment_note": null,
+          "remaining_gaps": [
+            "missing_coords"
+          ]
+        },
+        {
+          "name": "Mt. Takao Cable Car (Takaotozan Railway)",
+          "dedupe_key": "name:tokyo:hachioji:mt-takao-cable-car",
+          "category": "attraction",
+          "enrichment_note": null,
+          "remaining_gaps": [
+            "missing_coords",
+            "missing_address",
+            "missing_photo"
+          ]
+        },
+        {
+          "name": "Takao 599 Museum",
+          "dedupe_key": "name:tokyo:hachioji:takao-599-museum",
+          "category": "museum",
+          "enrichment_note": "web-enriched:lat/lng",
+          "remaining_gaps": [
+            "missing_photo"
+          ]
+        },
+        {
+          "name": "Takao Monkey Park and Wild Plant Garden",
+          "dedupe_key": "name:tokyo:hachioji:takao-monkey-park-and-wild-plant-garden",
+          "category": "attraction",
+          "enrichment_note": null,
+          "remaining_gaps": [
+            "missing_coords",
+            "missing_address",
+            "missing_photo"
+          ]
+        },
+        {
+          "name": "Kasumidai Observatory",
+          "dedupe_key": "name:tokyo:hachioji:kasumidai-observatory",
+          "category": "viewpoint",
+          "enrichment_note": null,
+          "remaining_gaps": [
+            "missing_coords",
+            "missing_address",
+            "missing_photo"
+          ]
+        },
+        {
+          "name": "Biwa Waterfall (Biwa-taki)",
+          "dedupe_key": "name:tokyo:hachioji:biwa-waterfall-biwa-taki",
+          "category": "landmark",
+          "enrichment_note": null,
+          "remaining_gaps": [
+            "missing_coords",
+            "missing_address",
+            "missing_station",
+            "missing_photo"
+          ]
+        },
+        {
+          "name": "Ja-taki Waterfall",
+          "dedupe_key": "name:tokyo:hachioji:ja-taki-waterfall",
+          "category": "landmark",
+          "enrichment_note": null,
+          "remaining_gaps": [
+            "missing_coords",
+            "missing_address",
+            "missing_station",
+            "missing_photo"
+          ]
+        },
+        {
+          "name": "Tako Sugi (Octopus Cedar)",
+          "dedupe_key": "name:tokyo:hachioji:tako-sugi-octopus-cedar",
+          "category": "landmark",
+          "enrichment_note": "web-enriched:lat/lng,photo",
+          "remaining_gaps": [
+            "missing_address",
+            "missing_station"
+          ]
+        },
+        {
+          "name": "Miyama-bashi Suspension Bridge",
+          "dedupe_key": "name:tokyo:hachioji:miyama-bashi-suspension-bridge",
+          "category": "landmark",
+          "enrichment_note": null,
+          "remaining_gaps": [
+            "missing_coords",
+            "missing_address",
+            "missing_station",
+            "missing_photo"
+          ]
+        },
+        {
+          "name": "Takao Visitor Center",
+          "dedupe_key": "name:tokyo:hachioji:takao-visitor-center",
+          "category": "attraction",
+          "enrichment_note": null,
+          "remaining_gaps": [
+            "missing_coords",
+            "missing_address",
+            "missing_station",
+            "missing_photo"
+          ]
+        },
+        {
+          "name": "Keio Takaosan Onsen Gokurakuyu",
+          "dedupe_key": "name:tokyo:hachioji:keio-takaosan-onsen-gokurakuyu",
+          "category": "attraction",
+          "enrichment_note": "web-enriched:lat/lng",
+          "remaining_gaps": [
+            "missing_photo"
+          ]
+        },
+        {
+          "name": "Takao Baigo Plum Grove",
+          "dedupe_key": "name:tokyo:hachioji:takao-baigo-plum-grove",
+          "category": "garden",
+          "enrichment_note": null,
+          "remaining_gaps": [
+            "missing_coords",
+            "missing_address",
+            "missing_photo"
+          ]
+        },
+        {
+          "name": "Hachioji Castle Ruins",
+          "dedupe_key": "name:tokyo:hachioji:hachioji-castle-ruins",
+          "category": "landmark",
+          "enrichment_note": "web-enriched:address",
+          "remaining_gaps": []
+        },
+        {
+          "name": "Takiyama Castle Ruins",
+          "dedupe_key": "name:tokyo:hachioji:takiyama-castle-ruins",
+          "category": "landmark",
+          "enrichment_note": "web-enriched:lat/lng,photo",
+          "remaining_gaps": [
+            "missing_address",
+            "missing_station"
+          ]
+        },
+        {
+          "name": "Musashi Imperial Graveyard",
+          "dedupe_key": "name:tokyo:hachioji:musashi-imperial-graveyard",
+          "category": "landmark",
+          "enrichment_note": null,
+          "remaining_gaps": []
+        },
+        {
+          "name": "Tokyo Fuji Art Museum",
+          "dedupe_key": "name:tokyo:hachioji:tokyo-fuji-art-museum",
+          "category": "museum",
+          "enrichment_note": "web-enriched:lat/lng",
+          "remaining_gaps": []
+        },
+        {
+          "name": "Tama Forest Science Garden",
+          "dedupe_key": "name:tokyo:hachioji:tama-forest-science-garden",
+          "category": "garden",
+          "enrichment_note": "web-enriched:lat/lng,photo",
+          "remaining_gaps": []
+        },
+        {
+          "name": "Icho Namiki (Koshu Kaido Ginkgo Avenue)",
+          "dedupe_key": "name:tokyo:hachioji:icho-namiki-koshu-kaido-ginkgo-avenue",
+          "category": "landmark",
+          "enrichment_note": null,
+          "remaining_gaps": [
+            "missing_coords",
+            "missing_address",
+            "missing_photo"
+          ]
+        },
+        {
+          "name": "Mount Jinba",
+          "dedupe_key": "name:tokyo:hachioji:mount-jinba",
+          "category": "attraction",
+          "enrichment_note": "web-enriched:lat/lng,photo",
+          "remaining_gaps": [
+            "missing_address",
+            "missing_station"
+          ]
+        },
+        {
+          "name": "Komiya Park",
+          "dedupe_key": "name:tokyo:hachioji:komiya-park",
+          "category": "park",
+          "enrichment_note": "web-enriched:lat/lng",
+          "remaining_gaps": [
+            "missing_station",
+            "missing_photo"
+          ]
+        },
+        {
+          "name": "Naganuma Park",
+          "dedupe_key": "name:tokyo:hachioji:naganuma-park",
+          "category": "park",
+          "enrichment_note": "web-enriched:lat/lng,photo",
+          "remaining_gaps": []
+        },
+        {
+          "name": "Mt. Inari (Inariyama Trail)",
+          "dedupe_key": "name:tokyo:hachioji:mt-inari-inariyama-trail",
+          "category": "viewpoint",
+          "enrichment_note": null,
+          "remaining_gaps": [
+            "missing_coords",
+            "missing_address",
+            "missing_station",
+            "missing_photo"
+          ]
+        },
+        {
+          "name": "Iroha no Mori Trail",
+          "dedupe_key": "name:tokyo:hachioji:iroha-no-mori-trail",
+          "category": "attraction",
+          "enrichment_note": null,
+          "remaining_gaps": [
+            "missing_coords",
+            "missing_address",
+            "missing_station",
+            "missing_photo"
+          ]
+        }
+      ]
+    },
+    "meguro.json": {
+      "count": 25,
+      "records": [
+        {
+          "name": "Ryusen-ji (Meguro Fudoson)",
+          "dedupe_key": "name:tokyo:meguro:ryusen-ji-meguro-fudoson",
+          "category": "temple",
+          "enrichment_note": null,
+          "remaining_gaps": [
+            "missing_station",
+            "missing_hours"
+          ]
+        },
+        {
+          "name": "Gohyaku Rakan-ji Temple",
+          "dedupe_key": "name:tokyo:meguro:gohyaku-rakan-ji-temple",
+          "category": "temple",
+          "enrichment_note": null,
+          "remaining_gaps": [
+            "missing_photo"
+          ]
+        },
+        {
+          "name": "Daien-ji Temple",
+          "dedupe_key": "name:tokyo:meguro:daien-ji-temple",
+          "category": "temple",
+          "enrichment_note": null,
+          "remaining_gaps": [
+            "missing_hours",
+            "missing_photo"
+          ]
+        },
+        {
+          "name": "Yuten-ji Temple",
+          "dedupe_key": "name:tokyo:meguro:yuten-ji-temple",
+          "category": "temple",
+          "enrichment_note": "web-enriched:photo",
+          "remaining_gaps": [
+            "missing_station",
+            "missing_hours"
+          ]
+        },
+        {
+          "name": "Otori Shrine",
+          "dedupe_key": "name:tokyo:meguro:otori-shrine",
+          "category": "shrine",
+          "enrichment_note": null,
+          "remaining_gaps": [
+            "missing_station",
+            "missing_hours",
+            "missing_photo"
+          ]
+        },
+        {
+          "name": "Himon'ya Hachiman Shrine",
+          "dedupe_key": "name:tokyo:meguro:himon-ya-hachiman-shrine",
+          "category": "shrine",
+          "enrichment_note": null,
+          "remaining_gaps": [
+            "missing_address",
+            "missing_station",
+            "missing_hours",
+            "missing_photo"
+          ]
+        },
+        {
+          "name": "Nakameguro Hachiman Shrine",
+          "dedupe_key": "name:tokyo:meguro:nakameguro-hachiman-shrine",
+          "category": "shrine",
+          "enrichment_note": null,
+          "remaining_gaps": [
+            "missing_station",
+            "missing_hours",
+            "missing_photo"
+          ]
+        },
+        {
+          "name": "Meguro Gajoen (Hyakudan Kaidan)",
+          "dedupe_key": "name:tokyo:meguro:meguro-gajoen-hyakudan-kaidan",
+          "category": "landmark",
+          "enrichment_note": "web-enriched:photo",
+          "remaining_gaps": [
+            "missing_hours"
+          ]
+        },
+        {
+          "name": "Meguro River",
+          "dedupe_key": "name:tokyo:meguro:meguro-river",
+          "category": "landmark",
+          "enrichment_note": "web-enriched:lat/lng,address",
+          "remaining_gaps": [
+            "missing_hours"
+          ]
+        },
+        {
+          "name": "Nakameguro",
+          "dedupe_key": "name:tokyo:meguro:nakameguro",
+          "category": "landmark",
+          "enrichment_note": "web-enriched:address",
+          "remaining_gaps": [
+            "missing_hours",
+            "missing_photo"
+          ]
+        },
+        {
+          "name": "Meguro Sky Garden",
+          "dedupe_key": "name:tokyo:meguro:meguro-sky-garden",
+          "category": "garden",
+          "enrichment_note": null,
+          "remaining_gaps": []
+        },
+        {
+          "name": "Himonya Park",
+          "dedupe_key": "name:tokyo:meguro:himonya-park",
+          "category": "park",
+          "enrichment_note": "web-enriched:address",
+          "remaining_gaps": [
+            "missing_hours"
+          ]
+        },
+        {
+          "name": "Komaba Park",
+          "dedupe_key": "name:tokyo:meguro:komaba-park",
+          "category": "park",
+          "enrichment_note": null,
+          "remaining_gaps": [
+            "missing_station"
+          ]
+        },
+        {
+          "name": "Saigoyama Park",
+          "dedupe_key": "name:tokyo:meguro:saigoyama-park",
+          "category": "park",
+          "enrichment_note": "web-enriched:address",
+          "remaining_gaps": [
+            "missing_station",
+            "missing_hours",
+            "missing_photo"
+          ]
+        },
+        {
+          "name": "Sugekari Park",
+          "dedupe_key": "name:tokyo:meguro:sugekari-park",
+          "category": "park",
+          "enrichment_note": "web-enriched:address",
+          "remaining_gaps": [
+            "missing_station",
+            "missing_hours",
+            "missing_photo"
+          ]
+        },
+        {
+          "name": "Rinshi-no-mori Park",
+          "dedupe_key": "name:tokyo:meguro:rinshi-no-mori-park",
+          "category": "park",
+          "enrichment_note": null,
+          "remaining_gaps": [
+            "missing_station",
+            "missing_hours",
+            "missing_photo"
+          ]
+        },
+        {
+          "name": "Komabano Park",
+          "dedupe_key": "name:tokyo:meguro:komabano-park",
+          "category": "park",
+          "enrichment_note": null,
+          "remaining_gaps": [
+            "missing_station",
+            "missing_hours",
+            "missing_photo"
+          ]
+        },
+        {
+          "name": "Japan Folk Crafts Museum (Nihon Mingeikan)",
+          "dedupe_key": "name:tokyo:meguro:japan-folk-crafts-museum",
+          "category": "museum",
+          "enrichment_note": null,
+          "remaining_gaps": []
+        },
+        {
+          "name": "Tokyo Photographic Art Museum",
+          "dedupe_key": "name:tokyo:meguro:tokyo-photographic-art-museum",
+          "category": "museum",
+          "enrichment_note": null,
+          "remaining_gaps": [
+            "missing_photo"
+          ]
+        },
+        {
+          "name": "Meguro Museum of Art, Tokyo",
+          "dedupe_key": "name:tokyo:meguro:meguro-museum-of-art",
+          "category": "museum",
+          "enrichment_note": null,
+          "remaining_gaps": [
+            "missing_photo"
+          ]
+        },
+        {
+          "name": "Meguro Parasitological Museum",
+          "dedupe_key": "name:tokyo:meguro:meguro-parasitological-museum",
+          "category": "museum",
+          "enrichment_note": null,
+          "remaining_gaps": [
+            "missing_photo"
+          ]
+        },
+        {
+          "name": "Meguro Persimmon Hall",
+          "dedupe_key": "name:tokyo:meguro:meguro-persimmon-hall",
+          "category": "landmark",
+          "enrichment_note": null,
+          "remaining_gaps": [
+            "missing_station",
+            "missing_hours",
+            "missing_photo"
+          ]
+        },
+        {
+          "name": "University of Tokyo, Komaba Campus",
+          "dedupe_key": "name:tokyo:meguro:university-of-tokyo-komaba-campus",
+          "category": "attraction",
+          "enrichment_note": null,
+          "remaining_gaps": [
+            "missing_address",
+            "missing_station",
+            "missing_hours",
+            "missing_photo"
+          ]
+        },
+        {
+          "name": "Institute of Science Tokyo, Ookayama Campus",
+          "dedupe_key": "name:tokyo:meguro:institute-of-science-tokyo-ookayama-campus",
+          "category": "attraction",
+          "enrichment_note": null,
+          "remaining_gaps": [
+            "missing_coords",
+            "missing_address",
+            "missing_station",
+            "missing_hours",
+            "missing_photo"
+          ]
+        },
+        {
+          "name": "Gyoninzaka",
+          "dedupe_key": "name:tokyo:meguro:gyoninzaka",
+          "category": "landmark",
+          "enrichment_note": "web-enriched:address",
+          "remaining_gaps": [
+            "missing_station",
+            "missing_hours",
+            "missing_photo"
+          ]
+        }
+      ]
+    },
+    "minato.json": {
+      "count": 39,
+      "records": [
+        {
+          "name": "Tokyo Tower",
+          "dedupe_key": "name:tokyo:minato:tokyo-tower",
+          "category": "landmark",
+          "enrichment_note": null,
+          "remaining_gaps": [
+            "missing_photo"
+          ]
+        },
+        {
+          "name": "Zojo-ji Temple",
+          "dedupe_key": "name:tokyo:minato:zojo-ji-temple",
+          "category": "temple",
+          "enrichment_note": null,
+          "remaining_gaps": [
+            "missing_hours",
+            "missing_photo"
+          ]
+        },
+        {
+          "name": "Shiba Park",
+          "dedupe_key": "name:tokyo:minato:shiba-park",
+          "category": "park",
+          "enrichment_note": null,
+          "remaining_gaps": [
+            "missing_hours",
+            "missing_photo"
+          ]
+        },
+        {
+          "name": "Sengaku-ji Temple",
+          "dedupe_key": "name:tokyo:minato:sengaku-ji-temple",
+          "category": "temple",
+          "enrichment_note": null,
+          "remaining_gaps": [
+            "missing_hours",
+            "missing_photo"
+          ]
+        },
+        {
+          "name": "Atago Shrine",
+          "dedupe_key": "name:tokyo:minato:atago-shrine",
+          "category": "shrine",
+          "enrichment_note": null,
+          "remaining_gaps": [
+            "missing_station",
+            "missing_hours",
+            "missing_photo"
+          ]
+        },
+        {
+          "name": "Roppongi Hills",
+          "dedupe_key": "name:tokyo:minato:roppongi-hills",
+          "category": "landmark",
+          "enrichment_note": null,
+          "remaining_gaps": [
+            "missing_hours",
+            "missing_photo"
+          ]
+        },
+        {
+          "name": "Mori Art Museum",
+          "dedupe_key": "name:tokyo:minato:mori-art-museum",
+          "category": "museum",
+          "enrichment_note": null,
+          "remaining_gaps": [
+            "missing_photo"
+          ]
+        },
+        {
+          "name": "21_21 Design Sight",
+          "dedupe_key": "name:tokyo:minato:21-21-design-sight",
+          "category": "museum",
+          "enrichment_note": null,
+          "remaining_gaps": [
+            "missing_station",
+            "missing_hours",
+            "missing_photo"
+          ]
+        },
+        {
+          "name": "The National Art Center, Tokyo",
+          "dedupe_key": "name:tokyo:minato:the-national-art-center-tokyo",
+          "category": "museum",
+          "enrichment_note": null,
+          "remaining_gaps": [
+            "missing_hours",
+            "missing_photo"
+          ]
+        },
+        {
+          "name": "Suntory Museum of Art",
+          "dedupe_key": "name:tokyo:minato:suntory-museum-of-art",
+          "category": "museum",
+          "enrichment_note": "web-enriched:lat/lng",
+          "remaining_gaps": [
+            "missing_hours",
+            "missing_photo"
+          ]
+        },
+        {
+          "name": "Tokyo Midtown",
+          "dedupe_key": "name:tokyo:minato:tokyo-midtown",
+          "category": "landmark",
+          "enrichment_note": null,
+          "remaining_gaps": [
+            "missing_hours",
+            "missing_photo"
+          ]
+        },
+        {
+          "name": "Azabudai Hills",
+          "dedupe_key": "name:tokyo:minato:azabudai-hills",
+          "category": "landmark",
+          "enrichment_note": null,
+          "remaining_gaps": [
+            "missing_hours",
+            "missing_photo"
+          ]
+        },
+        {
+          "name": "teamLab Borderless",
+          "dedupe_key": "name:tokyo:minato:teamlab-borderless",
+          "category": "museum",
+          "enrichment_note": "web-enriched:lat/lng",
+          "remaining_gaps": [
+            "missing_hours",
+            "missing_photo"
+          ]
+        },
+        {
+          "name": "Rainbow Bridge",
+          "dedupe_key": "name:tokyo:minato:rainbow-bridge",
+          "category": "landmark",
+          "enrichment_note": null,
+          "remaining_gaps": [
+            "missing_station",
+            "missing_hours",
+            "missing_photo"
+          ]
+        },
+        {
+          "name": "Odaiba Marine Park",
+          "dedupe_key": "name:tokyo:minato:odaiba-marine-park",
+          "category": "park",
+          "enrichment_note": null,
+          "remaining_gaps": [
+            "missing_hours",
+            "missing_photo"
+          ]
+        },
+        {
+          "name": "Fuji Television Building",
+          "dedupe_key": "name:tokyo:minato:fuji-television-building",
+          "category": "landmark",
+          "enrichment_note": "web-enriched:lat/lng",
+          "remaining_gaps": [
+            "missing_hours",
+            "missing_photo"
+          ]
+        },
+        {
+          "name": "Statue of Liberty Replica (Odaiba)",
+          "dedupe_key": "name:tokyo:minato:statue-of-liberty-replica-odaiba",
+          "category": "landmark",
+          "enrichment_note": null,
+          "remaining_gaps": [
+            "missing_coords",
+            "missing_photo"
+          ]
+        },
+        {
+          "name": "Institute for Nature Study",
+          "dedupe_key": "name:tokyo:minato:institute-for-nature-study",
+          "category": "park",
+          "enrichment_note": null,
+          "remaining_gaps": [
+            "missing_hours",
+            "missing_photo"
+          ]
+        },
+        {
+          "name": "Arisugawa-no-miya Memorial Park",
+          "dedupe_key": "name:tokyo:minato:arisugawa-no-miya-memorial-park",
+          "category": "park",
+          "enrichment_note": null,
+          "remaining_gaps": [
+            "missing_hours",
+            "missing_photo"
+          ]
+        },
+        {
+          "name": "Nezu Museum",
+          "dedupe_key": "name:tokyo:minato:nezu-museum",
+          "category": "museum",
+          "enrichment_note": null,
+          "remaining_gaps": [
+            "missing_station",
+            "missing_hours",
+            "missing_photo"
+          ]
+        },
+        {
+          "name": "Taro Okamoto Memorial Museum",
+          "dedupe_key": "name:tokyo:minato:taro-okamoto-memorial-museum",
+          "category": "museum",
+          "enrichment_note": "web-enriched:lat/lng",
+          "remaining_gaps": [
+            "missing_station",
+            "missing_photo"
+          ]
+        },
+        {
+          "name": "Aqua Park Shinagawa",
+          "dedupe_key": "name:tokyo:minato:aqua-park-shinagawa",
+          "category": "attraction",
+          "enrichment_note": "web-enriched:lat/lng",
+          "remaining_gaps": [
+            "missing_hours",
+            "missing_photo"
+          ]
+        },
+        {
+          "name": "Tokyo Metropolitan Teien Art Museum",
+          "dedupe_key": "name:tokyo:minato:tokyo-metropolitan-teien-art-museum",
+          "category": "museum",
+          "enrichment_note": null,
+          "remaining_gaps": [
+            "missing_hours",
+            "missing_photo"
+          ]
+        },
+        {
+          "name": "Happo-en Garden",
+          "dedupe_key": "name:tokyo:minato:happo-en-garden",
+          "category": "garden",
+          "enrichment_note": null,
+          "remaining_gaps": [
+            "missing_coords",
+            "missing_hours",
+            "missing_photo"
+          ]
+        },
+        {
+          "name": "Akasaka Palace (State Guest House)",
+          "dedupe_key": "name:tokyo:minato:akasaka-palace-state-guest-house",
+          "category": "landmark",
+          "enrichment_note": null,
+          "remaining_gaps": [
+            "missing_hours",
+            "missing_photo"
+          ]
+        },
+        {
+          "name": "Nogi Shrine",
+          "dedupe_key": "name:tokyo:minato:nogi-shrine",
+          "category": "shrine",
+          "enrichment_note": null,
+          "remaining_gaps": [
+            "missing_hours",
+            "missing_photo"
+          ]
+        },
+        {
+          "name": "Ark Hills",
+          "dedupe_key": "name:tokyo:minato:ark-hills",
+          "category": "landmark",
+          "enrichment_note": null,
+          "remaining_gaps": [
+            "missing_hours",
+            "missing_photo"
+          ]
+        },
+        {
+          "name": "Suntory Hall",
+          "dedupe_key": "name:tokyo:minato:suntory-hall",
+          "category": "landmark",
+          "enrichment_note": null,
+          "remaining_gaps": [
+            "missing_station",
+            "missing_hours",
+            "missing_photo"
+          ]
+        },
+        {
+          "name": "Aoyama Cemetery",
+          "dedupe_key": "name:tokyo:minato:aoyama-cemetery",
+          "category": "attraction",
+          "enrichment_note": null,
+          "remaining_gaps": [
+            "missing_station",
+            "missing_hours",
+            "missing_photo"
+          ]
+        },
+        {
+          "name": "Kamezuka Park",
+          "dedupe_key": "name:tokyo:minato:kamezuka-park",
+          "category": "park",
+          "enrichment_note": null,
+          "remaining_gaps": [
+            "missing_station",
+            "missing_hours",
+            "missing_photo"
+          ]
+        },
+        {
+          "name": "Zenpuku-ji Temple",
+          "dedupe_key": "name:tokyo:minato:zenpuku-ji-temple",
+          "category": "temple",
+          "enrichment_note": "web-enriched:lat/lng",
+          "remaining_gaps": [
+            "missing_station",
+            "missing_hours",
+            "missing_photo"
+          ]
+        },
+        {
+          "name": "Kyu-Shiba-rikyu Garden",
+          "dedupe_key": "name:tokyo:minato:kyu-shiba-rikyu-garden",
+          "category": "garden",
+          "enrichment_note": "web-enriched:lat/lng",
+          "remaining_gaps": [
+            "missing_photo"
+          ]
+        },
+        {
+          "name": "Minato City Local History Museum",
+          "dedupe_key": "name:tokyo:minato:minato-city-local-history-museum",
+          "category": "museum",
+          "enrichment_note": "web-enriched:lat/lng",
+          "remaining_gaps": [
+            "missing_photo"
+          ]
+        },
+        {
+          "name": "Toranomon Hills Mori Tower",
+          "dedupe_key": "name:tokyo:minato:toranomon-hills-mori-tower",
+          "category": "landmark",
+          "enrichment_note": "web-enriched:lat/lng",
+          "remaining_gaps": [
+            "missing_hours",
+            "missing_photo"
+          ]
+        },
+        {
+          "name": "Toranomon Kotohira Shrine",
+          "dedupe_key": "name:tokyo:minato:kotohira-shrine-toranomon",
+          "category": "shrine",
+          "enrichment_note": null,
+          "remaining_gaps": [
+            "missing_coords",
+            "missing_hours",
+            "missing_photo"
+          ]
+        },
+        {
+          "name": "Toyokawa Inari Tokyo Betsuin",
+          "dedupe_key": "name:tokyo:minato:toyokawa-inari-tokyo-betsuin",
+          "category": "temple",
+          "enrichment_note": "web-enriched:lat/lng",
+          "remaining_gaps": [
+            "missing_photo"
+          ]
+        },
+        {
+          "name": "TEPIA Advanced Technology Gallery",
+          "dedupe_key": "name:tokyo:minato:tepia-advanced-technology-gallery",
+          "category": "museum",
+          "enrichment_note": null,
+          "remaining_gaps": [
+            "missing_coords",
+            "missing_photo"
+          ]
+        },
+        {
+          "name": "MoN Takanawa (The Museum of Narratives)",
+          "dedupe_key": "name:tokyo:minato:mon-takanawa",
+          "category": "museum",
+          "enrichment_note": null,
+          "remaining_gaps": [
+            "missing_hours",
+            "missing_photo"
+          ]
+        },
+        {
+          "name": "Keio University Old Library and Enzetsukan (Mita Campus)",
+          "dedupe_key": "name:tokyo:minato:keio-university-old-library-and-enzetsukan",
+          "category": "landmark",
+          "enrichment_note": null,
+          "remaining_gaps": [
+            "missing_coords",
+            "missing_station",
+            "missing_hours",
+            "missing_photo"
+          ]
+        }
+      ]
+    },
+    "nagatoro.json": {
+      "count": 25,
+      "records": [
+        {
+          "name": "Hodosan Shrine",
+          "dedupe_key": "name:saitama:nagatoro:hodosan-shrine",
+          "category": "shrine",
+          "enrichment_note": null,
+          "remaining_gaps": [
+            "missing_photo"
+          ]
+        },
+        {
+          "name": "Hodosan Ropeway",
+          "dedupe_key": "name:saitama:nagatoro:hodosan-ropeway",
+          "category": "attraction",
+          "enrichment_note": "web-enriched:lat/lng",
+          "remaining_gaps": [
+            "missing_photo"
+          ]
+        },
+        {
+          "name": "Nagatoro Iwadatami Rocks",
+          "dedupe_key": "name:saitama:nagatoro:nagatoro-iwadatami-rocks",
+          "category": "landmark",
+          "enrichment_note": null,
+          "remaining_gaps": [
+            "missing_coords",
+            "missing_hours",
+            "missing_photo"
+          ]
+        },
+        {
+          "name": "Saitama Museum of Natural History",
+          "dedupe_key": "name:saitama:nagatoro:saitama-museum-of-natural-history",
+          "category": "museum",
+          "enrichment_note": null,
+          "remaining_gaps": [
+            "missing_photo"
+          ]
+        },
+        {
+          "name": "Tsukinoishi Momiji Park",
+          "dedupe_key": "name:saitama:nagatoro:tsukinoishi-momiji-park",
+          "category": "park",
+          "enrichment_note": "web-enriched:lat/lng",
+          "remaining_gaps": [
+            "missing_hours",
+            "missing_photo"
+          ]
+        },
+        {
+          "name": "Nagatoro Town Museum (Arai Silkworm House)",
+          "dedupe_key": "name:saitama:nagatoro:nagatoro-town-museum-arai-silkworm-house",
+          "category": "museum",
+          "enrichment_note": null,
+          "remaining_gaps": [
+            "missing_coords",
+            "missing_hours",
+            "missing_photo"
+          ]
+        },
+        {
+          "name": "Fudoji Temple",
+          "dedupe_key": "name:saitama:nagatoro:fudoji-temple",
+          "category": "temple",
+          "enrichment_note": null,
+          "remaining_gaps": [
+            "missing_coords",
+            "missing_hours",
+            "missing_photo"
+          ]
+        },
+        {
+          "name": "Hozenji Temple",
+          "dedupe_key": "name:saitama:nagatoro:hozenji-temple",
+          "category": "temple",
+          "enrichment_note": null,
+          "remaining_gaps": [
+            "missing_coords",
+            "missing_hours",
+            "missing_photo"
+          ]
+        },
+        {
+          "name": "Kita Sakura-dori (North Cherry Blossom Street)",
+          "dedupe_key": "name:saitama:nagatoro:kita-sakura-dori-north-cherry-blossom-street",
+          "category": "landmark",
+          "enrichment_note": null,
+          "remaining_gaps": [
+            "missing_coords",
+            "missing_hours",
+            "missing_photo"
+          ]
+        },
+        {
+          "name": "Minami Sakura-dori (South Cherry Blossom Street)",
+          "dedupe_key": "name:saitama:nagatoro:minami-sakura-dori-south-cherry-blossom-street",
+          "category": "landmark",
+          "enrichment_note": null,
+          "remaining_gaps": [
+            "missing_coords",
+            "missing_hours",
+            "missing_photo"
+          ]
+        },
+        {
+          "name": "Mount Hodo",
+          "dedupe_key": "name:saitama:nagatoro:mount-hodo",
+          "category": "landmark",
+          "enrichment_note": null,
+          "remaining_gaps": [
+            "missing_coords",
+            "missing_hours",
+            "missing_photo"
+          ]
+        },
+        {
+          "name": "Hodosan Shrine Okumiya (Rear Shrine)",
+          "dedupe_key": "name:saitama:nagatoro:hodosan-shrine-okumiya-rear-shrine",
+          "category": "shrine",
+          "enrichment_note": null,
+          "remaining_gaps": [
+            "missing_coords",
+            "missing_hours",
+            "missing_photo"
+          ]
+        },
+        {
+          "name": "Mt. Hodo Umehyakkaen (Plum Garden)",
+          "dedupe_key": "name:saitama:nagatoro:mt-hodo-umehyakkaen-plum-garden",
+          "category": "garden",
+          "enrichment_note": null,
+          "remaining_gaps": [
+            "missing_coords",
+            "missing_hours",
+            "missing_photo"
+          ]
+        },
+        {
+          "name": "Hodosan Wintersweet Garden (Robaien)",
+          "dedupe_key": "name:saitama:nagatoro:hodosan-wintersweet-garden-robaien",
+          "category": "garden",
+          "enrichment_note": null,
+          "remaining_gaps": [
+            "missing_coords",
+            "missing_hours",
+            "missing_photo"
+          ]
+        },
+        {
+          "name": "Hodosan Small Animal Zoo",
+          "dedupe_key": "name:saitama:nagatoro:hodosan-small-animal-zoo",
+          "category": "attraction",
+          "enrichment_note": null,
+          "remaining_gaps": [
+            "missing_coords",
+            "missing_photo"
+          ]
+        },
+        {
+          "name": "Susabino Terrace",
+          "dedupe_key": "name:saitama:nagatoro:susabino-terrace",
+          "category": "viewpoint",
+          "enrichment_note": null,
+          "remaining_gaps": [
+            "missing_coords",
+            "missing_hours",
+            "missing_photo"
+          ]
+        },
+        {
+          "name": "California Poppy Garden (Hanabishisou-en)",
+          "dedupe_key": "name:saitama:nagatoro:california-poppy-garden-hanabishisou-en",
+          "category": "garden",
+          "enrichment_note": null,
+          "remaining_gaps": [
+            "missing_coords",
+            "missing_hours",
+            "missing_photo"
+          ]
+        },
+        {
+          "name": "SL Paleo Express (Steam Locomotive)",
+          "dedupe_key": "name:saitama:nagatoro:sl-paleo-express-steam-locomotive",
+          "category": "attraction",
+          "enrichment_note": null,
+          "remaining_gaps": [
+            "missing_coords",
+            "missing_photo"
+          ]
+        },
+        {
+          "name": "Nagatoro Station",
+          "dedupe_key": "name:saitama:nagatoro:nagatoro-station",
+          "category": "landmark",
+          "enrichment_note": "web-enriched:lat/lng",
+          "remaining_gaps": [
+            "missing_hours",
+            "missing_photo"
+          ]
+        },
+        {
+          "name": "Iwadatami-dori Shopping Street",
+          "dedupe_key": "name:saitama:nagatoro:iwadatami-dori-shopping-street",
+          "category": "landmark",
+          "enrichment_note": null,
+          "remaining_gaps": [
+            "missing_coords",
+            "missing_hours",
+            "missing_photo"
+          ]
+        },
+        {
+          "name": "Nagatoro Valley (Nagatoro Gorge)",
+          "dedupe_key": "name:saitama:nagatoro:nagatoro-valley-nagatoro-gorge",
+          "category": "landmark",
+          "enrichment_note": null,
+          "remaining_gaps": [
+            "missing_coords",
+            "missing_hours",
+            "missing_photo"
+          ]
+        },
+        {
+          "name": "Hodosan Approach (Cherry Blossom-Lined Path)",
+          "dedupe_key": "name:saitama:nagatoro:hodosan-approach-cherry-blossom-lined-path",
+          "category": "landmark",
+          "enrichment_note": null,
+          "remaining_gaps": [
+            "missing_coords",
+            "missing_hours",
+            "missing_photo"
+          ]
+        },
+        {
+          "name": "Arakawa River Boat Cruises",
+          "dedupe_key": "name:saitama:nagatoro:arakawa-river-boat-cruises",
+          "category": "attraction",
+          "enrichment_note": null,
+          "remaining_gaps": [
+            "missing_coords",
+            "missing_photo"
+          ]
+        },
+        {
+          "name": "Seven Flower Temples (Autumn Flower Circuit)",
+          "dedupe_key": "name:saitama:nagatoro:seven-flower-temples-autumn-flower-circuit",
+          "category": "temple",
+          "enrichment_note": null,
+          "remaining_gaps": [
+            "missing_coords",
+            "missing_hours",
+            "missing_photo"
+          ]
+        },
+        {
+          "name": "Nagatoro Tourist Information Center",
+          "dedupe_key": "name:saitama:nagatoro:nagatoro-tourist-information-center",
+          "category": "landmark",
+          "enrichment_note": null,
+          "remaining_gaps": [
+            "missing_coords",
+            "missing_hours",
+            "missing_photo"
+          ]
+        }
+      ]
+    },
+    "setagaya.json": {
+      "count": 26,
+      "records": [
+        {
+          "name": "Gotoku-ji Temple",
+          "dedupe_key": "name:tokyo:setagaya:gotoku-ji-temple",
+          "category": "temple",
+          "enrichment_note": null,
+          "remaining_gaps": [
+            "missing_hours"
+          ]
+        },
+        {
+          "name": "Kuhonbutsu Joshin-ji Temple",
+          "dedupe_key": "name:tokyo:setagaya:kuhonbutsu-joshin-ji-temple",
+          "category": "temple",
+          "enrichment_note": null,
+          "remaining_gaps": [
+            "missing_station"
+          ]
+        },
+        {
+          "name": "Mangan-ji (Todoroki Fudoson)",
+          "dedupe_key": "name:tokyo:setagaya:mangan-ji-todoroki-fudoson",
+          "category": "temple",
+          "enrichment_note": null,
+          "remaining_gaps": [
+            "missing_station",
+            "missing_hours",
+            "missing_photo"
+          ]
+        },
+        {
+          "name": "Todoroki Valley",
+          "dedupe_key": "name:tokyo:setagaya:todoroki-valley",
+          "category": "park",
+          "enrichment_note": "web-enriched:lat/lng,address",
+          "remaining_gaps": [
+            "missing_hours"
+          ]
+        },
+        {
+          "name": "Setagaya Boro-ichi Flea Market",
+          "dedupe_key": "name:tokyo:setagaya:setagaya-boro-ichi-flea-market",
+          "category": "market",
+          "enrichment_note": null,
+          "remaining_gaps": [
+            "missing_coords",
+            "missing_photo"
+          ]
+        },
+        {
+          "name": "Shimokitazawa Ichibangai Shopping Street",
+          "dedupe_key": "name:tokyo:setagaya:shimokitazawa-ichibangai-shopping-street",
+          "category": "landmark",
+          "enrichment_note": null,
+          "remaining_gaps": [
+            "missing_coords",
+            "missing_hours",
+            "missing_photo"
+          ]
+        },
+        {
+          "name": "Shimokitazawa",
+          "dedupe_key": "name:tokyo:setagaya:shimokitazawa",
+          "category": "landmark",
+          "enrichment_note": "web-enriched:lat/lng,address",
+          "remaining_gaps": [
+            "missing_hours",
+            "missing_photo"
+          ]
+        },
+        {
+          "name": "Sangenjaya",
+          "dedupe_key": "name:tokyo:setagaya:sangenjaya",
+          "category": "landmark",
+          "enrichment_note": "web-enriched:lat/lng,address",
+          "remaining_gaps": [
+            "missing_hours"
+          ]
+        },
+        {
+          "name": "Carrot Tower (Sky Carrot Observation Deck)",
+          "dedupe_key": "name:tokyo:setagaya:carrot-tower-sky-carrot-observation-deck",
+          "category": "viewpoint",
+          "enrichment_note": null,
+          "remaining_gaps": [
+            "missing_coords",
+            "missing_hours"
+          ]
+        },
+        {
+          "name": "Setagaya Public Theatre",
+          "dedupe_key": "name:tokyo:setagaya:setagaya-public-theatre",
+          "category": "landmark",
+          "enrichment_note": "web-enriched:lat/lng",
+          "remaining_gaps": [
+            "missing_hours",
+            "missing_photo"
+          ]
+        },
+        {
+          "name": "Setagaya Art Museum",
+          "dedupe_key": "name:tokyo:setagaya:setagaya-art-museum",
+          "category": "museum",
+          "enrichment_note": "web-enriched:lat/lng",
+          "remaining_gaps": [
+            "missing_photo"
+          ]
+        },
+        {
+          "name": "Kinuta Park",
+          "dedupe_key": "name:tokyo:setagaya:kinuta-park",
+          "category": "park",
+          "enrichment_note": null,
+          "remaining_gaps": [
+            "missing_hours"
+          ]
+        },
+        {
+          "name": "Setagaya Park",
+          "dedupe_key": "name:tokyo:setagaya:setagaya-park",
+          "category": "park",
+          "enrichment_note": "web-enriched:address",
+          "remaining_gaps": [
+            "missing_hours"
+          ]
+        },
+        {
+          "name": "Hanegi Park",
+          "dedupe_key": "name:tokyo:setagaya:hanegi-park",
+          "category": "park",
+          "enrichment_note": "web-enriched:lat/lng",
+          "remaining_gaps": [
+            "missing_hours",
+            "missing_photo"
+          ]
+        },
+        {
+          "name": "Setagaya Literary Museum",
+          "dedupe_key": "name:tokyo:setagaya:setagaya-literary-museum",
+          "category": "museum",
+          "enrichment_note": "web-enriched:lat/lng",
+          "remaining_gaps": [
+            "missing_photo"
+          ]
+        },
+        {
+          "name": "Gotoh Museum",
+          "dedupe_key": "name:tokyo:setagaya:gotoh-museum",
+          "category": "museum",
+          "enrichment_note": "web-enriched:lat/lng",
+          "remaining_gaps": [
+            "missing_photo"
+          ]
+        },
+        {
+          "name": "Setagaya Hachimangu Shrine",
+          "dedupe_key": "name:tokyo:setagaya:setagaya-hachimangu-shrine",
+          "category": "shrine",
+          "enrichment_note": null,
+          "remaining_gaps": [
+            "missing_coords",
+            "missing_station"
+          ]
+        },
+        {
+          "name": "Setagaya Daikan Yashiki",
+          "dedupe_key": "name:tokyo:setagaya:setagaya-daikan-yashiki",
+          "category": "landmark",
+          "enrichment_note": null,
+          "remaining_gaps": [
+            "missing_coords"
+          ]
+        },
+        {
+          "name": "Setagaya Local History Museum",
+          "dedupe_key": "name:tokyo:setagaya:setagaya-local-history-museum",
+          "category": "museum",
+          "enrichment_note": null,
+          "remaining_gaps": [
+            "missing_hours",
+            "missing_photo"
+          ]
+        },
+        {
+          "name": "Tokyu Setagaya Line",
+          "dedupe_key": "name:tokyo:setagaya:tokyu-setagaya-line",
+          "category": "landmark",
+          "enrichment_note": "web-enriched:lat/lng,address",
+          "remaining_gaps": [
+            "missing_station",
+            "missing_hours"
+          ]
+        },
+        {
+          "name": "Kitazawa Hachiman Shrine",
+          "dedupe_key": "name:tokyo:setagaya:kitazawa-hachiman-shrine",
+          "category": "shrine",
+          "enrichment_note": "web-enriched:lat/lng,address",
+          "remaining_gaps": [
+            "missing_station",
+            "missing_hours",
+            "missing_photo"
+          ]
+        },
+        {
+          "name": "Kuhonbutsugawa Ryokudo (Green Promenade)",
+          "dedupe_key": "name:tokyo:setagaya:kuhonbutsugawa-ryokudo-green-promenade",
+          "category": "park",
+          "enrichment_note": null,
+          "remaining_gaps": [
+            "missing_coords",
+            "missing_address",
+            "missing_station",
+            "missing_hours",
+            "missing_photo"
+          ]
+        },
+        {
+          "name": "Futakotamagawa Park",
+          "dedupe_key": "name:tokyo:setagaya:futakotamagawa-park",
+          "category": "park",
+          "enrichment_note": "web-enriched:lat/lng",
+          "remaining_gaps": [
+            "missing_hours",
+            "missing_photo"
+          ]
+        },
+        {
+          "name": "Sakura Jingu Shrine",
+          "dedupe_key": "name:tokyo:setagaya:sakura-jingu-shrine",
+          "category": "shrine",
+          "enrichment_note": null,
+          "remaining_gaps": [
+            "missing_coords",
+            "missing_photo"
+          ]
+        },
+        {
+          "name": "Komazawa Olympic Park",
+          "dedupe_key": "name:tokyo:setagaya:komazawa-olympic-park",
+          "category": "park",
+          "enrichment_note": "web-enriched:address,photo",
+          "remaining_gaps": [
+            "missing_station",
+            "missing_hours"
+          ]
+        },
+        {
+          "name": "Baji Koen (Tokyo Equestrian Park)",
+          "dedupe_key": "name:tokyo:setagaya:baji-koen-tokyo-equestrian-park",
+          "category": "park",
+          "enrichment_note": "web-enriched:photo",
+          "remaining_gaps": [
+            "missing_hours"
+          ]
+        }
+      ]
+    },
+    "sumida.json": {
+      "count": 29,
+      "records": [
+        {
+          "name": "Tokyo Skytree",
+          "dedupe_key": "name:tokyo:sumida:tokyo-skytree",
+          "category": "landmark",
+          "enrichment_note": "web-enriched:photo",
+          "remaining_gaps": []
+        },
+        {
+          "name": "Tokyo Skytree Town",
+          "dedupe_key": "name:tokyo:sumida:tokyo-skytree-town",
+          "category": "attraction",
+          "enrichment_note": "web-enriched:lat/lng",
+          "remaining_gaps": [
+            "missing_hours",
+            "missing_photo"
+          ]
+        },
+        {
+          "name": "Sumida Aquarium",
+          "dedupe_key": "name:tokyo:sumida:sumida-aquarium",
+          "category": "attraction",
+          "enrichment_note": "web-enriched:lat/lng,photo",
+          "remaining_gaps": [
+            "missing_hours"
+          ]
+        },
+        {
+          "name": "Ryogoku Kokugikan",
+          "dedupe_key": "name:tokyo:sumida:ryogoku-kokugikan",
+          "category": "landmark",
+          "enrichment_note": "web-enriched:photo",
+          "remaining_gaps": [
+            "missing_hours"
+          ]
+        },
+        {
+          "name": "Sumo Museum",
+          "dedupe_key": "name:tokyo:sumida:sumo-museum",
+          "category": "museum",
+          "enrichment_note": null,
+          "remaining_gaps": [
+            "missing_hours",
+            "missing_photo"
+          ]
+        },
+        {
+          "name": "Edo-Tokyo Museum",
+          "dedupe_key": "name:tokyo:sumida:edo-tokyo-museum",
+          "category": "museum",
+          "enrichment_note": null,
+          "remaining_gaps": [
+            "missing_hours",
+            "missing_photo"
+          ]
+        },
+        {
+          "name": "Sumida Hokusai Museum",
+          "dedupe_key": "name:tokyo:sumida:sumida-hokusai-museum",
+          "category": "museum",
+          "enrichment_note": null,
+          "remaining_gaps": [
+            "missing_photo"
+          ]
+        },
+        {
+          "name": "Kyu-Yasuda Teien (Former Yasuda Garden)",
+          "dedupe_key": "name:tokyo:sumida:kyu-yasuda-teien-former-yasuda-garden",
+          "category": "garden",
+          "enrichment_note": null,
+          "remaining_gaps": [
+            "missing_coords",
+            "missing_photo"
+          ]
+        },
+        {
+          "name": "Mukojima-Hyakkaen Gardens",
+          "dedupe_key": "name:tokyo:sumida:mukojima-hyakkaen-gardens",
+          "category": "garden",
+          "enrichment_note": "web-enriched:lat/lng",
+          "remaining_gaps": [
+            "missing_photo"
+          ]
+        },
+        {
+          "name": "Ekoin Temple",
+          "dedupe_key": "name:tokyo:sumida:ekoin-temple",
+          "category": "temple",
+          "enrichment_note": null,
+          "remaining_gaps": [
+            "missing_photo"
+          ]
+        },
+        {
+          "name": "Yokoamicho Park (Tokyo Metropolitan Memorial Hall)",
+          "dedupe_key": "name:tokyo:sumida:yokoamicho-park-tokyo-metropolitan-memorial-hall",
+          "category": "park",
+          "enrichment_note": null,
+          "remaining_gaps": [
+            "missing_coords",
+            "missing_photo"
+          ]
+        },
+        {
+          "name": "Ushijima Shrine",
+          "dedupe_key": "name:tokyo:sumida:ushijima-shrine",
+          "category": "shrine",
+          "enrichment_note": "web-enriched:lat/lng,address",
+          "remaining_gaps": [
+            "missing_station",
+            "missing_hours",
+            "missing_photo"
+          ]
+        },
+        {
+          "name": "Mimeguri Shrine",
+          "dedupe_key": "name:tokyo:sumida:mimeguri-shrine",
+          "category": "shrine",
+          "enrichment_note": null,
+          "remaining_gaps": [
+            "missing_coords",
+            "missing_address",
+            "missing_station",
+            "missing_hours",
+            "missing_photo"
+          ]
+        },
+        {
+          "name": "Japanese Sword Museum",
+          "dedupe_key": "name:tokyo:sumida:japanese-sword-museum",
+          "category": "museum",
+          "enrichment_note": "web-enriched:lat/lng",
+          "remaining_gaps": [
+            "missing_photo"
+          ]
+        },
+        {
+          "name": "Tobacco and Salt Museum",
+          "dedupe_key": "name:tokyo:sumida:tobacco-and-salt-museum",
+          "category": "museum",
+          "enrichment_note": null,
+          "remaining_gaps": [
+            "missing_address",
+            "missing_station",
+            "missing_photo"
+          ]
+        },
+        {
+          "name": "Tobu Museum",
+          "dedupe_key": "name:tokyo:sumida:tobu-museum",
+          "category": "museum",
+          "enrichment_note": "web-enriched:lat/lng",
+          "remaining_gaps": [
+            "missing_photo"
+          ]
+        },
+        {
+          "name": "TOKYO mizumachi / Sumida River Walk",
+          "dedupe_key": "name:tokyo:sumida:tokyo-mizumachi-sumida-river-walk",
+          "category": "landmark",
+          "enrichment_note": null,
+          "remaining_gaps": [
+            "missing_coords",
+            "missing_photo"
+          ]
+        },
+        {
+          "name": "Sumida Park",
+          "dedupe_key": "name:tokyo:sumida:sumida-park",
+          "category": "park",
+          "enrichment_note": null,
+          "remaining_gaps": [
+            "missing_hours",
+            "missing_photo"
+          ]
+        },
+        {
+          "name": "Asahi Beer Hall (Flamme d'Or)",
+          "dedupe_key": "name:tokyo:sumida:asahi-beer-hall-flamme-d-or",
+          "category": "landmark",
+          "enrichment_note": null,
+          "remaining_gaps": [
+            "missing_station",
+            "missing_hours",
+            "missing_photo"
+          ]
+        },
+        {
+          "name": "Sumida Triphony Hall",
+          "dedupe_key": "name:tokyo:sumida:sumida-triphony-hall",
+          "category": "landmark",
+          "enrichment_note": "web-enriched:lat/lng",
+          "remaining_gaps": [
+            "missing_hours",
+            "missing_photo"
+          ]
+        },
+        {
+          "name": "Kinshi Park",
+          "dedupe_key": "name:tokyo:sumida:kinshi-park",
+          "category": "park",
+          "enrichment_note": null,
+          "remaining_gaps": [
+            "missing_hours",
+            "missing_photo"
+          ]
+        },
+        {
+          "name": "Oyokogawa Shinsui Park",
+          "dedupe_key": "name:tokyo:sumida:oyokogawa-shinsui-park",
+          "category": "park",
+          "enrichment_note": "web-enriched:lat/lng,address",
+          "remaining_gaps": [
+            "missing_station",
+            "missing_hours",
+            "missing_photo"
+          ]
+        },
+        {
+          "name": "Sumida Edo Kiriko-kan",
+          "dedupe_key": "name:tokyo:sumida:sumida-edo-kiriko-kan",
+          "category": "museum",
+          "enrichment_note": null,
+          "remaining_gaps": [
+            "missing_coords",
+            "missing_photo"
+          ]
+        },
+        {
+          "name": "Choumeiji Temple",
+          "dedupe_key": "name:tokyo:sumida:choumeiji-temple",
+          "category": "temple",
+          "enrichment_note": null,
+          "remaining_gaps": [
+            "missing_coords",
+            "missing_photo"
+          ]
+        },
+        {
+          "name": "Kototoi Bridge",
+          "dedupe_key": "name:tokyo:sumida:kototoi-bridge",
+          "category": "landmark",
+          "enrichment_note": "web-enriched:lat/lng,address",
+          "remaining_gaps": [
+            "missing_hours",
+            "missing_photo"
+          ]
+        },
+        {
+          "name": "Ryogoku Bridge",
+          "dedupe_key": "name:tokyo:sumida:ryogoku-bridge",
+          "category": "landmark",
+          "enrichment_note": "web-enriched:address",
+          "remaining_gaps": [
+            "missing_hours",
+            "missing_photo"
+          ]
+        },
+        {
+          "name": "Sumida River",
+          "dedupe_key": "name:tokyo:sumida:sumida-river",
+          "category": "landmark",
+          "enrichment_note": "web-enriched:lat/lng,address",
+          "remaining_gaps": [
+            "missing_station",
+            "missing_hours",
+            "missing_photo"
+          ]
+        },
+        {
+          "name": "Honjo Matsuzakacho Park (Kira Yoshinaka Residence Site)",
+          "dedupe_key": "name:tokyo:sumida:honjo-matsuzakacho-park-kira-yoshinaka-residence-site",
+          "category": "landmark",
+          "enrichment_note": null,
+          "remaining_gaps": [
+            "missing_coords",
+            "missing_hours",
+            "missing_photo"
+          ]
+        },
+        {
+          "name": "Nominosukune Shrine",
+          "dedupe_key": "name:tokyo:sumida:nominosukune-shrine",
+          "category": "shrine",
+          "enrichment_note": null,
+          "remaining_gaps": [
+            "missing_coords",
+            "missing_address",
+            "missing_station",
+            "missing_hours",
+            "missing_photo"
+          ]
+        }
+      ]
+    }
+  },
+  "totals": {
+    "records": 236,
+    "records_enriched": 84,
+    "fields_filled_from_web": {
+      "lat/lng": 62,
+      "photo": 15,
+      "address": 31
+    },
+    "remaining_gaps": {
+      "missing_hours": 152,
+      "missing_station": 80,
+      "missing_photo": 176,
+      "missing_coords": 60,
+      "missing_address": 21
+    }
+  }
+}

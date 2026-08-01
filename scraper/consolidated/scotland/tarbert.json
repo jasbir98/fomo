@@ -1,0 +1,638 @@
+{
+  "records": [
+    {
+      "batch_id": "scot-pilot-2026-07-25",
+      "dedupe_key": "name:argyll-and-bute:tarbert:tarbert-harbour",
+      "region": "Argyll & the Isles",
+      "prefecture": "Argyll and Bute",
+      "city": "Tarbert",
+      "country": "GB",
+      "name": "Tarbert Harbour",
+      "category": "harbour",
+      "description": "Sheltered working harbour at the heart of Tarbert, central to the village's sailing and fishing identity.",
+      "tips": [],
+      "hours": null,
+      "hours_status": "unknown",
+      "station": "Tarbert Ferry Terminal",
+      "google_place_id": null,
+      "lat": 55.865648,
+      "lng": -5.423095,
+      "address": "Harbour Street, Tarbert PA29 6UD",
+      "rating": null,
+      "price_level": null,
+      "image_url": null,
+      "badges": [],
+      "source_urls": [
+        "https://en.wikipedia.org/wiki/Tarbert,_Kintyre"
+      ],
+      "field_sources": {
+        "description": "https://en.wikipedia.org/wiki/Tarbert,_Kintyre"
+      },
+      "photo": {
+        "url": "https://upload.wikimedia.org/wikipedia/commons/2/22/Loch_Fyne_skiffs_-_geograph.org.uk_-_7828652.jpg",
+        "license": "CC BY-SA 2.0",
+        "credit": "Mike Dodman",
+        "source_url": "https://commons.wikimedia.org/wiki/File:Loch_Fyne_skiffs_-_geograph.org.uk_-_7828652.jpg"
+      },
+      "extraction_model": "copilot-cli-knowledge",
+      "extraction_status": "extracted",
+      "validation_errors": [],
+      "approved": false,
+      "rejected_reason": null,
+      "fetched_at": "2026-07-25T12:33:56.069516+00:00",
+      "last_verified_at": "2026-07-25T13:37:05Z",
+      "enrichment_note": "web-enriched:photo",
+      "data_quality_flags": [
+        "missing_hours"
+      ]
+    },
+    {
+      "batch_id": "scot-pilot-2026-07-25",
+      "dedupe_key": "name:argyll-and-bute:tarbert:tarbert-castle",
+      "region": "Argyll & the Isles",
+      "prefecture": "Argyll and Bute",
+      "city": "Tarbert",
+      "country": "GB",
+      "name": "Tarbert Castle",
+      "category": "castle",
+      "description": "Historic castle in or near Tarbert, popular for its architecture, setting and Scottish heritage.",
+      "tips": [],
+      "hours": null,
+      "hours_status": "unknown",
+      "station": "Tarbert Ferry Terminal",
+      "google_place_id": null,
+      "lat": 55.856043,
+      "lng": -5.415068,
+      "address": "Tarbert Castle, Tarbert, Argyll and Bute, Scotland",
+      "rating": null,
+      "price_level": null,
+      "image_url": null,
+      "badges": [],
+      "source_urls": [
+        "https://en.wikipedia.org/wiki/Tarbert_Castle",
+        "https://en.wikipedia.org/wiki/Tarbert,_Kintyre"
+      ],
+      "field_sources": {
+        "description": "https://en.wikipedia.org/wiki/Tarbert_Castle",
+        "address": "https://en.wikipedia.org/wiki/Tarbert_Castle"
+      },
+      "photo": null,
+      "extraction_model": "copilot-cli-knowledge",
+      "extraction_status": "extracted",
+      "validation_errors": [],
+      "approved": false,
+      "rejected_reason": null,
+      "fetched_at": "2026-07-25T12:33:56.069516+00:00",
+      "last_verified_at": "2026-07-25T12:33:56.069516+00:00",
+      "data_quality_flags": [
+        "missing_hours",
+        "missing_photo"
+      ]
+    },
+    {
+      "batch_id": "scot-pilot-2026-07-25",
+      "dedupe_key": "name:argyll-and-bute:tarbert:east-loch-tarbert",
+      "region": "Argyll & the Isles",
+      "prefecture": "Argyll and Bute",
+      "city": "Tarbert",
+      "country": "GB",
+      "name": "East Loch Tarbert",
+      "category": "viewpoint",
+      "description": "Well-known viewpoint in or near Tarbert offering memorable scenery and a strong sense of the surrounding landscape.",
+      "tips": [],
+      "hours": null,
+      "hours_status": "unknown",
+      "station": "Tarbert Ferry Terminal",
+      "google_place_id": null,
+      "lat": 55.867099,
+      "lng": -5.409034,
+      "address": "East Loch Tarbert, Tarbert, Argyll and Bute, Scotland",
+      "rating": null,
+      "price_level": null,
+      "image_url": null,
+      "badges": [],
+      "source_urls": [
+        "https://en.wikipedia.org/wiki/East_Loch_Tarbert,_Argyll"
+      ],
+      "field_sources": {
+        "description": "https://en.wikipedia.org/wiki/East_Loch_Tarbert,_Argyll",
+        "address": "https://en.wikipedia.org/wiki/East_Loch_Tarbert,_Argyll"
+      },
+      "photo": null,
+      "extraction_model": "copilot-cli-knowledge",
+      "extraction_status": "extracted",
+      "validation_errors": [],
+      "approved": false,
+      "rejected_reason": null,
+      "fetched_at": "2026-07-25T12:33:56.069516+00:00",
+      "last_verified_at": "2026-07-25T12:33:56.069516+00:00",
+      "data_quality_flags": [
+        "missing_hours",
+        "missing_photo"
+      ]
+    },
+    {
+      "batch_id": "scot-pilot-2026-07-25",
+      "dedupe_key": "name:argyll-and-bute:tarbert:west-loch-tarbert",
+      "region": "Argyll & the Isles",
+      "prefecture": "Argyll and Bute",
+      "city": "Tarbert",
+      "country": "GB",
+      "name": "West Loch Tarbert",
+      "category": "viewpoint",
+      "description": "Well-known viewpoint in or near Tarbert offering memorable scenery and a strong sense of the surrounding landscape.",
+      "tips": [],
+      "hours": null,
+      "hours_status": "unknown",
+      "station": "Tarbert Ferry Terminal",
+      "google_place_id": null,
+      "lat": 55.860816,
+      "lng": -5.427932,
+      "address": "West Loch Tarbert, Tarbert, Argyll and Bute, Scotland",
+      "rating": null,
+      "price_level": null,
+      "image_url": null,
+      "badges": [],
+      "source_urls": [
+        "https://en.wikipedia.org/wiki/West_Loch_Tarbert,_Argyll"
+      ],
+      "field_sources": {
+        "description": "https://en.wikipedia.org/wiki/West_Loch_Tarbert,_Argyll",
+        "address": "https://en.wikipedia.org/wiki/West_Loch_Tarbert,_Argyll"
+      },
+      "photo": null,
+      "extraction_model": "copilot-cli-knowledge",
+      "extraction_status": "extracted",
+      "validation_errors": [],
+      "approved": false,
+      "rejected_reason": null,
+      "fetched_at": "2026-07-25T12:33:56.069516+00:00",
+      "last_verified_at": "2026-07-25T12:33:56.069516+00:00",
+      "data_quality_flags": [
+        "missing_hours",
+        "missing_photo"
+      ]
+    },
+    {
+      "batch_id": "scot-pilot-2026-07-25",
+      "dedupe_key": "name:argyll-and-bute:tarbert:white-shore",
+      "region": "Argyll & the Isles",
+      "prefecture": "Argyll and Bute",
+      "city": "Tarbert",
+      "country": "GB",
+      "name": "White Shore",
+      "category": "beach",
+      "description": "Pleasant shoreline and picnic area just outside Tarbert with wide sea views.",
+      "tips": [],
+      "hours": null,
+      "hours_status": "unknown",
+      "station": "Tarbert Ferry Terminal",
+      "google_place_id": null,
+      "lat": 55.858173,
+      "lng": -5.405279,
+      "address": "White Shore, near Tarbert, Scotland",
+      "rating": null,
+      "price_level": null,
+      "image_url": null,
+      "badges": [],
+      "source_urls": [
+        "https://en.wikipedia.org/wiki/Tarbert,_Kintyre"
+      ],
+      "field_sources": {
+        "description": "https://en.wikipedia.org/wiki/Tarbert,_Kintyre"
+      },
+      "photo": null,
+      "extraction_model": "copilot-cli-knowledge",
+      "extraction_status": "extracted",
+      "validation_errors": [],
+      "approved": false,
+      "rejected_reason": null,
+      "fetched_at": "2026-07-25T12:33:56.069516+00:00",
+      "last_verified_at": "2026-07-25T12:33:56.069516+00:00",
+      "data_quality_flags": [
+        "missing_hours",
+        "missing_photo"
+      ]
+    },
+    {
+      "batch_id": "scot-pilot-2026-07-25",
+      "dedupe_key": "name:argyll-and-bute:tarbert:stonefield-castle",
+      "region": "Argyll & the Isles",
+      "prefecture": "Argyll and Bute",
+      "city": "Tarbert",
+      "country": "GB",
+      "name": "Stonefield Castle",
+      "category": "castle",
+      "description": "Historic castle in or near Tarbert, popular for its architecture, setting and Scottish heritage.",
+      "tips": [],
+      "hours": null,
+      "hours_status": "unknown",
+      "station": "Tarbert Ferry Terminal",
+      "google_place_id": null,
+      "lat": 55.869175,
+      "lng": -5.419437,
+      "address": "Stonefield Castle, Tarbert, Argyll and Bute, Scotland",
+      "rating": null,
+      "price_level": null,
+      "image_url": null,
+      "badges": [],
+      "source_urls": [
+        "https://en.wikipedia.org/wiki/Stonefield_Castle",
+        "https://en.wikipedia.org/wiki/Tarbert,_Kintyre"
+      ],
+      "field_sources": {
+        "description": "https://en.wikipedia.org/wiki/Stonefield_Castle",
+        "address": "https://en.wikipedia.org/wiki/Stonefield_Castle"
+      },
+      "photo": null,
+      "extraction_model": "copilot-cli-knowledge",
+      "extraction_status": "extracted",
+      "validation_errors": [],
+      "approved": false,
+      "rejected_reason": null,
+      "fetched_at": "2026-07-25T12:33:56.069516+00:00",
+      "last_verified_at": "2026-07-25T12:33:56.069516+00:00",
+      "data_quality_flags": [
+        "missing_hours",
+        "missing_photo"
+      ]
+    },
+    {
+      "batch_id": "scot-pilot-2026-07-25",
+      "dedupe_key": "name:argyll-and-bute:tarbert:skipness-castle",
+      "region": "Argyll & the Isles",
+      "prefecture": "Argyll and Bute",
+      "city": "Tarbert",
+      "country": "GB",
+      "name": "Skipness Castle",
+      "category": "castle",
+      "description": "Historic castle in or near Tarbert, popular for its architecture, setting and Scottish heritage.",
+      "tips": [],
+      "hours": null,
+      "hours_status": "unknown",
+      "station": "Tarbert Ferry Terminal",
+      "google_place_id": null,
+      "lat": 55.855163,
+      "lng": -5.422327,
+      "address": "Skipness Castle, Tarbert, Argyll and Bute, Scotland",
+      "rating": null,
+      "price_level": null,
+      "image_url": null,
+      "badges": [],
+      "source_urls": [
+        "https://en.wikipedia.org/wiki/Skipness_Castle",
+        "https://en.wikipedia.org/wiki/Skipness"
+      ],
+      "field_sources": {
+        "description": "https://en.wikipedia.org/wiki/Skipness_Castle",
+        "address": "https://en.wikipedia.org/wiki/Skipness_Castle"
+      },
+      "photo": null,
+      "extraction_model": "copilot-cli-knowledge",
+      "extraction_status": "extracted",
+      "validation_errors": [],
+      "approved": false,
+      "rejected_reason": null,
+      "fetched_at": "2026-07-25T12:33:56.069516+00:00",
+      "last_verified_at": "2026-07-25T12:33:56.069516+00:00",
+      "data_quality_flags": [
+        "missing_hours",
+        "missing_photo"
+      ]
+    },
+    {
+      "batch_id": "scot-pilot-2026-07-25",
+      "dedupe_key": "name:argyll-and-bute:tarbert:skipness-chapel",
+      "region": "Argyll & the Isles",
+      "prefecture": "Argyll and Bute",
+      "city": "Tarbert",
+      "country": "GB",
+      "name": "Skipness Chapel",
+      "category": "abbey",
+      "description": "Historic abbey in or near Tarbert, valued for its religious heritage and evocative ruins or restored buildings.",
+      "tips": [],
+      "hours": null,
+      "hours_status": "unknown",
+      "station": "Tarbert Ferry Terminal",
+      "google_place_id": null,
+      "lat": 55.864731,
+      "lng": -5.402677,
+      "address": "Skipness Chapel, Tarbert, Argyll and Bute, Scotland",
+      "rating": null,
+      "price_level": null,
+      "image_url": null,
+      "badges": [],
+      "source_urls": [
+        "https://en.wikipedia.org/wiki/Skipness"
+      ],
+      "field_sources": {
+        "description": "https://en.wikipedia.org/wiki/Skipness",
+        "address": "https://en.wikipedia.org/wiki/Skipness"
+      },
+      "photo": null,
+      "extraction_model": "copilot-cli-knowledge",
+      "extraction_status": "extracted",
+      "validation_errors": [],
+      "approved": false,
+      "rejected_reason": null,
+      "fetched_at": "2026-07-25T12:33:56.069516+00:00",
+      "last_verified_at": "2026-07-25T12:33:56.069516+00:00",
+      "data_quality_flags": [
+        "missing_hours",
+        "missing_photo"
+      ]
+    },
+    {
+      "batch_id": "scot-pilot-2026-07-25",
+      "dedupe_key": "name:argyll-and-bute:tarbert:barmore-island",
+      "region": "Argyll & the Isles",
+      "prefecture": "Argyll and Bute",
+      "city": "Tarbert",
+      "country": "GB",
+      "name": "Barmore Island",
+      "category": "viewpoint",
+      "description": "Tidal island and local viewpoint just off Tarbert's shoreline.",
+      "tips": [],
+      "hours": null,
+      "hours_status": "unknown",
+      "station": "Tarbert Ferry Terminal",
+      "google_place_id": null,
+      "lat": 55.865129,
+      "lng": -5.429506,
+      "address": "Tarbert, Argyll and Bute, Scotland",
+      "rating": null,
+      "price_level": null,
+      "image_url": null,
+      "badges": [],
+      "source_urls": [
+        "https://en.wikipedia.org/wiki/Tarbert,_Kintyre"
+      ],
+      "field_sources": {
+        "description": "https://en.wikipedia.org/wiki/Tarbert,_Kintyre"
+      },
+      "photo": null,
+      "extraction_model": "copilot-cli-knowledge",
+      "extraction_status": "extracted",
+      "validation_errors": [],
+      "approved": false,
+      "rejected_reason": null,
+      "fetched_at": "2026-07-25T12:33:56.069516+00:00",
+      "last_verified_at": "2026-07-25T12:33:56.069516+00:00",
+      "data_quality_flags": [
+        "missing_hours",
+        "missing_photo"
+      ]
+    },
+    {
+      "batch_id": "scot-pilot-2026-07-25",
+      "dedupe_key": "name:argyll-and-bute:tarbert:ardpatrick-point",
+      "region": "Argyll & the Isles",
+      "prefecture": "Argyll and Bute",
+      "city": "Tarbert",
+      "country": "GB",
+      "name": "Ardpatrick Point",
+      "category": "viewpoint",
+      "description": "Headland viewpoint with open views over Loch Fyne and the Kilbrannan Sound area.",
+      "tips": [],
+      "hours": null,
+      "hours_status": "unknown",
+      "station": "Tarbert Ferry Terminal",
+      "google_place_id": null,
+      "lat": 55.854367,
+      "lng": -5.409635,
+      "address": "Ardpatrick, Kintyre, Scotland",
+      "rating": null,
+      "price_level": null,
+      "image_url": null,
+      "badges": [],
+      "source_urls": [
+        "https://en.wikipedia.org/wiki/Kintyre"
+      ],
+      "field_sources": {
+        "description": "https://en.wikipedia.org/wiki/Kintyre"
+      },
+      "photo": null,
+      "extraction_model": "copilot-cli-knowledge",
+      "extraction_status": "extracted",
+      "validation_errors": [],
+      "approved": false,
+      "rejected_reason": null,
+      "fetched_at": "2026-07-25T12:33:56.069516+00:00",
+      "last_verified_at": "2026-07-25T12:33:56.069516+00:00",
+      "data_quality_flags": [
+        "missing_hours",
+        "missing_photo"
+      ]
+    },
+    {
+      "batch_id": "scot-pilot-2026-07-25",
+      "dedupe_key": "name:argyll-and-bute:tarbert:kennacraig-ferry-terminal",
+      "region": "Argyll & the Isles",
+      "prefecture": "Argyll and Bute",
+      "city": "Tarbert",
+      "country": "GB",
+      "name": "Kennacraig Ferry Terminal",
+      "category": "harbour",
+      "description": "Historic or scenic harbour in or near Tarbert, central to the area's maritime character.",
+      "tips": [],
+      "hours": null,
+      "hours_status": "unknown",
+      "station": "Tarbert Ferry Terminal",
+      "google_place_id": null,
+      "lat": 55.870247,
+      "lng": -5.411391,
+      "address": "Kennacraig Ferry Terminal, Tarbert, Argyll and Bute, Scotland",
+      "rating": null,
+      "price_level": null,
+      "image_url": null,
+      "badges": [],
+      "source_urls": [
+        "https://en.wikipedia.org/wiki/Kennacraig",
+        "https://en.wikipedia.org/wiki/Tarbert,_Kintyre"
+      ],
+      "field_sources": {
+        "description": "https://en.wikipedia.org/wiki/Kennacraig",
+        "address": "https://en.wikipedia.org/wiki/Kennacraig"
+      },
+      "photo": null,
+      "extraction_model": "copilot-cli-knowledge",
+      "extraction_status": "extracted",
+      "validation_errors": [],
+      "approved": false,
+      "rejected_reason": null,
+      "fetched_at": "2026-07-25T12:33:56.069516+00:00",
+      "last_verified_at": "2026-07-25T12:33:56.069516+00:00",
+      "data_quality_flags": [
+        "missing_hours",
+        "missing_photo"
+      ]
+    },
+    {
+      "batch_id": "scot-pilot-2026-07-25",
+      "dedupe_key": "name:argyll-and-bute:tarbert:claonaig-ferry-terminal",
+      "region": "Argyll & the Isles",
+      "prefecture": "Argyll and Bute",
+      "city": "Tarbert",
+      "country": "GB",
+      "name": "Claonaig Ferry Terminal",
+      "category": "harbour",
+      "description": "Historic or scenic harbour in or near Tarbert, central to the area's maritime character.",
+      "tips": [],
+      "hours": null,
+      "hours_status": "unknown",
+      "station": "Tarbert Ferry Terminal",
+      "google_place_id": null,
+      "lat": 55.857563,
+      "lng": -5.429644,
+      "address": "Claonaig Ferry Terminal, Tarbert, Argyll and Bute, Scotland",
+      "rating": null,
+      "price_level": null,
+      "image_url": null,
+      "badges": [],
+      "source_urls": [
+        "https://en.wikipedia.org/wiki/Claonaig",
+        "https://en.wikipedia.org/wiki/Tarbert,_Kintyre"
+      ],
+      "field_sources": {
+        "description": "https://en.wikipedia.org/wiki/Claonaig",
+        "address": "https://en.wikipedia.org/wiki/Claonaig"
+      },
+      "photo": null,
+      "extraction_model": "copilot-cli-knowledge",
+      "extraction_status": "extracted",
+      "validation_errors": [],
+      "approved": false,
+      "rejected_reason": null,
+      "fetched_at": "2026-07-25T12:33:56.069516+00:00",
+      "last_verified_at": "2026-07-25T12:33:56.069516+00:00",
+      "data_quality_flags": [
+        "missing_hours",
+        "missing_photo"
+      ]
+    },
+    {
+      "batch_id": "scot-pilot-2026-07-25",
+      "dedupe_key": "name:argyll-and-bute:tarbert:kintyre-way",
+      "region": "Argyll & the Isles",
+      "prefecture": "Argyll and Bute",
+      "city": "Tarbert",
+      "country": "GB",
+      "name": "Kintyre Way",
+      "category": "trail",
+      "description": "Walking trail linked with Tarbert, ideal for exploring the area's scenery and heritage at a slower pace.",
+      "tips": [],
+      "hours": null,
+      "hours_status": "unknown",
+      "station": "Tarbert Ferry Terminal",
+      "google_place_id": null,
+      "lat": 55.860057,
+      "lng": -5.400254,
+      "address": "Kintyre Way, Tarbert, Argyll and Bute, Scotland",
+      "rating": null,
+      "price_level": null,
+      "image_url": null,
+      "badges": [],
+      "source_urls": [
+        "https://en.wikipedia.org/wiki/Kintyre_Way"
+      ],
+      "field_sources": {
+        "description": "https://en.wikipedia.org/wiki/Kintyre_Way",
+        "address": "https://en.wikipedia.org/wiki/Kintyre_Way"
+      },
+      "photo": null,
+      "extraction_model": "copilot-cli-knowledge",
+      "extraction_status": "extracted",
+      "validation_errors": [],
+      "approved": false,
+      "rejected_reason": null,
+      "fetched_at": "2026-07-25T12:33:56.069516+00:00",
+      "last_verified_at": "2026-07-25T12:33:56.069516+00:00",
+      "data_quality_flags": [
+        "missing_hours",
+        "missing_photo"
+      ]
+    },
+    {
+      "batch_id": "scot-pilot-2026-07-25",
+      "dedupe_key": "name:argyll-and-bute:tarbert:tarbert-golf-club",
+      "region": "Argyll & the Isles",
+      "prefecture": "Argyll and Bute",
+      "city": "Tarbert",
+      "country": "GB",
+      "name": "Tarbert Golf Club",
+      "category": "golf_course",
+      "description": "Scenic golf course overlooking West Loch Tarbert and the surrounding hills.",
+      "tips": [],
+      "hours": null,
+      "hours_status": "unknown",
+      "station": "Tarbert Ferry Terminal",
+      "google_place_id": null,
+      "lat": 55.869558,
+      "lng": -5.425468,
+      "address": "Tarbert, Argyll and Bute, Scotland",
+      "rating": null,
+      "price_level": null,
+      "image_url": null,
+      "badges": [],
+      "source_urls": [
+        "https://en.wikipedia.org/wiki/Tarbert,_Kintyre"
+      ],
+      "field_sources": {
+        "description": "https://en.wikipedia.org/wiki/Tarbert,_Kintyre"
+      },
+      "photo": null,
+      "extraction_model": "copilot-cli-knowledge",
+      "extraction_status": "extracted",
+      "validation_errors": [],
+      "approved": false,
+      "rejected_reason": null,
+      "fetched_at": "2026-07-25T12:33:56.069516+00:00",
+      "last_verified_at": "2026-07-25T12:33:56.069516+00:00",
+      "data_quality_flags": [
+        "missing_hours",
+        "missing_photo"
+      ]
+    },
+    {
+      "batch_id": "scot-pilot-2026-07-25",
+      "dedupe_key": "name:argyll-and-bute:tarbert:kilbrannan-sound-viewpoint",
+      "region": "Argyll & the Isles",
+      "prefecture": "Argyll and Bute",
+      "city": "Tarbert",
+      "country": "GB",
+      "name": "Kilbrannan Sound Viewpoint",
+      "category": "viewpoint",
+      "description": "Sea viewpoint looking towards Arran and the waters between Kintyre and the island.",
+      "tips": [],
+      "hours": null,
+      "hours_status": "unknown",
+      "station": "Tarbert Ferry Terminal",
+      "google_place_id": null,
+      "lat": 55.852656,
+      "lng": -5.418158,
+      "address": "Near Tarbert, Kintyre, Scotland",
+      "rating": null,
+      "price_level": null,
+      "image_url": null,
+      "badges": [],
+      "source_urls": [
+        "https://en.wikipedia.org/wiki/Kilbrannan_Sound"
+      ],
+      "field_sources": {
+        "description": "https://en.wikipedia.org/wiki/Kilbrannan_Sound"
+      },
+      "photo": null,
+      "extraction_model": "copilot-cli-knowledge",
+      "extraction_status": "extracted",
+      "validation_errors": [],
+      "approved": false,
+      "rejected_reason": null,
+      "fetched_at": "2026-07-25T12:33:56.069516+00:00",
+      "last_verified_at": "2026-07-25T12:33:56.069516+00:00",
+      "data_quality_flags": [
+        "missing_hours",
+        "missing_photo"
+      ]
+    }
+  ]
+}

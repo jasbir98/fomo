@@ -1,0 +1,4031 @@
+[
+  {
+    "id": "758bc2c8-c351-46b6-a2df-ff4238c3e0c2",
+    "name": "Senso-ji Temple",
+    "category": "Historical Site",
+    "rating": "4.8",
+    "image_url": null,
+    "distance_label": "0.2 km",
+    "tips": [
+      "Photography tip: Best time to visit for photos is 5:30 PM when the lanterns illuminate as the sun sets.",
+      "Local snack: Try the melonpan at the stall near the Kaminarimon gate; it's famously crispy and warm."
+    ],
+    "reviews": [],
+    "hours": "6:00 AM - 5:00 PM",
+    "station": "Asakusa Station",
+    "badges": [
+      "Quiet now"
+    ],
+    "google_place_id": null,
+    "lat": 35.714722,
+    "lng": 139.79675,
+    "address": "111-0032 東京都台東区浅草2-3-1",
+    "price_level": null,
+    "destination": null,
+    "source": "seed",
+    "fetched_at": null,
+    "city": null,
+    "prefecture": null,
+    "country": "JP",
+    "description": "Sensō-ji , is an ancient Buddhist temple in Asakusa, Tokyo, Japan. It is Tokyo's oldest-established temple, and one of its most significant. It is dedicated to Kannon, the bodhisattva of compassion. Structures in the temple complex include the main hall, a five-story pagoda and large gates. It is the most widely visited religious site in the world with over 30 million visitors annually. The temple is the 13th stop on the Bandō Sanjūsankasho pilgrimage route.",
+    "last_verified_at": "2026-07-24T23:37:56Z",
+    "hours_status": "unknown",
+    "field_sources": {
+      "lat": "https://en.wikipedia.org/wiki/Sens%C5%8D-ji",
+      "lng": "https://en.wikipedia.org/wiki/Sens%C5%8D-ji",
+      "address": "https://www.wikidata.org/wiki/Q615183",
+      "website": "https://www.wikidata.org/wiki/Q615183",
+      "description": "https://en.wikipedia.org/wiki/Sens%C5%8D-ji"
+    },
+    "website": "https://www.senso-ji.jp/",
+    "photo": {
+      "url": "https://upload.wikimedia.org/wikipedia/commons/4/43/Sensoji_2023.jpg",
+      "license": "CC0",
+      "credit": "Akonnchiroll",
+      "source_url": "https://commons.wikimedia.org/wiki/File:Sensoji_2023.jpg"
+    },
+    "source_urls": [
+      "https://en.wikipedia.org/wiki/Sens%C5%8D-ji",
+      "https://www.wikidata.org/wiki/Q615183",
+      "https://www.senso-ji.jp/"
+    ],
+    "data_quality_flags": [],
+    "enrichment_note": "web-enriched:address,description,lat/lng,photo,website"
+  },
+  {
+    "id": "3c590058-46e1-4e93-a8c7-aaecc2403c0c",
+    "name": "Shibuya Sky",
+    "category": "viewpoint",
+    "rating": "4.9",
+    "image_url": null,
+    "distance_label": "0.3 km",
+    "tips": [
+      {
+        "text": "Tickets are cheaper when purchased online in advance, and you must book a specific time slot, with sunset hours being the most popular and selling out quickly.",
+        "source_url": "https://en.wikipedia.org/wiki/Shibuya_Scramble_Square"
+      }
+    ],
+    "reviews": [],
+    "hours": "10:00 AM - 10:30 PM",
+    "station": "Shibuya Station",
+    "badges": [
+      "Trending"
+    ],
+    "google_place_id": null,
+    "lat": 35.6585,
+    "lng": 139.7018,
+    "address": "2-24-12 Shibuya, Shibuya City, Tokyo 150-6101, Japan",
+    "price_level": null,
+    "destination": null,
+    "source": "seed:jp-tokyo-2026-07-15",
+    "fetched_at": null,
+    "city": "Shibuya",
+    "prefecture": "Tokyo",
+    "country": "JP",
+    "description": "A spectacular open-air observation deck on the roof of the Shibuya Scramble Square skyscraper, offering 360-degree panoramic views of Tokyo including Mount Fuji.",
+    "last_verified_at": "2026-07-24T23:38:05Z",
+    "hours_status": "known",
+    "merged_from": [
+      "665e6df8-fdcd-419b-b296-7df11edaf403"
+    ],
+    "website": "https://www.shibuya-scramble-square.com/sky/",
+    "field_sources": {
+      "website": "osm:node:6952876785"
+    },
+    "photo": {
+      "url": "https://upload.wikimedia.org/wikipedia/commons/6/6b/Shibuya_Scramble_Square_-_SHIBUYA_SKY_12.jpg",
+      "license": "CC BY-SA 4.0",
+      "credit": "Kakidai",
+      "source_url": "https://commons.wikimedia.org/wiki/File:Shibuya_Scramble_Square_-_SHIBUYA_SKY_12.jpg"
+    },
+    "source_urls": [
+      "https://www.wikidata.org/wiki/Q116281743",
+      "https://www.shibuya-scramble-square.com/sky/"
+    ],
+    "data_quality_flags": [],
+    "enrichment_note": "web-enriched:photo,website"
+  },
+  {
+    "id": "03b5842a-4cdd-43e6-9ba8-f2fdf1530d1b",
+    "name": "Tsutaya Books",
+    "category": "Bookstore & Cafe",
+    "rating": "4.7",
+    "image_url": null,
+    "distance_label": "0.5 km",
+    "tips": [
+      "Great spot to chill while waiting for your dinner reservation.",
+      "Browse rare design books and photography collections on the top floor."
+    ],
+    "reviews": [],
+    "hours": "7:00 AM - 2:00 AM",
+    "station": "Roppongi Station",
+    "badges": [
+      "Late hours"
+    ],
+    "google_place_id": null,
+    "lat": 33.577447,
+    "lng": 130.378047,
+    "address": "TSUTAYA, 別府橋通り, 六本松二丁目, 梅光園団地, 中央区",
+    "price_level": null,
+    "destination": null,
+    "source": "seed",
+    "fetched_at": null,
+    "city": null,
+    "prefecture": null,
+    "country": "JP",
+    "description": null,
+    "last_verified_at": "2026-07-24T23:38:15Z",
+    "hours_status": "unknown",
+    "field_sources": {
+      "lat": "https://nominatim.openstreetmap.org/",
+      "lng": "https://nominatim.openstreetmap.org/",
+      "address": "https://nominatim.openstreetmap.org/",
+      "website": "https://www.wikidata.org/wiki/Q130772360"
+    },
+    "website": "https://store.tsite.jp/",
+    "photo": {
+      "url": "https://upload.wikimedia.org/wikipedia/commons/2/23/Nara_TSUTAYA_BOOKS.jpg",
+      "license": "CC BY-SA 4.0",
+      "credit": "Tokumeigakarinoaoshima",
+      "source_url": "https://commons.wikimedia.org/wiki/File:Nara_TSUTAYA_BOOKS.jpg"
+    },
+    "source_urls": [
+      "https://www.wikidata.org/wiki/Q130772360",
+      "https://store.tsite.jp/"
+    ],
+    "data_quality_flags": [
+      "missing_description"
+    ],
+    "enrichment_note": "web-enriched:address,lat/lng,photo,website"
+  },
+  {
+    "id": "7c1eb5bb-1df6-4034-a3a2-076036099568",
+    "name": "The Roasters Guild",
+    "category": "Coffee Shop",
+    "rating": "4.8",
+    "image_url": null,
+    "distance_label": "0.1 km",
+    "tips": [
+      "Fits perfectly before your 3:00 PM train departing from Central Station.",
+      "Their single-origin espresso is roasted in-house; ask the barista for a recommendation."
+    ],
+    "reviews": [],
+    "hours": "8:00 AM - 6:00 PM",
+    "station": "Chiyoda Station",
+    "badges": [
+      "Quiet now"
+    ],
+    "google_place_id": null,
+    "lat": null,
+    "lng": null,
+    "address": null,
+    "price_level": null,
+    "destination": null,
+    "source": "seed",
+    "fetched_at": null,
+    "city": null,
+    "prefecture": null,
+    "country": "JP",
+    "description": null,
+    "last_verified_at": null,
+    "hours_status": "unknown",
+    "data_quality_flags": [
+      "missing_lat",
+      "missing_address",
+      "missing_photo",
+      "missing_description"
+    ]
+  },
+  {
+    "id": "7cac1964-71d6-4f71-a95b-2a399b82d710",
+    "name": "Osteria Modern",
+    "category": "Italian Fusion",
+    "rating": "4.9",
+    "image_url": null,
+    "distance_label": "0.4 km",
+    "tips": [
+      "Usually quiet around this time. 5 min walk from here.",
+      "Try the handmade pasta special; it changes daily and is always exceptional."
+    ],
+    "reviews": [],
+    "hours": "11:30 AM - 11:00 PM",
+    "station": "Roppongi Station",
+    "badges": [
+      "Trending"
+    ],
+    "google_place_id": null,
+    "lat": null,
+    "lng": null,
+    "address": null,
+    "price_level": null,
+    "destination": null,
+    "source": "seed",
+    "fetched_at": null,
+    "city": null,
+    "prefecture": null,
+    "country": "JP",
+    "description": null,
+    "last_verified_at": null,
+    "hours_status": "unknown",
+    "data_quality_flags": [
+      "missing_lat",
+      "missing_address",
+      "missing_photo",
+      "missing_description"
+    ]
+  },
+  {
+    "id": "a0579751-5f68-46f6-bdc7-ad13414d72b3",
+    "name": "Omoide Yokocho",
+    "category": "food",
+    "rating": "4.6",
+    "image_url": null,
+    "distance_label": "0.3 km",
+    "tips": [
+      {
+        "text": "Most stalls have a very small capacity of 5 to 10 seats, so be prepared to wait or move along quickly once finished.",
+        "source_url": "http://shinjuku-omoide.com/english/index.html"
+      }
+    ],
+    "reviews": [],
+    "hours": "unknown",
+    "station": "Shinjuku Station",
+    "badges": [
+      "Hidden gem"
+    ],
+    "google_place_id": null,
+    "lat": 35.69307,
+    "lng": 139.6995,
+    "address": "1-1-1 Nishi-Shinjuku, Shinjuku-ku, Tokyo 160-0023",
+    "price_level": null,
+    "destination": null,
+    "source": "seed:jp-tokyo-2026-07-15",
+    "fetched_at": null,
+    "city": "Shinjuku",
+    "prefecture": "Tokyo",
+    "country": "JP",
+    "description": "A narrow, rustic alleyway located near Shinjuku Station's west exit, packed with tiny, open-front eateries serving yakitori, motsuyaki, and drinks.",
+    "last_verified_at": "2026-07-24T23:38:19Z",
+    "hours_status": "unknown",
+    "merged_from": [
+      "627a2bb3-3f5a-4666-a009-5e5f951fa323"
+    ],
+    "website": "http://shinjuku-omoide.com/",
+    "field_sources": {
+      "website": "https://www.wikidata.org/wiki/Q11501868"
+    },
+    "photo": {
+      "url": "https://upload.wikimedia.org/wikipedia/commons/9/9d/Shinjuku-West_Omoide-Yokocho.jpg",
+      "license": "CC BY-SA 4.0",
+      "credit": "MaedaAkihiko",
+      "source_url": "https://commons.wikimedia.org/wiki/File:Shinjuku-West_Omoide-Yokocho.jpg"
+    },
+    "source_urls": [
+      "https://www.wikidata.org/wiki/Q11501868",
+      "http://shinjuku-omoide.com/"
+    ],
+    "data_quality_flags": [],
+    "enrichment_note": "web-enriched:photo,website"
+  },
+  {
+    "id": "85b019a5-9d24-43aa-ad50-ff29c84721aa",
+    "name": "Hedgehog Cafe",
+    "category": "Animal Cafe",
+    "rating": "4.7",
+    "image_url": null,
+    "distance_label": "0.1 km",
+    "tips": [
+      "A unique cafe experience where you can interact with hedgehogs while grabbing a quick coffee.",
+      "Bring hand sanitizer and be gentle with the animals; they're shy but adorable."
+    ],
+    "reviews": [],
+    "hours": "12:00 PM - 8:00 PM",
+    "station": "Harajuku Station",
+    "badges": [
+      "Pet-friendly"
+    ],
+    "google_place_id": null,
+    "lat": 35.710651,
+    "lng": 139.791501,
+    "address": "Hedgehog Cafe, 国際通り, 西浅草一丁目, 西浅草, 台東区",
+    "price_level": null,
+    "destination": null,
+    "source": "seed",
+    "fetched_at": null,
+    "city": null,
+    "prefecture": null,
+    "country": "JP",
+    "description": null,
+    "last_verified_at": "2026-07-24T23:38:19Z",
+    "hours_status": "unknown",
+    "field_sources": {
+      "lat": "https://nominatim.openstreetmap.org/",
+      "lng": "https://nominatim.openstreetmap.org/",
+      "address": "https://nominatim.openstreetmap.org/"
+    },
+    "data_quality_flags": [
+      "missing_photo",
+      "missing_description"
+    ],
+    "enrichment_note": "web-enriched:address,lat/lng"
+  },
+  {
+    "id": "0698d4f5-4511-45a5-9c84-be999421fbce",
+    "name": "Mega Don Quijote",
+    "category": "Discount Store",
+    "rating": "4.5",
+    "image_url": null,
+    "distance_label": "0.8 km",
+    "tips": [
+      "Grab some late-night snacks or quirky souvenirs.",
+      "Navigate carefully; it's massive and easy to get lost, but that's part of the adventure."
+    ],
+    "reviews": [],
+    "hours": "24 Hours",
+    "station": "Shinjuku Station",
+    "badges": [
+      "24/7",
+      "Budget-friendly"
+    ],
+    "google_place_id": null,
+    "lat": 34.74343,
+    "lng": 137.372333,
+    "address": "MEGAドン・キホーテ, なりますスキップ村, 成増二丁目, 成増, 板橋区",
+    "price_level": null,
+    "destination": null,
+    "source": "seed",
+    "fetched_at": null,
+    "city": null,
+    "prefecture": null,
+    "country": "JP",
+    "description": null,
+    "last_verified_at": "2026-07-24T23:38:44Z",
+    "hours_status": "unknown",
+    "field_sources": {
+      "lat": "https://www.wikidata.org/wiki/Q134587854",
+      "lng": "https://www.wikidata.org/wiki/Q134587854",
+      "address": "https://nominatim.openstreetmap.org/"
+    },
+    "source_urls": [
+      "https://www.wikidata.org/wiki/Q134587854"
+    ],
+    "data_quality_flags": [
+      "missing_photo",
+      "missing_description"
+    ],
+    "enrichment_note": "web-enriched:address,lat/lng"
+  },
+  {
+    "id": "644da114-cec9-4e32-b957-49f2cc483286",
+    "name": "Tokyo Skytree",
+    "category": "observation deck",
+    "rating": "4.4",
+    "image_url": null,
+    "distance_label": null,
+    "tips": null,
+    "reviews": null,
+    "hours": null,
+    "station": null,
+    "badges": [],
+    "google_place_id": "ChIJ35ov0dCOGGARKvdDH7NPHX0",
+    "lat": 35.7100627,
+    "lng": 139.8107004,
+    "address": "1-chōme-1-2 Oshiage, Sumida City, Tokyo 131-0045, Japan",
+    "price_level": null,
+    "destination": "Tokyo, Japan",
+    "source": "google",
+    "fetched_at": "2026-07-14 12:50:09.365+00",
+    "city": null,
+    "prefecture": null,
+    "country": "JP",
+    "description": null,
+    "last_verified_at": null,
+    "hours_status": "unknown",
+    "data_quality_flags": [
+      "missing_station",
+      "missing_hours",
+      "missing_photo",
+      "missing_description"
+    ]
+  },
+  {
+    "id": "a68bb160-a33c-4b88-aa9a-eabcdce8f137",
+    "name": "Tokyo Tower",
+    "category": "observation deck",
+    "rating": "4.5",
+    "image_url": null,
+    "distance_label": null,
+    "tips": null,
+    "reviews": null,
+    "hours": null,
+    "station": null,
+    "badges": [],
+    "google_place_id": "ChIJCewJkL2LGGAR3Qmk0vCTGkg",
+    "lat": 35.6585805,
+    "lng": 139.7454329,
+    "address": "4-chōme-2-8 Shibakōen, Minato City, Tokyo 105-0011, Japan",
+    "price_level": null,
+    "destination": "Tokyo, Japan",
+    "source": "google",
+    "fetched_at": "2026-07-14 23:57:20.508+00",
+    "city": null,
+    "prefecture": null,
+    "country": "JP",
+    "description": null,
+    "last_verified_at": null,
+    "hours_status": "unknown",
+    "data_quality_flags": [
+      "missing_station",
+      "missing_hours",
+      "missing_photo",
+      "missing_description"
+    ]
+  },
+  {
+    "id": "474face5-488e-4a9f-ba6e-7c5ef6fbc993",
+    "name": "Sensō-ji",
+    "category": "buddhist temple",
+    "rating": "4.6",
+    "image_url": null,
+    "distance_label": null,
+    "tips": [
+      {
+        "text": "Visit early in the morning or late at night when the main hall is closed but the temple grounds are beautifully illuminated and peaceful.",
+        "source_url": "https://www.senso-ji.jp/"
+      }
+    ],
+    "reviews": null,
+    "hours": "6:00 AM - 5:00 PM (October to March: 6:30 AM - 5:00 PM)",
+    "station": "Asakusa Station",
+    "badges": [],
+    "google_place_id": "ChIJ8T1GpMGOGGARDYGSgpooDWw",
+    "lat": 35.7147651,
+    "lng": 139.7966553,
+    "address": "2-chōme-3-1 Asakusa, Taito City, Tokyo 111-0032, Japan",
+    "price_level": null,
+    "destination": "Tokyo, Japan",
+    "source": "google",
+    "fetched_at": "2026-07-14 12:50:09.365+00",
+    "city": "Taito",
+    "prefecture": "Tokyo",
+    "country": "JP",
+    "description": "Tokyo's oldest and most iconic Buddhist temple, dedicated to the Bodhisattva Kannon and featuring a grand main hall and five-story pagoda.",
+    "last_verified_at": "2026-07-24T23:39:07Z",
+    "hours_status": "unknown",
+    "merged_from": [
+      "986df0e1-5e34-49f2-a90b-1f3455aa4818"
+    ],
+    "phone": "+81-3-3842-0181",
+    "field_sources": {
+      "phone": "osm:way:173154847",
+      "website": "osm:way:173154847"
+    },
+    "website": "https://senso-ji.jp",
+    "photo": {
+      "url": "https://upload.wikimedia.org/wikipedia/commons/4/43/Sensoji_2023.jpg",
+      "license": "CC0",
+      "credit": "Akonnchiroll",
+      "source_url": "https://commons.wikimedia.org/wiki/File:Sensoji_2023.jpg"
+    },
+    "source_urls": [
+      "https://en.wikipedia.org/wiki/Sens%C5%8D-ji",
+      "https://www.wikidata.org/wiki/Q615183",
+      "https://senso-ji.jp"
+    ],
+    "data_quality_flags": [],
+    "enrichment_note": "web-enriched:phone,photo,website"
+  },
+  {
+    "id": "354312cb-89ad-4aa6-9df2-82ab055fafda",
+    "name": "Omoide Yokocho Memory Lane",
+    "category": "tourist attraction",
+    "rating": "4.2",
+    "image_url": null,
+    "distance_label": null,
+    "tips": null,
+    "reviews": null,
+    "hours": null,
+    "station": null,
+    "badges": [],
+    "google_place_id": "ChIJP9eKBdeMGGAR0zzBXJNVj5A",
+    "lat": 35.6927011,
+    "lng": 139.6995778,
+    "address": "1 Chome-2 Nishishinjuku, Shinjuku City, Tokyo 160-0023, Japan",
+    "price_level": null,
+    "destination": "Tokyo, Japan",
+    "source": "google",
+    "fetched_at": "2026-07-14 12:50:09.365+00",
+    "city": null,
+    "prefecture": null,
+    "country": "JP",
+    "description": null,
+    "last_verified_at": null,
+    "hours_status": "unknown",
+    "data_quality_flags": [
+      "missing_station",
+      "missing_hours",
+      "missing_photo",
+      "missing_description"
+    ]
+  },
+  {
+    "id": "1d67de1f-3d4c-40fc-b1e2-a4599e48f957",
+    "name": "Tokyo Night & Light",
+    "category": "tourist attraction",
+    "rating": "4.6",
+    "image_url": null,
+    "distance_label": null,
+    "tips": null,
+    "reviews": null,
+    "hours": null,
+    "station": null,
+    "badges": [],
+    "google_place_id": "ChIJX53MMgCNGGART78Pfc57ZuQ",
+    "lat": 35.6896633,
+    "lng": 139.6928239,
+    "address": "2-chōme-8-1 Nishishinjuku, Shinjuku City, Tokyo 163-8001, Japan",
+    "price_level": null,
+    "destination": "Tokyo, Japan",
+    "source": "google",
+    "fetched_at": "2026-07-14 12:50:09.365+00",
+    "city": null,
+    "prefecture": null,
+    "country": "JP",
+    "description": null,
+    "last_verified_at": null,
+    "hours_status": "unknown",
+    "data_quality_flags": [
+      "missing_station",
+      "missing_hours",
+      "missing_photo",
+      "missing_description"
+    ]
+  },
+  {
+    "id": "bf4b9946-9cf4-4110-8a75-bfe0f643528a",
+    "name": "Godzilla Head",
+    "category": "tourist attraction",
+    "rating": "4.4",
+    "image_url": null,
+    "distance_label": null,
+    "tips": [
+      {
+        "text": "The Godzilla head roars, blows mist, and lights up on the hour from 12:00 PM to 8:00 PM.",
+        "source_url": "https://en.wikipedia.org/wiki/Godzilla_head"
+      }
+    ],
+    "reviews": null,
+    "hours": "Open 24 hours",
+    "station": "Shinjuku Station",
+    "badges": [],
+    "google_place_id": "ChIJzRzI3HSNGGARRwZW6AtJfi0",
+    "lat": 35.6950521,
+    "lng": 139.7019117,
+    "address": "1-chōme-19-1 Kabukichō, Shinjuku City, Tokyo 160-0021, Japan",
+    "price_level": null,
+    "destination": "Tokyo, Japan",
+    "source": "google",
+    "fetched_at": "2026-07-14 12:50:09.365+00",
+    "city": "Shinjuku",
+    "prefecture": "Tokyo",
+    "country": "JP",
+    "description": "A life-sized, iconic replica of the legendary monster's head, peering over the rooftop of the Toho Building in Kabukicho.",
+    "last_verified_at": "2026-07-24T23:39:09Z",
+    "hours_status": "unknown",
+    "merged_from": [
+      "acbe6bbe-b616-4b90-8cae-5c10d22da16a"
+    ],
+    "photo": {
+      "url": "https://upload.wikimedia.org/wikipedia/commons/5/54/Godzilla_%2827813102648%29.jpg",
+      "license": "CC BY 2.0",
+      "credit": "Ajay Suresh from New York, NY, USA",
+      "source_url": "https://commons.wikimedia.org/wiki/File:Godzilla_(27813102648).jpg"
+    },
+    "source_urls": [
+      "https://en.wikipedia.org/wiki/Godzilla_head",
+      "https://www.wikidata.org/wiki/Q85763829"
+    ],
+    "data_quality_flags": [],
+    "enrichment_note": "web-enriched:photo"
+  },
+  {
+    "id": "38251dfa-5e95-4d96-aff3-a52fc419be00",
+    "name": "CENSU TOKYO",
+    "category": "japanese restaurant",
+    "rating": "4.6",
+    "image_url": null,
+    "distance_label": null,
+    "tips": null,
+    "reviews": null,
+    "hours": null,
+    "station": null,
+    "badges": [],
+    "google_place_id": "ChIJzUe1uZmNGGARuObQRpkmASU",
+    "lat": 35.6743246,
+    "lng": 139.7123979,
+    "address": "2-chōme-12-9 Jingūmae, Shibuya, Tokyo 150-0001, Japan",
+    "price_level": null,
+    "destination": "Tokyo, Japan",
+    "source": "google",
+    "fetched_at": "2026-07-14 12:50:09.948+00",
+    "city": null,
+    "prefecture": null,
+    "country": "JP",
+    "description": null,
+    "last_verified_at": null,
+    "hours_status": "unknown",
+    "data_quality_flags": [
+      "missing_station",
+      "missing_hours",
+      "missing_photo",
+      "missing_description"
+    ]
+  },
+  {
+    "id": "56039327-3fc4-4182-b416-117315d3af2c",
+    "name": "Washoku Hoshizora No Naka-he Shinjyuku",
+    "category": "japanese restaurant",
+    "rating": "4.1",
+    "image_url": null,
+    "distance_label": null,
+    "tips": null,
+    "reviews": null,
+    "hours": null,
+    "station": null,
+    "badges": [],
+    "google_place_id": "ChIJE6uvw9WMGGAR79hHhrIOPL0",
+    "lat": 35.6930405,
+    "lng": 139.695328,
+    "address": "Japan, 〒163-0590 Tokyo, Shinjuku City, Nishishinjuku, 1-chōme−26−２ 50F",
+    "price_level": 3,
+    "destination": "Tokyo, Japan",
+    "source": "google",
+    "fetched_at": "2026-07-14 12:50:09.948+00",
+    "city": null,
+    "prefecture": null,
+    "country": "JP",
+    "description": null,
+    "last_verified_at": null,
+    "hours_status": "unknown",
+    "data_quality_flags": [
+      "missing_station",
+      "missing_hours",
+      "missing_photo",
+      "missing_description"
+    ]
+  },
+  {
+    "id": "b4e67e7a-8e15-4233-b55d-5ff51df21c21",
+    "name": "New York Grill",
+    "category": "american restaurant",
+    "rating": "4.5",
+    "image_url": null,
+    "distance_label": null,
+    "tips": null,
+    "reviews": null,
+    "hours": null,
+    "station": null,
+    "badges": [],
+    "google_place_id": "ChIJeZd_LC3zGGARwuG7DoPkZ9Q",
+    "lat": 35.6854999,
+    "lng": 139.6907386,
+    "address": "パークハイアット東京, 52階, 3-chōme-7-1-2 Nishishinjuku, Shinjuku City, Tokyo 163-1055, Japan",
+    "price_level": 4,
+    "destination": "Tokyo, Japan",
+    "source": "google",
+    "fetched_at": "2026-07-14 12:50:09.948+00",
+    "city": null,
+    "prefecture": null,
+    "country": "JP",
+    "description": null,
+    "last_verified_at": null,
+    "hours_status": "unknown",
+    "data_quality_flags": [
+      "missing_station",
+      "missing_hours",
+      "missing_photo",
+      "missing_description"
+    ]
+  },
+  {
+    "id": "bf7d0601-4b43-4745-bbd4-2bb3f7f7502e",
+    "name": "Momo Paradise Shinjuku Higashi-guchi",
+    "category": "japanese restaurant",
+    "rating": "4.9",
+    "image_url": null,
+    "distance_label": null,
+    "tips": null,
+    "reviews": null,
+    "hours": null,
+    "station": null,
+    "badges": [],
+    "google_place_id": "ChIJvUEnaNqMGGAR46u74Waa6FM",
+    "lat": 35.6910075,
+    "lng": 139.7026367,
+    "address": "Japan, 〒160-0022 Tokyo, Shinjuku City, Shinjuku, 3-chōme−28−１０ ヒューマックスパビリオン新宿東口 3F・4F",
+    "price_level": 2,
+    "destination": "Tokyo, Japan",
+    "source": "google",
+    "fetched_at": "2026-07-14 12:50:09.948+00",
+    "city": null,
+    "prefecture": null,
+    "country": "JP",
+    "description": null,
+    "last_verified_at": null,
+    "hours_status": "unknown",
+    "data_quality_flags": [
+      "missing_station",
+      "missing_hours",
+      "missing_photo",
+      "missing_description"
+    ]
+  },
+  {
+    "id": "ee66cb60-8c72-4a1a-921a-2f63949faffd",
+    "name": "POLÈNE 東京店",
+    "category": "store",
+    "rating": "3.5",
+    "image_url": null,
+    "distance_label": null,
+    "tips": null,
+    "reviews": null,
+    "hours": null,
+    "station": null,
+    "badges": [],
+    "google_place_id": "ChIJ2WtbuaCLGGARsSNP67ANaqo",
+    "lat": 35.6628177,
+    "lng": 139.7155913,
+    "address": "5-chōme-3-18 Minamiaoyama, Minato City, Tokyo 107-0062, Japan",
+    "price_level": null,
+    "destination": "Tokyo, Japan",
+    "source": "google",
+    "fetched_at": "2026-07-14 18:32:28.867+00",
+    "city": null,
+    "prefecture": null,
+    "country": "JP",
+    "description": null,
+    "last_verified_at": null,
+    "hours_status": "unknown",
+    "data_quality_flags": [
+      "missing_station",
+      "missing_hours",
+      "missing_photo",
+      "missing_description"
+    ]
+  },
+  {
+    "id": "27493564-ea6e-484f-b433-91ffbcda2596",
+    "name": "Roppongi Hills - Tokyo City View",
+    "category": "observation deck",
+    "rating": "4.4",
+    "image_url": null,
+    "distance_label": null,
+    "tips": null,
+    "reviews": null,
+    "hours": null,
+    "station": null,
+    "badges": [],
+    "google_place_id": "ChIJK0TdDneLGGARVxJ3MHC0emY",
+    "lat": 35.6600712,
+    "lng": 139.7292907,
+    "address": "Japan, 〒106-0032 Tokyo, Minato City, Roppongi, 6-chōme−10−１ Roppongi Hills Mori Tower, 52階",
+    "price_level": null,
+    "destination": "Tokyo, Japan",
+    "source": "google",
+    "fetched_at": "2026-07-14 13:37:13.582+00",
+    "city": null,
+    "prefecture": null,
+    "country": "JP",
+    "description": null,
+    "last_verified_at": null,
+    "hours_status": "unknown",
+    "data_quality_flags": [
+      "missing_station",
+      "missing_hours",
+      "missing_photo",
+      "missing_description"
+    ]
+  },
+  {
+    "id": "cb1efb71-a210-4627-9529-52a8e57f77e6",
+    "name": "Tsurugaoka Hachimangu",
+    "category": "Shrine",
+    "rating": null,
+    "image_url": null,
+    "distance_label": null,
+    "tips": [
+      {
+        "text": "The main approach is Wakamiya Ōji, a straight boulevard featuring three grand torii gates and a raised cherry-blossom path.",
+        "source_url": "https://en.wikipedia.org/wiki/Tsurugaoka_Hachimang%C5%AB"
+      },
+      {
+        "text": "The shrine grounds host the Kamakura Bunkakan Tsurugaoka Museum and the Genpei Ponds with their historic lotus plants.",
+        "source_url": "https://en.wikipedia.org/wiki/Tsurugaoka_Hachimang%C5%AB"
+      }
+    ],
+    "reviews": null,
+    "hours": "6:00 AM - 8:00 PM",
+    "station": "Kamakura Station (JR Yokosuka Line / Shonan-Shinjuku Line / Enoshima Electric Railway)",
+    "badges": [],
+    "google_place_id": null,
+    "lat": 35.324722,
+    "lng": 139.555833,
+    "address": "2-1-31, Yukinoshita, Kamakura-shi, Kanagawa 248-8588, Japan",
+    "price_level": null,
+    "destination": "Kamakura, Japan",
+    "source": "seed-japan-pipeline",
+    "fetched_at": "2026-07-14 23:43:45.715+00",
+    "city": "Kamakura",
+    "prefecture": "Kanagawa",
+    "country": "JP",
+    "description": "Founded in 1063 and relocated to its current site in 1180 by the shogun Minamoto no Yoritomo, this historic Shinto shrine serves as the cultural center of Kamakura.",
+    "last_verified_at": "2026-07-24T23:40:02Z",
+    "hours_status": "known",
+    "website": "http://www.hachimangu.or.jp",
+    "field_sources": {
+      "website": "osm:way:34550401",
+      "phone": "osm:way:34550401"
+    },
+    "phone": "+81 467-22-0315",
+    "photo": {
+      "url": "https://upload.wikimedia.org/wikipedia/commons/5/5e/TsurugaokaHachiman-M8867.jpg",
+      "license": "Public domain",
+      "credit": "Fg2",
+      "source_url": "https://commons.wikimedia.org/wiki/File:TsurugaokaHachiman-M8867.jpg"
+    },
+    "source_urls": [
+      "https://en.wikipedia.org/wiki/Tsurugaoka_Hachimang%C5%AB",
+      "https://www.wikidata.org/wiki/Q701403",
+      "http://www.hachimangu.or.jp"
+    ],
+    "data_quality_flags": [],
+    "enrichment_note": "web-enriched:phone,photo,website"
+  },
+  {
+    "id": "4070d556-c2db-4204-964c-ff1f0fedee5c",
+    "name": "INDIAN DINING NEW DELHI",
+    "category": "indian restaurant",
+    "rating": "4.2",
+    "image_url": null,
+    "distance_label": null,
+    "tips": null,
+    "reviews": null,
+    "hours": null,
+    "station": null,
+    "badges": [],
+    "google_place_id": "ChIJY1Tlc06LGGARowdv8SY6ieA",
+    "lat": 35.6326846,
+    "lng": 139.7435249,
+    "address": "Japan, 〒108-0075 Tokyo, Minato City, Kōnan, 1-chōme−2−７０ 2F",
+    "price_level": 2,
+    "destination": "Tokyo, Japan",
+    "source": "google",
+    "fetched_at": "2026-07-14 18:26:42.723+00",
+    "city": null,
+    "prefecture": null,
+    "country": "JP",
+    "description": null,
+    "last_verified_at": null,
+    "hours_status": "unknown",
+    "data_quality_flags": [
+      "missing_station",
+      "missing_hours",
+      "missing_photo",
+      "missing_description"
+    ]
+  },
+  {
+    "id": "f16d2974-781e-4406-ad3c-c9119d405dc2",
+    "name": "Nail Partner Shinjuku",
+    "category": "store",
+    "rating": "3.3",
+    "image_url": null,
+    "distance_label": null,
+    "tips": null,
+    "reviews": null,
+    "hours": null,
+    "station": null,
+    "badges": [],
+    "google_place_id": "ChIJK4EqSdCMGGARRuo53g_F7kM",
+    "lat": 35.6880315,
+    "lng": 139.6981973,
+    "address": "Japan, 〒151-0053 Tokyo, Shibuya, Yoyogi, 2-chōme−10−１２ 2F",
+    "price_level": null,
+    "destination": "Tokyo, Japan",
+    "source": "google",
+    "fetched_at": "2026-07-14 18:26:52.979+00",
+    "city": null,
+    "prefecture": null,
+    "country": "JP",
+    "description": null,
+    "last_verified_at": null,
+    "hours_status": "unknown",
+    "data_quality_flags": [
+      "missing_station",
+      "missing_hours",
+      "missing_photo",
+      "missing_description"
+    ]
+  },
+  {
+    "id": "7fda5f8c-f9fc-463b-a79c-d81d524d61be",
+    "name": "Teppan Baby",
+    "category": "japanese restaurant",
+    "rating": "4.7",
+    "image_url": null,
+    "distance_label": null,
+    "tips": null,
+    "reviews": null,
+    "hours": null,
+    "station": null,
+    "badges": [],
+    "google_place_id": "ChIJLZrOfdeMGGARdcjAP55yY00",
+    "lat": 35.6940479,
+    "lng": 139.7012389,
+    "address": "Japan, 〒160-0021 Tokyo, Shinjuku City, Kabukichō, 1-chōme−17−４ Pocket Building, B1F",
+    "price_level": 2,
+    "destination": "Tokyo, Japan",
+    "source": "google",
+    "fetched_at": "2026-07-14 18:27:14.864+00",
+    "city": null,
+    "prefecture": null,
+    "country": "JP",
+    "description": null,
+    "last_verified_at": null,
+    "hours_status": "unknown",
+    "data_quality_flags": [
+      "missing_station",
+      "missing_hours",
+      "missing_photo",
+      "missing_description"
+    ]
+  },
+  {
+    "id": "9c20f0f3-8803-464f-a887-85f69b7b41fb",
+    "name": "Delhi Restaurant",
+    "category": "indian restaurant",
+    "rating": "4.2",
+    "image_url": null,
+    "distance_label": null,
+    "tips": null,
+    "reviews": null,
+    "hours": null,
+    "station": null,
+    "badges": [],
+    "google_place_id": "ChIJ-Q89Pe-LGGART82XzNDlcXA",
+    "lat": 35.6711827,
+    "lng": 139.7608428,
+    "address": "Japan, 〒104-0061 Tokyo, Chuo City, Ginza, 6-chōme−3−１１ 3F",
+    "price_level": 2,
+    "destination": "Tokyo, Japan",
+    "source": "google",
+    "fetched_at": "2026-07-14 18:38:05.944+00",
+    "city": null,
+    "prefecture": null,
+    "country": "JP",
+    "description": null,
+    "last_verified_at": null,
+    "hours_status": "unknown",
+    "data_quality_flags": [
+      "missing_station",
+      "missing_hours",
+      "missing_photo",
+      "missing_description"
+    ]
+  },
+  {
+    "id": "71fc731c-1ef2-44c7-af40-c5d05f1c417b",
+    "name": "Kotoku-in (Great Buddha of Kamakura)",
+    "category": "Temple",
+    "rating": null,
+    "image_url": null,
+    "distance_label": null,
+    "tips": [
+      {
+        "text": "Visitors can pay a small fee to enter the interior of the hollow bronze Great Buddha statue.",
+        "source_url": "https://www.kotoku-in.jp/en/index.php"
+      },
+      {
+        "text": "Refrain from flying drones on the grounds or using selfie sticks inside the statue.",
+        "source_url": "https://www.kotoku-in.jp/en/index.php"
+      }
+    ],
+    "reviews": null,
+    "hours": "8:00 AM - 5:30 PM (April to September), 8:00 AM - 5:00 PM (October to March)",
+    "station": "Hase Station (Enoshima Electric Railway)",
+    "badges": [],
+    "google_place_id": null,
+    "lat": 35.31684,
+    "lng": 139.53573,
+    "address": "4-2-28, Hase, Kamakura, Kanagawa Prefecture 248-0016, Japan",
+    "price_level": null,
+    "destination": "Kamakura, Japan",
+    "source": "seed-japan-pipeline",
+    "fetched_at": "2026-07-14 23:43:45.429+00",
+    "city": "Kamakura",
+    "prefecture": "Kanagawa",
+    "country": "JP",
+    "description": "A Buddhist temple of the Jodo sect renowned for its colossal open-air bronze statue of Amida-butsu, commonly known as the Great Buddha of Kamakura, which has stood since the 13th century.",
+    "last_verified_at": "2026-07-14 23:11:55.588178+00",
+    "hours_status": "known",
+    "data_quality_flags": [
+      "missing_photo"
+    ]
+  },
+  {
+    "id": "8db9e8e8-73fc-4c4a-8a9e-eb60125939de",
+    "name": "Hase-dera (Kamakura)",
+    "category": "Temple",
+    "rating": null,
+    "image_url": null,
+    "distance_label": null,
+    "tips": [
+      {
+        "text": "Explore the Benten-kutsu cave, which features a low-ceilinged winding tunnel filled with chiseled statues of Benzaiten.",
+        "source_url": "https://en.wikipedia.org/wiki/Hase-dera_(Kamakura)"
+      },
+      {
+        "text": "During June and July, the temple's Hydrangea Path features blooming flowers and panoramic vistas of Sagami Bay.",
+        "source_url": "https://en.wikipedia.org/wiki/Hase-dera_(Kamakura)"
+      }
+    ],
+    "reviews": null,
+    "hours": "8:00 AM - 4:30 PM (regular season, grounds close at 5:00 PM), 8:00 AM - 5:00 PM (April to June, grounds close at 5:30 PM)",
+    "station": "Hase Station (Enoshima Electric Railway)",
+    "badges": [],
+    "google_place_id": null,
+    "lat": 35.3125,
+    "lng": 139.533056,
+    "address": "3-11-2 Hase, Kamakura-shi, Kanagawa Prefecture 248-0016, Japan",
+    "price_level": null,
+    "destination": "Kamakura, Japan",
+    "source": "seed-japan-pipeline",
+    "fetched_at": "2026-07-14 23:43:45.871+00",
+    "city": "Kamakura",
+    "prefecture": "Kanagawa",
+    "country": "JP",
+    "description": "A Jodo-shu Buddhist temple built on a mountain slope, famed for its nine-meter-tall wooden statue of Eleven-Headed Kannon and scenic views of Yuigahama beach.",
+    "last_verified_at": "2026-07-24T23:40:15Z",
+    "hours_status": "known",
+    "website": "https://www.hasedera.jp/",
+    "field_sources": {
+      "website": "https://www.wikidata.org/wiki/Q1034293"
+    },
+    "source_urls": [
+      "https://en.wikipedia.org/wiki/Hase-dera_%28Kamakura%29",
+      "https://www.wikidata.org/wiki/Q1034293",
+      "https://www.hasedera.jp/"
+    ],
+    "data_quality_flags": [
+      "missing_photo"
+    ],
+    "enrichment_note": "web-enriched:website"
+  },
+  {
+    "id": "f6a679aa-1794-4817-8f48-3221c8b0de76",
+    "name": "Hokoku-ji",
+    "category": "Temple",
+    "rating": null,
+    "image_url": null,
+    "distance_label": null,
+    "tips": [
+      {
+        "text": "Purchase an optional matcha ticket at the entrance to enjoy hot tea and sweets at the Kyukohan tea house overlooking the bamboo grove.",
+        "source_url": "https://houkokuji.or.jp/guide/"
+      },
+      {
+        "text": "Tripods, monopods, and selfie sticks are strictly prohibited on the temple grounds.",
+        "source_url": "https://visit.trip-kamakura.com/things-to-do/hokokuji-temple/"
+      }
+    ],
+    "reviews": null,
+    "hours": "9:00 AM - 4:00 PM",
+    "station": "Kamakura Station (JR Yokosuka Line / Shonan-Shinjuku Line / Enoshima Electric Railway)",
+    "badges": [],
+    "google_place_id": null,
+    "lat": 35.32,
+    "lng": 139.5693,
+    "address": "2-7-4 Jomyoji, Kamakura-shi, Kanagawa Prefecture 248-0003, Japan",
+    "price_level": null,
+    "destination": "Kamakura, Japan",
+    "source": "seed-japan-pipeline",
+    "fetched_at": "2026-07-14 23:43:46.022+00",
+    "city": "Kamakura",
+    "prefecture": "Kanagawa",
+    "country": "JP",
+    "description": "A historic Zen Buddhist temple of the Rinzai sect established in 1334, widely celebrated for its magnificent grove of approximately 2,000 towering moso bamboo trees.",
+    "last_verified_at": "2026-07-14 23:11:55.588178+00",
+    "hours_status": "known",
+    "data_quality_flags": [
+      "missing_photo"
+    ]
+  },
+  {
+    "id": "cae40042-4ffd-473e-9499-2d27a051fb81",
+    "name": "Sankeien Garden",
+    "category": "Garden",
+    "rating": null,
+    "image_url": "https://upload.wikimedia.org/wikipedia/commons/6/67/Sankeien_Rinshukaku_and_Teisha_Bridge.jpg",
+    "distance_label": null,
+    "tips": [
+      {
+        "text": "The garden contains ten historical buildings designated as Important Cultural Properties by the Japanese government.",
+        "source_url": "https://en.wikipedia.org/wiki/Sankeien"
+      },
+      {
+        "text": "Volunteer English-speaking guides are available free of charge to lead tours of the garden.",
+        "source_url": "https://www.yokohamajapan.com/things-to-do/detail.php?bbid=87"
+      }
+    ],
+    "reviews": null,
+    "hours": "9:00am-5:00pm (Last entry 4:30pm). Closed: 12/26-12/31.",
+    "station": "From Negishi Station, take the municipal bus (Route 58, 99, or 101) to the 'Honmoku' bus stop and walk 10 minutes; or from Yokohama Station, take Route 8 or 148 to 'Honmoku Sankeien Mae' and walk 5 minutes.",
+    "badges": [],
+    "google_place_id": null,
+    "lat": 35.41695,
+    "lng": 139.660042,
+    "address": "58-1, Honmoku Sannotani, Naka-ku, Yokohama, 231-0824",
+    "price_level": null,
+    "destination": "Yokohama, Japan",
+    "source": "seed-japan-pipeline",
+    "fetched_at": "2026-07-14 23:43:46.767+00",
+    "city": "Yokohama",
+    "prefecture": "Kanagawa",
+    "country": "JP",
+    "description": "A sprawling traditional Japanese garden covering over 175,000 square meters, featuring historical buildings relocated from across Japan including Kyoto and Kamakura.",
+    "last_verified_at": "2026-07-14 23:11:55.588178+00",
+    "hours_status": "known",
+    "data_quality_flags": [
+      "missing_photo"
+    ]
+  },
+  {
+    "id": "ecfd0b91-6d82-47c8-817f-b1038e3c04a5",
+    "name": "Yokohama Red Brick Warehouse",
+    "category": "Sights & Landmarks",
+    "rating": null,
+    "image_url": "https://upload.wikimedia.org/wikipedia/commons/9/92/Akarenga_Yokohama_2012.jpg",
+    "distance_label": null,
+    "tips": [
+      {
+        "text": "The complex is divided into Building 1, which hosts cultural events and art exhibitions, and Building 2, which contains numerous shops and restaurants.",
+        "source_url": "https://www.yokohamajapan.com/things-to-do/detail.php?bbid=184"
+      },
+      {
+        "text": "Every winter, an outdoor ice skating rink decorated with light displays is set up in the plaza.",
+        "source_url": "https://www.yokohamajapan.com/things-to-do/detail.php?bbid=184"
+      }
+    ],
+    "reviews": null,
+    "hours": "1st Building: 10:00am - 7:00pm. 2nd Building: 11:00am - 8:00pm. Cafe and restaurant hours vary.",
+    "station": "A 6-minute walk from Nihon Odori Station or Bashamichi Station; or a 15-minute walk from Kannai Station or Sakuragicho Station.",
+    "badges": [],
+    "google_place_id": null,
+    "lat": 35.4522222222222,
+    "lng": 139.642777777778,
+    "address": "1-1-2 Shinko, Naka-ku, Yokohama, 231-0001",
+    "price_level": null,
+    "destination": "Yokohama, Japan",
+    "source": "seed-japan-pipeline",
+    "fetched_at": "2026-07-14 23:43:46.92+00",
+    "city": "Yokohama",
+    "prefecture": "Kanagawa",
+    "country": "JP",
+    "description": "A historic customs inspection complex constructed in the early 1910s, now operating as a popular dining, shopping, and cultural events venue by the port.",
+    "last_verified_at": "2026-07-24T23:41:07Z",
+    "hours_status": "known",
+    "website": "http://www.yokohama-akarenga.jp/index.html",
+    "field_sources": {
+      "website": "https://www.wikidata.org/wiki/Q5363823"
+    },
+    "photo": {
+      "url": "https://upload.wikimedia.org/wikipedia/commons/9/92/Akarenga_Yokohama_2012.jpg",
+      "license": "CC BY 3.0",
+      "credit": "Alex Brogan",
+      "source_url": "https://commons.wikimedia.org/wiki/File:Akarenga_Yokohama_2012.jpg"
+    },
+    "source_urls": [
+      "https://en.wikipedia.org/wiki/Yokohama_Red_Brick_Warehouse",
+      "https://www.wikidata.org/wiki/Q5363823",
+      "http://www.yokohama-akarenga.jp/index.html"
+    ],
+    "data_quality_flags": [],
+    "enrichment_note": "web-enriched:photo,website"
+  },
+  {
+    "id": "3e6e275e-24ff-440c-a94c-078448895a59",
+    "name": "CUPNOODLES MUSEUM YOKOHAMA",
+    "category": "Museum",
+    "rating": null,
+    "image_url": "https://upload.wikimedia.org/wikipedia/commons/6/6d/Cupnoodles-Museum-Yokohama.jpg",
+    "distance_label": null,
+    "tips": [
+      {
+        "text": "Attraction fees are required separately for hands-on activities such as the Chicken Ramen Factory and My CUPNOODLES Factory.",
+        "source_url": "https://www.yokohamajapan.com/things-to-do/detail.php?bbid=756"
+      },
+      {
+        "text": "An internet connection and credit card are required to purchase tickets online, which became available in February 2025.",
+        "source_url": "https://www.cupnoodles-museum.jp/en/yokohama/"
+      }
+    ],
+    "reviews": null,
+    "hours": "10:00am-6:00 pm",
+    "station": "Walk from Sakuragicho Station (JR Keihin-Tohoku Negishi Line / Yokohama Municipal Subway) or Minatomirai Station (Minatomirai Line).",
+    "badges": [],
+    "google_place_id": null,
+    "lat": 35.4554722222222,
+    "lng": 139.638861111111,
+    "address": "2-3-4 Shinko, Naka-ku, Yokohama",
+    "price_level": null,
+    "destination": "Yokohama, Japan",
+    "source": "seed-japan-pipeline",
+    "fetched_at": "2026-07-14 23:43:47.067+00",
+    "city": "Yokohama",
+    "prefecture": "Kanagawa",
+    "country": "JP",
+    "description": "An interactive museum dedicated to instant ramen and its inventor Momofuku Ando, where visitors can design their own custom cup noodles.",
+    "last_verified_at": "2026-07-24T23:41:08Z",
+    "hours_status": "known",
+    "website": "https://www.cupnoodles-museum.jp/ja/yokohama/",
+    "field_sources": {
+      "website": "https://www.wikidata.org/wiki/Q11257362"
+    },
+    "photo": {
+      "url": "https://upload.wikimedia.org/wikipedia/commons/6/6d/Cupnoodles-Museum-Yokohama.jpg",
+      "license": "CC BY-SA 3.0",
+      "credit": "Rs1421",
+      "source_url": "https://commons.wikimedia.org/wiki/File:Cupnoodles-Museum-Yokohama.jpg"
+    },
+    "source_urls": [
+      "https://en.wikipedia.org/wiki/CupNoodles_Museum_Yokohama",
+      "https://www.wikidata.org/wiki/Q11257362",
+      "https://www.cupnoodles-museum.jp/ja/yokohama/"
+    ],
+    "data_quality_flags": [],
+    "enrichment_note": "web-enriched:photo,website"
+  },
+  {
+    "id": "ca5ee006-5bcb-4a41-9cd3-7a5ce3a63b08",
+    "name": "Yokohama Landmark Tower Sky Garden",
+    "category": "Sights & Landmarks",
+    "rating": null,
+    "image_url": "https://upload.wikimedia.org/wikipedia/commons/0/03/Yokohama_Landmark_Tower_201507.JPG",
+    "distance_label": null,
+    "tips": [
+      {
+        "text": "The tower features some of the world's fastest elevators, which ascend to the 69th floor in approximately 40 seconds.",
+        "source_url": "https://en.wikipedia.org/wiki/Yokohama_Landmark_Tower"
+      },
+      {
+        "text": "Due to large-scale renovations, the Sky Garden will temporarily suspend operations starting December 31, 2025, and is scheduled to reopen in or after 2028.",
+        "source_url": "https://www.yokohamajapan.com/things-to-do/detail.php?bbid=183"
+      }
+    ],
+    "reviews": null,
+    "hours": "10:00am-9:00 pm. Saturdays: 10:00 am-10:00pm.",
+    "station": "Walk from Sakuragicho Station (JR Keihin-Tohoku Negishi Line / Yokohama Municipal Subway) or Minatomirai Station (Minatomirai Line).",
+    "badges": [],
+    "google_place_id": null,
+    "lat": 35.4547222222222,
+    "lng": 139.631666666667,
+    "address": "2-2-1 Minatomirai, Nishi-ku, Yokohama",
+    "price_level": null,
+    "destination": "Yokohama, Japan",
+    "source": "seed-japan-pipeline",
+    "fetched_at": "2026-07-14 23:43:47.22+00",
+    "city": "Yokohama",
+    "prefecture": "Kanagawa",
+    "country": "JP",
+    "description": "A 360-degree observation deck located on the 69th floor of Yokohama Landmark Tower, offering expansive views of Yokohama, Tokyo, and Mount Fuji.",
+    "last_verified_at": "2026-07-14 23:11:55.588178+00",
+    "hours_status": "known",
+    "data_quality_flags": [
+      "missing_photo"
+    ]
+  },
+  {
+    "id": "fdad6831-9b63-4acf-9b5b-1a294f080b4b",
+    "name": "Naritasan Park",
+    "category": "Park",
+    "rating": null,
+    "image_url": "https://upload.wikimedia.org/wikipedia/commons/e/e7/IMAG1509_%2828154414491%29.jpg",
+    "distance_label": null,
+    "tips": [
+      {
+        "text": "Visit in early spring to view the plum blossoms (ume) or in late autumn for the stunning colorful leaves.",
+        "source_url": "https://en.wikipedia.org/wiki/Narita-san"
+      }
+    ],
+    "reviews": null,
+    "hours": "24/7",
+    "station": "JR Narita Station / Keisei Narita Station",
+    "badges": [],
+    "google_place_id": null,
+    "lat": 35.7866845,
+    "lng": 140.3210126,
+    "address": null,
+    "price_level": null,
+    "destination": "Narita, Japan",
+    "source": "seed-japan-pipeline",
+    "fetched_at": "2026-07-14 23:43:47.509+00",
+    "city": "Narita",
+    "prefecture": "Chiba",
+    "country": "JP",
+    "description": "A massive traditional Japanese park and garden located adjacent to Naritasan Shinshoji Temple. It is celebrated for its scenic walking paths, beautiful plum blossoms in early spring, and vibrant autumn foliage.",
+    "last_verified_at": "2026-07-24T23:41:23Z",
+    "hours_status": "known",
+    "field_sources": {
+      "hours": "osm:way:273767998",
+      "website": "osm:way:273767998"
+    },
+    "website": "https://www.naritasan.or.jp/",
+    "source_urls": [
+      "https://www.wikidata.org/wiki/Q136504677",
+      "https://www.naritasan.or.jp/"
+    ],
+    "data_quality_flags": [
+      "missing_address",
+      "missing_photo"
+    ],
+    "enrichment_note": "web-enriched:hours,website"
+  },
+  {
+    "id": "fe1401ed-d010-4a77-b22e-79f9ab3686e6",
+    "name": "Yoyogi Park",
+    "category": "park",
+    "rating": null,
+    "image_url": null,
+    "distance_label": null,
+    "tips": [
+      {
+        "text": "The park is especially famous for street performers, musicians, and subculture gatherings on Sundays.",
+        "source_url": "https://en.wikipedia.org/wiki/Yoyogi_Park"
+      }
+    ],
+    "reviews": null,
+    "hours": "Open 24 hours",
+    "station": "Harajuku Station",
+    "badges": [],
+    "google_place_id": null,
+    "lat": 35.6716,
+    "lng": 139.6949,
+    "address": "2-1 Yoyogikamizonocho, Shibuya City, Tokyo 151-0052, Japan",
+    "price_level": null,
+    "destination": null,
+    "source": "seed:jp-tokyo-2026-07-15",
+    "fetched_at": null,
+    "city": "Shibuya",
+    "prefecture": "Tokyo",
+    "country": "JP",
+    "description": "One of Tokyo's largest and most popular public parks, known for its spacious lawns, ginkgo forests, and lively weekend gatherings of musicians and street performers.",
+    "last_verified_at": "2026-07-15 01:01:38.17282+00",
+    "hours_status": "known",
+    "data_quality_flags": [
+      "missing_photo"
+    ]
+  },
+  {
+    "id": "2490a2d6-7659-4ff2-9de7-98756e1c3819",
+    "name": "Meiji Jingu",
+    "category": "shrine",
+    "rating": null,
+    "image_url": null,
+    "distance_label": null,
+    "tips": [
+      {
+        "text": "The shrine hours change monthly according to sunrise and sunset times, so verify the exact hours before visiting.",
+        "source_url": "https://en.wikipedia.org/wiki/Meiji_Shrine"
+      }
+    ],
+    "reviews": null,
+    "hours": "5:00 AM - 6:00 PM",
+    "station": "Harajuku Station",
+    "badges": [],
+    "google_place_id": null,
+    "lat": 35.6763,
+    "lng": 139.6993,
+    "address": "1-1 Yoyogikamizonocho, Shibuya City, Tokyo 151-8557, Japan",
+    "price_level": null,
+    "destination": null,
+    "source": "seed:jp-tokyo-2026-07-15",
+    "fetched_at": null,
+    "city": "Shibuya",
+    "prefecture": "Tokyo",
+    "country": "JP",
+    "description": "A peaceful and majestic Shinto shrine dedicated to the deified spirits of Emperor Meiji and Empress Shoken, situated within a dense forest of over 100,000 trees.",
+    "last_verified_at": "2026-07-15 01:01:38.17282+00",
+    "hours_status": "known",
+    "data_quality_flags": [
+      "missing_photo"
+    ]
+  },
+  {
+    "id": "d9c6725f-fff1-490d-a4e1-98ca3a84c74c",
+    "name": "Nonbei Yokocho",
+    "category": "nightlife",
+    "rating": null,
+    "image_url": null,
+    "distance_label": null,
+    "tips": [
+      {
+        "text": "Most bars in this historic alleyway are tiny, seating only 4-5 people, and many charge a small table cover fee (otōshi).",
+        "source_url": "https://en.wikipedia.org/wiki/Shibuya"
+      }
+    ],
+    "reviews": null,
+    "hours": "5:00 PM - midnight",
+    "station": "Shibuya Station",
+    "badges": [],
+    "google_place_id": null,
+    "lat": 35.6599,
+    "lng": 139.7015,
+    "address": "1-25-10 Shibuya, Shibuya City, Tokyo 150-0002, Japan",
+    "price_level": null,
+    "destination": null,
+    "source": "seed:jp-tokyo-2026-07-15",
+    "fetched_at": null,
+    "city": "Shibuya",
+    "prefecture": "Tokyo",
+    "country": "JP",
+    "description": "A charming, narrow alleyway dating back to the post-war era, packed with tiny, historic bars that offer an authentic glimpse into old-school Tokyo nightlife.",
+    "last_verified_at": "2026-07-15 01:01:38.17282+00",
+    "hours_status": "known",
+    "data_quality_flags": [
+      "missing_photo"
+    ]
+  },
+  {
+    "id": "b76fc5ea-8bcf-48cb-ad96-616e1a9f1017",
+    "name": "Cat Street",
+    "category": "shopping-street",
+    "rating": null,
+    "image_url": null,
+    "distance_label": null,
+    "tips": [
+      {
+        "text": "Cat Street is the center of Tokyo's street fashion culture, linking Shibuya and Harajuku with unique boutiques and cafes.",
+        "source_url": "https://en.wikipedia.org/wiki/Cat_Street,_Tokyo"
+      }
+    ],
+    "reviews": null,
+    "hours": "Open 24 hours",
+    "station": "Meiji-Jingumae Station",
+    "badges": [],
+    "google_place_id": null,
+    "lat": 35.6644,
+    "lng": 139.7042,
+    "address": "Jingumae, Shibuya City, Tokyo 150-0001, Japan",
+    "price_level": null,
+    "destination": null,
+    "source": "seed:jp-tokyo-2026-07-15",
+    "fetched_at": null,
+    "city": "Shibuya",
+    "prefecture": "Tokyo",
+    "country": "JP",
+    "description": "A leafy, pedestrian-friendly shopping street that serves as the creative epicenter of Tokyo street fashion, connecting Harajuku and Shibuya with unique boutiques and cafes.",
+    "last_verified_at": "2026-07-15 01:01:38.17282+00",
+    "hours_status": "known",
+    "source_urls": [
+      "https://en.wikipedia.org/wiki/Cat_Street_%28manga%29",
+      "https://www.wikidata.org/wiki/Q597280"
+    ],
+    "data_quality_flags": [
+      "missing_photo"
+    ]
+  },
+  {
+    "id": "3e6eb38c-c3c7-47a5-b308-616e1310e73f",
+    "name": "Miyashita Park",
+    "category": "park",
+    "rating": null,
+    "image_url": null,
+    "distance_label": null,
+    "tips": [
+      {
+        "text": "This multi-story complex features a rooftop park with a bouldering wall, skateboard park, and sand volleyball court alongside upscale shopping.",
+        "source_url": "https://en.wikipedia.org/wiki/Miyashita_Park"
+      }
+    ],
+    "reviews": null,
+    "hours": "8:00 AM - 11:00 PM",
+    "station": "Shibuya Station",
+    "badges": [],
+    "google_place_id": null,
+    "lat": 35.6616,
+    "lng": 139.7022,
+    "address": "1-26-5 Shibuya, Shibuya City, Tokyo 150-0002, Japan",
+    "price_level": null,
+    "destination": null,
+    "source": "seed:jp-tokyo-2026-07-15",
+    "fetched_at": null,
+    "city": "Shibuya",
+    "prefecture": "Tokyo",
+    "country": "JP",
+    "description": "A modern, multi-level park and commercial complex that features a rooftop green space with athletic facilities, trendy shops, and a lively food alley.",
+    "last_verified_at": "2026-07-24T23:42:12Z",
+    "hours_status": "known",
+    "website": "https://www.seibu-la.co.jp/park/miyashita-park/",
+    "field_sources": {
+      "website": "https://www.wikidata.org/wiki/Q6884419"
+    },
+    "photo": {
+      "url": "https://upload.wikimedia.org/wikipedia/commons/7/7f/Miyashita_Park_200802l.jpg",
+      "license": "CC BY-SA 4.0",
+      "credit": "江戸村のとくぞう",
+      "source_url": "https://commons.wikimedia.org/wiki/File:Miyashita_Park_200802l.jpg"
+    },
+    "source_urls": [
+      "https://en.wikipedia.org/wiki/Miyashita_Park",
+      "https://www.wikidata.org/wiki/Q6884419",
+      "https://www.seibu-la.co.jp/park/miyashita-park/"
+    ],
+    "data_quality_flags": [],
+    "enrichment_note": "web-enriched:photo,website"
+  },
+  {
+    "id": "e415d734-1a3e-4e16-9396-66ef75df0ad0",
+    "name": "Shibuya Center-Gai",
+    "category": "shopping-street",
+    "rating": null,
+    "image_url": null,
+    "distance_label": null,
+    "tips": [
+      {
+        "text": "This busy pedestrian street is packed with shops, game centers, fast food joints, and bars, making it highly lively at night.",
+        "source_url": "https://ja.wikipedia.org/wiki/%E6%B8%8B%E8%B0%B7%E3%82%BB%E3%83%B3%E3%82%BF%E3%83%BC%E8%A1%97"
+      }
+    ],
+    "reviews": null,
+    "hours": "Open 24 hours",
+    "station": "Shibuya Station",
+    "badges": [],
+    "google_place_id": null,
+    "lat": 35.6601,
+    "lng": 139.6994,
+    "address": "Udagawacho, Shibuya City, Tokyo 150-0042, Japan",
+    "price_level": null,
+    "destination": null,
+    "source": "seed:jp-tokyo-2026-07-15",
+    "fetched_at": null,
+    "city": "Shibuya",
+    "prefecture": "Tokyo",
+    "country": "JP",
+    "description": "A bustling pedestrian street and the vibrant heart of youth culture in Shibuya, lined with a dense array of fashion boutiques, game centers, and restaurants.",
+    "last_verified_at": "2026-07-24T23:42:13Z",
+    "hours_status": "known",
+    "website": "http://center-gai.jp/",
+    "field_sources": {
+      "website": "https://www.wikidata.org/wiki/Q5059296"
+    },
+    "photo": {
+      "url": "https://upload.wikimedia.org/wikipedia/commons/5/57/Shibuya_Center_Streets_2012.JPG",
+      "license": "CC BY-SA 3.0",
+      "credit": "Kakidai",
+      "source_url": "https://commons.wikimedia.org/wiki/File:Shibuya_Center_Streets_2012.JPG"
+    },
+    "source_urls": [
+      "https://en.wikipedia.org/wiki/Center_Gai",
+      "https://www.wikidata.org/wiki/Q5059296",
+      "http://center-gai.jp/"
+    ],
+    "data_quality_flags": [],
+    "enrichment_note": "web-enriched:photo,website"
+  },
+  {
+    "id": "77016000-33ae-4deb-8d5d-aef6bbdd1049",
+    "name": "Konnoh Hachimangu",
+    "category": "shrine",
+    "rating": null,
+    "image_url": null,
+    "distance_label": null,
+    "tips": [
+      {
+        "text": "This historic shrine has deep roots with the Shibuya clan, and its grounds contain remnants of Shibuya Castle.",
+        "source_url": "https://ja.wikipedia.org/wiki/%E9%87%91%E7%8E%8B%E5%85%AB%E5%B9%A1%E5%AE%AE"
+      }
+    ],
+    "reviews": null,
+    "hours": "Open 24 hours",
+    "station": "Shibuya Station",
+    "badges": [],
+    "google_place_id": null,
+    "lat": 35.6565,
+    "lng": 139.7058,
+    "address": "3-5-12 Shibuya, Shibuya City, Tokyo 150-0002, Japan",
+    "price_level": null,
+    "destination": null,
+    "source": "seed:jp-tokyo-2026-07-15",
+    "fetched_at": null,
+    "city": "Shibuya",
+    "prefecture": "Tokyo",
+    "country": "JP",
+    "description": "An ancient Shinto shrine established in 1092, featuring historic wooden architecture that survived the air raids of World War II and beautiful seasonal cherry blossoms.",
+    "last_verified_at": "2026-07-15 01:01:38.17282+00",
+    "hours_status": "known",
+    "data_quality_flags": [
+      "missing_photo"
+    ]
+  },
+  {
+    "id": "a5bfdaa5-64ae-4a84-a0da-15e856cb1dc9",
+    "name": "Kamakura Rokuyata",
+    "category": "japanese restaurant",
+    "rating": "4.7",
+    "image_url": null,
+    "distance_label": null,
+    "tips": null,
+    "reviews": null,
+    "hours": null,
+    "station": null,
+    "badges": [],
+    "google_place_id": "ChIJu9Tol8FFGGARRGiIgWb-2rA",
+    "lat": 35.3200861,
+    "lng": 139.5501674,
+    "address": "Japan, 〒248-0012 Kanagawa, Kamakura, Onarimachi, 13−３８ 萩原ビル 1階",
+    "price_level": 2,
+    "destination": "Kamakura, Japan",
+    "source": "google",
+    "fetched_at": "2026-07-14 23:47:19.279+00",
+    "city": null,
+    "prefecture": null,
+    "country": "JP",
+    "description": null,
+    "last_verified_at": null,
+    "hours_status": "unknown",
+    "data_quality_flags": [
+      "missing_station",
+      "missing_hours",
+      "missing_photo",
+      "missing_description"
+    ]
+  },
+  {
+    "id": "af6bc202-5a09-4854-8dab-7e9caa7e4fd5",
+    "name": "Owakudani",
+    "category": "Volcanic Valley",
+    "rating": null,
+    "image_url": null,
+    "distance_label": null,
+    "tips": [
+      {
+        "text": "Try the local black eggs (kuro-tamago) which are hard-boiled in the sulfurous hot spring waters, turning their shells black and rumored to extend your life by seven years.",
+        "source_url": "https://en.wikipedia.org/wiki/Owakudani"
+      },
+      {
+        "text": "Due to active volcanic gas emissions, visitors with respiratory conditions, heart disease, pacemakers, or who are pregnant are cautioned against entering the valley.",
+        "source_url": "https://en.wikipedia.org/wiki/Owakudani"
+      }
+    ],
+    "reviews": null,
+    "hours": null,
+    "station": "Ōwakudani Station",
+    "badges": [],
+    "google_place_id": null,
+    "lat": 35.241916,
+    "lng": 139.020667,
+    "address": "Hakone, Kanagawa Prefecture, Japan",
+    "price_level": null,
+    "destination": "Hakone, Japan",
+    "source": "seed-japan-pipeline",
+    "fetched_at": "2026-07-14 23:43:46.173+00",
+    "city": "Hakone",
+    "prefecture": "Kanagawa",
+    "country": "JP",
+    "description": "A volcanic valley in Hakone, Kanagawa Prefecture, formed approximately 3,000 years ago during the eruption of the Hakone volcano. It is a popular tourist attraction known for its active sulfur vents, hot springs, and scenic views of Mount Fuji.",
+    "last_verified_at": "2026-07-24T23:43:01Z",
+    "hours_status": "unknown",
+    "photo": {
+      "url": "https://upload.wikimedia.org/wikipedia/commons/6/65/Owakudani_-_Hakone_%2827369344357%29.jpg",
+      "license": "CC BY 2.0",
+      "credit": "Ajay Suresh from New York, NY, USA",
+      "source_url": "https://commons.wikimedia.org/wiki/File:Owakudani_-_Hakone_(27369344357).jpg"
+    },
+    "source_urls": [
+      "https://en.wikipedia.org/wiki/%C5%8Cwakudani",
+      "https://www.wikidata.org/wiki/Q1134429"
+    ],
+    "data_quality_flags": [
+      "missing_hours"
+    ],
+    "enrichment_note": "web-enriched:photo"
+  },
+  {
+    "id": "a14ae3ad-9ae7-4c83-941f-f0b38207c566",
+    "name": "Hakone Shrine",
+    "category": "Shinto Shrine",
+    "rating": null,
+    "image_url": null,
+    "distance_label": null,
+    "tips": [
+      {
+        "text": "Visit the shrine's small museum to view historic treasures, including five items designated as national Important Cultural Properties.",
+        "source_url": "https://en.wikipedia.org/wiki/Hakone_Shrine"
+      },
+      {
+        "text": "Participate in or witness the shrine's main annual festival, which takes place on August 1st.",
+        "source_url": "https://en.wikipedia.org/wiki/Hakone_Shrine"
+      }
+    ],
+    "reviews": null,
+    "hours": null,
+    "station": "unknown",
+    "badges": [],
+    "google_place_id": null,
+    "lat": 35.203889,
+    "lng": 139.025556,
+    "address": "Hakone, Kanagawa Prefecture, Japan",
+    "price_level": null,
+    "destination": "Hakone, Japan",
+    "source": "seed-japan-pipeline",
+    "fetched_at": "2026-07-14 23:43:46.31+00",
+    "city": "Hakone",
+    "prefecture": "Kanagawa",
+    "country": "JP",
+    "description": "A historic Shinto shrine located on the shores of Lake Ashi in Hakone, Kanagawa Prefecture, originally founded in 757 during the reign of Emperor Kosho. It is famous for its iconic vermilion torii gate that stands directly in the waters of the lake.",
+    "last_verified_at": "2026-07-24T23:43:03Z",
+    "hours_status": "unknown",
+    "website": "https://hakonejinja.or.jp/",
+    "field_sources": {
+      "website": "https://www.wikidata.org/wiki/Q705310"
+    },
+    "photo": {
+      "url": "https://upload.wikimedia.org/wikipedia/commons/c/c7/Hakonejinja_-01.jpg",
+      "license": "CC BY-SA 3.0",
+      "credit": "Aimaimyi",
+      "source_url": "https://commons.wikimedia.org/wiki/File:Hakonejinja_-01.jpg"
+    },
+    "source_urls": [
+      "https://en.wikipedia.org/wiki/Hakone_Shrine",
+      "https://www.wikidata.org/wiki/Q705310",
+      "https://hakonejinja.or.jp/"
+    ],
+    "data_quality_flags": [
+      "missing_hours"
+    ],
+    "enrichment_note": "web-enriched:photo,website"
+  },
+  {
+    "id": "3d861942-f40e-48ac-8901-8fc770491aae",
+    "name": "Hakone Open-Air Museum",
+    "category": "Art Museum",
+    "rating": null,
+    "image_url": null,
+    "distance_label": null,
+    "tips": [
+      {
+        "text": "Explore the Picasso Pavilion, an exhibition hall dedicated to Spanish artist Pablo Picasso that contains about 300 of his works.",
+        "source_url": "https://en.wikipedia.org/wiki/Hakone_Open-Air_Museum"
+      },
+      {
+        "text": "Take a moment to relax your feet at the museum's naturally fed hot spring (onsen) footbath available for guests.",
+        "source_url": "https://en.wikipedia.org/wiki/Hakone_Open-Air_Museum"
+      }
+    ],
+    "reviews": null,
+    "hours": "Mo-Su 09:00-17:00",
+    "station": "Chokoku-no-Mori Station",
+    "badges": [],
+    "google_place_id": null,
+    "lat": 35.244719,
+    "lng": 139.051506,
+    "address": "Hakone, Kanagawa Prefecture, Japan",
+    "price_level": null,
+    "destination": "Hakone, Japan",
+    "source": "seed-japan-pipeline",
+    "fetched_at": "2026-07-14 23:43:46.459+00",
+    "city": "Hakone",
+    "prefecture": "Kanagawa",
+    "country": "JP",
+    "description": "Japan's first open-air museum, opened in 1969, featuring a sculpture park and gardens with permanent displays of around 120 sculptural works. The museum hosts over 1,000 pieces in total, including extensive collections by artists like Pablo Picasso and Henry Moore.",
+    "last_verified_at": "2026-07-24T23:43:04Z",
+    "hours_status": "known",
+    "field_sources": {
+      "hours": "osm:node:5182750902",
+      "website": "osm:node:5182750902",
+      "phone": "osm:node:5182750902"
+    },
+    "website": "https://www.hakone-oam.or.jp/kankoku/index.html",
+    "phone": "+81 460-82-1161",
+    "photo": {
+      "url": "https://upload.wikimedia.org/wikipedia/commons/9/91/Hakone5.jpg",
+      "license": "CC BY 2.0",
+      "credit": "leon&amp;mae",
+      "source_url": "https://commons.wikimedia.org/wiki/File:Hakone5.jpg"
+    },
+    "source_urls": [
+      "https://en.wikipedia.org/wiki/Hakone_Open-Air_Museum",
+      "https://www.wikidata.org/wiki/Q1134422",
+      "https://www.hakone-oam.or.jp/kankoku/index.html"
+    ],
+    "data_quality_flags": [],
+    "enrichment_note": "web-enriched:hours,phone,photo,website"
+  },
+  {
+    "id": "51407428-a010-49f6-9aca-b3088e995897",
+    "name": "Hakone Ropeway",
+    "category": "Aerial Lift",
+    "rating": null,
+    "image_url": null,
+    "distance_label": null,
+    "tips": [
+      {
+        "text": "Use the ropeway as a scenic connection between Sounzan and Togendai to enjoy views of Mount Fuji on clear days.",
+        "source_url": "https://en.wikipedia.org/wiki/Hakone_Ropeway"
+      },
+      {
+        "text": "Be aware that the ropeway has been operated as a funitel system since 2002/2007, consisting of two distinct connected sections.",
+        "source_url": "https://en.wikipedia.org/wiki/Hakone_Ropeway"
+      }
+    ],
+    "reviews": null,
+    "hours": null,
+    "station": "Sōunzan Station",
+    "badges": [],
+    "google_place_id": null,
+    "lat": 35.244361,
+    "lng": 139.019111,
+    "address": "Hakone, Kanagawa Prefecture, Japan",
+    "price_level": null,
+    "destination": "Hakone, Japan",
+    "source": "seed-japan-pipeline",
+    "fetched_at": "2026-07-14 23:43:46.62+00",
+    "city": "Hakone",
+    "prefecture": "Kanagawa",
+    "country": "JP",
+    "description": "An aerial funitel line in Hakone, Kanagawa Prefecture, linking Sounzan and Togendai via Owakudani. It forms a key part of the sightseeing route between Odawara and Lake Ashi, offering passengers scenic mountain views.",
+    "last_verified_at": "2026-07-24T23:43:28Z",
+    "hours_status": "unknown",
+    "website": "https://www.hakoneropeway.co.jp/",
+    "field_sources": {
+      "website": "https://www.wikidata.org/wiki/Q1049195"
+    },
+    "source_urls": [
+      "https://en.wikipedia.org/wiki/Hakone_Ropeway",
+      "https://www.wikidata.org/wiki/Q1049195",
+      "https://www.hakoneropeway.co.jp/"
+    ],
+    "data_quality_flags": [
+      "missing_hours",
+      "missing_photo"
+    ],
+    "enrichment_note": "web-enriched:website"
+  },
+  {
+    "id": "51bef77d-256a-408c-8d96-d035988d8d26",
+    "name": "Naritasan Shinshoji Temple",
+    "category": "Buddhist Temple",
+    "rating": null,
+    "image_url": "https://upload.wikimedia.org/wikipedia/commons/2/25/120803_Narita-san_Shinsho-ji_Narita_Chiba_pref_Japan01n.jpg",
+    "distance_label": null,
+    "tips": [
+      {
+        "text": "Witness the Goma sacred fire ritual which is performed several times daily in the Great Main Hall.",
+        "source_url": "https://en.wikipedia.org/wiki/Narita-san"
+      },
+      {
+        "text": "The temple grounds feature historic structures designated as National Important Cultural Properties, including a 25-meter high pagoda built in 1712.",
+        "source_url": "https://en.wikipedia.org/wiki/Narita-san"
+      }
+    ],
+    "reviews": null,
+    "hours": null,
+    "station": "JR Narita Station / Keisei Narita Station",
+    "badges": [],
+    "google_place_id": null,
+    "lat": 35.786095,
+    "lng": 140.318297,
+    "address": "千葉県成田市成田1",
+    "price_level": null,
+    "destination": "Narita, Japan",
+    "source": "seed-japan-pipeline",
+    "fetched_at": "2026-07-14 23:43:47.362+00",
+    "city": "Narita",
+    "prefecture": "Chiba",
+    "country": "JP",
+    "description": "A prominent and historic Shingon Buddhist temple complex founded in 940 to commemorate a military victory. It is dedicated to Fudo Myoo, a Buddhist deity of unmovable wisdom, and is renowned for its daily Goma sacred fire rituals.",
+    "last_verified_at": null,
+    "hours_status": "unknown",
+    "data_quality_flags": [
+      "missing_hours",
+      "missing_photo"
+    ]
+  },
+  {
+    "id": "34bb1c73-b025-4bd6-8c3f-9be21e0325dd",
+    "name": "Toguri Museum of Art",
+    "category": "museum",
+    "rating": null,
+    "image_url": null,
+    "distance_label": null,
+    "tips": [
+      {
+        "text": "The museum is one of the few in the world specializing in East Asian ceramics, with a rich collection of Imari and Nabeshima porcelain.",
+        "source_url": "https://en.wikipedia.org/wiki/Toguri_Museum"
+      }
+    ],
+    "reviews": null,
+    "hours": "10:00 AM - 5:00 PM",
+    "station": "Shibuya Station",
+    "badges": [],
+    "google_place_id": null,
+    "lat": 35.6612,
+    "lng": 139.6937,
+    "address": "1-11-3 Shoto, Shibuya City, Tokyo 150-0046, Japan",
+    "price_level": null,
+    "destination": null,
+    "source": "seed:jp-tokyo-2026-07-15",
+    "fetched_at": null,
+    "city": "Shibuya",
+    "prefecture": "Tokyo",
+    "country": "JP",
+    "description": "A specialized museum in the quiet Shoto residential area, dedicated to the preservation and exhibition of exquisite East Asian ceramic art and porcelain.",
+    "last_verified_at": "2026-07-24T23:44:09Z",
+    "hours_status": "known",
+    "website": "https://www.toguri-museum.or.jp/",
+    "field_sources": {
+      "website": "osm:node:1420780494"
+    },
+    "photo": {
+      "url": "https://upload.wikimedia.org/wikipedia/commons/3/34/Toguri_Museum_of_Art_2010.jpg",
+      "license": "Public domain",
+      "credit": "Asanagi (talk)",
+      "source_url": "https://commons.wikimedia.org/wiki/File:Toguri_Museum_of_Art_2010.jpg"
+    },
+    "source_urls": [
+      "https://en.wikipedia.org/wiki/Toguri_Museum",
+      "https://www.wikidata.org/wiki/Q11496415",
+      "https://www.toguri-museum.or.jp/"
+    ],
+    "data_quality_flags": [],
+    "enrichment_note": "web-enriched:photo,website"
+  },
+  {
+    "id": "bec6395e-512a-492a-85e2-5cbfef7ff08b",
+    "name": "Shoto Museum of Art",
+    "category": "museum",
+    "rating": null,
+    "image_url": null,
+    "distance_label": null,
+    "tips": [
+      {
+        "text": "Designed by the notable architect Shirai Seiichi, the building itself is an architectural masterpiece featuring a central fountain court.",
+        "source_url": "https://ja.wikipedia.org/wiki/%E6%B8%8B%E8%B0%B7%E5%8C%BA%E7%AB%8B%E6%9D%BE%E6%BF%A4%E7%BE%8E%E8%A1%93%E9%A4%A8"
+      }
+    ],
+    "reviews": null,
+    "hours": "10:00 AM - 5:00 PM",
+    "station": "Shinsen Station",
+    "badges": [],
+    "google_place_id": null,
+    "lat": 35.6602,
+    "lng": 139.6917,
+    "address": "2-14-14 Shoto, Shibuya City, Tokyo 150-0046, Japan",
+    "price_level": null,
+    "destination": null,
+    "source": "seed:jp-tokyo-2026-07-15",
+    "fetched_at": null,
+    "city": "Shibuya",
+    "prefecture": "Tokyo",
+    "country": "JP",
+    "description": "A public art museum featuring a striking architectural design by Seiichi Shirai, hosting diverse exhibitions of painting, sculpture, and local crafts.",
+    "last_verified_at": "2026-07-24T23:44:10Z",
+    "hours_status": "known",
+    "website": "https://shoto-museum.jp/",
+    "field_sources": {
+      "website": "https://www.wikidata.org/wiki/Q11561694"
+    },
+    "photo": {
+      "url": "https://upload.wikimedia.org/wikipedia/commons/0/0c/Shoto_Museum_of_Art_2010.jpg",
+      "license": "CC BY-SA 3.0",
+      "credit": "Wiiii",
+      "source_url": "https://commons.wikimedia.org/wiki/File:Shoto_Museum_of_Art_2010.jpg"
+    },
+    "source_urls": [
+      "https://www.wikidata.org/wiki/Q11561694",
+      "https://shoto-museum.jp/"
+    ],
+    "data_quality_flags": [],
+    "enrichment_note": "web-enriched:photo,website"
+  },
+  {
+    "id": "1a20df4f-eeb1-4ed2-8e6e-52625c8ce65d",
+    "name": "Shibuya Hikarie",
+    "category": "shopping-street",
+    "rating": null,
+    "image_url": null,
+    "distance_label": null,
+    "tips": [
+      {
+        "text": "Head to Sky Lobby on the 11th floor for a great, free panoramic view of the Shibuya district.",
+        "source_url": "https://en.wikipedia.org/wiki/Shibuya_Hikarie"
+      }
+    ],
+    "reviews": null,
+    "hours": "11:00 AM - 9:00 PM",
+    "station": "Shibuya Station",
+    "badges": [],
+    "google_place_id": null,
+    "lat": 35.659,
+    "lng": 139.7034,
+    "address": "2-21-1 Shibuya, Shibuya City, Tokyo 150-8510, Japan",
+    "price_level": null,
+    "destination": null,
+    "source": "seed:jp-tokyo-2026-07-15",
+    "fetched_at": null,
+    "city": "Shibuya",
+    "prefecture": "Tokyo",
+    "country": "JP",
+    "description": "A landmark high-rise commercial complex featuring a major theater, trendy fashion floors, and an 11th-floor sky lobby with panoramic city views.",
+    "last_verified_at": "2026-07-24T23:44:20Z",
+    "hours_status": "known",
+    "website": "https://www.hikarie.jp/",
+    "field_sources": {
+      "website": "osm:way:204091879",
+      "phone": "osm:way:204091879"
+    },
+    "phone": "+81 3-5468-5892",
+    "photo": {
+      "url": "https://upload.wikimedia.org/wikipedia/commons/9/91/Shibuya_Hikarie_%E2%85%A1.JPG",
+      "license": "CC BY-SA 3.0",
+      "credit": "Kakidai",
+      "source_url": "https://commons.wikimedia.org/wiki/File:Shibuya_Hikarie_Ⅱ.JPG"
+    },
+    "source_urls": [
+      "https://en.wikipedia.org/wiki/Shibuya_Hikarie",
+      "https://www.wikidata.org/wiki/Q11561670",
+      "https://www.hikarie.jp/"
+    ],
+    "data_quality_flags": [],
+    "enrichment_note": "web-enriched:phone,photo,website"
+  },
+  {
+    "id": "e5970d68-68ea-4cd1-8fc5-f44b21498020",
+    "name": "Log Road Daikanyama",
+    "category": "scenic-walk",
+    "rating": null,
+    "image_url": null,
+    "distance_label": null,
+    "tips": [
+      {
+        "text": "Built on the former tracks of the Tokyu Toyoko Line, this pleasant, leafy promenade features boutique shops and microbreweries.",
+        "source_url": "https://ja.wikipedia.org/wiki/LOG_ROAD_DAIKANYAMA"
+      }
+    ],
+    "reviews": null,
+    "hours": "9:00 AM - 10:00 PM",
+    "station": "Daikanyama Station",
+    "badges": [],
+    "google_place_id": null,
+    "lat": 35.6521,
+    "lng": 139.7049,
+    "address": "13-1 Daikanyamacho, Shibuya City, Tokyo 150-0034, Japan",
+    "price_level": null,
+    "destination": null,
+    "source": "seed:jp-tokyo-2026-07-15",
+    "fetched_at": null,
+    "city": "Shibuya",
+    "prefecture": "Tokyo",
+    "country": "JP",
+    "description": "A peaceful, wooden-decked walking path built on the former tracks of the Tokyu Toyoko Line, featuring stylish craft beer venues and chic apparel shops.",
+    "last_verified_at": "2026-07-15 01:01:38.17282+00",
+    "hours_status": "known",
+    "data_quality_flags": [
+      "missing_photo"
+    ]
+  },
+  {
+    "id": "328d9feb-c97b-4618-89bb-a5663d20d2e8",
+    "name": "Narita City Sakuranoyama Park",
+    "category": "Park",
+    "rating": null,
+    "image_url": "https://upload.wikimedia.org/wikipedia/commons/1/1e/Sakuranoyama_Park.JPG",
+    "distance_label": null,
+    "tips": [
+      {
+        "text": "The park is selected as one of the '100 views of Chiba' and is a highly popular filming location for television shows.",
+        "source_url": "https://www.nrtk.jp/enjoy/attraction/sakuranoyama.html"
+      },
+      {
+        "text": "Stop by the on-site 'Sora no Eki Sakura-館' to purchase fresh local vegetables and unique airport-themed souvenirs.",
+        "source_url": "https://www.nrtk.jp/enjoy/attraction/sakuranoyama.html"
+      }
+    ],
+    "reviews": null,
+    "hours": null,
+    "station": "JR Narita Station / Keisei Narita Station",
+    "badges": [],
+    "google_place_id": null,
+    "lat": 35.774905,
+    "lng": 140.361195,
+    "address": "千葉県成田市駒井野1338-1",
+    "price_level": null,
+    "destination": "Narita, Japan",
+    "source": "seed-japan-pipeline",
+    "fetched_at": "2026-07-14 23:43:47.654+00",
+    "city": "Narita",
+    "prefecture": "Chiba",
+    "country": "JP",
+    "description": "A popular plane-spotting hill park situated near the northern edge of Narita International Airport's runway. It offers a dramatic view of ascending and descending flights, combined with a beautiful display of around 500 cherry trees.",
+    "last_verified_at": null,
+    "hours_status": "unknown",
+    "data_quality_flags": [
+      "missing_hours",
+      "missing_photo"
+    ]
+  },
+  {
+    "id": "ce6e476a-4411-4ada-a118-88db310d0096",
+    "name": "Inubosaki Lighthouse",
+    "category": "Lighthouse",
+    "rating": null,
+    "image_url": null,
+    "distance_label": null,
+    "tips": [
+      {
+        "text": "Visitors can climb 99 steps to the top of the lighthouse for a panoramic view of the Pacific Ocean.",
+        "source_url": "https://ja.wikipedia.org/wiki/%E7%8A%AC%E5%90%A0%E5%9F%BC%E7%81%AF%E5%8F%B0"
+      },
+      {
+        "text": "There is a rare white round-shaped postbox installed at the lighthouse, which is a popular spot for couples.",
+        "source_url": "https://ja.wikipedia.org/wiki/%E7%8A%AC%E5%90%A0%E5%9F%BC%E7%81%AF%E5%8F%B0"
+      },
+      {
+        "text": "Cape Inubō can be reached by a 10-minute walk from Inuboh Station on the Chōshi Electric Railway Line.",
+        "source_url": "https://en.wikipedia.org/wiki/Cape_Inub%C5%8D"
+      }
+    ],
+    "reviews": null,
+    "hours": null,
+    "station": "Inuboh Station",
+    "badges": [],
+    "google_place_id": null,
+    "lat": 35.70444,
+    "lng": 140.86472,
+    "address": "9576 Inubosaki, Choshi, Chiba, Japan",
+    "price_level": null,
+    "destination": "Choshi, Japan",
+    "source": "seed-japan-pipeline",
+    "fetched_at": "2026-07-14 23:43:47.811+00",
+    "city": "Choshi",
+    "prefecture": "Chiba",
+    "country": "JP",
+    "description": "A historic Western-style lighthouse located on Cape Inubō in Choshi, Chiba Prefecture. Built in 1874 by British engineer Richard Henry Brunton, it is constructed from Japan's first domestically produced red bricks.",
+    "last_verified_at": "2026-07-24T23:45:10Z",
+    "hours_status": "unknown",
+    "website": "https://www.kaiho.mlit.go.jp/03kanku/choshi/page_aton/aton_inubosaki.html",
+    "field_sources": {
+      "website": "https://www.wikidata.org/wiki/Q6059232"
+    },
+    "photo": {
+      "url": "https://upload.wikimedia.org/wikipedia/commons/0/09/Inubozaki_lighthouse_001.jpg",
+      "license": "CC BY-SA 2.5",
+      "credit": "Maga-chan",
+      "source_url": "https://commons.wikimedia.org/wiki/File:Inubozaki_lighthouse_001.jpg"
+    },
+    "source_urls": [
+      "https://en.wikipedia.org/wiki/Inub%C5%8Dsaki_Lighthouse",
+      "https://www.wikidata.org/wiki/Q6059232",
+      "https://www.kaiho.mlit.go.jp/03kanku/choshi/page_aton/aton_inubosaki.html"
+    ],
+    "data_quality_flags": [
+      "missing_hours"
+    ],
+    "enrichment_note": "web-enriched:photo,website"
+  },
+  {
+    "id": "2170e92a-84de-49f1-b357-85af7891bdd3",
+    "name": "Chōshi Electric Railway",
+    "category": "Heritage Railway",
+    "rating": null,
+    "image_url": null,
+    "distance_label": null,
+    "tips": [
+      {
+        "text": "The railway produced its own horror comedy film titled 'Don't Stop the Train! – The Cursed 6.4km –' in 2019 to help support the line.",
+        "source_url": "https://en.wikipedia.org/wiki/Ch%C5%8Dshi_Electric_Railway"
+      },
+      {
+        "text": "In response to the COVID-19 pandemic, the railway launched a popular YouTube channel called Gekitsura Channel featuring various local staff.",
+        "source_url": "https://en.wikipedia.org/wiki/Ch%C5%8Dshi_Electric_Railway"
+      },
+      {
+        "text": "The line was branded as the 'Inubō Gakeppuchi Line' as part of its Gakeppuchi Project tourism campaign from April 2025.",
+        "source_url": "https://en.wikipedia.org/wiki/Ch%C5%8Dshi_Electric_Railway"
+      }
+    ],
+    "reviews": null,
+    "hours": null,
+    "station": "Choshi Station",
+    "badges": [],
+    "google_place_id": null,
+    "lat": 35.7292,
+    "lng": 140.8353,
+    "address": "Nakanochō, Chōshi, Chiba, Japan",
+    "price_level": null,
+    "destination": "Choshi, Japan",
+    "source": "seed-japan-pipeline",
+    "fetched_at": "2026-07-14 23:43:47.969+00",
+    "city": "Choshi",
+    "prefecture": "Chiba",
+    "country": "JP",
+    "description": "A historic 6.4-kilometer private railway line that operates between Choshi and Tokawa stations in Chiba Prefecture. Opened in 1923, the railway is famous for its retro charm and local community support.",
+    "last_verified_at": "2026-07-24T23:45:12Z",
+    "hours_status": "unknown",
+    "website": "https://www.choshi-dentetsu.jp/",
+    "field_sources": {
+      "website": "https://www.wikidata.org/wiki/Q5368807"
+    },
+    "photo": {
+      "url": "https://upload.wikimedia.org/wikipedia/commons/5/59/Choshi_Dentetsu2501.jpg",
+      "license": "CC BY-SA 3.0",
+      "credit": "Rsa",
+      "source_url": "https://commons.wikimedia.org/wiki/File:Choshi_Dentetsu2501.jpg"
+    },
+    "source_urls": [
+      "https://en.wikipedia.org/wiki/Choshi_Electric_Railway",
+      "https://www.wikidata.org/wiki/Q5368807",
+      "https://www.choshi-dentetsu.jp/"
+    ],
+    "data_quality_flags": [
+      "missing_hours"
+    ],
+    "enrichment_note": "web-enriched:photo,website"
+  },
+  {
+    "id": "22d44408-115d-4178-866e-f513e5b964f1",
+    "name": "Byobugaura Cliffs",
+    "category": "Scenic Cliff",
+    "rating": null,
+    "image_url": null,
+    "distance_label": null,
+    "tips": [
+      {
+        "text": "Most sections of the cliffs are off-limits due to danger and erosion, but visitors can get a close view via a designated walking path near Choshi Marina.",
+        "source_url": "https://ja.wikipedia.org/wiki/%E5%B1%8F%E9%A2%A8%E3%83%B6%E6%B5%A6"
+      },
+      {
+        "text": "The cliffs can also be viewed from the Hill of the Round Earth Observatory (Chikyu no Maruku Mieru Oka Tenbokan).",
+        "source_url": "https://ja.wikipedia.org/wiki/%E5%B1%8F%E9%A2%A8%E3%83%B6%E6%B5%A6"
+      },
+      {
+        "text": "Byobugaura is a popular filming location for suspense dramas, movies, and music videos.",
+        "source_url": "https://ja.wikipedia.org/wiki/%E5%B1%8F%E9%A2%A8%E3%83%B6%E6%B5%A6"
+      }
+    ],
+    "reviews": null,
+    "hours": null,
+    "station": null,
+    "badges": [],
+    "google_place_id": null,
+    "lat": 35.70111,
+    "lng": 140.80389,
+    "address": "Naaraicho, Choshi, Chiba, Japan",
+    "price_level": null,
+    "destination": "Choshi, Japan",
+    "source": "seed-japan-pipeline",
+    "fetched_at": "2026-07-14 23:43:48.121+00",
+    "city": "Choshi",
+    "prefecture": "Chiba",
+    "country": "JP",
+    "description": "A dramatic 10-kilometer stretch of coastal marine cliffs overlooking the Pacific Ocean between Choshi and Asahi. Often called the 'Dover of the East' for its likeness to England's white cliffs, it showcases prominent geological layers.",
+    "last_verified_at": "2026-07-14 23:11:55.588178+00",
+    "hours_status": "unknown",
+    "data_quality_flags": [
+      "missing_station",
+      "missing_hours",
+      "missing_photo"
+    ]
+  },
+  {
+    "id": "7cbbe032-df58-4e62-aabe-b8fa2909e6ed",
+    "name": "Katori Jingu",
+    "category": "Shinto Shrine",
+    "rating": null,
+    "image_url": null,
+    "distance_label": null,
+    "tips": [
+      {
+        "text": "It was one of only three shrines designated with the prestigious title of 'Jingu' in the Heian-period Engishiki records, along with Ise Jingu and Kashima Jingu.",
+        "source_url": "https://en.wikipedia.org/wiki/Katori_Jing%C5%AB"
+      },
+      {
+        "text": "Many of the main structures, including the honden, romon, and old haiden, date from a major reconstruction in 1700 by the Tokugawa Shogunate.",
+        "source_url": "https://ja.wikipedia.org/wiki/%E9%A6%99%E5%8F%96%E7%A5%9E%E5%AE%AE"
+      },
+      {
+        "text": "The shrine was historically revered by the samurai class as a guardian of martial arts.",
+        "source_url": "https://en.wikipedia.org/wiki/Katori_Jing%C5%AB"
+      }
+    ],
+    "reviews": null,
+    "hours": null,
+    "station": null,
+    "badges": [],
+    "google_place_id": null,
+    "lat": 35.885556,
+    "lng": 140.528333,
+    "address": "1697 Katori, Katori, Chiba, Japan",
+    "price_level": null,
+    "destination": "Katori, Japan",
+    "source": "seed-japan-pipeline",
+    "fetched_at": "2026-07-14 23:43:48.286+00",
+    "city": "Katori",
+    "prefecture": "Chiba",
+    "country": "JP",
+    "description": "A highly prestigious Shinto shrine located in Katori, Chiba Prefecture, dedicated to the martial deity Futsunushi-no-Mikoto. It serves as the head shrine of approximately 400 Katori shrines across Japan.",
+    "last_verified_at": "2026-07-14 23:11:55.588178+00",
+    "hours_status": "unknown",
+    "data_quality_flags": [
+      "missing_station",
+      "missing_hours",
+      "missing_photo"
+    ]
+  },
+  {
+    "id": "b0c03286-3967-4d9a-92e2-edd24193f318",
+    "name": "North Observation Deck, Tokyo Metropolitan Government Building No. 1",
+    "category": "observation deck",
+    "rating": "4.5",
+    "image_url": null,
+    "distance_label": null,
+    "tips": null,
+    "reviews": null,
+    "hours": null,
+    "station": null,
+    "badges": [],
+    "google_place_id": "ChIJnctryNSMGGARLv4MknPFseU",
+    "lat": 35.689733,
+    "lng": 139.6916563,
+    "address": "Japan, 〒163-8001 Tokyo, Shinjuku City, Nishishinjuku, 2-chōme−8−１ Tochomae Station, 45F",
+    "price_level": null,
+    "destination": "Tokyo, Japan",
+    "source": "google",
+    "fetched_at": "2026-07-14 23:57:29.531+00",
+    "city": null,
+    "prefecture": null,
+    "country": "JP",
+    "description": null,
+    "last_verified_at": null,
+    "hours_status": "unknown",
+    "data_quality_flags": [
+      "missing_station",
+      "missing_hours",
+      "missing_photo",
+      "missing_description"
+    ]
+  },
+  {
+    "id": "7d3a1803-f067-4bd1-9389-7dfcbd5882de",
+    "name": "Kairyou-yu",
+    "category": "bath",
+    "rating": null,
+    "image_url": null,
+    "distance_label": null,
+    "tips": [
+      {
+        "text": "A designer public bathhouse (sento) dating from 1916 and stylishly renovated, featuring a whale mural, neon lights, and saunas.",
+        "source_url": "https://ja.wikipedia.org/wiki/%E6%94%B9%E8%89%AF%E6%B9%AF"
+      }
+    ],
+    "reviews": null,
+    "hours": "12:00 PM - 11:30 PM",
+    "station": "Shibuya Station",
+    "badges": [],
+    "google_place_id": null,
+    "lat": 35.6536,
+    "lng": 139.7081,
+    "address": "2-19-9 Higashi, Shibuya City, Tokyo 150-0011, Japan",
+    "price_level": null,
+    "destination": null,
+    "source": "seed:jp-tokyo-2026-07-15",
+    "fetched_at": null,
+    "city": "Shibuya",
+    "prefecture": "Tokyo",
+    "country": "JP",
+    "description": "A stylish, century-old public bathhouse (sento) that was beautifully renovated in 2018 with contemporary design elements, neon lights, and relaxing saunas.",
+    "last_verified_at": "2026-07-15 01:01:38.17282+00",
+    "hours_status": "known",
+    "data_quality_flags": [
+      "missing_photo"
+    ]
+  },
+  {
+    "id": "a8d5e175-c285-4aac-9539-a0d5d85498a4",
+    "name": "Shibuya Scramble Crossing",
+    "category": "attraction",
+    "rating": null,
+    "image_url": null,
+    "distance_label": null,
+    "tips": [
+      {
+        "text": "For a bird's-eye view of the crossing, visit the Shibuya Sky observation deck or the second-floor Starbucks in the Qfront building.",
+        "source_url": "https://en.wikipedia.org/wiki/Shibuya_Crossing"
+      }
+    ],
+    "reviews": null,
+    "hours": "Open 24 hours",
+    "station": "Shibuya Station",
+    "badges": [],
+    "google_place_id": null,
+    "lat": 35.6595,
+    "lng": 139.70056,
+    "address": "1-2-1 Dogenzaka, Shibuya City, Tokyo 150-0043, Japan",
+    "price_level": null,
+    "destination": null,
+    "source": "seed:jp-tokyo-2026-07-15",
+    "fetched_at": null,
+    "city": "Shibuya",
+    "prefecture": "Tokyo",
+    "country": "JP",
+    "description": "The world's busiest pedestrian intersection, where up to 3,000 people cross during a single green light cycle. It is a legendary symbol of modern Tokyo's energetic urban life.",
+    "last_verified_at": "2026-07-24T23:46:13Z",
+    "hours_status": "known",
+    "photo": {
+      "url": "https://upload.wikimedia.org/wikipedia/commons/8/88/Shibuya_Crossing%2C_Aerial.jpg",
+      "license": "CC BY 4.0",
+      "credit": "David Kernan",
+      "source_url": "https://commons.wikimedia.org/wiki/File:Shibuya_Crossing,_Aerial.jpg"
+    },
+    "source_urls": [
+      "https://en.wikipedia.org/wiki/Shibuya_Crossing",
+      "https://www.wikidata.org/wiki/Q21083961"
+    ],
+    "data_quality_flags": [],
+    "enrichment_note": "web-enriched:photo"
+  },
+  {
+    "id": "24f91c87-5cbe-4861-8527-66f3a22d228b",
+    "name": "Hachiko Statue",
+    "category": "attraction",
+    "rating": null,
+    "image_url": null,
+    "distance_label": null,
+    "tips": [
+      {
+        "text": "The statue is a highly popular meeting spot and can get very crowded, so mornings are best for photos without crowds.",
+        "source_url": "https://en.wikipedia.org/wiki/Hachik%C5%8D"
+      }
+    ],
+    "reviews": null,
+    "hours": "Open 24 hours",
+    "station": "Shibuya Station",
+    "badges": [],
+    "google_place_id": null,
+    "lat": 35.65908,
+    "lng": 139.70058,
+    "address": "2-1 Dogenzaka, Shibuya City, Tokyo 150-0043, Japan",
+    "price_level": null,
+    "destination": null,
+    "source": "seed:jp-tokyo-2026-07-15",
+    "fetched_at": null,
+    "city": "Shibuya",
+    "prefecture": "Tokyo",
+    "country": "JP",
+    "description": "A famous bronze statue of the loyal Akita dog Hachiko, who waited for his deceased master daily at Shibuya Station for nearly ten years. It serves as Shibuya's most iconic meeting point.",
+    "last_verified_at": "2026-07-24T23:46:15Z",
+    "hours_status": "known",
+    "photo": {
+      "url": "https://upload.wikimedia.org/wikipedia/commons/e/ef/Hachiko-1.jpg",
+      "license": "CC BY-SA 4.0",
+      "credit": "江戸村のとくぞう",
+      "source_url": "https://commons.wikimedia.org/wiki/File:Hachiko-1.jpg"
+    },
+    "source_urls": [
+      "https://en.wikipedia.org/wiki/Statue_of_Hachik%C5%8D",
+      "https://www.wikidata.org/wiki/Q62124995"
+    ],
+    "data_quality_flags": [],
+    "enrichment_note": "web-enriched:photo"
+  },
+  {
+    "id": "e64f0d2a-7b7d-4a85-b45e-2352be0b3cdf",
+    "name": "Nabeshima Shoto Park",
+    "category": "park",
+    "rating": null,
+    "image_url": null,
+    "distance_label": null,
+    "tips": [
+      {
+        "text": "A peaceful park in the upscale Shoto residential area, famous for its picturesque pond and traditional wooden waterwheel.",
+        "source_url": "https://ja.wikipedia.org/wiki/%E9%8D%8B%E5%B3%B6%E6%9D%BE%E6%BF%A4%E5%85%AC%E5%9C%92"
+      }
+    ],
+    "reviews": null,
+    "hours": "Open 24 hours",
+    "station": "Shinsen Station",
+    "badges": [],
+    "google_place_id": null,
+    "lat": 35.6619,
+    "lng": 139.6911,
+    "address": "2-10-7 Shoto, Shibuya City, Tokyo 150-0046, Japan",
+    "price_level": null,
+    "destination": null,
+    "source": "seed:jp-tokyo-2026-07-15",
+    "fetched_at": null,
+    "city": "Shibuya",
+    "prefecture": "Tokyo",
+    "country": "JP",
+    "description": "A tranquil neighborhood park in Shoto, known for its picturesque pond, traditional wooden waterwheel, and cherry blossoms that bloom beautifully in spring.",
+    "last_verified_at": "2026-07-24T23:46:16Z",
+    "hours_status": "known",
+    "photo": {
+      "url": "https://upload.wikimedia.org/wikipedia/commons/3/31/Nabeshima_shoutou_park_shibuya.JPG",
+      "license": "CC BY-SA 3.0",
+      "credit": "Kamemaru2000",
+      "source_url": "https://commons.wikimedia.org/wiki/File:Nabeshima_shoutou_park_shibuya.JPG"
+    },
+    "source_urls": [
+      "https://www.wikidata.org/wiki/Q11650653"
+    ],
+    "data_quality_flags": [],
+    "enrichment_note": "web-enriched:photo"
+  },
+  {
+    "id": "4b0c13f2-b27c-4ece-8039-daf54674863f",
+    "name": "Shibuya PARCO",
+    "category": "shopping-street",
+    "rating": null,
+    "image_url": null,
+    "distance_label": null,
+    "tips": [
+      {
+        "text": "The 6th floor (Cyberspace Shibuya) is a major hub for pop culture, housing official shops for Nintendo, Pokemon, and Capcom.",
+        "source_url": "https://ja.wikipedia.org/wiki/%E6%B8%8B%E8%B0%B7%E3%83%91%E3%83%AB%E3%82%B3"
+      }
+    ],
+    "reviews": null,
+    "hours": "11:00 AM - 9:00 PM",
+    "station": "Shibuya Station",
+    "badges": [],
+    "google_place_id": null,
+    "lat": 35.662,
+    "lng": 139.6987,
+    "address": "15-1 Udagawacho, Shibuya City, Tokyo 150-8377, Japan",
+    "price_level": null,
+    "destination": null,
+    "source": "seed:jp-tokyo-2026-07-15",
+    "fetched_at": null,
+    "city": "Shibuya",
+    "prefecture": "Tokyo",
+    "country": "JP",
+    "description": "A historic fashion and lifestyle department store that reopened in 2019 as a creative hub for high fashion, digital art, and pop-culture gaming centers.",
+    "last_verified_at": "2026-07-15 01:01:38.17282+00",
+    "hours_status": "known",
+    "data_quality_flags": [
+      "missing_photo"
+    ]
+  },
+  {
+    "id": "1a338793-c773-4fcd-9ef0-c52bc93cb6f5",
+    "name": "Farmer's Market @ UNU",
+    "category": "market",
+    "rating": null,
+    "image_url": null,
+    "distance_label": null,
+    "tips": [
+      {
+        "text": "Held every Saturday and Sunday in the courtyard of the United Nations University, it features local organic produce and artisanal food trucks.",
+        "source_url": "https://ja.wikipedia.org/wiki/%E5%9B%BD%E9%80%A3%E5%A4%A7%E5%AD%A6"
+      }
+    ],
+    "reviews": null,
+    "hours": "10:00 AM - 4:00 PM",
+    "station": "Omotesando Station",
+    "badges": [],
+    "google_place_id": null,
+    "lat": 35.6622,
+    "lng": 139.7077,
+    "address": "5-53-70 Jingumae, Shibuya City, Tokyo 150-0001, Japan",
+    "price_level": null,
+    "destination": null,
+    "source": "seed:jp-tokyo-2026-07-15",
+    "fetched_at": null,
+    "city": "Shibuya",
+    "prefecture": "Tokyo",
+    "country": "JP",
+    "description": "A popular weekend open-air market held in front of the United Nations University, showcasing organic produce, artisanal goods, and delicious food trucks.",
+    "last_verified_at": "2026-07-15 01:01:38.17282+00",
+    "hours_status": "known",
+    "data_quality_flags": [
+      "missing_photo"
+    ]
+  },
+  {
+    "id": "78aedb78-8ea5-4e46-8002-197365da934d",
+    "name": "Shinjuku Gyoen National Garden",
+    "category": "park",
+    "rating": null,
+    "image_url": null,
+    "distance_label": null,
+    "tips": [
+      {
+        "text": "Check out the traditional greenhouse which houses over 2,700 species of tropical and subtropical plants.",
+        "source_url": "https://www.env.go.jp/garden/shinjukugyoen/english/2_guide/guide.html"
+      }
+    ],
+    "reviews": null,
+    "hours": "9:00 AM - 4:30 PM",
+    "station": "Shinjuku-gyoemmae Station",
+    "badges": [],
+    "google_place_id": null,
+    "lat": 35.6871694444444,
+    "lng": 139.710644444444,
+    "address": "11 Naito-machi, Shinjuku-ku, Tokyo 160-0014",
+    "price_level": null,
+    "destination": null,
+    "source": "seed:jp-tokyo-2026-07-15",
+    "fetched_at": null,
+    "city": "Shinjuku",
+    "prefecture": "Tokyo",
+    "country": "JP",
+    "description": "A magnificent national garden that seamlessly blends traditional Japanese, formal French, and landscape English garden styles across extensive lawns and ponds.",
+    "last_verified_at": "2026-07-24T23:47:04Z",
+    "hours_status": "known",
+    "website": "http://www.env.go.jp/garden/shinjukugyoen/",
+    "field_sources": {
+      "website": "osm:way:15772074",
+      "phone": "osm:way:15772074"
+    },
+    "phone": "+81 3-3350-0151",
+    "photo": {
+      "url": "https://upload.wikimedia.org/wikipedia/commons/9/9d/Shinjuku_Gyoen_National_Garden_-_sakura_3.JPG",
+      "license": "CC BY-SA 3.0",
+      "credit": "Kakidai",
+      "source_url": "https://commons.wikimedia.org/wiki/File:Shinjuku_Gyoen_National_Garden_-_sakura_3.JPG"
+    },
+    "source_urls": [
+      "https://en.wikipedia.org/wiki/Shinjuku_Gyo-en",
+      "https://www.wikidata.org/wiki/Q776863",
+      "http://www.env.go.jp/garden/shinjukugyoen/"
+    ],
+    "data_quality_flags": [],
+    "enrichment_note": "web-enriched:phone,photo,website"
+  },
+  {
+    "id": "4c4d25e6-4fa3-434d-8de7-3c4fc3ee3d92",
+    "name": "Tokyo Metropolitan Government Building Observation Deck",
+    "category": "viewpoint",
+    "rating": null,
+    "image_url": null,
+    "distance_label": null,
+    "tips": [
+      {
+        "text": "The North Observation Deck features a cafe and gift shop and remains open later into the evening.",
+        "source_url": "https://www.yokoso.metro.tokyo.lg.jp/en/tenbou/index.html"
+      }
+    ],
+    "reviews": null,
+    "hours": "9:30 AM - 10:00 PM",
+    "station": "Tocho-mae Station",
+    "badges": [],
+    "google_place_id": null,
+    "lat": 35.68951,
+    "lng": 139.69171,
+    "address": "2-8-1 Nishi-Shinjuku, Shinjuku-ku, Tokyo 163-8001",
+    "price_level": null,
+    "destination": null,
+    "source": "seed:jp-tokyo-2026-07-15",
+    "fetched_at": null,
+    "city": "Shinjuku",
+    "prefecture": "Tokyo",
+    "country": "JP",
+    "description": "Free, panoramic observation decks located on the 45th floor of the Tokyo Metropolitan Government Building, offering spectacular views of Tokyo and Mount Fuji on clear days.",
+    "last_verified_at": "2026-07-15 01:01:38.17282+00",
+    "hours_status": "known",
+    "data_quality_flags": [
+      "missing_photo"
+    ]
+  },
+  {
+    "id": "0c3044ce-2ae8-49f1-94a0-a9d90b842538",
+    "name": "Shinjuku Golden Gai",
+    "category": "nightlife",
+    "rating": null,
+    "image_url": null,
+    "distance_label": null,
+    "tips": [
+      {
+        "text": "Look out for signs showing whether a bar charges a cover fee (typically 500 to 1,000 Yen) or welcomes English speakers.",
+        "source_url": "https://en.wikipedia.org/wiki/Shinjuku_Golden_Gai"
+      }
+    ],
+    "reviews": null,
+    "hours": "unknown",
+    "station": "Shinjuku-sanchome Station",
+    "badges": [],
+    "google_place_id": null,
+    "lat": 35.6939,
+    "lng": 139.705,
+    "address": "1-1-6 Kabukicho, Shinjuku-ku, Tokyo 160-0021",
+    "price_level": null,
+    "destination": null,
+    "source": "seed:jp-tokyo-2026-07-15",
+    "fetched_at": null,
+    "city": "Shinjuku",
+    "prefecture": "Tokyo",
+    "country": "JP",
+    "description": "A historic nightlife area consisting of six narrow alleys lined with over 200 tiny bars, each with its own unique theme and intimate seating.",
+    "last_verified_at": "2026-07-24T23:47:19Z",
+    "hours_status": "unknown",
+    "website": "http://goldengai.jp/",
+    "field_sources": {
+      "website": "https://www.wikidata.org/wiki/Q5363705"
+    },
+    "photo": {
+      "url": "https://upload.wikimedia.org/wikipedia/commons/8/8d/G2_Street_20090626_2.jpg",
+      "license": "CC BY 2.0",
+      "credit": "urbz",
+      "source_url": "https://commons.wikimedia.org/wiki/File:G2_Street_20090626_2.jpg"
+    },
+    "source_urls": [
+      "https://en.wikipedia.org/wiki/Shinjuku_Golden_Gai",
+      "https://www.wikidata.org/wiki/Q5363705",
+      "http://goldengai.jp/"
+    ],
+    "data_quality_flags": [],
+    "enrichment_note": "web-enriched:photo,website"
+  },
+  {
+    "id": "e9058efc-f3a2-4b72-9194-e56b1a7b95aa",
+    "name": "Hanazono Shrine",
+    "category": "shrine",
+    "rating": null,
+    "image_url": null,
+    "distance_label": null,
+    "tips": [
+      {
+        "text": "Visit on Sundays to browse the antique flea market held on the shrine grounds.",
+        "source_url": "https://en.wikipedia.org/wiki/Hanazono_Shrine"
+      }
+    ],
+    "reviews": null,
+    "hours": "Open 24 hours",
+    "station": "Shinjuku-sanchome Station",
+    "badges": [],
+    "google_place_id": null,
+    "lat": 35.693553,
+    "lng": 139.705184,
+    "address": "5-17-3 Shinjuku, Shinjuku-ku, Tokyo 160-0022",
+    "price_level": null,
+    "destination": null,
+    "source": "seed:jp-tokyo-2026-07-15",
+    "fetched_at": null,
+    "city": "Shinjuku",
+    "prefecture": "Tokyo",
+    "country": "JP",
+    "description": "A tranquil and historic Shinto shrine located near Kabukicho, acting as a peaceful retreat from the surrounding city's bustling neon-lit streets.",
+    "last_verified_at": "2026-07-15 01:01:38.17282+00",
+    "hours_status": "known",
+    "source_urls": [
+      "https://www.wikidata.org/wiki/Q97658183"
+    ],
+    "data_quality_flags": [
+      "missing_photo"
+    ]
+  },
+  {
+    "id": "6bf2581e-aa92-492e-9e4a-9a1ee65a9d18",
+    "name": "Isetan Shinjuku",
+    "category": "shopping-street",
+    "rating": null,
+    "image_url": null,
+    "distance_label": null,
+    "tips": [
+      {
+        "text": "Head straight to the basement (B1) level to browse one of Tokyo's finest selections of high-end desserts, pastries, and traditional bento boxes.",
+        "source_url": "https://en.wikipedia.org/wiki/Isetan"
+      }
+    ],
+    "reviews": null,
+    "hours": "10:00 AM - 8:00 PM",
+    "station": "Shinjuku-sanchome Station",
+    "badges": [],
+    "google_place_id": null,
+    "lat": 35.69156,
+    "lng": 139.704651,
+    "address": "3-14-1 Shinjuku, Shinjuku-ku, Tokyo 160-0022",
+    "price_level": null,
+    "destination": null,
+    "source": "seed:jp-tokyo-2026-07-15",
+    "fetched_at": null,
+    "city": "Shinjuku",
+    "prefecture": "Tokyo",
+    "country": "JP",
+    "description": "A legendary and elegant department store in Shinjuku, widely celebrated for its fashion floors and magnificent basement food hall (depachika).",
+    "last_verified_at": "2026-07-15 01:01:38.17282+00",
+    "hours_status": "known",
+    "data_quality_flags": [
+      "missing_photo"
+    ]
+  },
+  {
+    "id": "e2d59479-6423-46d3-a14f-8fe3447e3cb0",
+    "name": "Lumine Shinjuku",
+    "category": "shopping-street",
+    "rating": null,
+    "image_url": null,
+    "distance_label": null,
+    "tips": [
+      {
+        "text": "Lumine Shinjuku is split into Lumine 1 and Lumine 2; Lumine 2 is located right above the South Exit of Shinjuku Station.",
+        "source_url": "https://www.lumine.ne.jp/shinjuku/"
+      }
+    ],
+    "reviews": null,
+    "hours": "11:00 AM - 9:00 PM",
+    "station": "Shinjuku Station",
+    "badges": [],
+    "google_place_id": null,
+    "lat": 35.689222,
+    "lng": 139.699365,
+    "address": "3-38-2 Shinjuku, Shinjuku-ku, Tokyo 160-0022",
+    "price_level": null,
+    "destination": null,
+    "source": "seed:jp-tokyo-2026-07-15",
+    "fetched_at": null,
+    "city": "Shinjuku",
+    "prefecture": "Tokyo",
+    "country": "JP",
+    "description": "A popular modern shopping mall complex directly integrated with Shinjuku Station, offering multiple floors of stylish clothing, cosmetics, and cafes.",
+    "last_verified_at": "2026-07-24T23:48:13Z",
+    "hours_status": "known",
+    "website": "https://www.lumine.ne.jp/shinjuku/",
+    "field_sources": {
+      "website": "https://www.wikidata.org/wiki/Q18457061"
+    },
+    "photo": {
+      "url": "https://upload.wikimedia.org/wikipedia/commons/9/92/Lumine_Shinjuku.jpg",
+      "license": "CC BY-SA 4.0",
+      "credit": "Kakidai",
+      "source_url": "https://commons.wikimedia.org/wiki/File:Lumine_Shinjuku.jpg"
+    },
+    "source_urls": [
+      "https://www.wikidata.org/wiki/Q18457061",
+      "https://www.lumine.ne.jp/shinjuku/"
+    ],
+    "data_quality_flags": [],
+    "enrichment_note": "web-enriched:photo,website"
+  },
+  {
+    "id": "d33beb84-0a09-49b8-b07c-58e0d6ef4b92",
+    "name": "NEWoMan Shinjuku",
+    "category": "shopping-street",
+    "rating": null,
+    "image_url": null,
+    "distance_label": null,
+    "tips": [
+      {
+        "text": "Visit the 2nd-floor food hall which offers high-quality international dining options and artisanal coffee with late-night hours.",
+        "source_url": "https://www.newoman.jp/shinjuku/"
+      }
+    ],
+    "reviews": null,
+    "hours": "11:00 AM - 8:30 PM",
+    "station": "Shinjuku Station",
+    "badges": [],
+    "google_place_id": null,
+    "lat": 35.688825,
+    "lng": 139.701389,
+    "address": "4-1-6 Shinjuku, Shinjuku-ku, Tokyo 160-0022",
+    "price_level": null,
+    "destination": null,
+    "source": "seed:jp-tokyo-2026-07-15",
+    "fetched_at": null,
+    "city": "Shinjuku",
+    "prefecture": "Tokyo",
+    "country": "JP",
+    "description": "A sleek, upscale lifestyle shopping mall tailored for professional women, featuring curated boutiques, bakeries, and high-end restaurants near Shinjuku Station.",
+    "last_verified_at": "2026-07-15 01:01:38.17282+00",
+    "hours_status": "known",
+    "data_quality_flags": [
+      "missing_photo"
+    ]
+  },
+  {
+    "id": "9751a0ce-9d4e-4469-b8f9-085169c0a5d8",
+    "name": "Shinjuku Central Park",
+    "category": "park",
+    "rating": null,
+    "image_url": null,
+    "distance_label": null,
+    "tips": [
+      {
+        "text": "The park often hosts weekend flea markets and food festivals which are popular with locals and visitors.",
+        "source_url": "https://en.wikipedia.org/wiki/Shinjuku_Central_Park"
+      }
+    ],
+    "reviews": null,
+    "hours": "Open 24 hours",
+    "station": "Tocho-mae Station",
+    "badges": [],
+    "google_place_id": null,
+    "lat": 35.69007,
+    "lng": 139.68947,
+    "address": "2-11 Nishi-Shinjuku, Shinjuku-ku, Tokyo 160-0023",
+    "price_level": null,
+    "destination": null,
+    "source": "seed:jp-tokyo-2026-07-15",
+    "fetched_at": null,
+    "city": "Shinjuku",
+    "prefecture": "Tokyo",
+    "country": "JP",
+    "description": "A spacious public park located in Nishi-Shinjuku amidst towering skyscrapers, offering green lawns, a multi-tier fountain, and quiet walking paths.",
+    "last_verified_at": "2026-07-24T23:48:17Z",
+    "hours_status": "known",
+    "website": "http://www.city.shinjuku.lg.jp/seikatsu/file15_02_00001.html",
+    "field_sources": {
+      "website": "osm:relation:13272644"
+    },
+    "photo": {
+      "url": "https://upload.wikimedia.org/wikipedia/commons/d/d1/Shinjuku_central_park_by_Bernaum.jpg",
+      "license": "Public domain",
+      "credit": "Jamie Kit 2007 (en:User:Bernaum)",
+      "source_url": "https://commons.wikimedia.org/wiki/File:Shinjuku_central_park_by_Bernaum.jpg"
+    },
+    "source_urls": [
+      "https://en.wikipedia.org/wiki/Shinjuku_Central_Park",
+      "https://www.wikidata.org/wiki/Q5364883",
+      "http://www.city.shinjuku.lg.jp/seikatsu/file15_02_00001.html"
+    ],
+    "data_quality_flags": [],
+    "enrichment_note": "web-enriched:photo,website"
+  },
+  {
+    "id": "ad3c854d-63bc-4490-a778-b1e1f0f8ac8c",
+    "name": "Mode Gakuen Cocoon Tower",
+    "category": "attraction",
+    "rating": null,
+    "image_url": null,
+    "distance_label": null,
+    "tips": [
+      {
+        "text": "The tower's distinctive crisscross pattern resembles a cocoon, symbolizing the nurturing of students inside.",
+        "source_url": "https://en.wikipedia.org/wiki/Mode_Gakuen_Cocoon_Tower"
+      }
+    ],
+    "reviews": null,
+    "hours": "unknown",
+    "station": "Shinjuku Station",
+    "badges": [],
+    "google_place_id": null,
+    "lat": 35.691667,
+    "lng": 139.696944,
+    "address": "1-7-3 Nishi-Shinjuku, Shinjuku-ku, Tokyo 160-0023",
+    "price_level": null,
+    "destination": null,
+    "source": "seed:jp-tokyo-2026-07-15",
+    "fetched_at": null,
+    "city": "Shinjuku",
+    "prefecture": "Tokyo",
+    "country": "JP",
+    "description": "An architecturally stunning, cocoon-shaped educational skyscraper that houses three vocational colleges and dominates the Nishi-Shinjuku skyline.",
+    "last_verified_at": "2026-07-24T23:48:29Z",
+    "hours_status": "unknown",
+    "website": "https://www.mode.ac.jp/tokyo/facilities",
+    "field_sources": {
+      "website": "https://www.wikidata.org/wiki/Q1030463"
+    },
+    "source_urls": [
+      "https://en.wikipedia.org/wiki/Mode_Gakuen_Cocoon_Tower",
+      "https://www.wikidata.org/wiki/Q1030463",
+      "https://www.mode.ac.jp/tokyo/facilities"
+    ],
+    "data_quality_flags": [
+      "missing_photo"
+    ],
+    "enrichment_note": "web-enriched:website"
+  },
+  {
+    "id": "8fd935c7-67ff-4fa2-ab70-77489873d014",
+    "name": "Shinjuku Ni-chome",
+    "category": "nightlife",
+    "rating": null,
+    "image_url": null,
+    "distance_label": null,
+    "tips": [
+      {
+        "text": "Most bars here are very small, seating under 10 people. Some bars cater exclusively to regular customers or specific groups, so look for welcoming signs or English menus.",
+        "source_url": "https://en.wikipedia.org/wiki/Shinjuku_Ni-ch%C5%8Dme"
+      }
+    ],
+    "reviews": null,
+    "hours": "unknown",
+    "station": "Shinjuku-sanchome Station",
+    "badges": [],
+    "google_place_id": null,
+    "lat": 35.69,
+    "lng": 139.706667,
+    "address": "2 Shinjuku, Shinjuku-ku, Tokyo 160-0022",
+    "price_level": null,
+    "destination": null,
+    "source": "seed:jp-tokyo-2026-07-15",
+    "fetched_at": null,
+    "city": "Shinjuku",
+    "prefecture": "Tokyo",
+    "country": "JP",
+    "description": "Tokyo's famous, vibrant LGBTQ+ district, home to the world's highest concentration of gay and lesbian bars nestled in cozy blocks.",
+    "last_verified_at": "2026-07-15 01:01:38.17282+00",
+    "hours_status": "unknown",
+    "data_quality_flags": [
+      "missing_photo"
+    ]
+  },
+  {
+    "id": "73756d9b-35d2-47f5-a52b-d84e83d0a08e",
+    "name": "Taisoji Temple",
+    "category": "temple",
+    "rating": null,
+    "image_url": null,
+    "distance_label": null,
+    "tips": [
+      {
+        "text": "Step inside to see the massive 2.6-meter bronze Jizo Bosatsu, which is one of the six great Jizo statues of Edo.",
+        "source_url": "https://ja.wikipedia.org/wiki/%E5%A4%AA%E5%AE%97%E5%AF%BA"
+      }
+    ],
+    "reviews": null,
+    "hours": "9:00 AM - 5:00 PM",
+    "station": "Shinjuku-gyoemmae Station",
+    "badges": [],
+    "google_place_id": null,
+    "lat": 35.689861,
+    "lng": 139.709361,
+    "address": "2-9-2 Shinjuku, Shinjuku-ku, Tokyo 160-0022",
+    "price_level": null,
+    "destination": null,
+    "source": "seed:jp-tokyo-2026-07-15",
+    "fetched_at": null,
+    "city": "Shinjuku",
+    "prefecture": "Tokyo",
+    "country": "JP",
+    "description": "A quiet Buddhist temple in Shinjuku that dates back to the Edo period, containing a giant red bronze statue of Jizo Bosatsu and a famous Enma statue.",
+    "last_verified_at": "2026-07-15 01:01:38.17282+00",
+    "hours_status": "known",
+    "data_quality_flags": [
+      "missing_photo"
+    ]
+  },
+  {
+    "id": "c40bea17-2ac3-4856-abf4-710d0dc231dd",
+    "name": "Sompo Museum of Art",
+    "category": "museum",
+    "rating": null,
+    "image_url": null,
+    "distance_label": null,
+    "tips": [
+      {
+        "text": "Advance reservations online are highly recommended to ensure entry on popular exhibition days.",
+        "source_url": "https://www.sompo-museum.org/en/"
+      }
+    ],
+    "reviews": null,
+    "hours": "10:00 AM - 6:00 PM",
+    "station": "Shinjuku Station",
+    "badges": [],
+    "google_place_id": null,
+    "lat": 35.69277778,
+    "lng": 139.69611111,
+    "address": "1-26-1 Nishi-Shinjuku, Shinjuku-ku, Tokyo 160-8338",
+    "price_level": null,
+    "destination": null,
+    "source": "seed:jp-tokyo-2026-07-15",
+    "fetched_at": null,
+    "city": "Shinjuku",
+    "prefecture": "Tokyo",
+    "country": "JP",
+    "description": "An art museum in Nishi-Shinjuku dedicated to modern paintings, famous for housing Vincent van Gogh's iconic 'Sunflowers' and works by Seiji Togo.",
+    "last_verified_at": "2026-07-24T23:49:09Z",
+    "hours_status": "known",
+    "website": "https://sompo-museum.org",
+    "field_sources": {
+      "website": "osm:way:572498043",
+      "phone": "osm:way:572498043"
+    },
+    "phone": "+81 3 3349 3081",
+    "photo": {
+      "url": "https://upload.wikimedia.org/wikipedia/commons/3/3a/Sompo_Museum_of_Art_2024-01-25.jpg",
+      "license": "CC0",
+      "credit": "Asanagi",
+      "source_url": "https://commons.wikimedia.org/wiki/File:Sompo_Museum_of_Art_2024-01-25.jpg"
+    },
+    "source_urls": [
+      "https://en.wikipedia.org/wiki/Sompo_Museum_of_Art",
+      "https://www.wikidata.org/wiki/Q1614504",
+      "https://sompo-museum.org"
+    ],
+    "data_quality_flags": [],
+    "enrichment_note": "web-enriched:phone,photo,website"
+  },
+  {
+    "id": "2361e755-119c-45c8-8cc7-70243b0ffcea",
+    "name": "Toyama Park",
+    "category": "park",
+    "rating": null,
+    "image_url": null,
+    "distance_label": null,
+    "tips": [
+      {
+        "text": "Climb to the top of Hakone Yama, which is 44.6 meters above sea level, and request a summit certificate from the park service office.",
+        "source_url": "https://ja.wikipedia.org/wiki/%E6%88%B8%E5%B1%B1%E5%85%AC%E5%9C%92"
+      }
+    ],
+    "reviews": null,
+    "hours": "Open 24 hours",
+    "station": "Nishi-waseda Station",
+    "badges": [],
+    "google_place_id": null,
+    "lat": 35.705333,
+    "lng": 139.704556,
+    "address": "1-chome to 3-chome Toyama, Shinjuku-ku, Tokyo 162-0052",
+    "price_level": null,
+    "destination": null,
+    "source": "seed:jp-tokyo-2026-07-15",
+    "fetched_at": null,
+    "city": "Shinjuku",
+    "prefecture": "Tokyo",
+    "country": "JP",
+    "description": "A large metropolitan park in Shinjuku, famous for containing Hakone Yama, the highest natural hilltop point on the Yamanote line ring.",
+    "last_verified_at": "2026-07-24T23:49:11Z",
+    "hours_status": "known",
+    "website": "https://www.tokyo-park.or.jp/park/format/index002.html",
+    "field_sources": {
+      "website": "https://www.wikidata.org/wiki/Q10950260"
+    },
+    "photo": {
+      "url": "https://upload.wikimedia.org/wikipedia/commons/7/70/HakoneYama2005-6ToyamaKoen.jpg",
+      "license": "Public domain",
+      "credit": "No machine-readable author provided. Kinori assumed (based on copyright claims).",
+      "source_url": "https://commons.wikimedia.org/wiki/File:HakoneYama2005-6ToyamaKoen.jpg"
+    },
+    "source_urls": [
+      "https://www.wikidata.org/wiki/Q10950260",
+      "https://www.tokyo-park.or.jp/park/format/index002.html"
+    ],
+    "data_quality_flags": [],
+    "enrichment_note": "web-enriched:photo,website"
+  },
+  {
+    "id": "f4c9ba80-ba56-41d7-8909-7bf4200b1c70",
+    "name": "Yayoi Kusama Museum",
+    "category": "museum",
+    "rating": null,
+    "image_url": null,
+    "distance_label": null,
+    "tips": [
+      {
+        "text": "Tickets must be purchased online in advance and are sold for specific, timed entry slots.",
+        "source_url": "https://yayoikusamamuseum.jp/en/home/"
+      }
+    ],
+    "reviews": null,
+    "hours": "11:00 AM - 5:30 PM",
+    "station": "Ushigome-yanagicho Station",
+    "badges": [],
+    "google_place_id": null,
+    "lat": 35.7032,
+    "lng": 139.72648,
+    "address": "107 Bentencho, Shinjuku-ku, Tokyo 162-0851",
+    "price_level": null,
+    "destination": null,
+    "source": "seed:jp-tokyo-2026-07-15",
+    "fetched_at": null,
+    "city": "Shinjuku",
+    "prefecture": "Tokyo",
+    "country": "JP",
+    "description": "A private museum in Shinjuku dedicated to the avant-garde artwork of Yayoi Kusama, featuring her iconic polka dots and immersive infinity rooms.",
+    "last_verified_at": "2026-07-24T23:49:40Z",
+    "hours_status": "known",
+    "website": "https://yayoikusamamuseum.jp/",
+    "field_sources": {
+      "website": "osm:node:5165879121"
+    },
+    "source_urls": [
+      "https://en.wikipedia.org/wiki/Yayoi_Kusama_Museum",
+      "https://www.wikidata.org/wiki/Q65941212",
+      "https://yayoikusamamuseum.jp/"
+    ],
+    "data_quality_flags": [
+      "missing_photo"
+    ],
+    "enrichment_note": "web-enriched:website"
+  },
+  {
+    "id": "b13b187b-bdf4-42be-9524-0d50a51d0f98",
+    "name": "Thermae-Yu",
+    "category": "bath",
+    "rating": null,
+    "image_url": null,
+    "distance_label": null,
+    "tips": [
+      {
+        "text": "Be aware that guests with visible tattoos are strictly not permitted to enter the facility.",
+        "source_url": "https://thermae-yu.jp/"
+      }
+    ],
+    "reviews": null,
+    "hours": "Open 24 hours",
+    "station": "Shinjuku-sanchome Station",
+    "badges": [],
+    "google_place_id": null,
+    "lat": 35.694662,
+    "lng": 139.704987,
+    "address": "1-1-2 Kabukicho, Shinjuku-ku, Tokyo 160-0021",
+    "price_level": null,
+    "destination": null,
+    "source": "seed:jp-tokyo-2026-07-15",
+    "fetched_at": null,
+    "city": "Shinjuku",
+    "prefecture": "Tokyo",
+    "country": "JP",
+    "description": "A huge, luxury six-story hot spring bathhouse in Kabukicho, featuring real onsen mineral water trucked in daily from Izu.",
+    "last_verified_at": "2026-07-15 01:01:38.17282+00",
+    "hours_status": "known",
+    "data_quality_flags": [
+      "missing_photo"
+    ]
+  },
+  {
+    "id": "d3884747-8d97-435f-9140-6f2b35b040e9",
+    "name": "Kagurazaka",
+    "category": "scenic-walk",
+    "rating": null,
+    "image_url": null,
+    "distance_label": null,
+    "tips": [
+      {
+        "text": "Wander off the main street into the narrow, winding cobblestone alleyways like Hyogo-cho or Kakurenbo-yokocho to discover hidden tea houses and high-end restaurants.",
+        "source_url": "https://en.wikipedia.org/wiki/Kagurazaka"
+      }
+    ],
+    "reviews": null,
+    "hours": "Open 24 hours",
+    "station": "Kagurazaka Station",
+    "badges": [],
+    "google_place_id": null,
+    "lat": 35.7024611111111,
+    "lng": 139.739,
+    "address": "Kagurazaka, Shinjuku-ku, Tokyo 162-0825",
+    "price_level": null,
+    "destination": null,
+    "source": "seed:jp-tokyo-2026-07-15",
+    "fetched_at": null,
+    "city": "Shinjuku",
+    "prefecture": "Tokyo",
+    "country": "JP",
+    "description": "A charming, historic neighborhood in Shinjuku featuring stone-paved alleys, quiet cafes, and a unique blend of traditional geisha culture and French dining.",
+    "last_verified_at": "2026-07-15 01:01:38.17282+00",
+    "hours_status": "known",
+    "source_urls": [
+      "https://www.wikidata.org/wiki/Q16800565"
+    ],
+    "data_quality_flags": [
+      "missing_photo"
+    ]
+  },
+  {
+    "id": "62109102-c2b3-4102-b647-d3d93eae3e89",
+    "name": "Kaminarimon",
+    "category": "attraction",
+    "rating": null,
+    "image_url": null,
+    "distance_label": null,
+    "tips": [
+      {
+        "text": "Look underneath the giant paper lantern to see the beautiful, intricate dragon carving on its wooden base.",
+        "source_url": "https://www.senso-ji.jp/guide/guide01.html"
+      }
+    ],
+    "reviews": null,
+    "hours": "Open 24 hours",
+    "station": "Asakusa Station",
+    "badges": [],
+    "google_place_id": null,
+    "lat": 35.711133,
+    "lng": 139.796325,
+    "address": "1-2-1 Asakusa, Taito City, Tokyo",
+    "price_level": null,
+    "destination": null,
+    "source": "seed:jp-tokyo-2026-07-15",
+    "fetched_at": null,
+    "city": "Taito",
+    "prefecture": "Tokyo",
+    "country": "JP",
+    "description": "The iconic outer entrance gate to Sensō-ji Temple, famous for its massive red paper lantern, thunder god statues, and lively atmosphere.",
+    "last_verified_at": "2026-07-24T23:50:17Z",
+    "hours_status": "known",
+    "website": "https://www.senso-ji.jp/guide/kaminari.html",
+    "field_sources": {
+      "website": "osm:way:173154849"
+    },
+    "photo": {
+      "url": "https://upload.wikimedia.org/wikipedia/commons/8/81/Day2-2_%2840909714314%29.jpg",
+      "license": "CC BY 2.0",
+      "credit": "Ajay Suresh from New York, NY, USA",
+      "source_url": "https://commons.wikimedia.org/wiki/File:Day2-2_(40909714314).jpg"
+    },
+    "source_urls": [
+      "https://en.wikipedia.org/wiki/Kaminarimon",
+      "https://www.wikidata.org/wiki/Q2378708",
+      "https://www.senso-ji.jp/guide/kaminari.html"
+    ],
+    "data_quality_flags": [],
+    "enrichment_note": "web-enriched:photo,website"
+  },
+  {
+    "id": "bdac20cf-01a9-4c93-ac0f-0e680ec04db0",
+    "name": "Nakamise Shopping Street",
+    "category": "shopping-street",
+    "rating": null,
+    "image_url": null,
+    "distance_label": null,
+    "tips": [
+      {
+        "text": "Do not eat while walking down the street; it is customary to consume purchased snacks directly in front of the shop where they were bought.",
+        "source_url": "https://www.asakusa-nakamise.jp/"
+      }
+    ],
+    "reviews": null,
+    "hours": "9:00 AM - 7:00 PM (varies by shop)",
+    "station": "Asakusa Station",
+    "badges": [],
+    "google_place_id": null,
+    "lat": 35.7128,
+    "lng": 139.7965,
+    "address": "2-3-1 Asakusa, Taito City, Tokyo",
+    "price_level": null,
+    "destination": null,
+    "source": "seed:jp-tokyo-2026-07-15",
+    "fetched_at": null,
+    "city": "Taito",
+    "prefecture": "Tokyo",
+    "country": "JP",
+    "description": "A historic, bustling approach to Sensō-ji Temple lined with dozens of small stalls selling traditional snacks, souvenirs, and crafts.",
+    "last_verified_at": "2026-07-24T23:50:34Z",
+    "hours_status": "known",
+    "website": "http://www.asakusa-nakamise.jp/",
+    "field_sources": {
+      "website": "https://www.wikidata.org/wiki/Q107583845"
+    },
+    "photo": {
+      "url": "https://upload.wikimedia.org/wikipedia/commons/4/41/Asakusa_sensoji07s3200.jpg",
+      "license": "CC BY 2.5",
+      "credit": "663highland",
+      "source_url": "https://commons.wikimedia.org/wiki/File:Asakusa_sensoji07s3200.jpg"
+    },
+    "source_urls": [
+      "https://www.wikidata.org/wiki/Q107583845",
+      "http://www.asakusa-nakamise.jp/"
+    ],
+    "data_quality_flags": [],
+    "enrichment_note": "web-enriched:photo,website"
+  },
+  {
+    "id": "dcf428cb-d6b6-4153-8906-ea19087e5384",
+    "name": "Asakusa Shrine",
+    "category": "shrine",
+    "rating": null,
+    "image_url": null,
+    "distance_label": null,
+    "tips": [
+      {
+        "text": "Look for the stone monument of two guardians on the shrine grounds, dedicated to the shrine founders.",
+        "source_url": "https://www.asakusajinja.jp/"
+      }
+    ],
+    "reviews": null,
+    "hours": "Open 24 hours (Shrine office: 9:00 AM - 4:30 PM)",
+    "station": "Asakusa Station",
+    "badges": [],
+    "google_place_id": null,
+    "lat": 35.715139,
+    "lng": 139.797436,
+    "address": "2-3-1 Asakusa, Taito City, Tokyo",
+    "price_level": null,
+    "destination": null,
+    "source": "seed:jp-tokyo-2026-07-15",
+    "fetched_at": null,
+    "city": "Taito",
+    "prefecture": "Tokyo",
+    "country": "JP",
+    "description": "A peaceful Shinto shrine adjacent to Sensō-ji, built to honor the three men who founded the temple and celebrated for hosting the massive Sanja Matsuri festival.",
+    "last_verified_at": "2026-07-24T23:51:02Z",
+    "hours_status": "known",
+    "website": "https://www.asakusajinja.jp/",
+    "field_sources": {
+      "website": "https://www.wikidata.org/wiki/Q670049"
+    },
+    "photo": {
+      "url": "https://upload.wikimedia.org/wikipedia/commons/c/c1/Asakusa_shrine_2012.JPG",
+      "license": "CC BY-SA 3.0",
+      "credit": "Kakidai",
+      "source_url": "https://commons.wikimedia.org/wiki/File:Asakusa_shrine_2012.JPG"
+    },
+    "source_urls": [
+      "https://en.wikipedia.org/wiki/Asakusa_Shrine",
+      "https://www.wikidata.org/wiki/Q670049",
+      "https://www.asakusajinja.jp/"
+    ],
+    "data_quality_flags": [],
+    "enrichment_note": "web-enriched:photo,website"
+  },
+  {
+    "id": "e22cd555-fc16-4316-b85e-cce589266797",
+    "name": "Ueno Park",
+    "category": "park",
+    "rating": null,
+    "image_url": null,
+    "distance_label": null,
+    "tips": [
+      {
+        "text": "Stop by the bronze statue of Saigo Takamori, a key historical figure of the Meiji Restoration, near the park's southern entrance.",
+        "source_url": "https://www.tokyo-park.or.jp/park/format/index038.html"
+      }
+    ],
+    "reviews": null,
+    "hours": "5:00 AM - 11:00 PM",
+    "station": "Ueno Station",
+    "badges": [],
+    "google_place_id": null,
+    "lat": 35.712222,
+    "lng": 139.771111,
+    "address": "Uenokoen, Taito City, Tokyo",
+    "price_level": null,
+    "destination": null,
+    "source": "seed:jp-tokyo-2026-07-15",
+    "fetched_at": null,
+    "city": "Taito",
+    "prefecture": "Tokyo",
+    "country": "JP",
+    "description": "A vast public park in Ueno housing multiple museums, shrines, Shinobazu Pond, and thousands of cherry trees that draw massive crowds in spring.",
+    "last_verified_at": "2026-07-24T23:51:19Z",
+    "hours_status": "known",
+    "website": "http://www.kensetsu.metro.tokyo.jp/toubuk/ueno/index_top.html",
+    "field_sources": {
+      "website": "https://www.wikidata.org/wiki/Q746216"
+    },
+    "photo": {
+      "url": "https://upload.wikimedia.org/wikipedia/commons/1/18/Ueno_park.jpg",
+      "license": "CC BY-SA 3.0",
+      "credit": "Bernard Gagnon",
+      "source_url": "https://commons.wikimedia.org/wiki/File:Ueno_park.jpg"
+    },
+    "source_urls": [
+      "https://en.wikipedia.org/wiki/Ueno_Park",
+      "https://www.wikidata.org/wiki/Q746216",
+      "http://www.kensetsu.metro.tokyo.jp/toubuk/ueno/index_top.html"
+    ],
+    "data_quality_flags": [],
+    "enrichment_note": "web-enriched:photo,website"
+  },
+  {
+    "id": "57832986-323d-4b9a-a844-ea5faf7b6a89",
+    "name": "Ueno Zoo",
+    "category": "attraction",
+    "rating": null,
+    "image_url": null,
+    "distance_label": null,
+    "tips": [
+      {
+        "text": "Purchase tickets online in advance to skip the long ticket queues at the main gate, especially during weekends and public holidays.",
+        "source_url": "https://www.tokyo-zoo.net/zoo/ueno/"
+      }
+    ],
+    "reviews": null,
+    "hours": "9:30 AM - 5:00 PM (Closed Mondays and Dec 29-Jan 1)",
+    "station": "Ueno Station",
+    "badges": [],
+    "google_place_id": null,
+    "lat": 35.7175,
+    "lng": 139.771389,
+    "address": "9-83 Uenokoen, Taito City, Tokyo",
+    "price_level": null,
+    "destination": null,
+    "source": "seed:jp-tokyo-2026-07-15",
+    "fetched_at": null,
+    "city": "Taito",
+    "prefecture": "Tokyo",
+    "country": "JP",
+    "description": "Japan's oldest zoo, established in 1882, home to hundreds of species including giant pandas and a five-story pagoda within its scenic grounds.",
+    "last_verified_at": "2026-07-24T23:51:22Z",
+    "hours_status": "known",
+    "website": "https://www.tokyo-zoo.net/zoo/ueno/",
+    "field_sources": {
+      "website": "osm:way:1065775336",
+      "phone": "osm:way:1065775336"
+    },
+    "phone": "+81 3-3828-5171",
+    "photo": {
+      "url": "https://upload.wikimedia.org/wikipedia/commons/3/3a/Ueno_Zoo_2012.JPG",
+      "license": "CC BY-SA 3.0",
+      "credit": "Kakidai",
+      "source_url": "https://commons.wikimedia.org/wiki/File:Ueno_Zoo_2012.JPG"
+    },
+    "source_urls": [
+      "https://en.wikipedia.org/wiki/Ueno_Zoo",
+      "https://www.wikidata.org/wiki/Q162722",
+      "https://www.tokyo-zoo.net/zoo/ueno/"
+    ],
+    "data_quality_flags": [],
+    "enrichment_note": "web-enriched:phone,photo,website"
+  },
+  {
+    "id": "54d8da11-479e-468e-9b5b-915acd2b114f",
+    "name": "Tokyo National Museum",
+    "category": "museum",
+    "rating": null,
+    "image_url": null,
+    "distance_label": null,
+    "tips": [
+      {
+        "text": "Visit the Kuromon (Black Gate), an Edo-period gate of a feudal lord's mansion, located in the museum's outdoor area.",
+        "source_url": "https://www.tnm.jp/"
+      }
+    ],
+    "reviews": null,
+    "hours": "9:30 AM - 5:00 PM (Closed Mondays)",
+    "station": "Ueno Station",
+    "badges": [],
+    "google_place_id": null,
+    "lat": 35.718889,
+    "lng": 139.776389,
+    "address": "13-9 Uenokoen, Taito City, Tokyo",
+    "price_level": null,
+    "destination": null,
+    "source": "seed:jp-tokyo-2026-07-15",
+    "fetched_at": null,
+    "city": "Taito",
+    "prefecture": "Tokyo",
+    "country": "JP",
+    "description": "The oldest and largest national museum in Japan, displaying an extensive collection of ancient Japanese art, national treasures, and archaeological finds.",
+    "last_verified_at": "2026-07-24T23:51:51Z",
+    "hours_status": "known",
+    "website": "https://www.tnm.jp/",
+    "field_sources": {
+      "website": "osm:way:33439660",
+      "phone": "osm:way:33439660"
+    },
+    "phone": "+81 3-3822-1111",
+    "source_urls": [
+      "https://en.wikipedia.org/wiki/Tokyo_National_Museum",
+      "https://www.wikidata.org/wiki/Q653433",
+      "https://www.tnm.jp/"
+    ],
+    "data_quality_flags": [
+      "missing_photo"
+    ],
+    "enrichment_note": "web-enriched:phone,website"
+  },
+  {
+    "id": "d8a23501-c654-47d7-988b-ab9a98617ba1",
+    "name": "National Museum of Nature and Science",
+    "category": "museum",
+    "rating": null,
+    "image_url": null,
+    "distance_label": null,
+    "tips": [
+      {
+        "text": "Don't miss the Theatre 360, a 3D spherical theater that provides a unique, immersive visual experience of evolution and the earth.",
+        "source_url": "https://www.kahaku.go.jp/"
+      }
+    ],
+    "reviews": null,
+    "hours": "9:00 AM - 5:00 PM (Closed Mondays)",
+    "station": "Ueno Station",
+    "badges": [],
+    "google_place_id": null,
+    "lat": 35.716319,
+    "lng": 139.776544,
+    "address": "7-20 Uenokoen, Taito City, Tokyo",
+    "price_level": null,
+    "destination": null,
+    "source": "seed:jp-tokyo-2026-07-15",
+    "fetched_at": null,
+    "city": "Taito",
+    "prefecture": "Tokyo",
+    "country": "JP",
+    "description": "A world-class science museum boasting extensive collections of fossils, dinosaur skeletons, and interactive exhibits detailing natural history and scientific advancements.",
+    "last_verified_at": "2026-07-24T23:52:03Z",
+    "hours_status": "known",
+    "website": "http://www.kahaku.go.jp/",
+    "field_sources": {
+      "website": "https://www.wikidata.org/wiki/Q74940"
+    },
+    "photo": {
+      "url": "https://upload.wikimedia.org/wikipedia/commons/3/3d/NMNC01s3200.jpg",
+      "license": "CC BY 2.5",
+      "credit": "663highland",
+      "source_url": "https://commons.wikimedia.org/wiki/File:NMNC01s3200.jpg"
+    },
+    "source_urls": [
+      "https://en.wikipedia.org/wiki/National_Museum_of_Nature_and_Science",
+      "https://www.wikidata.org/wiki/Q74940",
+      "http://www.kahaku.go.jp/"
+    ],
+    "data_quality_flags": [],
+    "enrichment_note": "web-enriched:photo,website"
+  },
+  {
+    "id": "bfbef623-d5b3-422b-947c-35bc2fc21246",
+    "name": "National Museum of Western Art",
+    "category": "museum",
+    "rating": null,
+    "image_url": null,
+    "distance_label": null,
+    "tips": [
+      {
+        "text": "Admire the bronze casts of Auguste Rodin's masterpiece sculptures, including 'The Gates of Hell' and 'The Thinker', displayed in the front courtyard.",
+        "source_url": "https://www.nmwa.go.jp/"
+      }
+    ],
+    "reviews": null,
+    "hours": "9:30 AM - 5:30 PM (Fridays and Saturdays: 9:30 AM - 8:00 PM) (Closed Mondays)",
+    "station": "Ueno Station",
+    "badges": [],
+    "google_place_id": null,
+    "lat": 35.715357,
+    "lng": 139.77585,
+    "address": "7-7 Uenokoen, Taito City, Tokyo",
+    "price_level": null,
+    "destination": null,
+    "source": "seed:jp-tokyo-2026-07-15",
+    "fetched_at": null,
+    "city": "Taito",
+    "prefecture": "Tokyo",
+    "country": "JP",
+    "description": "Japan's premier museum for Western art, displaying European paintings and Rodin sculptures in a landmark building designed by French architect Le Corbusier.",
+    "last_verified_at": "2026-07-24T23:52:23Z",
+    "hours_status": "known",
+    "website": "https://www.nmwa.go.jp/",
+    "field_sources": {
+      "website": "osm:way:203960903"
+    },
+    "photo": {
+      "url": "https://upload.wikimedia.org/wikipedia/commons/9/9d/National_museum_of_western_art05s3200.jpg",
+      "license": "CC BY-SA 4.0",
+      "credit": "663highland",
+      "source_url": "https://commons.wikimedia.org/wiki/File:National_museum_of_western_art05s3200.jpg"
+    },
+    "source_urls": [
+      "https://en.wikipedia.org/wiki/National_Museum_of_Western_Art",
+      "https://www.wikidata.org/wiki/Q1362629",
+      "https://www.nmwa.go.jp/"
+    ],
+    "data_quality_flags": [],
+    "enrichment_note": "web-enriched:photo,website"
+  },
+  {
+    "id": "ef9a2cc4-214a-4e30-8dd5-92741fd4c0c6",
+    "name": "Ameya-Yokochō",
+    "category": "market",
+    "rating": null,
+    "image_url": null,
+    "distance_label": null,
+    "tips": [
+      {
+        "text": "Bargain respectfully at the fish and food stalls, which is a rare shopping custom in Tokyo, and enjoy cheap skewers or fresh fruit slices.",
+        "source_url": "https://www.ameyoko.net/"
+      }
+    ],
+    "reviews": null,
+    "hours": "10:00 AM - 8:00 PM (varies by shop)",
+    "station": "Ueno Station",
+    "badges": [],
+    "google_place_id": null,
+    "lat": 35.710059,
+    "lng": 139.774543,
+    "address": "4-9-15 Ueno, Taito City, Tokyo",
+    "price_level": null,
+    "destination": null,
+    "source": "seed:jp-tokyo-2026-07-15",
+    "fetched_at": null,
+    "city": "Taito",
+    "prefecture": "Tokyo",
+    "country": "JP",
+    "description": "A vibrant, open-air market street running along the railway tracks, packed with shops selling street food, spices, cheap clothing, and fresh seafood.",
+    "last_verified_at": "2026-07-24T23:52:25Z",
+    "hours_status": "known",
+    "website": "https://www.ameyoko.net/",
+    "field_sources": {
+      "website": "osm:node:4496960001",
+      "phone": "osm:node:4496960001"
+    },
+    "phone": "+81 3-3832-5053",
+    "photo": {
+      "url": "https://upload.wikimedia.org/wikipedia/commons/5/5e/Ueno_20241210_133139.jpg",
+      "license": "CC BY 4.0",
+      "credit": "Ka23 13",
+      "source_url": "https://commons.wikimedia.org/wiki/File:Ueno_20241210_133139.jpg"
+    },
+    "source_urls": [
+      "https://en.wikipedia.org/wiki/Ameya-Yokoch%C5%8D",
+      "https://www.wikidata.org/wiki/Q864815",
+      "https://www.ameyoko.net/"
+    ],
+    "data_quality_flags": [],
+    "enrichment_note": "web-enriched:phone,photo,website"
+  },
+  {
+    "id": "976ed337-29e1-4d5e-bca8-3a53a8cd3cbb",
+    "name": "Kappabashi-dori",
+    "category": "shopping-street",
+    "rating": null,
+    "image_url": null,
+    "distance_label": null,
+    "tips": [
+      {
+        "text": "Shop for high-quality Japanese chef knives or pick up incredibly realistic plastic food models (sampuru) as a unique, hand-crafted Tokyo souvenir.",
+        "source_url": "https://www.kappabashi.or.jp/"
+      }
+    ],
+    "reviews": null,
+    "hours": "9:00 AM - 5:00 PM (Many shops closed Sundays)",
+    "station": "Tawaramachi Station",
+    "badges": [],
+    "google_place_id": null,
+    "lat": 35.71675,
+    "lng": 139.78915,
+    "address": "3-18-2 Matsugaya, Taito City, Tokyo",
+    "price_level": null,
+    "destination": null,
+    "source": "seed:jp-tokyo-2026-07-15",
+    "fetched_at": null,
+    "city": "Taito",
+    "prefecture": "Tokyo",
+    "country": "JP",
+    "description": "Tokyo's famous restaurant supply street, lined with over 150 shops specializing in kitchenware, tableware, knives, and incredibly realistic plastic food replicas.",
+    "last_verified_at": "2026-07-15 01:01:38.17282+00",
+    "hours_status": "known",
+    "data_quality_flags": [
+      "missing_photo"
+    ]
+  },
+  {
+    "id": "b90ee8d6-99cb-473b-8ed9-370fe82de011",
+    "name": "Shitamachi Museum",
+    "category": "museum",
+    "rating": null,
+    "image_url": null,
+    "distance_label": null,
+    "tips": [
+      {
+        "text": "Take off your shoes to step into the reconstructed merchant homes and interact with the nostalgic Shitamachi games and antique household items.",
+        "source_url": "https://www.taitocity.net/zaidan/shitamachi/"
+      }
+    ],
+    "reviews": null,
+    "hours": "9:30 AM - 4:30 PM (Closed Mondays)",
+    "station": "Ueno-okachimachi Station",
+    "badges": [],
+    "google_place_id": null,
+    "lat": 35.7102,
+    "lng": 139.7726,
+    "address": "2-1 Uenokoen, Taito City, Tokyo",
+    "price_level": null,
+    "destination": null,
+    "source": "seed:jp-tokyo-2026-07-15",
+    "fetched_at": null,
+    "city": "Taito",
+    "prefecture": "Tokyo",
+    "country": "JP",
+    "description": "A nostalgic museum depicting life in the historic 'shitamachi' flatlands of Tokyo, featuring reconstructed merchant shops, workshops, and Edo-period relics.",
+    "last_verified_at": "2026-07-15 01:01:38.17282+00",
+    "hours_status": "known",
+    "data_quality_flags": [
+      "missing_photo"
+    ]
+  },
+  {
+    "id": "3eb151cc-0e63-409c-ba7e-7abb2fa305b0",
+    "name": "Asakusa Culture Tourist Information Center",
+    "category": "viewpoint",
+    "rating": null,
+    "image_url": null,
+    "distance_label": null,
+    "tips": [
+      {
+        "text": "Head straight up to the 8th floor for a free, unobstructed bird's-eye view of Nakamise-dori, Kaminarimon, and the Tokyo Skytree.",
+        "source_url": "https://www.city.taito.lg.jp/index/bunka_kanko/oyakudachi/kankocenter/"
+      }
+    ],
+    "reviews": null,
+    "hours": "9:00 AM - 8:00 PM (Observation deck open until 10:00 PM)",
+    "station": "Asakusa Station",
+    "badges": [],
+    "google_place_id": null,
+    "lat": 35.710694,
+    "lng": 139.7965,
+    "address": "2-18-9 Kaminarimon, Taito City, Tokyo",
+    "price_level": null,
+    "destination": null,
+    "source": "seed:jp-tokyo-2026-07-15",
+    "fetched_at": null,
+    "city": "Taito",
+    "prefecture": "Tokyo",
+    "country": "JP",
+    "description": "An architecturally striking multi-story wooden tourist center designed by Kengo Kuma, offering helpful services and a stunning 8th-floor observation deck.",
+    "last_verified_at": "2026-07-24T23:53:05Z",
+    "hours_status": "known",
+    "website": "https://www.city.taito.lg.jp/index/bunka_kanko/oyakudachi/kankocenter/",
+    "field_sources": {
+      "website": "osm:way:166180253"
+    },
+    "photo": {
+      "url": "https://upload.wikimedia.org/wikipedia/commons/5/5b/Asakusa_Culture_Tourist_Information_Center_2016.jpg",
+      "license": "CC BY-SA 4.0",
+      "credit": "Kakidai",
+      "source_url": "https://commons.wikimedia.org/wiki/File:Asakusa_Culture_Tourist_Information_Center_2016.jpg"
+    },
+    "source_urls": [
+      "https://en.wikipedia.org/wiki/Asakusa_Culture_Tourist_Information_Center",
+      "https://www.wikidata.org/wiki/Q24877101",
+      "https://www.city.taito.lg.jp/index/bunka_kanko/oyakudachi/kankocenter/"
+    ],
+    "data_quality_flags": [],
+    "enrichment_note": "web-enriched:photo,website"
+  },
+  {
+    "id": "74407fc7-6cb0-4e1e-b38d-cf0458dbd545",
+    "name": "Ueno Tōshō-gū Shrine",
+    "category": "shrine",
+    "rating": null,
+    "image_url": null,
+    "distance_label": null,
+    "tips": [
+      {
+        "text": "Visit the shrine during the winter or spring to see the beautiful peony garden (Peony Garden Ueno Toshogu), featuring rare floral displays.",
+        "source_url": "http://www.uenotoshogu.com/en/"
+      }
+    ],
+    "reviews": null,
+    "hours": "9:00 AM - 4:30 PM (October to February: 9:00 AM - 4:00 PM)",
+    "station": "Ueno Station",
+    "badges": [],
+    "google_place_id": null,
+    "lat": 35.715361,
+    "lng": 139.770583,
+    "address": "9-88 Uenokoen, Taito City, Tokyo",
+    "price_level": null,
+    "destination": null,
+    "source": "seed:jp-tokyo-2026-07-15",
+    "fetched_at": null,
+    "city": "Taito",
+    "prefecture": "Tokyo",
+    "country": "JP",
+    "description": "A rare, surviving Edo-period Shinto shrine dedicated to Tokugawa Ieyasu, adorned with magnificent gold leaf carvings and hundreds of bronze lanterns.",
+    "last_verified_at": "2026-07-15 01:01:38.17282+00",
+    "hours_status": "known",
+    "data_quality_flags": [
+      "missing_photo"
+    ]
+  },
+  {
+    "id": "b493f37b-2cf8-4533-b7cb-561f986e0092",
+    "name": "Shinobazu Pond",
+    "category": "park",
+    "rating": null,
+    "image_url": null,
+    "distance_label": null,
+    "tips": [
+      {
+        "text": "Rent a whimsical swan pedal boat on the southern pond section for a fun and leisurely cruise with views of the Ueno skyline.",
+        "source_url": "https://www.tokyo-park.or.jp/park/format/index038.html"
+      }
+    ],
+    "reviews": null,
+    "hours": "Open 24 hours (Boat rentals: 9:00 AM - 5:00 PM)",
+    "station": "Ueno Station",
+    "badges": [],
+    "google_place_id": null,
+    "lat": 35.711389,
+    "lng": 139.77,
+    "address": "5-20 Uenokoen, Taito City, Tokyo",
+    "price_level": null,
+    "destination": null,
+    "source": "seed:jp-tokyo-2026-07-15",
+    "fetched_at": null,
+    "city": "Taito",
+    "prefecture": "Tokyo",
+    "country": "JP",
+    "description": "A beautiful, natural pond in Ueno Park famous for its dense summer lotus blooms, waterfowl, and the hexagonal Bentendo temple on its center island.",
+    "last_verified_at": "2026-07-24T23:53:07Z",
+    "hours_status": "known",
+    "photo": {
+      "url": "https://upload.wikimedia.org/wikipedia/commons/e/ea/%E4%B8%8D%E5%BF%8D%E6%B1%A0_-_panoramio.jpg",
+      "license": "CC BY 3.0",
+      "credit": "くろふね",
+      "source_url": "https://commons.wikimedia.org/wiki/File:不忍池_-_panoramio.jpg"
+    },
+    "source_urls": [
+      "https://en.wikipedia.org/wiki/Shinobazu_Pond",
+      "https://www.wikidata.org/wiki/Q5365093"
+    ],
+    "data_quality_flags": [],
+    "enrichment_note": "web-enriched:photo"
+  },
+  {
+    "id": "d03c6075-3314-4e15-8990-af64bdce8c60",
+    "name": "Kyū-Iwasaki-tei Garden",
+    "category": "attraction",
+    "rating": null,
+    "image_url": null,
+    "distance_label": null,
+    "tips": [
+      {
+        "text": "Tour the inside of the Western-style mansion to admire the incredibly detailed Jacobean plasterwork and rare English hand-painted tile stoves.",
+        "source_url": "https://www.tokyo-park.or.jp/park/format/index037.html"
+      }
+    ],
+    "reviews": null,
+    "hours": "9:00 AM - 5:00 PM (Closed Dec 29 - Jan 3)",
+    "station": "Yushima Station",
+    "badges": [],
+    "google_place_id": null,
+    "lat": 35.709722,
+    "lng": 139.767778,
+    "address": "1-3-45 Ikenohata, Taito City, Tokyo",
+    "price_level": null,
+    "destination": null,
+    "source": "seed:jp-tokyo-2026-07-15",
+    "fetched_at": null,
+    "city": "Taito",
+    "prefecture": "Tokyo",
+    "country": "JP",
+    "description": "A unique park containing the exquisite late-19th-century residential estates of the Mitsubishi clan, displaying a mix of Western and traditional Japanese architecture.",
+    "last_verified_at": "2026-07-15 01:01:38.17282+00",
+    "hours_status": "known",
+    "data_quality_flags": [
+      "missing_photo"
+    ]
+  },
+  {
+    "id": "b90e9cad-cfee-4de9-9f75-1f8b7b69f056",
+    "name": "Tsubame-yu",
+    "category": "bath",
+    "rating": null,
+    "image_url": null,
+    "distance_label": null,
+    "tips": [
+      {
+        "text": "Experience a traditional morning soak, but be prepared as the waters of this historic sento are famously hot.",
+        "source_url": "https://ja.wikipedia.org/wiki/%E7%85%92%E6%B1%80"
+      }
+    ],
+    "reviews": null,
+    "hours": "6:00 AM - 8:00 PM (Closed Mondays)",
+    "station": "Okachimachi Station",
+    "badges": [],
+    "google_place_id": null,
+    "lat": 35.705472,
+    "lng": 139.772889,
+    "address": "3-14-5 Ueno, Taito City, Tokyo",
+    "price_level": null,
+    "destination": null,
+    "source": "seed:jp-tokyo-2026-07-15",
+    "fetched_at": null,
+    "city": "Taito",
+    "prefecture": "Tokyo",
+    "country": "JP",
+    "description": "A historic public bathhouse (sento) in Ueno, famous for its morning hours and a rock bath mountain registered as a National Tangible Cultural Property.",
+    "last_verified_at": "2026-07-15 01:01:38.17282+00",
+    "hours_status": "known",
+    "data_quality_flags": [
+      "missing_photo"
+    ]
+  },
+  {
+    "id": "f4eb613c-877d-44d4-a22d-ad3541c5461c",
+    "name": "Hanayashiki",
+    "category": "attraction",
+    "rating": null,
+    "image_url": null,
+    "distance_label": null,
+    "tips": [
+      {
+        "text": "Ride the oldest surviving steel roller coaster in Japan, which has been thrilling visitors since 1953 as it zips past retro wooden buildings.",
+        "source_url": "https://www.hanayashiki.net/"
+      }
+    ],
+    "reviews": null,
+    "hours": "10:00 AM - 6:00 PM (varies by season)",
+    "station": "Asakusa Station",
+    "badges": [],
+    "google_place_id": null,
+    "lat": 35.715497,
+    "lng": 139.794689,
+    "address": "2-28-1 Asakusa, Taito City, Tokyo",
+    "price_level": null,
+    "destination": null,
+    "source": "seed:jp-tokyo-2026-07-15",
+    "fetched_at": null,
+    "city": "Taito",
+    "prefecture": "Tokyo",
+    "country": "JP",
+    "description": "Dating back to 1853, Hanayashiki is celebrated as Japan's oldest amusement park, featuring a charming retro ambiance and a classic steel roller coaster.",
+    "last_verified_at": "2026-07-15 01:01:38.17282+00",
+    "hours_status": "known",
+    "data_quality_flags": [
+      "missing_photo"
+    ]
+  }
+]

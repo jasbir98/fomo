@@ -1,0 +1,423 @@
+{
+  "tiktok": {
+    "Senso-ji Temple": {
+      "status": "done",
+      "count": 5,
+      "at": "2026-07-23T17:02:34.195442+00:00"
+    },
+    "Shibuya Sky": {
+      "status": "done",
+      "count": 5,
+      "at": "2026-07-23T17:02:52.709432+00:00"
+    },
+    "Tsutaya Books": {
+      "status": "done",
+      "count": 5,
+      "at": "2026-07-23T17:03:14.897648+00:00"
+    },
+    "The Roasters Guild": {
+      "status": "done",
+      "count": 5,
+      "at": "2026-07-23T17:03:44.796718+00:00"
+    },
+    "Osteria Modern": {
+      "status": "done",
+      "count": 5,
+      "at": "2026-07-23T17:04:05.206446+00:00"
+    },
+    "name:tokyo:bunkyo:tokyo-dome": {
+      "status": "done",
+      "count": 3,
+      "at": "2026-07-24T22:24:20.863650+00:00"
+    },
+    "name:tokyo:bunkyo:tokyo-dome-city-attractions": {
+      "status": "done",
+      "count": 3,
+      "at": "2026-07-24T22:24:47.243284+00:00"
+    },
+    "name:tokyo:bunkyo:koishikawa-korakuen": {
+      "status": "done",
+      "count": 3,
+      "at": "2026-07-24T22:25:15.961634+00:00"
+    },
+    "name:tokyo:bunkyo:rikugien": {
+      "status": "done",
+      "count": 3,
+      "at": "2026-07-24T22:25:46.780315+00:00"
+    },
+    "name:tokyo:bunkyo:koishikawa-botanical-garden": {
+      "status": "done",
+      "count": 3,
+      "at": "2026-07-24T22:26:06.819504+00:00"
+    },
+    "name:tokyo:bunkyo:chinzanso-garden": {
+      "status": "done",
+      "count": 3,
+      "at": "2026-07-24T22:26:31.677913+00:00"
+    },
+    "name:tokyo:bunkyo:higo-hosokawa-garden": {
+      "status": "done",
+      "count": 3,
+      "at": "2026-07-24T22:27:01.647080+00:00"
+    },
+    "name:tokyo:bunkyo:akamon-red-gate-university-of-tokyo": {
+      "status": "done",
+      "count": 3,
+      "at": "2026-07-24T22:27:27.445190+00:00"
+    },
+    "name:tokyo:chiyoda:imperial-palace": {
+      "status": "done",
+      "count": 5,
+      "city": "Chiyoda",
+      "at": "2026-07-24T22:44:08.011533+00:00"
+    },
+    "name:tokyo:chiyoda:imperial-palace-east-gardens": {
+      "status": "done",
+      "count": 5,
+      "city": "Chiyoda",
+      "at": "2026-07-24T22:44:30.830081+00:00"
+    },
+    "name:tokyo:chiyoda:nijubashi-bridge": {
+      "status": "done",
+      "count": 5,
+      "city": "Chiyoda",
+      "at": "2026-07-24T22:44:53.888420+00:00"
+    },
+    "Omoide Yokocho": {
+      "status": "done",
+      "count": 5,
+      "city": "Shinjuku",
+      "at": "2026-07-24T22:46:38.713485+00:00"
+    },
+    "Hedgehog Cafe": {
+      "status": "done",
+      "count": 5,
+      "city": "",
+      "at": "2026-07-24T22:47:02.861678+00:00"
+    },
+    "Mega Don Quijote": {
+      "status": "done",
+      "count": 5,
+      "city": "",
+      "at": "2026-07-24T22:47:18.307096+00:00"
+    },
+    "Tokyo Skytree": {
+      "status": "done",
+      "count": 5,
+      "city": "",
+      "at": "2026-07-24T22:47:45.058943+00:00"
+    },
+    "Tokyo Tower": {
+      "status": "done",
+      "count": 5,
+      "city": "",
+      "at": "2026-07-24T22:48:04.503108+00:00"
+    },
+    "Sensō-ji": {
+      "status": "done",
+      "count": 5,
+      "city": "Taito",
+      "at": "2026-07-24T22:48:27.388155+00:00"
+    },
+    "Omoide Yokocho Memory Lane": {
+      "status": "done",
+      "count": 5,
+      "city": "",
+      "at": "2026-07-24T22:48:45.582093+00:00"
+    },
+    "Tokyo Night & Light": {
+      "status": "done",
+      "count": 5,
+      "city": "",
+      "at": "2026-07-24T22:49:13.372095+00:00"
+    },
+    "Godzilla Head": {
+      "status": "done",
+      "count": 5,
+      "city": "Shinjuku",
+      "at": "2026-07-24T22:52:03.336532+00:00"
+    },
+    "CENSU TOKYO": {
+      "status": "done",
+      "count": 5,
+      "city": "",
+      "at": "2026-07-24T22:52:31.590868+00:00"
+    },
+    "Washoku Hoshizora No Naka-he Shinjyuku": {
+      "status": "done",
+      "count": 5,
+      "city": "",
+      "at": "2026-07-24T22:53:01.680520+00:00"
+    },
+    "New York Grill": {
+      "status": "done",
+      "count": 5,
+      "city": "",
+      "at": "2026-07-24T22:53:30.251796+00:00"
+    },
+    "Momo Paradise Shinjuku Higashi-guchi": {
+      "status": "done",
+      "count": 5,
+      "city": "",
+      "at": "2026-07-24T22:53:57.893912+00:00"
+    },
+    "POLÈNE 東京店": {
+      "status": "done",
+      "count": 5,
+      "city": "",
+      "at": "2026-07-24T22:54:19.116298+00:00"
+    },
+    "Roppongi Hills - Tokyo City View": {
+      "status": "done",
+      "count": 5,
+      "city": "",
+      "at": "2026-07-24T22:54:50.741994+00:00"
+    },
+    "Tsurugaoka Hachimangu": {
+      "status": "done",
+      "count": 5,
+      "city": "Kamakura",
+      "at": "2026-07-24T22:55:19.542986+00:00"
+    },
+    "INDIAN DINING NEW DELHI": {
+      "status": "done",
+      "count": 5,
+      "city": "",
+      "at": "2026-07-24T22:58:22.672506+00:00"
+    },
+    "Nail Partner Shinjuku": {
+      "status": "done",
+      "count": 5,
+      "city": "",
+      "at": "2026-07-24T22:58:41.590509+00:00"
+    },
+    "Teppan Baby": {
+      "status": "done",
+      "count": 5,
+      "city": "",
+      "at": "2026-07-24T22:59:09.187345+00:00"
+    },
+    "Delhi Restaurant": {
+      "status": "done",
+      "count": 5,
+      "city": "",
+      "at": "2026-07-24T22:59:35.082005+00:00"
+    },
+    "Kotoku-in (Great Buddha of Kamakura)": {
+      "status": "done",
+      "count": 5,
+      "city": "Kamakura",
+      "at": "2026-07-24T23:00:04.400922+00:00"
+    },
+    "Hase-dera (Kamakura)": {
+      "status": "done",
+      "count": 5,
+      "city": "Kamakura",
+      "at": "2026-07-24T23:00:28.820008+00:00"
+    },
+    "Hokoku-ji": {
+      "status": "done",
+      "count": 5,
+      "city": "Kamakura",
+      "at": "2026-07-24T23:00:48.110883+00:00"
+    },
+    "Sankeien Garden": {
+      "status": "done",
+      "count": 5,
+      "city": "Yokohama",
+      "at": "2026-07-24T23:01:07.232986+00:00"
+    },
+    "Yokohama Red Brick Warehouse": {
+      "status": "done",
+      "count": 5,
+      "city": "Yokohama",
+      "at": "2026-07-24T23:03:08.693595+00:00"
+    },
+    "CUPNOODLES MUSEUM YOKOHAMA": {
+      "status": "done",
+      "count": 5,
+      "city": "Yokohama",
+      "at": "2026-07-24T23:03:36.117804+00:00"
+    },
+    "Yokohama Landmark Tower Sky Garden": {
+      "status": "done",
+      "count": 5,
+      "city": "Yokohama",
+      "at": "2026-07-24T23:04:09.595281+00:00"
+    },
+    "Naritasan Park": {
+      "status": "done",
+      "count": 5,
+      "city": "Narita",
+      "at": "2026-07-24T23:04:28.451853+00:00"
+    },
+    "Yoyogi Park": {
+      "status": "done",
+      "count": 5,
+      "city": "Shibuya",
+      "at": "2026-07-24T23:04:49.489416+00:00"
+    },
+    "Meiji Jingu": {
+      "status": "done",
+      "count": 5,
+      "city": "Shibuya",
+      "at": "2026-07-24T23:05:13.173872+00:00"
+    },
+    "Nonbei Yokocho": {
+      "status": "done",
+      "count": 5,
+      "city": "Shibuya",
+      "at": "2026-07-24T23:05:31.868539+00:00"
+    },
+    "Cat Street": {
+      "status": "done",
+      "count": 5,
+      "city": "Shibuya",
+      "at": "2026-07-24T23:06:02.136493+00:00"
+    },
+    "Miyashita Park": {
+      "status": "done",
+      "count": 5,
+      "city": "Shibuya",
+      "at": "2026-07-24T23:08:41.014152+00:00"
+    },
+    "Shibuya Center-Gai": {
+      "status": "done",
+      "count": 5,
+      "city": "Shibuya",
+      "at": "2026-07-24T23:09:04.449313+00:00"
+    },
+    "Konnoh Hachimangu": {
+      "status": "done",
+      "count": 5,
+      "city": "Shibuya",
+      "at": "2026-07-24T23:09:29.345326+00:00"
+    },
+    "Kamakura Rokuyata": {
+      "status": "done",
+      "count": 5,
+      "city": "",
+      "at": "2026-07-24T23:09:46.228439+00:00"
+    },
+    "Owakudani": {
+      "status": "done",
+      "count": 5,
+      "city": "Hakone",
+      "at": "2026-07-24T23:10:18.306923+00:00"
+    },
+    "Hakone Shrine": {
+      "status": "done",
+      "count": 5,
+      "city": "Hakone",
+      "at": "2026-07-24T23:10:38.057843+00:00"
+    },
+    "Hakone Open-Air Museum": {
+      "status": "done",
+      "count": 5,
+      "city": "Hakone",
+      "at": "2026-07-24T23:10:56.197335+00:00"
+    },
+    "Hakone Ropeway": {
+      "status": "done",
+      "count": 5,
+      "city": "Hakone",
+      "at": "2026-07-24T23:11:16.293141+00:00"
+    },
+    "Naritasan Shinshoji Temple": {
+      "status": "done",
+      "count": 5,
+      "city": "Narita",
+      "at": "2026-07-24T23:13:50.653681+00:00"
+    },
+    "Toguri Museum of Art": {
+      "status": "done",
+      "count": 5,
+      "city": "Shibuya",
+      "at": "2026-07-24T23:14:12.437223+00:00"
+    },
+    "Shoto Museum of Art": {
+      "status": "done",
+      "count": 5,
+      "city": "Shibuya",
+      "at": "2026-07-24T23:14:43.070978+00:00"
+    },
+    "Shibuya Hikarie": {
+      "status": "done",
+      "count": 5,
+      "city": "Shibuya",
+      "at": "2026-07-24T23:15:07.064826+00:00"
+    },
+    "Log Road Daikanyama": {
+      "status": "done",
+      "count": 5,
+      "city": "Shibuya",
+      "at": "2026-07-24T23:15:28.083618+00:00"
+    },
+    "Narita City Sakuranoyama Park": {
+      "status": "done",
+      "count": 5,
+      "city": "Narita",
+      "at": "2026-07-24T23:15:49.635805+00:00"
+    },
+    "Inubosaki Lighthouse": {
+      "status": "done",
+      "count": 5,
+      "city": "Choshi",
+      "at": "2026-07-24T23:16:12.786698+00:00"
+    },
+    "Chōshi Electric Railway": {
+      "status": "done",
+      "count": 5,
+      "city": "Choshi",
+      "at": "2026-07-24T23:16:32.053992+00:00"
+    },
+    "Byobugaura Cliffs": {
+      "status": "done",
+      "count": 5,
+      "city": "Choshi",
+      "at": "2026-07-24T23:19:23.064932+00:00"
+    },
+    "Katori Jingu": {
+      "status": "done",
+      "count": 5,
+      "city": "Katori",
+      "at": "2026-07-24T23:19:39.906264+00:00"
+    },
+    "North Observation Deck, Tokyo Metropolitan Government Building No. 1": {
+      "status": "done",
+      "count": 5,
+      "city": "",
+      "at": "2026-07-24T23:20:05.562643+00:00"
+    },
+    "Kairyou-yu": {
+      "status": "done",
+      "count": 5,
+      "city": "Shibuya",
+      "at": "2026-07-24T23:20:30.188414+00:00"
+    },
+    "Shibuya Scramble Crossing": {
+      "status": "done",
+      "count": 5,
+      "city": "Shibuya",
+      "at": "2026-07-24T23:20:54.688122+00:00"
+    },
+    "Hachiko Statue": {
+      "status": "done",
+      "count": 5,
+      "city": "Shibuya",
+      "at": "2026-07-24T23:21:11.693247+00:00"
+    },
+    "Nabeshima Shoto Park": {
+      "status": "done",
+      "count": 5,
+      "city": "Shibuya",
+      "at": "2026-07-24T23:21:33.571222+00:00"
+    },
+    "Shibuya PARCO": {
+      "status": "done",
+      "count": 5,
+      "city": "Shibuya",
+      "at": "2026-07-24T23:22:02.318962+00:00"
+    }
+  }
+}

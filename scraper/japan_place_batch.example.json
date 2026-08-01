@@ -1,0 +1,20 @@
+{
+  "batch_id": "jp-kanto-pilot-2026-07-14",
+  "region": "Kanto",
+  "prefectures": ["Tokyo", "Kanagawa", "Chiba"],
+  "places": [
+    {
+      "name": "Senso-ji",
+      "prefecture": "Tokyo",
+      "city": "Taito",
+      "category": "Temple",
+      "google_query": "Senso-ji Taito Tokyo Japan"
+    }
+  ],
+  "sources": [
+    {
+      "url": "https://www.gotokyo.org/en/spot/15/index.html",
+      "text": "Optional pre-fetched source text. Omit text to let the script fetch the page."
+    }
+  ]
+}

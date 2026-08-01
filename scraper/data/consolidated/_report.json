@@ -1,0 +1,1538 @@
+{
+  "generated_at": "2026-07-24T23:37:54Z",
+  "source": "data/kanto_places.json",
+  "cleanup_rules": {
+    "drop_categories": [
+      "beauty salon",
+      "embassy",
+      "government office",
+      "locality",
+      "service",
+      "sporting goods store",
+      "sublocality level 2",
+      "transit station"
+    ],
+    "drop_fabricated_reviews": true,
+    "drop_stock_image_url_hosts": [
+      "images.unsplash.com"
+    ]
+  },
+  "enrichment_sources": [
+    "Wikidata (wbsearchentities + entity data)",
+    "Wikipedia REST summary",
+    "OpenStreetMap Overpass (POI tags: addr, opening_hours, website, phone, image)",
+    "OpenStreetMap Nominatim (address fallback)",
+    "Wikimedia Commons (photo license + credit)"
+  ],
+  "input_records": 107,
+  "dropped": [
+    {
+      "id": "bc118800-1918-497d-983f-fc290dd14108",
+      "name": "Shinjuku Station",
+      "category": "transit station",
+      "reason": "non_poi_category"
+    },
+    {
+      "id": "e1092734-4eeb-43a6-8dbc-00d0626c1f5d",
+      "name": "Coin Locker",
+      "category": "service",
+      "reason": "non_poi_category"
+    },
+    {
+      "id": "dddf5cce-f9b1-4379-a24e-f6401ba41501",
+      "name": "POLA THE BEAUTY 新宿南口店",
+      "category": "beauty salon",
+      "reason": "non_poi_category"
+    },
+    {
+      "id": "737a86d5-d223-4152-8444-e9cf0cfcc81c",
+      "name": "Shiba",
+      "category": "sublocality level 2",
+      "reason": "non_poi_category"
+    },
+    {
+      "id": "7af18938-ec43-4690-a1c8-0714b9a035f3",
+      "name": "Shibuya",
+      "category": "locality",
+      "reason": "non_poi_category"
+    },
+    {
+      "id": "3d218684-966a-408a-81ab-2121468b2f62",
+      "name": "Tokyo Metropolitan Government Building",
+      "category": "government office",
+      "reason": "non_poi_category"
+    },
+    {
+      "id": "8dbe7aa3-c043-46e2-99bf-6fa5be3d9100",
+      "name": "Sports wear Disc. Alpen Tokyo",
+      "category": "sporting goods store",
+      "reason": "non_poi_category"
+    },
+    {
+      "id": "91d1b62c-321e-406f-8b5e-7d2d22d9177b",
+      "name": "Embassy of the Republic of Poland",
+      "category": "embassy",
+      "reason": "non_poi_category"
+    }
+  ],
+  "merged": [
+    {
+      "kept_id": "3c590058-46e1-4e93-a8c7-aaecc2403c0c",
+      "dropped_id": "665e6df8-fdcd-419b-b296-7df11edaf403",
+      "name": "Shibuya Sky"
+    },
+    {
+      "kept_id": "a0579751-5f68-46f6-bdc7-ad13414d72b3",
+      "dropped_id": "627a2bb3-3f5a-4666-a009-5e5f951fa323",
+      "name": "Omoide Yokocho"
+    },
+    {
+      "kept_id": "bf4b9946-9cf4-4110-8a75-bfe0f643528a",
+      "dropped_id": "acbe6bbe-b616-4b90-8cae-5c10d22da16a",
+      "name": "Godzilla Head"
+    },
+    {
+      "kept_id": "474face5-488e-4a9f-ba6e-7c5ef6fbc993",
+      "dropped_id": "986df0e1-5e34-49f2-a90b-1f3455aa4818",
+      "name": "Sensō-ji"
+    }
+  ],
+  "records": [
+    {
+      "id": "758bc2c8-c351-46b6-a2df-ff4238c3e0c2",
+      "name": "Senso-ji Temple",
+      "wikidata_query": "Senso-ji Temple",
+      "wikidata_qid": "Q615183",
+      "wikipedia_title": "Sensō-ji",
+      "filled": [
+        "lat/lng",
+        "address",
+        "website",
+        "description",
+        "photo"
+      ],
+      "sources_used": [
+        "wikidata",
+        "wikipedia"
+      ],
+      "remaining_gaps": []
+    },
+    {
+      "id": "3c590058-46e1-4e93-a8c7-aaecc2403c0c",
+      "name": "Shibuya Sky",
+      "wikidata_query": "Shibuya Sky",
+      "wikidata_qid": "Q116281743",
+      "wikipedia_title": null,
+      "osm_source": "osm:node:6952876785",
+      "filled": [
+        "website",
+        "photo"
+      ],
+      "sources_used": [
+        "wikidata",
+        "osm-overpass"
+      ],
+      "remaining_gaps": []
+    },
+    {
+      "id": "03b5842a-4cdd-43e6-9ba8-f2fdf1530d1b",
+      "name": "Tsutaya Books",
+      "wikidata_query": "Tsutaya Books",
+      "wikidata_qid": "Q130772360",
+      "wikipedia_title": null,
+      "filled": [
+        "lat/lng",
+        "address",
+        "website",
+        "photo"
+      ],
+      "sources_used": [
+        "wikidata"
+      ],
+      "remaining_gaps": [
+        "missing_description"
+      ]
+    },
+    {
+      "id": "7c1eb5bb-1df6-4034-a3a2-076036099568",
+      "name": "The Roasters Guild",
+      "wikidata_qid": null,
+      "wikipedia_title": null,
+      "filled": [],
+      "sources_used": [],
+      "remaining_gaps": [
+        "missing_lat",
+        "missing_address",
+        "missing_photo",
+        "missing_description"
+      ]
+    },
+    {
+      "id": "7cac1964-71d6-4f71-a95b-2a399b82d710",
+      "name": "Osteria Modern",
+      "wikidata_qid": null,
+      "wikipedia_title": null,
+      "filled": [],
+      "sources_used": [],
+      "remaining_gaps": [
+        "missing_lat",
+        "missing_address",
+        "missing_photo",
+        "missing_description"
+      ]
+    },
+    {
+      "id": "a0579751-5f68-46f6-bdc7-ad13414d72b3",
+      "name": "Omoide Yokocho",
+      "wikidata_query": "Omoide Yokocho",
+      "wikidata_qid": "Q11501868",
+      "wikipedia_title": null,
+      "filled": [
+        "website",
+        "photo"
+      ],
+      "sources_used": [
+        "wikidata"
+      ],
+      "remaining_gaps": []
+    },
+    {
+      "id": "85b019a5-9d24-43aa-ad50-ff29c84721aa",
+      "name": "Hedgehog Cafe",
+      "wikidata_qid": null,
+      "wikipedia_title": null,
+      "filled": [
+        "lat/lng",
+        "address"
+      ],
+      "sources_used": [],
+      "remaining_gaps": [
+        "missing_photo",
+        "missing_description"
+      ]
+    },
+    {
+      "id": "0698d4f5-4511-45a5-9c84-be999421fbce",
+      "name": "Mega Don Quijote",
+      "wikidata_query": "Mega Don Quijote",
+      "wikidata_qid": "Q134587854",
+      "wikipedia_title": null,
+      "filled": [
+        "lat/lng",
+        "address"
+      ],
+      "sources_used": [
+        "wikidata"
+      ],
+      "remaining_gaps": [
+        "missing_photo",
+        "missing_description"
+      ]
+    },
+    {
+      "id": "644da114-cec9-4e32-b957-49f2cc483286",
+      "name": "Tokyo Skytree",
+      "wikidata_qid": null,
+      "wikipedia_title": null,
+      "filled": [],
+      "sources_used": [],
+      "remaining_gaps": [
+        "missing_station",
+        "missing_hours",
+        "missing_photo",
+        "missing_description"
+      ]
+    },
+    {
+      "id": "a68bb160-a33c-4b88-aa9a-eabcdce8f137",
+      "name": "Tokyo Tower",
+      "wikidata_qid": null,
+      "wikipedia_title": null,
+      "filled": [],
+      "sources_used": [],
+      "remaining_gaps": [
+        "missing_station",
+        "missing_hours",
+        "missing_photo",
+        "missing_description"
+      ]
+    },
+    {
+      "id": "474face5-488e-4a9f-ba6e-7c5ef6fbc993",
+      "name": "Sensō-ji",
+      "wikidata_query": "Sensō-ji",
+      "wikidata_qid": "Q615183",
+      "wikipedia_title": "Sensō-ji",
+      "osm_source": "osm:way:173154847",
+      "filled": [
+        "phone",
+        "website",
+        "photo"
+      ],
+      "sources_used": [
+        "wikidata",
+        "wikipedia",
+        "osm-overpass"
+      ],
+      "remaining_gaps": []
+    },
+    {
+      "id": "354312cb-89ad-4aa6-9df2-82ab055fafda",
+      "name": "Omoide Yokocho Memory Lane",
+      "wikidata_qid": null,
+      "wikipedia_title": null,
+      "filled": [],
+      "sources_used": [],
+      "remaining_gaps": [
+        "missing_station",
+        "missing_hours",
+        "missing_photo",
+        "missing_description"
+      ]
+    },
+    {
+      "id": "1d67de1f-3d4c-40fc-b1e2-a4599e48f957",
+      "name": "Tokyo Night & Light",
+      "wikidata_qid": null,
+      "wikipedia_title": null,
+      "filled": [],
+      "sources_used": [],
+      "remaining_gaps": [
+        "missing_station",
+        "missing_hours",
+        "missing_photo",
+        "missing_description"
+      ]
+    },
+    {
+      "id": "bf4b9946-9cf4-4110-8a75-bfe0f643528a",
+      "name": "Godzilla Head",
+      "wikidata_query": "Godzilla Head",
+      "wikidata_qid": "Q85763829",
+      "wikipedia_title": "Godzilla head",
+      "filled": [
+        "photo"
+      ],
+      "sources_used": [
+        "wikidata",
+        "wikipedia"
+      ],
+      "remaining_gaps": []
+    },
+    {
+      "id": "38251dfa-5e95-4d96-aff3-a52fc419be00",
+      "name": "CENSU TOKYO",
+      "wikidata_qid": null,
+      "wikipedia_title": null,
+      "filled": [],
+      "sources_used": [],
+      "remaining_gaps": [
+        "missing_station",
+        "missing_hours",
+        "missing_photo",
+        "missing_description"
+      ]
+    },
+    {
+      "id": "56039327-3fc4-4182-b416-117315d3af2c",
+      "name": "Washoku Hoshizora No Naka-he Shinjyuku",
+      "wikidata_qid": null,
+      "wikipedia_title": null,
+      "filled": [],
+      "sources_used": [],
+      "remaining_gaps": [
+        "missing_station",
+        "missing_hours",
+        "missing_photo",
+        "missing_description"
+      ]
+    },
+    {
+      "id": "b4e67e7a-8e15-4233-b55d-5ff51df21c21",
+      "name": "New York Grill",
+      "wikidata_qid": null,
+      "wikipedia_title": null,
+      "filled": [],
+      "sources_used": [],
+      "remaining_gaps": [
+        "missing_station",
+        "missing_hours",
+        "missing_photo",
+        "missing_description"
+      ]
+    },
+    {
+      "id": "bf7d0601-4b43-4745-bbd4-2bb3f7f7502e",
+      "name": "Momo Paradise Shinjuku Higashi-guchi",
+      "wikidata_qid": null,
+      "wikipedia_title": null,
+      "filled": [],
+      "sources_used": [],
+      "remaining_gaps": [
+        "missing_station",
+        "missing_hours",
+        "missing_photo",
+        "missing_description"
+      ]
+    },
+    {
+      "id": "ee66cb60-8c72-4a1a-921a-2f63949faffd",
+      "name": "POLÈNE 東京店",
+      "wikidata_qid": null,
+      "wikipedia_title": null,
+      "filled": [],
+      "sources_used": [],
+      "remaining_gaps": [
+        "missing_station",
+        "missing_hours",
+        "missing_photo",
+        "missing_description"
+      ]
+    },
+    {
+      "id": "27493564-ea6e-484f-b433-91ffbcda2596",
+      "name": "Roppongi Hills - Tokyo City View",
+      "wikidata_qid": null,
+      "wikipedia_title": null,
+      "filled": [],
+      "sources_used": [],
+      "remaining_gaps": [
+        "missing_station",
+        "missing_hours",
+        "missing_photo",
+        "missing_description"
+      ]
+    },
+    {
+      "id": "cb1efb71-a210-4627-9529-52a8e57f77e6",
+      "name": "Tsurugaoka Hachimangu",
+      "wikidata_query": "Tsurugaoka Hachimangu",
+      "wikidata_qid": "Q701403",
+      "wikipedia_title": "Tsurugaoka Hachimangū",
+      "osm_source": "osm:way:34550401",
+      "filled": [
+        "website",
+        "phone",
+        "photo"
+      ],
+      "sources_used": [
+        "wikidata",
+        "wikipedia",
+        "osm-overpass"
+      ],
+      "remaining_gaps": []
+    },
+    {
+      "id": "4070d556-c2db-4204-964c-ff1f0fedee5c",
+      "name": "INDIAN DINING NEW DELHI",
+      "wikidata_qid": null,
+      "wikipedia_title": null,
+      "filled": [],
+      "sources_used": [],
+      "remaining_gaps": [
+        "missing_station",
+        "missing_hours",
+        "missing_photo",
+        "missing_description"
+      ]
+    },
+    {
+      "id": "f16d2974-781e-4406-ad3c-c9119d405dc2",
+      "name": "Nail Partner Shinjuku",
+      "wikidata_qid": null,
+      "wikipedia_title": null,
+      "filled": [],
+      "sources_used": [],
+      "remaining_gaps": [
+        "missing_station",
+        "missing_hours",
+        "missing_photo",
+        "missing_description"
+      ]
+    },
+    {
+      "id": "7fda5f8c-f9fc-463b-a79c-d81d524d61be",
+      "name": "Teppan Baby",
+      "wikidata_qid": null,
+      "wikipedia_title": null,
+      "filled": [],
+      "sources_used": [],
+      "remaining_gaps": [
+        "missing_station",
+        "missing_hours",
+        "missing_photo",
+        "missing_description"
+      ]
+    },
+    {
+      "id": "9c20f0f3-8803-464f-a887-85f69b7b41fb",
+      "name": "Delhi Restaurant",
+      "wikidata_qid": null,
+      "wikipedia_title": null,
+      "filled": [],
+      "sources_used": [],
+      "remaining_gaps": [
+        "missing_station",
+        "missing_hours",
+        "missing_photo",
+        "missing_description"
+      ]
+    },
+    {
+      "id": "71fc731c-1ef2-44c7-af40-c5d05f1c417b",
+      "name": "Kotoku-in (Great Buddha of Kamakura)",
+      "wikidata_qid": null,
+      "wikipedia_title": null,
+      "filled": [],
+      "sources_used": [],
+      "remaining_gaps": [
+        "missing_photo"
+      ]
+    },
+    {
+      "id": "8db9e8e8-73fc-4c4a-8a9e-eb60125939de",
+      "name": "Hase-dera (Kamakura)",
+      "wikidata_query": "Hase-dera (Kamakura)",
+      "wikidata_qid": "Q1034293",
+      "wikipedia_title": "Hase-dera (Kamakura)",
+      "filled": [
+        "website"
+      ],
+      "sources_used": [
+        "wikidata",
+        "wikipedia"
+      ],
+      "remaining_gaps": [
+        "missing_photo"
+      ]
+    },
+    {
+      "id": "f6a679aa-1794-4817-8f48-3221c8b0de76",
+      "name": "Hokoku-ji",
+      "wikidata_qid": null,
+      "wikipedia_title": null,
+      "filled": [],
+      "sources_used": [],
+      "remaining_gaps": [
+        "missing_photo"
+      ]
+    },
+    {
+      "id": "cae40042-4ffd-473e-9499-2d27a051fb81",
+      "name": "Sankeien Garden",
+      "wikidata_qid": null,
+      "wikipedia_title": null,
+      "filled": [],
+      "sources_used": [],
+      "remaining_gaps": [
+        "missing_photo"
+      ]
+    },
+    {
+      "id": "ecfd0b91-6d82-47c8-817f-b1038e3c04a5",
+      "name": "Yokohama Red Brick Warehouse",
+      "wikidata_query": "Yokohama Red Brick Warehouse",
+      "wikidata_qid": "Q5363823",
+      "wikipedia_title": "Yokohama Red Brick Warehouse",
+      "osm_source": "osm:node:10216454044",
+      "filled": [
+        "website",
+        "photo"
+      ],
+      "sources_used": [
+        "wikidata",
+        "wikipedia",
+        "osm-overpass"
+      ],
+      "remaining_gaps": []
+    },
+    {
+      "id": "3e6e275e-24ff-440c-a94c-078448895a59",
+      "name": "CUPNOODLES MUSEUM YOKOHAMA",
+      "wikidata_query": "CUPNOODLES MUSEUM YOKOHAMA",
+      "wikidata_qid": "Q11257362",
+      "wikipedia_title": "CupNoodles Museum Yokohama",
+      "filled": [
+        "website",
+        "photo"
+      ],
+      "sources_used": [
+        "wikidata",
+        "wikipedia"
+      ],
+      "remaining_gaps": []
+    },
+    {
+      "id": "ca5ee006-5bcb-4a41-9cd3-7a5ce3a63b08",
+      "name": "Yokohama Landmark Tower Sky Garden",
+      "wikidata_qid": null,
+      "wikipedia_title": null,
+      "filled": [],
+      "sources_used": [],
+      "remaining_gaps": [
+        "missing_photo"
+      ]
+    },
+    {
+      "id": "fdad6831-9b63-4acf-9b5b-1a294f080b4b",
+      "name": "Naritasan Park",
+      "wikidata_query": "Naritasan Park",
+      "wikidata_qid": "Q136504677",
+      "wikipedia_title": null,
+      "osm_source": "osm:way:273767998",
+      "filled": [
+        "hours",
+        "website"
+      ],
+      "sources_used": [
+        "wikidata",
+        "osm-overpass"
+      ],
+      "remaining_gaps": [
+        "missing_address",
+        "missing_photo"
+      ]
+    },
+    {
+      "id": "fe1401ed-d010-4a77-b22e-79f9ab3686e6",
+      "name": "Yoyogi Park",
+      "wikidata_qid": null,
+      "wikipedia_title": null,
+      "filled": [],
+      "sources_used": [],
+      "remaining_gaps": [
+        "missing_photo"
+      ]
+    },
+    {
+      "id": "2490a2d6-7659-4ff2-9de7-98756e1c3819",
+      "name": "Meiji Jingu",
+      "wikidata_qid": null,
+      "wikipedia_title": null,
+      "filled": [],
+      "sources_used": [],
+      "remaining_gaps": [
+        "missing_photo"
+      ]
+    },
+    {
+      "id": "d9c6725f-fff1-490d-a4e1-98ca3a84c74c",
+      "name": "Nonbei Yokocho",
+      "wikidata_qid": null,
+      "wikipedia_title": null,
+      "filled": [],
+      "sources_used": [],
+      "remaining_gaps": [
+        "missing_photo"
+      ]
+    },
+    {
+      "id": "b76fc5ea-8bcf-48cb-ad96-616e1a9f1017",
+      "name": "Cat Street",
+      "wikidata_query": "Cat Street",
+      "wikidata_qid": "Q597280",
+      "wikipedia_title": "Cat Street (manga)",
+      "filled": [],
+      "sources_used": [
+        "wikidata",
+        "wikipedia"
+      ],
+      "remaining_gaps": [
+        "missing_photo"
+      ]
+    },
+    {
+      "id": "3e6eb38c-c3c7-47a5-b308-616e1310e73f",
+      "name": "Miyashita Park",
+      "wikidata_query": "Miyashita Park",
+      "wikidata_qid": "Q6884419",
+      "wikipedia_title": "Miyashita Park",
+      "filled": [
+        "website",
+        "photo"
+      ],
+      "sources_used": [
+        "wikidata",
+        "wikipedia"
+      ],
+      "remaining_gaps": []
+    },
+    {
+      "id": "e415d734-1a3e-4e16-9396-66ef75df0ad0",
+      "name": "Shibuya Center-Gai",
+      "wikidata_query": "Shibuya Center-Gai",
+      "wikidata_qid": "Q5059296",
+      "wikipedia_title": "Center Gai",
+      "osm_source": "osm:way:48391641",
+      "filled": [
+        "website",
+        "photo"
+      ],
+      "sources_used": [
+        "wikidata",
+        "wikipedia",
+        "osm-overpass"
+      ],
+      "remaining_gaps": []
+    },
+    {
+      "id": "77016000-33ae-4deb-8d5d-aef6bbdd1049",
+      "name": "Konnoh Hachimangu",
+      "wikidata_qid": null,
+      "wikipedia_title": null,
+      "filled": [],
+      "sources_used": [],
+      "remaining_gaps": [
+        "missing_photo"
+      ]
+    },
+    {
+      "id": "a5bfdaa5-64ae-4a84-a0da-15e856cb1dc9",
+      "name": "Kamakura Rokuyata",
+      "wikidata_qid": null,
+      "wikipedia_title": null,
+      "filled": [],
+      "sources_used": [],
+      "remaining_gaps": [
+        "missing_station",
+        "missing_hours",
+        "missing_photo",
+        "missing_description"
+      ]
+    },
+    {
+      "id": "af6bc202-5a09-4854-8dab-7e9caa7e4fd5",
+      "name": "Owakudani",
+      "wikidata_query": "Owakudani",
+      "wikidata_qid": "Q1134429",
+      "wikipedia_title": "Ōwakudani",
+      "osm_source": "osm:way:727045804",
+      "filled": [
+        "photo"
+      ],
+      "sources_used": [
+        "wikidata",
+        "wikipedia",
+        "osm-overpass"
+      ],
+      "remaining_gaps": [
+        "missing_hours"
+      ]
+    },
+    {
+      "id": "a14ae3ad-9ae7-4c83-941f-f0b38207c566",
+      "name": "Hakone Shrine",
+      "wikidata_query": "Hakone Shrine",
+      "wikidata_qid": "Q705310",
+      "wikipedia_title": "Hakone Shrine",
+      "filled": [
+        "website",
+        "photo"
+      ],
+      "sources_used": [
+        "wikidata",
+        "wikipedia"
+      ],
+      "remaining_gaps": [
+        "missing_hours"
+      ]
+    },
+    {
+      "id": "3d861942-f40e-48ac-8901-8fc770491aae",
+      "name": "Hakone Open-Air Museum",
+      "wikidata_query": "Hakone Open-Air Museum",
+      "wikidata_qid": "Q1134422",
+      "wikipedia_title": "Hakone Open-Air Museum",
+      "osm_source": "osm:node:5182750902",
+      "filled": [
+        "hours",
+        "website",
+        "phone",
+        "photo"
+      ],
+      "sources_used": [
+        "wikidata",
+        "wikipedia",
+        "osm-overpass"
+      ],
+      "remaining_gaps": []
+    },
+    {
+      "id": "51407428-a010-49f6-9aca-b3088e995897",
+      "name": "Hakone Ropeway",
+      "wikidata_query": "Hakone Ropeway",
+      "wikidata_qid": "Q1049195",
+      "wikipedia_title": "Hakone Ropeway",
+      "filled": [
+        "website"
+      ],
+      "sources_used": [
+        "wikidata",
+        "wikipedia"
+      ],
+      "remaining_gaps": [
+        "missing_hours",
+        "missing_photo"
+      ]
+    },
+    {
+      "id": "51bef77d-256a-408c-8d96-d035988d8d26",
+      "name": "Naritasan Shinshoji Temple",
+      "wikidata_qid": null,
+      "wikipedia_title": null,
+      "filled": [],
+      "sources_used": [],
+      "remaining_gaps": [
+        "missing_hours",
+        "missing_photo"
+      ]
+    },
+    {
+      "id": "34bb1c73-b025-4bd6-8c3f-9be21e0325dd",
+      "name": "Toguri Museum of Art",
+      "wikidata_query": "Toguri Museum of Art",
+      "wikidata_qid": "Q11496415",
+      "wikipedia_title": "Toguri Museum",
+      "osm_source": "osm:node:1420780494",
+      "filled": [
+        "website",
+        "photo"
+      ],
+      "sources_used": [
+        "wikidata",
+        "wikipedia",
+        "osm-overpass"
+      ],
+      "remaining_gaps": []
+    },
+    {
+      "id": "bec6395e-512a-492a-85e2-5cbfef7ff08b",
+      "name": "Shoto Museum of Art",
+      "wikidata_query": "Shoto Museum of Art",
+      "wikidata_qid": "Q11561694",
+      "wikipedia_title": null,
+      "filled": [
+        "website",
+        "photo"
+      ],
+      "sources_used": [
+        "wikidata"
+      ],
+      "remaining_gaps": []
+    },
+    {
+      "id": "1a20df4f-eeb1-4ed2-8e6e-52625c8ce65d",
+      "name": "Shibuya Hikarie",
+      "wikidata_query": "Shibuya Hikarie",
+      "wikidata_qid": "Q11561670",
+      "wikipedia_title": "Shibuya Hikarie",
+      "osm_source": "osm:way:204091879",
+      "filled": [
+        "website",
+        "phone",
+        "photo"
+      ],
+      "sources_used": [
+        "wikidata",
+        "wikipedia",
+        "osm-overpass"
+      ],
+      "remaining_gaps": []
+    },
+    {
+      "id": "e5970d68-68ea-4cd1-8fc5-f44b21498020",
+      "name": "Log Road Daikanyama",
+      "wikidata_qid": null,
+      "wikipedia_title": null,
+      "filled": [],
+      "sources_used": [],
+      "remaining_gaps": [
+        "missing_photo"
+      ]
+    },
+    {
+      "id": "328d9feb-c97b-4618-89bb-a5663d20d2e8",
+      "name": "Narita City Sakuranoyama Park",
+      "wikidata_qid": null,
+      "wikipedia_title": null,
+      "filled": [],
+      "sources_used": [],
+      "remaining_gaps": [
+        "missing_hours",
+        "missing_photo"
+      ]
+    },
+    {
+      "id": "ce6e476a-4411-4ada-a118-88db310d0096",
+      "name": "Inubosaki Lighthouse",
+      "wikidata_query": "Inubosaki Lighthouse",
+      "wikidata_qid": "Q6059232",
+      "wikipedia_title": "Inubōsaki Lighthouse",
+      "filled": [
+        "website",
+        "photo"
+      ],
+      "sources_used": [
+        "wikidata",
+        "wikipedia"
+      ],
+      "remaining_gaps": [
+        "missing_hours"
+      ]
+    },
+    {
+      "id": "2170e92a-84de-49f1-b357-85af7891bdd3",
+      "name": "Chōshi Electric Railway",
+      "wikidata_query": "Chōshi Electric Railway",
+      "wikidata_qid": "Q5368807",
+      "wikipedia_title": "Choshi Electric Railway",
+      "filled": [
+        "website",
+        "photo"
+      ],
+      "sources_used": [
+        "wikidata",
+        "wikipedia"
+      ],
+      "remaining_gaps": [
+        "missing_hours"
+      ]
+    },
+    {
+      "id": "22d44408-115d-4178-866e-f513e5b964f1",
+      "name": "Byobugaura Cliffs",
+      "wikidata_qid": null,
+      "wikipedia_title": null,
+      "filled": [],
+      "sources_used": [],
+      "remaining_gaps": [
+        "missing_station",
+        "missing_hours",
+        "missing_photo"
+      ]
+    },
+    {
+      "id": "7cbbe032-df58-4e62-aabe-b8fa2909e6ed",
+      "name": "Katori Jingu",
+      "wikidata_qid": null,
+      "wikipedia_title": null,
+      "filled": [],
+      "sources_used": [],
+      "remaining_gaps": [
+        "missing_station",
+        "missing_hours",
+        "missing_photo"
+      ]
+    },
+    {
+      "id": "b0c03286-3967-4d9a-92e2-edd24193f318",
+      "name": "North Observation Deck, Tokyo Metropolitan Government Building No. 1",
+      "wikidata_qid": null,
+      "wikipedia_title": null,
+      "filled": [],
+      "sources_used": [],
+      "remaining_gaps": [
+        "missing_station",
+        "missing_hours",
+        "missing_photo",
+        "missing_description"
+      ]
+    },
+    {
+      "id": "7d3a1803-f067-4bd1-9389-7dfcbd5882de",
+      "name": "Kairyou-yu",
+      "wikidata_qid": null,
+      "wikipedia_title": null,
+      "filled": [],
+      "sources_used": [],
+      "remaining_gaps": [
+        "missing_photo"
+      ]
+    },
+    {
+      "id": "a8d5e175-c285-4aac-9539-a0d5d85498a4",
+      "name": "Shibuya Scramble Crossing",
+      "wikidata_query": "Shibuya Scramble Crossing",
+      "wikidata_qid": "Q21083961",
+      "wikipedia_title": "Shibuya Crossing",
+      "filled": [
+        "photo"
+      ],
+      "sources_used": [
+        "wikidata",
+        "wikipedia"
+      ],
+      "remaining_gaps": []
+    },
+    {
+      "id": "24f91c87-5cbe-4861-8527-66f3a22d228b",
+      "name": "Hachiko Statue",
+      "wikidata_query": "Hachiko Statue",
+      "wikidata_qid": "Q62124995",
+      "wikipedia_title": "Statue of Hachikō",
+      "osm_source": "osm:node:597685675",
+      "filled": [
+        "photo"
+      ],
+      "sources_used": [
+        "wikidata",
+        "wikipedia",
+        "osm-overpass"
+      ],
+      "remaining_gaps": []
+    },
+    {
+      "id": "e64f0d2a-7b7d-4a85-b45e-2352be0b3cdf",
+      "name": "Nabeshima Shoto Park",
+      "wikidata_query": "Nabeshima Shoto Park",
+      "wikidata_qid": "Q11650653",
+      "wikipedia_title": null,
+      "osm_source": "osm:way:55219711",
+      "filled": [
+        "photo"
+      ],
+      "sources_used": [
+        "wikidata",
+        "osm-overpass"
+      ],
+      "remaining_gaps": []
+    },
+    {
+      "id": "4b0c13f2-b27c-4ece-8039-daf54674863f",
+      "name": "Shibuya PARCO",
+      "wikidata_qid": null,
+      "wikipedia_title": null,
+      "filled": [],
+      "sources_used": [],
+      "remaining_gaps": [
+        "missing_photo"
+      ]
+    },
+    {
+      "id": "1a338793-c773-4fcd-9ef0-c52bc93cb6f5",
+      "name": "Farmer's Market @ UNU",
+      "wikidata_qid": null,
+      "wikipedia_title": null,
+      "filled": [],
+      "sources_used": [],
+      "remaining_gaps": [
+        "missing_photo"
+      ]
+    },
+    {
+      "id": "78aedb78-8ea5-4e46-8002-197365da934d",
+      "name": "Shinjuku Gyoen National Garden",
+      "wikidata_query": "Shinjuku Gyoen National Garden",
+      "wikidata_qid": "Q776863",
+      "wikipedia_title": "Shinjuku Gyo-en",
+      "osm_source": "osm:way:15772074",
+      "filled": [
+        "website",
+        "phone",
+        "photo"
+      ],
+      "sources_used": [
+        "wikidata",
+        "wikipedia",
+        "osm-overpass"
+      ],
+      "remaining_gaps": []
+    },
+    {
+      "id": "4c4d25e6-4fa3-434d-8de7-3c4fc3ee3d92",
+      "name": "Tokyo Metropolitan Government Building Observation Deck",
+      "wikidata_qid": null,
+      "wikipedia_title": null,
+      "filled": [],
+      "sources_used": [],
+      "remaining_gaps": [
+        "missing_photo"
+      ]
+    },
+    {
+      "id": "0c3044ce-2ae8-49f1-94a0-a9d90b842538",
+      "name": "Shinjuku Golden Gai",
+      "wikidata_query": "Shinjuku Golden Gai",
+      "wikidata_qid": "Q5363705",
+      "wikipedia_title": "Shinjuku Golden Gai",
+      "filled": [
+        "website",
+        "photo"
+      ],
+      "sources_used": [
+        "wikidata",
+        "wikipedia"
+      ],
+      "remaining_gaps": []
+    },
+    {
+      "id": "e9058efc-f3a2-4b72-9194-e56b1a7b95aa",
+      "name": "Hanazono Shrine",
+      "wikidata_query": "Hanazono Shrine",
+      "wikidata_qid": "Q97658183",
+      "wikipedia_title": null,
+      "filled": [],
+      "sources_used": [
+        "wikidata"
+      ],
+      "remaining_gaps": [
+        "missing_photo"
+      ]
+    },
+    {
+      "id": "6bf2581e-aa92-492e-9e4a-9a1ee65a9d18",
+      "name": "Isetan Shinjuku",
+      "wikidata_qid": null,
+      "wikipedia_title": null,
+      "filled": [],
+      "sources_used": [],
+      "remaining_gaps": [
+        "missing_photo"
+      ]
+    },
+    {
+      "id": "e2d59479-6423-46d3-a14f-8fe3447e3cb0",
+      "name": "Lumine Shinjuku",
+      "wikidata_query": "Lumine Shinjuku",
+      "wikidata_qid": "Q18457061",
+      "wikipedia_title": null,
+      "filled": [
+        "website",
+        "photo"
+      ],
+      "sources_used": [
+        "wikidata"
+      ],
+      "remaining_gaps": []
+    },
+    {
+      "id": "d33beb84-0a09-49b8-b07c-58e0d6ef4b92",
+      "name": "NEWoMan Shinjuku",
+      "wikidata_qid": null,
+      "wikipedia_title": null,
+      "filled": [],
+      "sources_used": [],
+      "remaining_gaps": [
+        "missing_photo"
+      ]
+    },
+    {
+      "id": "9751a0ce-9d4e-4469-b8f9-085169c0a5d8",
+      "name": "Shinjuku Central Park",
+      "wikidata_query": "Shinjuku Central Park",
+      "wikidata_qid": "Q5364883",
+      "wikipedia_title": "Shinjuku Central Park",
+      "osm_source": "osm:relation:13272644",
+      "filled": [
+        "website",
+        "photo"
+      ],
+      "sources_used": [
+        "wikidata",
+        "wikipedia",
+        "osm-overpass"
+      ],
+      "remaining_gaps": []
+    },
+    {
+      "id": "ad3c854d-63bc-4490-a778-b1e1f0f8ac8c",
+      "name": "Mode Gakuen Cocoon Tower",
+      "wikidata_query": "Mode Gakuen Cocoon Tower",
+      "wikidata_qid": "Q1030463",
+      "wikipedia_title": "Mode Gakuen Cocoon Tower",
+      "osm_source": "osm:way:145495557",
+      "filled": [
+        "website"
+      ],
+      "sources_used": [
+        "wikidata",
+        "wikipedia",
+        "osm-overpass"
+      ],
+      "remaining_gaps": [
+        "missing_photo"
+      ]
+    },
+    {
+      "id": "8fd935c7-67ff-4fa2-ab70-77489873d014",
+      "name": "Shinjuku Ni-chome",
+      "wikidata_qid": null,
+      "wikipedia_title": null,
+      "filled": [],
+      "sources_used": [],
+      "remaining_gaps": [
+        "missing_photo"
+      ]
+    },
+    {
+      "id": "73756d9b-35d2-47f5-a52b-d84e83d0a08e",
+      "name": "Taisoji Temple",
+      "wikidata_qid": null,
+      "wikipedia_title": null,
+      "filled": [],
+      "sources_used": [],
+      "remaining_gaps": [
+        "missing_photo"
+      ]
+    },
+    {
+      "id": "c40bea17-2ac3-4856-abf4-710d0dc231dd",
+      "name": "Sompo Museum of Art",
+      "wikidata_query": "Sompo Museum of Art",
+      "wikidata_qid": "Q1614504",
+      "wikipedia_title": "Sompo Museum of Art",
+      "osm_source": "osm:way:572498043",
+      "filled": [
+        "website",
+        "phone",
+        "photo"
+      ],
+      "sources_used": [
+        "wikidata",
+        "wikipedia",
+        "osm-overpass"
+      ],
+      "remaining_gaps": []
+    },
+    {
+      "id": "2361e755-119c-45c8-8cc7-70243b0ffcea",
+      "name": "Toyama Park",
+      "wikidata_query": "Toyama Park",
+      "wikidata_qid": "Q10950260",
+      "wikipedia_title": null,
+      "filled": [
+        "website",
+        "photo"
+      ],
+      "sources_used": [
+        "wikidata"
+      ],
+      "remaining_gaps": []
+    },
+    {
+      "id": "f4c9ba80-ba56-41d7-8909-7bf4200b1c70",
+      "name": "Yayoi Kusama Museum",
+      "wikidata_query": "Yayoi Kusama Museum",
+      "wikidata_qid": "Q65941212",
+      "wikipedia_title": "Yayoi Kusama Museum",
+      "osm_source": "osm:node:5165879121",
+      "filled": [
+        "website"
+      ],
+      "sources_used": [
+        "wikidata",
+        "wikipedia",
+        "osm-overpass"
+      ],
+      "remaining_gaps": [
+        "missing_photo"
+      ]
+    },
+    {
+      "id": "b13b187b-bdf4-42be-9524-0d50a51d0f98",
+      "name": "Thermae-Yu",
+      "wikidata_qid": null,
+      "wikipedia_title": null,
+      "filled": [],
+      "sources_used": [],
+      "remaining_gaps": [
+        "missing_photo"
+      ]
+    },
+    {
+      "id": "d3884747-8d97-435f-9140-6f2b35b040e9",
+      "name": "Kagurazaka",
+      "wikidata_query": "Kagurazaka",
+      "wikidata_qid": "Q16800565",
+      "wikipedia_title": null,
+      "filled": [],
+      "sources_used": [
+        "wikidata"
+      ],
+      "remaining_gaps": [
+        "missing_photo"
+      ]
+    },
+    {
+      "id": "62109102-c2b3-4102-b647-d3d93eae3e89",
+      "name": "Kaminarimon",
+      "wikidata_query": "Kaminarimon",
+      "wikidata_qid": "Q2378708",
+      "wikipedia_title": "Kaminarimon",
+      "osm_source": "osm:way:173154849",
+      "filled": [
+        "website",
+        "photo"
+      ],
+      "sources_used": [
+        "wikidata",
+        "wikipedia",
+        "osm-overpass"
+      ],
+      "remaining_gaps": []
+    },
+    {
+      "id": "bdac20cf-01a9-4c93-ac0f-0e680ec04db0",
+      "name": "Nakamise Shopping Street",
+      "wikidata_query": "Nakamise Shopping Street",
+      "wikidata_qid": "Q107583845",
+      "wikipedia_title": null,
+      "filled": [
+        "website",
+        "photo"
+      ],
+      "sources_used": [
+        "wikidata"
+      ],
+      "remaining_gaps": []
+    },
+    {
+      "id": "dcf428cb-d6b6-4153-8906-ea19087e5384",
+      "name": "Asakusa Shrine",
+      "wikidata_query": "Asakusa Shrine",
+      "wikidata_qid": "Q670049",
+      "wikipedia_title": "Asakusa Shrine",
+      "filled": [
+        "website",
+        "photo"
+      ],
+      "sources_used": [
+        "wikidata"
+      ],
+      "remaining_gaps": []
+    },
+    {
+      "id": "e22cd555-fc16-4316-b85e-cce589266797",
+      "name": "Ueno Park",
+      "wikidata_query": "Ueno Park",
+      "wikidata_qid": "Q746216",
+      "wikipedia_title": "Ueno Park",
+      "filled": [
+        "website",
+        "photo"
+      ],
+      "sources_used": [
+        "wikidata",
+        "wikipedia"
+      ],
+      "remaining_gaps": []
+    },
+    {
+      "id": "57832986-323d-4b9a-a844-ea5faf7b6a89",
+      "name": "Ueno Zoo",
+      "wikidata_query": "Ueno Zoo",
+      "wikidata_qid": "Q162722",
+      "wikipedia_title": "Ueno Zoo",
+      "osm_source": "osm:way:1065775336",
+      "filled": [
+        "website",
+        "phone",
+        "photo"
+      ],
+      "sources_used": [
+        "wikidata",
+        "wikipedia",
+        "osm-overpass"
+      ],
+      "remaining_gaps": []
+    },
+    {
+      "id": "54d8da11-479e-468e-9b5b-915acd2b114f",
+      "name": "Tokyo National Museum",
+      "wikidata_query": "Tokyo National Museum",
+      "wikidata_qid": "Q653433",
+      "wikipedia_title": "Tokyo National Museum",
+      "osm_source": "osm:way:33439660",
+      "filled": [
+        "website",
+        "phone"
+      ],
+      "sources_used": [
+        "wikidata",
+        "osm-overpass"
+      ],
+      "remaining_gaps": [
+        "missing_photo"
+      ]
+    },
+    {
+      "id": "d8a23501-c654-47d7-988b-ab9a98617ba1",
+      "name": "National Museum of Nature and Science",
+      "wikidata_query": "National Museum of Nature and Science",
+      "wikidata_qid": "Q74940",
+      "wikipedia_title": "National Museum of Nature and Science",
+      "filled": [
+        "website",
+        "photo"
+      ],
+      "sources_used": [
+        "wikidata",
+        "wikipedia"
+      ],
+      "remaining_gaps": []
+    },
+    {
+      "id": "bfbef623-d5b3-422b-947c-35bc2fc21246",
+      "name": "National Museum of Western Art",
+      "wikidata_query": "National Museum of Western Art",
+      "wikidata_qid": "Q1362629",
+      "wikipedia_title": "National Museum of Western Art",
+      "osm_source": "osm:way:203960903",
+      "filled": [
+        "website",
+        "photo"
+      ],
+      "sources_used": [
+        "wikidata",
+        "wikipedia",
+        "osm-overpass"
+      ],
+      "remaining_gaps": []
+    },
+    {
+      "id": "ef9a2cc4-214a-4e30-8dd5-92741fd4c0c6",
+      "name": "Ameya-Yokochō",
+      "wikidata_query": "Ameya-Yokochō",
+      "wikidata_qid": "Q864815",
+      "wikipedia_title": "Ameya-Yokochō",
+      "osm_source": "osm:node:4496960001",
+      "filled": [
+        "website",
+        "phone",
+        "photo"
+      ],
+      "sources_used": [
+        "wikidata",
+        "wikipedia",
+        "osm-overpass"
+      ],
+      "remaining_gaps": []
+    },
+    {
+      "id": "976ed337-29e1-4d5e-bca8-3a53a8cd3cbb",
+      "name": "Kappabashi-dori",
+      "wikidata_qid": null,
+      "wikipedia_title": null,
+      "filled": [],
+      "sources_used": [],
+      "remaining_gaps": [
+        "missing_photo"
+      ]
+    },
+    {
+      "id": "b90ee8d6-99cb-473b-8ed9-370fe82de011",
+      "name": "Shitamachi Museum",
+      "wikidata_qid": null,
+      "wikipedia_title": null,
+      "filled": [],
+      "sources_used": [],
+      "remaining_gaps": [
+        "missing_photo"
+      ]
+    },
+    {
+      "id": "3eb151cc-0e63-409c-ba7e-7abb2fa305b0",
+      "name": "Asakusa Culture Tourist Information Center",
+      "wikidata_query": "Asakusa Culture Tourist Information Center",
+      "wikidata_qid": "Q24877101",
+      "wikipedia_title": "Asakusa Culture Tourist Information Center",
+      "osm_source": "osm:way:166180253",
+      "filled": [
+        "website",
+        "photo"
+      ],
+      "sources_used": [
+        "wikidata",
+        "wikipedia",
+        "osm-overpass"
+      ],
+      "remaining_gaps": []
+    },
+    {
+      "id": "74407fc7-6cb0-4e1e-b38d-cf0458dbd545",
+      "name": "Ueno Tōshō-gū Shrine",
+      "wikidata_qid": null,
+      "wikipedia_title": null,
+      "filled": [],
+      "sources_used": [],
+      "remaining_gaps": [
+        "missing_photo"
+      ]
+    },
+    {
+      "id": "b493f37b-2cf8-4533-b7cb-561f986e0092",
+      "name": "Shinobazu Pond",
+      "wikidata_query": "Shinobazu Pond",
+      "wikidata_qid": "Q5365093",
+      "wikipedia_title": "Shinobazu Pond",
+      "filled": [
+        "photo"
+      ],
+      "sources_used": [
+        "wikidata",
+        "wikipedia"
+      ],
+      "remaining_gaps": []
+    },
+    {
+      "id": "d03c6075-3314-4e15-8990-af64bdce8c60",
+      "name": "Kyū-Iwasaki-tei Garden",
+      "wikidata_qid": null,
+      "wikipedia_title": null,
+      "filled": [],
+      "sources_used": [],
+      "remaining_gaps": [
+        "missing_photo"
+      ]
+    },
+    {
+      "id": "b90e9cad-cfee-4de9-9f75-1f8b7b69f056",
+      "name": "Tsubame-yu",
+      "wikidata_qid": null,
+      "wikipedia_title": null,
+      "filled": [],
+      "sources_used": [],
+      "remaining_gaps": [
+        "missing_photo"
+      ]
+    },
+    {
+      "id": "f4eb613c-877d-44d4-a22d-ad3541c5461c",
+      "name": "Hanayashiki",
+      "wikidata_qid": null,
+      "wikipedia_title": null,
+      "filled": [],
+      "sources_used": [],
+      "remaining_gaps": [
+        "missing_photo"
+      ]
+    }
+  ],
+  "totals": {
+    "input": 107,
+    "dropped": 8,
+    "merged": 4,
+    "output": 95,
+    "records_enriched": 46,
+    "fills": {
+      "lat/lng": 4,
+      "address": 4,
+      "website": 38,
+      "description": 1,
+      "photo": 38,
+      "phone": 9,
+      "hours": 2
+    },
+    "remaining_gaps": {
+      "missing_description": 21,
+      "missing_lat": 2,
+      "missing_address": 3,
+      "missing_photo": 57,
+      "missing_station": 18,
+      "missing_hours": 25
+    },
+    "matched_wikidata": 48,
+    "matched_wikipedia": 36,
+    "matched_osm": 23
+  }
+}

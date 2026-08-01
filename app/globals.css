@@ -1,0 +1,138 @@
+@import "tailwindcss";
+
+@theme {
+  /* ---- Fonts ---- */
+  --font-sans: var(--font-jakarta), ui-sans-serif, system-ui, sans-serif;
+
+  /* ---- Color tokens (Roameo DESIGN.md) ---- */
+  --color-surface: #f7f9fb;
+  --color-surface-dim: #d8dadc;
+  --color-surface-bright: #f7f9fb;
+  --color-surface-container-lowest: #ffffff;
+  --color-surface-container-low: #f2f4f6;
+  --color-surface-container: #eceef0;
+  --color-surface-container-high: #e6e8ea;
+  --color-surface-container-highest: #e0e3e5;
+  --color-on-surface: #191c1e;
+  --color-on-surface-variant: #44474d;
+  --color-inverse-surface: #2d3133;
+  --color-inverse-on-surface: #eff1f3;
+  --color-outline: #75777e;
+  --color-outline-variant: #c5c6ce;
+  --color-surface-tint: #4e5f7e;
+  --color-surface-variant: #e0e3e5;
+
+  --color-primary: #031632;
+  --color-on-primary: #ffffff;
+  --color-primary-container: #1a2b48;
+  --color-on-primary-container: #8293b5;
+  --color-inverse-primary: #b6c7eb;
+
+  --color-secondary: #9b4500;
+  --color-on-secondary: #ffffff;
+  --color-secondary-container: #fc8a40;
+  --color-on-secondary-container: #672c00;
+
+  --color-tertiary: #06172a;
+  --color-on-tertiary: #ffffff;
+  --color-tertiary-container: #1c2c40;
+  --color-on-tertiary-container: #8393ac;
+
+  --color-error: #ba1a1a;
+  --color-on-error: #ffffff;
+  --color-error-container: #ffdad6;
+  --color-on-error-container: #93000a;
+
+  --color-primary-fixed: #d7e2ff;
+  --color-primary-fixed-dim: #b6c7eb;
+  --color-on-primary-fixed: #081b38;
+  --color-on-primary-fixed-variant: #374765;
+
+  --color-secondary-fixed: #ffdbc9;
+  --color-secondary-fixed-dim: #ffb68d;
+  --color-on-secondary-fixed: #331200;
+  --color-on-secondary-fixed-variant: #763300;
+
+  --color-tertiary-fixed: #d3e4fe;
+  --color-tertiary-fixed-dim: #b7c8e1;
+  --color-on-tertiary-fixed: #0b1c30;
+  --color-on-tertiary-fixed-variant: #38485d;
+
+  --color-background: #f7f9fb;
+  --color-on-background: #191c1e;
+
+  /* ---- Type scale (Plus Jakarta Sans) ---- */
+  --text-headline-lg: 2rem; /* 32px */
+  --text-headline-lg--line-height: 2.5rem; /* 40px */
+  --text-headline-lg--font-weight: 700;
+  --text-headline-lg--letter-spacing: -0.02em;
+
+  --text-headline-lg-mobile: 1.75rem; /* 28px */
+  --text-headline-lg-mobile--line-height: 2.25rem; /* 36px */
+  --text-headline-lg-mobile--font-weight: 700;
+  --text-headline-lg-mobile--letter-spacing: -0.02em;
+
+  --text-headline-md: 1.5rem; /* 24px */
+  --text-headline-md--line-height: 2rem; /* 32px */
+  --text-headline-md--font-weight: 600;
+
+  --text-headline-sm: 1.25rem; /* 20px */
+  --text-headline-sm--line-height: 1.75rem; /* 28px */
+  --text-headline-sm--font-weight: 600;
+
+  --text-body-lg: 1.125rem; /* 18px */
+  --text-body-lg--line-height: 1.75rem; /* 28px */
+  --text-body-lg--font-weight: 400;
+
+  --text-body-md: 1rem; /* 16px */
+  --text-body-md--line-height: 1.5rem; /* 24px */
+  --text-body-md--font-weight: 400;
+
+  --text-label-md: 0.875rem; /* 14px */
+  --text-label-md--line-height: 1.25rem; /* 20px */
+  --text-label-md--font-weight: 500;
+  --text-label-md--letter-spacing: 0.01em;
+
+  --text-label-sm: 0.75rem; /* 12px */
+  --text-label-sm--line-height: 1rem; /* 16px */
+  --text-label-sm--font-weight: 600;
+
+  /* ---- Radii (override defaults) ---- */
+  --radius-md: 12px; /* inputs */
+  --radius-lg: 16px; /* cards */
+  --radius-xl: 24px; /* buttons / dialogue */
+}
+
+body {
+  font-family: var(--font-sans);
+  background: var(--color-background);
+  color: var(--color-on-surface);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* Material Symbols Outlined defaults */
+.material-symbols-outlined {
+  font-variation-settings:
+    "FILL" 0,
+    "wght" 400,
+    "GRAD" 0,
+    "opsz" 24;
+}
+
+/* ---- Safe-area helpers ---- */
+@utility pt-safe {
+  padding-top: env(safe-area-inset-top);
+}
+@utility pb-safe {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+@utility pl-safe {
+  padding-left: env(safe-area-inset-left);
+}
+@utility pr-safe {
+  padding-right: env(safe-area-inset-right);
+}
+@utility min-h-safe-dvh {
+  min-height: calc(100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+}

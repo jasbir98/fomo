@@ -1,0 +1,25 @@
+{
+  "name": "Roameo",
+  "short_name": "Roameo",
+  "description": "Your AI travel companion — plan, discover, and roam with confidence.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "theme_color": "#031632",
+  "background_color": "#f7f9fb",
+  "icons": [
+    {
+      "src": "/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

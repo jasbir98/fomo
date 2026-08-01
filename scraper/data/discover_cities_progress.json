@@ -1,0 +1,237 @@
+{
+  "Hokkaido": {
+    "status": "done",
+    "city_count": 13,
+    "excluded_count": 0
+  },
+  "Aomori": {
+    "status": "done",
+    "city_count": 5,
+    "excluded_count": 0
+  },
+  "Iwate": {
+    "status": "done",
+    "city_count": 6,
+    "excluded_count": 0
+  },
+  "Miyagi": {
+    "status": "done",
+    "city_count": 6,
+    "excluded_count": 0
+  },
+  "Akita": {
+    "status": "done",
+    "city_count": 6,
+    "excluded_count": 0
+  },
+  "Yamagata": {
+    "status": "done",
+    "city_count": 6,
+    "excluded_count": 0
+  },
+  "Fukushima": {
+    "status": "done",
+    "city_count": 7,
+    "excluded_count": 0
+  },
+  "Ibaraki": {
+    "status": "done",
+    "city_count": 6,
+    "excluded_count": 0
+  },
+  "Tochigi": {
+    "status": "done",
+    "city_count": 5,
+    "excluded_count": 0
+  },
+  "Gunma": {
+    "status": "done",
+    "city_count": 5,
+    "excluded_count": 0
+  },
+  "Saitama": {
+    "status": "done",
+    "city_count": 6,
+    "excluded_count": 0
+  },
+  "Chiba": {
+    "status": "done",
+    "city_count": 7,
+    "excluded_count": 1
+  },
+  "Tokyo": {
+    "status": "done",
+    "city_count": 15,
+    "excluded_count": 0
+  },
+  "Kanagawa": {
+    "status": "done",
+    "city_count": 7,
+    "excluded_count": 3
+  },
+  "Niigata": {
+    "status": "done",
+    "city_count": 9,
+    "excluded_count": 0
+  },
+  "Toyama": {
+    "status": "done",
+    "city_count": 5,
+    "excluded_count": 0
+  },
+  "Ishikawa": {
+    "status": "done",
+    "city_count": 7,
+    "excluded_count": 0
+  },
+  "Fukui": {
+    "status": "done",
+    "city_count": 6,
+    "excluded_count": 0
+  },
+  "Yamanashi": {
+    "status": "done",
+    "city_count": 7,
+    "excluded_count": 0
+  },
+  "Nagano": {
+    "status": "done",
+    "city_count": 7,
+    "excluded_count": 0
+  },
+  "Gifu": {
+    "status": "done",
+    "city_count": 10,
+    "excluded_count": 0
+  },
+  "Shizuoka": {
+    "status": "done",
+    "city_count": 10,
+    "excluded_count": 0
+  },
+  "Aichi": {
+    "status": "done",
+    "city_count": 6,
+    "excluded_count": 0
+  },
+  "Mie": {
+    "status": "done",
+    "city_count": 6,
+    "excluded_count": 0
+  },
+  "Shiga": {
+    "status": "done",
+    "city_count": 7,
+    "excluded_count": 0
+  },
+  "Kyoto": {
+    "status": "done",
+    "city_count": 12,
+    "excluded_count": 0
+  },
+  "Osaka": {
+    "status": "done",
+    "city_count": 10,
+    "excluded_count": 0
+  },
+  "Hyogo": {
+    "status": "done",
+    "city_count": 8,
+    "excluded_count": 0
+  },
+  "Nara": {
+    "status": "done",
+    "city_count": 7,
+    "excluded_count": 0
+  },
+  "Wakayama": {
+    "status": "done",
+    "city_count": 6,
+    "excluded_count": 0
+  },
+  "Tottori": {
+    "status": "done",
+    "city_count": 4,
+    "excluded_count": 0
+  },
+  "Shimane": {
+    "status": "done",
+    "city_count": 5,
+    "excluded_count": 0
+  },
+  "Okayama": {
+    "status": "done",
+    "city_count": 6,
+    "excluded_count": 0
+  },
+  "Hiroshima": {
+    "status": "done",
+    "city_count": 7,
+    "excluded_count": 0
+  },
+  "Yamaguchi": {
+    "status": "done",
+    "city_count": 7,
+    "excluded_count": 0
+  },
+  "Tokushima": {
+    "status": "done",
+    "city_count": 5,
+    "excluded_count": 0
+  },
+  "Kagawa": {
+    "status": "done",
+    "city_count": 6,
+    "excluded_count": 0
+  },
+  "Ehime": {
+    "status": "done",
+    "city_count": 6,
+    "excluded_count": 0
+  },
+  "Kochi": {
+    "status": "done",
+    "city_count": 6,
+    "excluded_count": 0
+  },
+  "Fukuoka": {
+    "status": "done",
+    "city_count": 8,
+    "excluded_count": 0
+  },
+  "Saga": {
+    "status": "done",
+    "city_count": 6,
+    "excluded_count": 0
+  },
+  "Nagasaki": {
+    "status": "done",
+    "city_count": 7,
+    "excluded_count": 0
+  },
+  "Kumamoto": {
+    "status": "done",
+    "city_count": 4,
+    "excluded_count": 0
+  },
+  "Oita": {
+    "status": "done",
+    "city_count": 6,
+    "excluded_count": 0
+  },
+  "Miyazaki": {
+    "status": "done",
+    "city_count": 6,
+    "excluded_count": 0
+  },
+  "Kagoshima": {
+    "status": "done",
+    "city_count": 5,
+    "excluded_count": 0
+  },
+  "Okinawa": {
+    "status": "done",
+    "city_count": 10,
+    "excluded_count": 0
+  }
+}
