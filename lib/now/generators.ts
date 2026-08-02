@@ -2,6 +2,7 @@ import "server-only";
 import type { OpeningHoursPeriod, Place } from "@/lib/types";
 import { getArrivalTip } from "@/lib/db/arrivalTips";
 import { getAlternatives, buildDisruptionAlert } from "@/lib/disruption";
+import { realEventImage } from "@/lib/events/skiddle";
 import type { Candidate, RankContext } from "@/lib/now/types";
 
 const EARTH_RADIUS_KM = 6371;
@@ -27,6 +28,16 @@ export function placeDistanceKm(coords: { lat: number; lng: number } | null, pla
 
 export function placeImage(place: Place): Candidate["image"] {
   return { url: place.image_url, quality: place.image_url ? place.image_quality ?? "thin" : "none" };
+}
+
+// realEventImage strips Skiddle's generic "no photo" placeholder graphic —
+// including rows cached before that filter existed, since a stale `events`
+// row can still carry the raw placeholder URL until its 6h TTL expires. A
+// surviving URL is a real provider photo, so it's hero-eligible ("ok"),
+// same trust level as a validated place photo.
+export function eventImage(url: string | null): Candidate["image"] {
+  const real = realEventImage(url);
+  return { url: real, quality: real ? "ok" : "none" };
 }
 
 export function placeCoords(place: { lat: number | null; lng: number | null }): Candidate["coords"] {
@@ -334,7 +345,7 @@ export function eventTonight(ctx: RankContext): Candidate[] {
             .filter(Boolean)
             .join(" · ") || `On tonight at ${startLabel}.`,
         primaryAction: { label: "Add to today", kind: "add" },
-        image: { url: e.image_url, quality: e.image_url ? "thin" : "none" },
+        image: eventImage(e.image_url),
         urgency: "medium",
         validFrom: ctx.at.toISOString(),
         validUntil: e.starts_at,
@@ -607,7 +618,7 @@ export function nearNext(ctx: RankContext, exclude: Set<string>): Candidate[] {
       headline: title,
       detail: [venueLabel(event.venue_name), `${fmtMin(walkMinutes(dist))} walk`].filter(Boolean).join(" · "),
       primaryAction: { label: "Add to today", kind: "add" },
-      image: { url: event.image_url, quality: event.image_url ? "thin" : "none" },
+      image: eventImage(event.image_url),
       urgency: "low",
       validFrom: ctx.at.toISOString(),
       validUntil: event.starts_at,
@@ -750,7 +761,7 @@ export function savedPick(ctx: RankContext, exclude: Set<string>): Candidate[] {
         headline: title,
         detail: venueLabel(event.venue_name) ?? "",
         primaryAction: { label: "Add to today", kind: "add" },
-        image: { url: event.image_url, quality: event.image_url ? "thin" : "none" },
+        image: eventImage(event.image_url),
         urgency: "low",
         validFrom: ctx.at.toISOString(),
         validUntil: event.starts_at,

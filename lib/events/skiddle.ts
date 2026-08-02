@@ -63,6 +63,30 @@ interface SkiddleEvent {
   currency?: string;
 }
 
+// Skiddle serves a generic "no photo available" graphic (not a real event
+// photo) from its CDN whenever an event/venue has no uploaded image — e.g.
+// https://d1plawd8huk6hh.cloudfront.net/assets/default400.png. That URL is
+// non-null like any real photo, so left unfiltered it reads as a usable
+// image everywhere downstream (event cards, and — worse — the Home hero,
+// which shows this literal placeholder graphic instead of falling back to
+// the app's own gradient+glyph placeholder). Treat it as no image.
+const SKIDDLE_PLACEHOLDER_IMAGE = /\/assets\/default\d*\.png$/i;
+
+function realSkiddleImage(url: string | null | undefined): string | null {
+  if (!url || SKIDDLE_PLACEHOLDER_IMAGE.test(url)) return null;
+  return url;
+}
+
+/**
+ * Exported so lib/now/generators.ts can apply the same filter at read time —
+ * `events` rows cached before this filter existed still carry the raw
+ * placeholder URL in the DB (6h TTL), so relying on write-time filtering
+ * alone would keep serving it as a "real" photo until the cache expires.
+ */
+export function realEventImage(url: string | null | undefined): string | null {
+  return realSkiddleImage(url);
+}
+
 /** Skiddle dates arrive as "YYYY-MM-DD HH:mm:ss" (no timezone) — treat as UK local. */
 function parseSkiddleDate(raw: string | undefined): string | null {
   if (!raw) return null;
@@ -96,7 +120,7 @@ function mapEvent(event: SkiddleEvent, destination: string): MappedEvent | null 
     name: event.eventname,
     description: event.description ?? null,
     category: categoryFromSkiddleCode(event.eventcode),
-    image_url: event.largeimageurl ?? event.imageurl ?? null,
+    image_url: realSkiddleImage(event.largeimageurl) ?? realSkiddleImage(event.imageurl),
     ticket_url: event.link ?? event.admin?.link ?? null,
     starts_at,
     ends_at: parseSkiddleDate(event.enddate),
