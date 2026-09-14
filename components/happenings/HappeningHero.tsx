@@ -13,25 +13,39 @@ import {
   oneLinerSummary,
   savingBadgeLabel,
 } from "@/lib/happenings/format";
+import { bookEarlyLabelFor, bookEarlyTier } from "@/lib/happenings/book-early";
 import { categoryDefaultImage, categoryStyle } from "@/lib/happenings/category-style";
 import type { Happening, Occurrence } from "@/lib/happenings/types";
 
 export interface HappeningHeroProps {
   happening: Happening;
   occurrence: Occurrence;
+  /** "fomo_pick" (default) — the ranked-across-everything hero, headlined
+   *  "Fomo Pick · …" with a Claim Offer CTA. "book_early" — the Book early
+   *  tab's own hero (see app/api/feed/route.ts's `heroKind`): headlined
+   *  "Book Early · <tier label>" (same tier/label rules as a BookEarlyCard,
+   *  recomputed here from `happening`'s own booking fields rather than
+   *  threaded through the API response, since they're a pure function of
+   *  it) with a "Book now" CTA. Never shows the last-chance/bucket framing
+   *  a Fomo Pick hero does — that reads as urgency about TODAY, which is
+   *  backwards for a card whose whole point is booking ahead. */
+  variant?: "fomo_pick" | "book_early";
 }
 
 /**
- * The "Fomo Pick · Last Chance" hero — the top-ranked happening (see
- * app/api/feed/route.ts's `pickHero`). Distinct from components/fomo/Card.tsx's
- * `FomoCard` hero variant: that one renders a ranked `/api/now` Candidate
- * (place/event/experience), this one renders a happening's richer,
- * happening-only fields (promo code, redemption note, eligibility pill)
- * that a Candidate has no room for. The Home page renders whichever one
- * applies — this when there's a live happening, FomoCard's hero as the
- * fallback when there isn't (see the page's own doc comment).
+ * The Home hero card for a live happening — the top-ranked happening (see
+ * app/api/feed/route.ts's `pickHero`), or, on the Book early tab, that tab's
+ * own top pick (`variant="book_early"`, see `HappeningHeroProps`). Distinct
+ * from components/fomo/Card.tsx's `FomoCard` hero variant: that one renders a
+ * ranked `/api/now` Candidate (place/event/experience), this one renders a
+ * happening's richer, happening-only fields (promo code, redemption note,
+ * eligibility pill) that a Candidate has no room for. The Home page renders
+ * whichever one applies — this when there's a live happening, FomoCard's hero
+ * as the fallback when there isn't (see the page's own doc comment) — except
+ * on Book early, which shows no hero at all rather than either fallback when
+ * it has no Book Early candidate to lead with.
  */
-export function HappeningHero({ happening, occurrence }: HappeningHeroProps) {
+export function HappeningHero({ happening, occurrence, variant = "fomo_pick" }: HappeningHeroProps) {
   const [copied, setCopied] = useState(false);
   const [imgError, setImgError] = useState(false);
   const now = new Date();
@@ -40,7 +54,7 @@ export function HappeningHero({ happening, occurrence }: HappeningHeroProps) {
   const district = happening.district ?? districtFromAddress(happening.address);
   const eligibility = eligibilityLine(happening);
   const ctaHref = happening.booking_url ?? happening.source_url;
-  const ctaLabel = happening.cta_label ?? "Claim Offer";
+  const ctaLabel = variant === "book_early" ? "Book now" : (happening.cta_label ?? "Claim Offer");
 
   // Truthful pick label — "Last Chance" implies genuine urgency, so it's
   // reserved for occurrences whose window is actually closing soon (<=3
@@ -49,16 +63,23 @@ export function HappeningHero({ happening, occurrence }: HappeningHeroProps) {
   // occurrence actually was. Falls back to naming WHEN it is (this
   // weekend / today / coming up) rather than a generic "Fomo Pick" alone,
   // which is still informative without being misleading.
+  //
+  // `book_early` skips all of that — a Book early card is inherently about
+  // the future, so "Today"/"Last Chance" framing would misstate it — and
+  // instead reuses the exact tier label a BookEarlyCard shows ("Just on
+  // sale" / "Tickets open 1 Oct" / "On sale now").
   const daysLeft = daysUntilLastChance(occurrence, now);
   const bucket = bucketForDayDate(occurrence.dayDate, now);
   const pickLabel =
-    daysLeft <= 3
-      ? "Fomo Pick · Last Chance"
-      : bucket === "today_tomorrow"
-        ? "Fomo Pick · Today"
-        : bucket === "this_weekend"
-          ? "Fomo Pick · This Weekend"
-          : "Fomo Pick · Coming Up";
+    variant === "book_early"
+      ? `Book Early · ${bookEarlyLabelFor(happening, bookEarlyTier(happening, now), now).label}`
+      : daysLeft <= 3
+        ? "Fomo Pick · Last Chance"
+        : bucket === "today_tomorrow"
+          ? "Fomo Pick · Today"
+          : bucket === "this_weekend"
+            ? "Fomo Pick · This Weekend"
+            : "Fomo Pick · Coming Up";
 
   function handleCopy(e: MouseEvent) {
     e.stopPropagation();

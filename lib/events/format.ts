@@ -50,6 +50,47 @@ export function formatEventWhen(
   return `${datePart} · ${time}`;
 }
 
+/**
+ * "Tonight", "Tomorrow", or "Sat 8 Aug" — just the date part without the time.
+ */
+export function formatEventDate(starts_at: string): string {
+  const d = new Date(starts_at);
+  if (Number.isNaN(d.getTime())) return "";
+  const now = new Date();
+
+  if (isSameCalendarDay(d, now)) return "Tonight";
+
+  const tomorrow = new Date(now.getTime() + DAY_MS);
+  if (isSameCalendarDay(d, tomorrow)) return "Tomorrow";
+
+  return d.toLocaleDateString(undefined, {
+    weekday: "short",
+    day: "numeric",
+    month: "short",
+  });
+}
+
+/**
+ * "7:30 PM" or "7:30 PM – 10:30 PM" when ends_at is present and on the same day.
+ * Reuses the formatting style of formatEventTime for consistency.
+ */
+export function formatEventTimeSpan(
+  starts_at: string,
+  ends_at?: string | null
+): string {
+  const startTime = formatEventTime(starts_at);
+  if (!startTime || !ends_at) return startTime;
+
+  const startDate = new Date(starts_at);
+  const endDate = new Date(ends_at);
+  if (Number.isNaN(endDate.getTime())) return startTime;
+
+  if (!isSameCalendarDay(startDate, endDate)) return startTime;
+
+  const endTime = formatEventTime(ends_at);
+  return `${startTime} – ${endTime}`;
+}
+
 /** "YYYY-MM-DD" in the event's local calendar day — for itinerary day_date. */
 export function eventDayDate(starts_at: string): string {
   const d = new Date(starts_at);

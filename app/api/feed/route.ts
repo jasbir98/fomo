@@ -5,12 +5,19 @@
  * comment for the full before/after). Home is now five sections instead of
  * a hero + date buckets + a flat "standing deals" list:
  *
- *   hero        — unchanged in spirit: the single best live happening,
- *                 independent of `window`, scored over the full dated pool
- *                 (any kind — What's on, Deals, or Book Early candidates all
- *                 compete for this slot; whichever wins is excluded from its
- *                 own section below so nothing renders twice).
- *   whatsOn     — window-driven date buckets, empty outright for
+ *   hero        — the single best live happening, independent of `window`,
+ *                 scored over the full dated pool (any kind — What's on,
+ *                 Deals, or Book Early candidates all compete for this slot;
+ *                 whichever wins is excluded from its own section below so
+ *                 nothing renders twice). EXCEPT on `window=book_early`: that
+ *                 tab's hero is instead the top-ranked Book Early
+ *                 `kind: "happening"` card (or null, never the global pick),
+ *                 flagged via `heroKind: "book_early"` so the client knows to
+ *                 render the Book Early presentation instead of Fomo Pick's.
+ *   whatsOn     — one chronologically sorted bucket for `now`/`coming_up`
+ *                 (was two — "This weekend" then "Later on" — for
+ *                 `coming_up`; a single client-side date filter row replaces
+ *                 that split, see Home), empty outright for
  *                 `window=book_early` (see `FeedWindow`'s doc comment).
  *                 Every dated happening EXCEPT `kind: "deal"` (those moved to
  *                 `deals`), merged with Skiddle/Ticketmaster events —
@@ -80,12 +87,10 @@ import {
   happeningHeroScore,
   oneLinerSummary,
   shortLocationLine,
-  weekendBucketTitle,
-  weekendDates,
   type FeedBucketKey,
 } from "@/lib/happenings/format";
 import { categoryStyle } from "@/lib/happenings/category-style";
-import { dealFacets } from "@/lib/happenings/groups";
+import { dealFacets, isGenuineDeal } from "@/lib/happenings/groups";
 import { groupHappeningsIntoSeries, seriesLookup, type HappeningSeriesGroup } from "@/lib/happenings/series";
 import { dedupeProviderEvents, mergeProviderEventsIntoCards, type MergeableCard } from "@/lib/happenings/merge-events";
 import {
@@ -93,6 +98,7 @@ import {
   buildBookEarlyHappeningCard,
   rankBookEarly,
   type BookEarlyCardData,
+  type BookEarlyHappeningCard,
 } from "@/lib/happenings/book-early";
 import type { Happening, Occurrence } from "@/lib/happenings/types";
 import type {
@@ -306,25 +312,6 @@ function whatsOnHappeningPasses(h: Happening, price: FeedPrice): boolean {
   return h.is_free === true;
 }
 
-function bucketMeta(key: FeedBucketKey, cards: FeedCardData[]): string | null {
-  if (cards.length === 0) return null;
-  if (key === "today_tomorrow") return `${cards.length} active`;
-  if (key === "this_weekend") {
-    const allFestival = cards.every((c) => c.kind === "happening" && c.happening.kind === "festival");
-    return allFestival ? "Civic Highlight" : `${cards.length} on`;
-  }
-  return null;
-}
-
-const BUCKET_TITLES: Record<FeedBucketKey, (now: Date, timeZone: string) => string> = {
-  today_tomorrow: () => "Happening Today & Tomorrow",
-  this_weekend: (now, timeZone) => {
-    const { saturday, sunday } = weekendDates(now, timeZone);
-    return weekendBucketTitle(saturday, sunday);
-  },
-  coming_up: () => "Coming Up",
-};
-
 /** Real-venue categories rank above "trivia" ones (a lone plaque, a bare
  *  street, a walking route) per the task's own note: those can still show,
  *  just not ahead of an actual place worth visiting. Checked case-
@@ -437,8 +424,11 @@ async function buildFreeAnyTime(
 }
 
 /**
- * Every `kind: "deal"` happening, decorated with a soonest occurrence (for
- * display) and WHAT/WHO facets (for client-side filtering). Excludes a deal
+ * Every `kind: "deal"` happening that is a genuine, redeemable discount
+ * (lib/happenings/groups.ts's `isGenuineDeal` — a plain ticket price or
+ * "on sale now" row that got tagged `kind: "deal"` upstream is filtered out
+ * here rather than shown), decorated with a soonest occurrence (for display)
+ * and WHAT/WHO facets (for client-side filtering). Also excludes a deal
  * that's both `recurrence: "always"` AND `is_free === true` — that exact
  * combination is `buildFreeAnyTime`'s own selection criterion, and the two
  * sections must stay mutually exclusive (mirrors the pre-restructure
@@ -451,6 +441,7 @@ function buildDealCards(happenings: Happening[], heroId: string | null, now: Dat
   for (const h of happenings) {
     if (h.kind !== "deal" || h.id === heroId) continue;
     if (!isDated(h) && h.is_free === true) continue; // → freeAnyTime only
+    if (!isGenuineDeal(h)) continue; // ticket price / on-sale notice, not an actual discount
     const occurrence = isDated(h) ? nextOccurrence(h, now, to, timeZone) : nextOccurrence(h, now, now, timeZone);
     if (!occurrence) continue;
     const { what, who } = dealFacets(h);
@@ -755,43 +746,32 @@ export async function GET(request: Request) {
       const startAtOf = (c: FeedCardData): string =>
         c.kind === "event" ? c.event.starts_at : c.occurrence.startsAt ?? "";
 
-      // "now" is exactly today + tomorrow; "coming_up" is everything after, so
-      // `today_tomorrow` is deliberately absent from its order — that bucket
-      // appearing under all three old windows was the redundancy this replaces.
-      // The range itself already excludes those days (occurrenceWindowRange),
-      // so this is belt-and-braces for a card whose local day lands on the
-      // boundary differently than its raw timestamp suggests.
-      const bucketOrder: FeedBucketKey[] =
-        window === "now" ? ["today_tomorrow"] : ["this_weekend", "coming_up"];
-
-      const grouped = new Map<FeedBucketKey, FeedCardData[]>();
-      for (const card of allCards) {
-        const key = bucketForDayDate(dayDateOf(card), now, timeZone);
-        if (!bucketOrder.includes(key)) continue;
-        const list = grouped.get(key) ?? [];
-        list.push(card);
-        grouped.set(key, list);
-      }
-
-      whatsOn = bucketOrder
-        .map((key) => {
-          const cards = (grouped.get(key) ?? []).sort((a, b) => {
-            const dayCmp = dayDateOf(a).localeCompare(dayDateOf(b));
-            if (dayCmp !== 0) return dayCmp;
-            return startAtOf(a).localeCompare(startAtOf(b));
-          });
-          return { key, title: BUCKET_TITLES[key](now, timeZone), meta: bucketMeta(key, cards), cards };
+      // Single chronological bucket, sorted day then start time — "This
+      // weekend" sitting above "Later on" as two separate buckets read as the
+      // wrong relationship (the weekend isn't a different KIND of thing, just
+      // sooner); the date-filter chip row above the list on `coming_up`
+      // (Home, app/(shell)/page.tsx) is what now lets the caller narrow to a
+      // weekend or a single day, client-side, over this one list. `now`
+      // keeps its own single bucket, belt-and-braces filtered by
+      // `bucketForDayDate` in case a card's local day lands on the window
+      // boundary differently than its raw timestamp suggests (the range
+      // itself already excludes days outside it via `occurrenceWindowRange`).
+      const bucketKey: FeedBucketKey = window === "now" ? "today_tomorrow" : "coming_up";
+      const cards = allCards
+        .filter((card) => {
+          const key = bucketForDayDate(dayDateOf(card), now, timeZone);
+          return window === "now" ? key === "today_tomorrow" : key !== "today_tomorrow";
         })
-        .filter((bucket) => bucket.cards.length > 0);
+        .sort((a, b) => {
+          const dayCmp = dayDateOf(a).localeCompare(dayDateOf(b));
+          if (dayCmp !== 0) return dayCmp;
+          return startAtOf(a).localeCompare(startAtOf(b));
+        });
 
-      // "Coming Up" as a heading under the Coming up tab, directly beneath a
-      // "This Weekend" heading, is the tab's own name echoed back — retitle it
-      // to the relationship the user actually reads off it ("the rest, after
-      // the weekend"). Only when the weekend bucket is genuinely present;
-      // alone, "Coming Up" is the correct label.
-      if (whatsOn.length > 1 && whatsOn[0].key === "this_weekend") {
-        const rest = whatsOn.find((b) => b.key === "coming_up");
-        if (rest) rest.title = "Later On";
+      if (cards.length > 0) {
+        const title = window === "now" ? "Happening Today & Tomorrow" : "Coming Up";
+        const meta = window === "now" ? `${cards.length} active` : null;
+        whatsOn = [{ key: bucketKey, title, meta, cards }];
       }
     }
 
@@ -804,14 +784,55 @@ export async function GET(request: Request) {
       to: new Date(now.getTime() + BOOK_EARLY_LOOKAHEAD_DAYS * 86_400_000).toISOString(),
       limit: 100,
     });
-    const bookEarly = buildBookEarly(happenings, bookEarlyEvents, heroId, now, timeZone, seriesByMemberId);
+
+    // On the Book early TAB, the global Fomo Pick hero has no business
+    // sitting above a list whose whole point is "book this ahead of time" —
+    // so on that request only, the hero slot is the top-ranked Book Early
+    // `kind: "happening"` card instead (excluded from the list below so it
+    // isn't shown twice), and the global hero is no longer excluded from the
+    // Book Early candidate set (it was never a Book Early card to begin
+    // with, so there's nothing to dedupe against). Every other request keeps
+    // the original behaviour unchanged, since /book-early, /deals and /free
+    // all read this same route with `window=now` and depend on the full,
+    // hero-excluded list.
+    const bookEarlyAll = buildBookEarly(
+      happenings,
+      bookEarlyEvents,
+      window === "book_early" ? null : heroId,
+      now,
+      timeZone,
+      seriesByMemberId
+    );
+
+    let responseHero = hero;
+    let bookEarly = bookEarlyAll;
+    let heroKind: FeedResponse["heroKind"];
+    if (window === "book_early") {
+      const topIndex = bookEarlyAll.findIndex((c) => c.kind === "happening");
+      const top: BookEarlyHappeningCard | undefined =
+        topIndex >= 0 && bookEarlyAll[topIndex].kind === "happening"
+          ? (bookEarlyAll[topIndex] as BookEarlyHappeningCard)
+          : undefined;
+      if (top) {
+        responseHero = { kind: "happening", happening: top.happening, occurrence: top.occurrence };
+        bookEarly = [...bookEarlyAll.slice(0, topIndex), ...bookEarlyAll.slice(topIndex + 1)];
+        heroKind = "book_early";
+      } else {
+        // No happening-kind Book Early candidate to lead with — never fall
+        // back to the global Fomo Pick or the /api/now hero on this tab.
+        responseHero = null;
+      }
+    }
 
     const dealCards = buildDealCards(happenings, heroId, now, timeZone);
     const deals = await buildDealsSection(db, dealCards);
 
     const freeAnyTime = await buildFreeAnyTime(db, happenings, seriesByMemberId, seriesLeads, placesById);
 
-    return cachedJson<FeedResponse>({ hero, whatsOn, bookEarly, deals, freeAnyTime }, CACHE_PRIVATE_NO_STORE);
+    return cachedJson<FeedResponse>(
+      { hero: responseHero, heroKind, whatsOn, bookEarly, deals, freeAnyTime },
+      CACHE_PRIVATE_NO_STORE
+    );
   } catch (err) {
     console.error("[api/feed] failed", err);
     return cachedJson<FeedResponse>(

@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { Icon, NavCard, SmartImage } from "@/components/ui";
-import { formatEventPrice, formatEventWhen } from "@/lib/events/format";
+import { formatEventDate, formatEventPrice, formatEventTimeSpan } from "@/lib/events/format";
 import {
   ELIGIBILITY_ICON,
   eligibilityLine,
@@ -293,7 +293,8 @@ function FestivalRow({ happening }: { happening: Happening }) {
 }
 
 function EventRow({ event }: { event: EventItem }) {
-  const when = formatEventWhen(event.starts_at, event.ends_at);
+  const eventDate = formatEventDate(event.starts_at);
+  const eventTime = formatEventTimeSpan(event.starts_at, event.ends_at);
   const price = formatEventPrice(event);
   // EventItem (Skiddle/Ticketmaster) has no HappeningCategory-shaped column —
   // its own `category` is a free-text provider string, not our enum — so the
@@ -308,7 +309,7 @@ function EventRow({ event }: { event: EventItem }) {
         <div className="flex min-w-0 flex-1 flex-col">
           <div className="mb-1 flex items-center gap-1.5 text-[11px] font-medium text-on-surface-variant">
             <TypeTag tag="EVENT" kind="event" />
-            <span className="font-bold text-accent">{when}</span>
+            <span className="font-bold text-accent">{eventDate}</span>
             {event.venue_name ? (
               <>
                 <span>•</span>
@@ -333,8 +334,8 @@ function EventRow({ event }: { event: EventItem }) {
 
       <div className="flex items-center justify-between border-t border-hairline pt-2 text-on-surface-variant">
         <span className="flex items-center gap-1 text-[11px] font-medium">
-          <Icon name="check_circle" size={14} className="text-secondary" />
-          {event.source ?? "Events"}
+          <Icon name="schedule" size={14} className="text-secondary" />
+          {eventTime}
         </span>
         <SaveButton subjectType="event" subjectId={event.id} />
       </div>

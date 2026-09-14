@@ -30,6 +30,8 @@ export { ProgressDots } from "./ProgressDots";
 export type { ProgressDotsProps } from "./ProgressDots";
 export { PageHeader } from "./PageHeader";
 export type { PageHeaderProps } from "./PageHeader";
+export { StickyFilterBar } from "./StickyFilterBar";
+export type { StickyFilterBarProps } from "./StickyFilterBar";
 export { SectionHeader } from "./SectionHeader";
 export type { SectionHeaderProps } from "./SectionHeader";
 export { PhotoCarousel } from "./PhotoCarousel";

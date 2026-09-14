@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import type { DealCardData, FeedResponse, VenueDealGroup } from "@/lib/happenings/feed-types";
 import { matchesDealFilters, type DealWhatGroup, type DealWhoGroup } from "@/lib/happenings/groups";
-import { Icon, PageHeader } from "@/components/ui";
+import { Icon, PageHeader, StickyFilterBar } from "@/components/ui";
 import { FeedListCard, VenueDealCard, DealFilters } from "@/components/happenings";
 
 type DealListItem =
@@ -76,18 +76,21 @@ export default function DealsPage() {
       <PageHeader title="Deals & Offers" showBack />
 
       <div className="flex flex-col gap-4 px-4">
-        <div className="flex items-start justify-between gap-3">
-          <p className="text-body-sm text-on-surface-variant">
-            Standing discounts, promo codes &amp; savings — valid whenever you go
-          </p>
-          <DealFilters
-            what={dealWhat}
-            who={dealWho}
-            onWhatChange={setDealWhat}
-            onWhoChange={setDealWho}
-            resultCount={dealItems.length}
-          />
-        </div>
+        <p className="text-body-sm text-on-surface-variant">
+          Standing discounts, promo codes &amp; savings — valid whenever you go
+        </p>
+
+        <StickyFilterBar className="-mx-4 px-4">
+          <div className="flex justify-end">
+            <DealFilters
+              what={dealWhat}
+              who={dealWho}
+              onWhatChange={setDealWhat}
+              onWhoChange={setDealWho}
+              resultCount={dealItems.length}
+            />
+          </div>
+        </StickyFilterBar>
 
         {deals === null ? (
           <div className="flex flex-col gap-3 pt-2">

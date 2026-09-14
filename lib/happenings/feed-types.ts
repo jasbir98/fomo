@@ -161,9 +161,11 @@ export interface DealsSection {
 }
 
 export interface FeedResponse {
-  /** The top-ranked happening for the hero slot, or null when none qualify — the page falls back to rendering the existing /api/now hero via FomoCard. May come from any section (What's on, Book early, or a deal), not just a dated happening. */
+  /** The hero card, or null when none qualify — the page falls back to rendering the existing /api/now hero via FomoCard EXCEPT when `heroKind === "book_early"`, where null means show no hero at all (never the Fomo Pick/FomoCard fallback). Ordinarily (`heroKind` absent) this is the top-ranked live happening across every section — What's on, Book early, or a deal, not just a dated happening. On `window=book_early` it's instead the top-ranked Book Early `kind: "happening"` card (see `heroKind`). */
   hero: HappeningCardData | null;
-  /** Window-driven (Now/This month/Coming up) date-bucketed section — activities, tours, events, festivals, dated free_access, cheap Skiddle/Ticketmaster events, and sports events/happenings regardless of price (lib/now/price.ts's WHATS_ON_PRICE_EXEMPT_CATEGORIES). Excludes every `kind: "deal"` happening — those live in `deals` now, never duplicated here. */
+  /** Which presentation `hero` should render with. Absent (the ordinary case) means the ranked-across-everything "Fomo Pick" card; `"book_early"` means `hero` is a Book Early candidate and the client should render HappeningHero's Book Early copy/CTA instead — only ever set on `window=book_early`. */
+  heroKind?: "book_early";
+  /** Window-driven date-bucketed section: one chronologically sorted bucket for `now` (today + tomorrow) or `coming_up` (everything after, no weekend/later split — Home applies its own client-side date filter over this single list) — activities, tours, events, festivals, dated free_access, cheap Skiddle/Ticketmaster events, and sports events/happenings regardless of price (lib/now/price.ts's WHATS_ON_PRICE_EXEMPT_CATEGORIES). Excludes every `kind: "deal"` happening — those live in `deals` now, never duplicated here. */
   whatsOn: FeedBucket[];
   /** Always-on, independent of `window` — see lib/happenings/book-early.ts for the ranking/label rules. */
   bookEarly: BookEarlyCardData[];

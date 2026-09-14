@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import type { FeedResponse, FreeAnyTimeItem } from "@/lib/happenings/feed-types";
 import { distinctTypeBuckets, distinctDistricts, matchesFreeAnyTimeFilters } from "@/lib/happenings/free-any-time-filters";
-import { Icon, PageHeader } from "@/components/ui";
+import { Icon, PageHeader, StickyFilterBar } from "@/components/ui";
 import { FreeAnyTimeFilters, FreeAnyTimeRow } from "@/components/happenings";
 
 /** GET /api/feed's `freeAnyTime` is already the FULL list (Home only ever
@@ -66,9 +66,10 @@ export default function FreeAnyTimePage() {
       <PageHeader title="Free Any Time" showBack />
 
       <div className="flex flex-col gap-4 px-4">
-        <div className="flex items-start justify-between gap-3">
-          <p className="text-body-sm text-on-surface-variant">Edinburgh classics with £0 admission</p>
-          <div className="flex shrink-0 items-start gap-2">
+        <p className="text-body-sm text-on-surface-variant">Edinburgh classics with £0 admission</p>
+
+        <StickyFilterBar className="-mx-4 px-4">
+          <div className="flex items-start justify-end gap-2">
             <FreeAnyTimeFilters
               typeLabel={typeBucket}
               district={district}
@@ -86,7 +87,7 @@ export default function FreeAnyTimePage() {
               Ask Fomo
             </Link>
           </div>
-        </div>
+        </StickyFilterBar>
 
         {items === null ? (
           <div className="flex flex-col gap-3 pt-2">

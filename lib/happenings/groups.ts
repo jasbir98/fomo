@@ -1,14 +1,15 @@
 /**
- * Fomo Happenings — Deals & Offers WHAT/WHO facet mapping.
+ * Fomo Happenings — Deals & Offers WHAT/WHO facet mapping, plus the
+ * genuine-deal predicate that gates what reaches this section at all.
  *
- * Pure, deterministic mapping from a happening's `category`/`eligibility`
- * columns to the two independent filter rows the Deals & Offers section
- * shows (see the Home rebuild contract, task 4). Kept separate from
+ * The WHAT/WHO mapping is a pure, deterministic derivation from a
+ * happening's `category`/`eligibility` columns into the two independent
+ * filter rows the Deals & Offers section shows (originally the Home rebuild
+ * contract, task 4; the WHAT table has since grown a `sports` group that
+ * spec didn't have — see CATEGORY_TO_WHAT's own note). Kept separate from
  * lib/happenings/format.ts because that module is about DISPLAY strings for
  * every happening; this one is specifically the filter taxonomy for one
- * section, and the mapping tables here are a direct transcription of the
- * task's own WHAT/WHO group spec — reviewers should be able to diff this
- * file against that spec line-for-line.
+ * section.
  *
  * Precomputed server-side (see app/api/feed/route.ts) into `what`/`who` on
  * every deal card, so the client can filter by tapping a chip with no
@@ -17,30 +18,34 @@
  */
 import type { HappeningCategory, HappeningEligibility } from "@/lib/happenings/types";
 
-export type DealWhatGroup = "food_drink" | "culture" | "activities" | "wellness";
-export type DealWhoGroup = "everyone" | "students" | "residents" | "under_26" | "over_60";
+export type DealWhatGroup = "food_drink" | "culture" | "activities" | "sports" | "wellness";
+export type DealWhoGroup = "students" | "residents" | "under_26" | "over_60";
 
 export const WHAT_GROUP_LABEL: Record<DealWhatGroup, string> = {
   food_drink: "Food & drink",
   culture: "Culture",
   activities: "Activities",
+  sports: "Sports",
   wellness: "Wellness",
 };
 
 export const WHO_GROUP_LABEL: Record<DealWhoGroup, string> = {
-  everyone: "Everyone",
   students: "Students",
   residents: "EH residents",
   under_26: "Under 26",
   over_60: "Over 60",
 };
 
-/** Chip order for the WHAT row, "All" first (represented client-side as `null`, not a member of the union — see DealFilters). */
-export const WHAT_GROUP_ORDER: DealWhatGroup[] = ["food_drink", "culture", "activities", "wellness"];
+/** Chip order for the WHAT row, "All" first (represented client-side as `null`, not a member of the union — see DealFilters). Sports sits next to Activities, the bucket it used to fall into before it got its own group. */
+export const WHAT_GROUP_ORDER: DealWhatGroup[] = ["food_drink", "culture", "activities", "sports", "wellness"];
 
-/** Chip order for the WHO row. No "All" chip in the union itself — the default, unfiltered state is "no chip selected" (`null`), per the task's own note that member/cardholder rows should only show then. */
-export const WHO_GROUP_ORDER: DealWhoGroup[] = ["everyone", "students", "residents", "under_26", "over_60"];
+/** Chip order for the WHO row. No "All" chip in the union itself — the default, unfiltered state is "no chip selected" (`null`), per the task's own note that member/cardholder (and, since `anyone` maps to `null` too — see ELIGIBILITY_TO_WHO — unrestricted) rows should only show then. There's deliberately no "Everyone" chip: every deal already shows in that unfiltered default, so a chip that means the same thing as "no chip selected" would be redundant. */
+export const WHO_GROUP_ORDER: DealWhoGroup[] = ["students", "residents", "under_26", "over_60"];
 
+/** `sports` gets its own WHAT group rather than folding into `activities`
+ *  (its pre-existing bucket) — fixtures/season tickets/club discounts read
+ *  as a distinct interest from parkruns and family days out, and lumping
+ *  them together buried both under one chip. */
 const CATEGORY_TO_WHAT: Partial<Record<HappeningCategory, DealWhatGroup>> = {
   food: "food_drink",
   nightlife: "food_drink",
@@ -50,7 +55,7 @@ const CATEGORY_TO_WHAT: Partial<Record<HappeningCategory, DealWhatGroup>> = {
   comedy: "culture",
   music: "culture",
   festival: "culture",
-  sports: "activities",
+  sports: "sports",
   family: "activities",
   outdoors: "activities",
   tours: "activities",
@@ -65,19 +70,19 @@ export function whatGroupForCategory(category: HappeningCategory | null): DealWh
 }
 
 const ELIGIBILITY_TO_WHO: Partial<Record<HappeningEligibility, DealWhoGroup>> = {
-  anyone: "everyone",
   student: "students",
   local_resident: "residents",
   under_26: "under_26",
   over_60: "over_60",
-  // member / cardholder deliberately absent: per the task, those rows should
+  // anyone / member / cardholder deliberately absent: those rows should
   // surface only in the unfiltered ("no WHO chip selected") state, never
-  // under a specific WHO chip — including "Everyone". Returning `null` for
-  // them means they never match any chip's `who === group` test, and the
-  // unfiltered state (which ignores `who` entirely) still shows them.
+  // under a specific WHO chip. Returning `null` for them means they never
+  // match any chip's `who === group` test, and the unfiltered state (which
+  // ignores `who` entirely) still shows them. `anyone` joined this list when
+  // the "Everyone" chip was removed — there's no chip left for it to map to.
 };
 
-/** `null` for `member`/`cardholder` — see the comment on ELIGIBILITY_TO_WHO. */
+/** `null` for `anyone`/`member`/`cardholder` — see the comment on ELIGIBILITY_TO_WHO. */
 export function whoGroupForEligibility(eligibility: HappeningEligibility): DealWhoGroup | null {
   return ELIGIBILITY_TO_WHO[eligibility] ?? null;
 }
@@ -108,4 +113,68 @@ export function matchesDealFilters(
   if (whatFilter != null && facets.what !== whatFilter) return false;
   if (whoFilter != null && facets.who !== whoFilter) return false;
   return true;
+}
+
+/**
+ * Matches a `saving_label`/`title` that actually reads as a discount, not a
+ * bare price — a percentage figure, "off"/"discount"/"concession" wording,
+ * "half price", "free" (as in "one free child ticket with each adult"), a
+ * save/saving/savings stem, or an "N for N" framing.
+ *
+ * Deliberately loose on WHICH discount shape (the research pipeline's
+ * phrasing varies row to row — "20% off", "Save up to 57%", "half-price
+ * tickets" all need to match) but tight on requiring one of these concrete
+ * words/symbols rather than guessing from prose — see isGenuineDeal's own
+ * doc comment for why title and saving_label are the only two fields this
+ * runs against.
+ */
+const DISCOUNT_SHAPE_PATTERN =
+  /\d+(\.\d+)?%|\boff\b|\bdiscount\b|\bconcession\b|half[- ]price|\bfree\b|\bsav(e|es|ing|ings)\b|\d+[- ]?for[- ]?\d+/i;
+
+/**
+ * True for a `kind: "deal"` happening that is an actual, redeemable
+ * discount — the thing Deals & Offers is for — as opposed to a plain price
+ * listing, "tickets on sale now" announcement, or a rights/application
+ * notice that got miscategorised as a deal upstream. Concrete signals only,
+ * checked in order of how much they alone prove:
+ *
+ *  1. A `promo_code` — nobody attaches a redemption code to a plain ticket
+ *     price, so its presence alone is enough regardless of eligibility.
+ *  2. A discount-shaped `saving_label`/`title` (DISCOUNT_SHAPE_PATTERN) —
+ *     "20% off", "Save up to 57%", "half-price tickets", a title containing
+ *     "concession" — enough on its own too, any eligibility.
+ *  3. A restricted `eligibility` (student/local_resident/under_26/over_60/
+ *     member/cardholder — anything but `anyone`) PAIRED WITH a positive
+ *     `saving_amount`. Covers rows whose `saving_label` is just a bare price
+ *     ("£5.00", "£14.50") rather than "X off" wording, where the restricted
+ *     audience is itself the concession signal (a student/resident/senior/
+ *     member rate implies a general-admission rate exists above it).
+ *     Restricted eligibility ALONE, with no saving_amount at all, is NOT
+ *     enough — several "Resident Day" rows in the live data have
+ *     `eligibility: "local_resident"` but no captured saving whatsoever,
+ *     which reads as a themed civic day, not a specific redeemable offer.
+ *
+ * Everything else is rejected, including a bare price with unrestricted
+ * eligibility ("Adult £10", "£15", "On Sale") — that's a ticket-pricing
+ * listing or an on-sale notice, exactly what the task calls out as NOT a
+ * deal, even though it has a `saving_amount` column filled in.
+ *
+ * Only `saving_label`/`title` are regex-tested — never `summary` or
+ * `eligibility_note`, both free-text research prose whose wording is
+ * inconsistent row to row (checked against the live data: near-identical
+ * "Resident Day" rows use "rewards", "special rates", and "free or
+ * discounted entry" for the same underlying scheme) and would make near-twin
+ * rows classify differently for no real reason.
+ */
+export function isGenuineDeal(h: {
+  title: string;
+  saving_label: string | null;
+  saving_amount: number | null;
+  promo_code: string | null;
+  eligibility: HappeningEligibility;
+}): boolean {
+  if (h.promo_code) return true;
+  if (DISCOUNT_SHAPE_PATTERN.test(h.saving_label ?? "") || DISCOUNT_SHAPE_PATTERN.test(h.title)) return true;
+  if (h.eligibility !== "anyone" && typeof h.saving_amount === "number" && h.saving_amount > 0) return true;
+  return false;
 }

@@ -487,7 +487,11 @@ function monthAbbr(month: number): string {
   return MONTH_ABBR[month - 1];
 }
 
-function monthShort(dayDate: string): string {
+/** 1-indexed "YYYY-MM-DD" -> "Sep" — exported for callers composing their own
+ *  compact date pills (Home's Coming up date filter row) that need the same
+ *  fixed English abbreviation this file uses, not the locale-dependent (and
+ *  in en-GB's case, wrong — "Sept") `Intl.DateTimeFormat` output. */
+export function monthShort(dayDate: string): string {
   return monthAbbr(Number(dayDate.slice(5, 7)));
 }
 

@@ -16,22 +16,20 @@ import type { BookEarlyCardData } from "@/lib/happenings/book-early";
 // Timing
 // ---------------------------------------------------------------------------
 
-export type BookEarlyTiming = "just_on_sale" | "on_sale_soon";
+export type BookEarlyTiming = "just_on_sale";
 
 export const TIMING_LABEL: Record<BookEarlyTiming, string> = {
   just_on_sale: "Just on sale",
-  on_sale_soon: "On sale soon",
 };
 
-export const TIMING_ORDER: BookEarlyTiming[] = ["just_on_sale", "on_sale_soon"];
+export const TIMING_ORDER: BookEarlyTiming[] = ["just_on_sale"];
 
-/** Maps a card's `bookEarlyTier` (0-3) onto the two timing chips the page
- *  offers — tiers 2/3 ("On sale now" / everything else) only ever show under
- *  the "All" chip, matching the task brief's own three-chip spec
- *  (Just on sale / On sale soon / All) rather than inventing a fourth. */
+/** Maps a card's `bookEarlyTier` (0-3) onto the timing chip the page offers —
+ *  only tier 0 ("Just on sale") shows as a selectable chip. Tiers 1-3 ("On sale
+ *  soon" / "On sale now" / everything else) only ever show under the "All" chip
+ *  since we have no data on when ticket sales will open. */
 export function timingForCard(card: BookEarlyCardData): BookEarlyTiming | null {
   if (card.tier === 0) return "just_on_sale";
-  if (card.tier === 1) return "on_sale_soon";
   return null;
 }
 

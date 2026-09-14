@@ -12,7 +12,7 @@ import {
 } from "@/lib/happenings/book-early-filters";
 import { CATEGORY_ORDER } from "@/lib/happenings/category-style";
 import type { HappeningCategory } from "@/lib/happenings/types";
-import { Icon, PageHeader } from "@/components/ui";
+import { Icon, PageHeader, StickyFilterBar } from "@/components/ui";
 import { BookEarlyCard, BookEarlyFilters } from "@/components/happenings";
 
 function bookEarlyCardKey(card: BookEarlyCardData): string {
@@ -117,11 +117,12 @@ export default function BookEarlyPage() {
       <PageHeader title="Book Early" showBack />
 
       <div className="flex flex-col gap-4 px-4">
-        <div className="flex items-start justify-between gap-3">
-          <p className="text-body-sm text-on-surface-variant">
-            Things that sell out fast the moment tickets go on sale
-          </p>
-          <div className="flex shrink-0 items-start gap-2">
+        <p className="text-body-sm text-on-surface-variant">
+          Things that sell out fast the moment tickets go on sale
+        </p>
+
+        <StickyFilterBar className="-mx-4 px-4">
+          <div className="flex items-start justify-end gap-2">
             <BookEarlyFilters
               timing={timing}
               category={category}
@@ -141,7 +142,7 @@ export default function BookEarlyPage() {
               Ask Fomo
             </Link>
           </div>
-        </div>
+        </StickyFilterBar>
 
         {cards === null ? (
           <div className="flex flex-col gap-3 pt-2">
