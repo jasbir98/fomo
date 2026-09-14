@@ -119,7 +119,20 @@ export function matchesDealFilters(
  * Matches a `saving_label`/`title` that actually reads as a discount, not a
  * bare price — a percentage figure, "off"/"discount"/"concession" wording,
  * "half price", "free" (as in "one free child ticket with each adult"), a
- * save/saving/savings stem, or an "N for N" framing.
+ * save/saving/savings stem, an "N for N" framing, or a price glued directly
+ * to "ticket(s)" ("£4 tickets", "£10 tickets"). That last fragment is the
+ * line between two live rows that read almost identically otherwise:
+ * National Cinema Weekend's `saving_label: "£4 tickets"` IS the deal (every
+ * participating cinema's normal ticket replaced by one flat promotional
+ * price, the same shape as EIF's "£10 tickets") but Edinburgh Cocktail Week
+ * VIP Pass's `saving_label: "£20.00"` is not — it's a bare number with no
+ * noun attached, i.e. just the pass's price, not a price framed as a
+ * special/reduced rate for a normal admission. The regex distinguishes them
+ * on exactly that: digits immediately (only whitespace between) followed by
+ * "ticket"/"tickets" reads as a promotional ticket-price class; digits with
+ * nothing after them, or another word in between ("Adult £10", "£99 season
+ * ticket"), doesn't — those fall through to signal 3 below instead, which
+ * gates on restricted eligibility rather than trusting the label alone.
  *
  * Deliberately loose on WHICH discount shape (the research pipeline's
  * phrasing varies row to row — "20% off", "Save up to 57%", "half-price
@@ -129,7 +142,7 @@ export function matchesDealFilters(
  * runs against.
  */
 const DISCOUNT_SHAPE_PATTERN =
-  /\d+(\.\d+)?%|\boff\b|\bdiscount\b|\bconcession\b|half[- ]price|\bfree\b|\bsav(e|es|ing|ings)\b|\d+[- ]?for[- ]?\d+/i;
+  /\d+(\.\d+)?%|\boff\b|\bdiscount\b|\bconcession\b|half[- ]price|\bfree\b|\bsav(e|es|ing|ings)\b|\d+[- ]?for[- ]?\d+|\d+(\.\d+)?\s*tickets?\b/i;
 
 /**
  * True for a `kind: "deal"` happening that is an actual, redeemable
