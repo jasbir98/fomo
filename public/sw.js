@@ -79,6 +79,15 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
+  // Everything else cross-origin (Google Fonts stylesheets, third-party
+  // scripts, …): don't call respondWith at all, so the browser performs the
+  // request itself under its normal CSP context. Re-issuing it here via the
+  // Fetch API would instead be checked against `connect-src`, which blocks
+  // hosts that are legitimately allowed by `style-src`/`font-src`
+  // (see CSP_DIRECTIVES in next.config.ts). There's no caching benefit to
+  // proxying them anyway — only the image branch above caches cross-origin.
+  if (new URL(request.url).origin !== self.location.origin) return;
+
   // Navigations: network-first, fall back to cached offline page.
   if (request.mode === "navigate") {
     event.respondWith(
