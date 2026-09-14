@@ -25,12 +25,16 @@ export function Icon({
   className = "",
   style,
 }: IconProps) {
+  // Material Symbols Outlined axis ranges: opsz 20–48, wght 100–700, FILL 0–1, GRAD -50–200
+  // Clamp optical size to the valid font axis range. Sizes below 20 will be rendered
+  // clamped by the browser anyway; we make it explicit here.
+  const opszClamped = size ? Math.max(20, Math.min(48, size)) : 24;
   return (
     <span
       className={`material-symbols-outlined select-none leading-none ${className}`}
       aria-hidden="true"
       style={{
-        fontVariationSettings: `'FILL' ${filled ? 1 : 0}, 'wght' ${weight}, 'GRAD' 0, 'opsz' ${size ?? 24}`,
+        fontVariationSettings: `'FILL' ${filled ? 1 : 0}, 'wght' ${weight}, 'GRAD' 0, 'opsz' ${opszClamped}`,
         ...(size ? { fontSize: size } : null),
         ...style,
       }}

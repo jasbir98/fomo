@@ -44,26 +44,27 @@ export default function RootLayout({
       <head>
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />
-        {/* Material Symbols: narrowed to actual usage — opsz 14..48 (sizes used), wght 100..700
-            (full range preserved; Icon component supports variable weights even if currently
-            unused), FILL 0..1 (filled/unfilled), GRAD dropped (hardcoded 0, never varies).
-            Preloaded to start fetch early; stylesheet link below applies it async. */}
+        {/* Material Symbols: narrowed to actual usage — opsz 20..48 (valid axis range;
+            smaller sizes are clamped by browser), wght 100..700 (full range preserved; Icon
+            component supports variable weights), FILL 0..1 (filled/unfilled), GRAD dropped
+            (hardcoded 0, never varies). Preloaded to start fetch early; stylesheet below
+            applies it async. */}
         {/* eslint-disable-next-line @next/next/no-page-custom-font, @next/next/google-font-display */}
         <link
           rel="preload"
           as="style"
-          href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL@14..48,100..700,0..1"
+          href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL@20..48,100..700,0..1"
         />
         {/* eslint-disable-next-line @next/next/no-page-custom-font, @next/next/google-font-display */}
         <link
-          href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL@14..48,100..700,0..1"
+          href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL@20..48,100..700,0..1"
           rel="stylesheet"
           media="print"
         />
         <noscript>
           {/* eslint-disable-next-line @next/next/no-page-custom-font, @next/next/google-font-display */}
           <link
-            href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL@14..48,100..700,0..1"
+            href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL@20..48,100..700,0..1"
             rel="stylesheet"
           />
         </noscript>
