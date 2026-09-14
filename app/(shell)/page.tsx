@@ -8,7 +8,7 @@ import { refreshGeolocation, useGeolocation } from "@/lib/geo";
 import { chooseCity, dismissCityPrompt, useSelectedCity } from "@/lib/useSelectedCity";
 import { rememberUserLocation, forgetUserLocation } from "@/lib/now/location";
 import type { CardKind, NowResponse } from "@/lib/now/types";
-import type { FeedCardData, FeedResponse, FeedRange, FeedWindow } from "@/lib/happenings/feed-types";
+import type { FeedCardData, FeedResponse, FeedRange, FeedWindow, FeedPrice } from "@/lib/happenings/feed-types";
 import { NOTIFY_ME_ENABLED } from "@/lib/happenings/book-early";
 import type { WeatherCondition } from "@/lib/weather";
 import { WEATHER_THEME } from "@/lib/weatherUi";
@@ -22,31 +22,51 @@ interface HomeWeather {
 }
 
 /**
- * Two windows, not three. "This month" used to be a tab here, but it showed
- * today's and tomorrow's cards all over again before getting to anything new
- * — as did "Coming up" — so the three tabs were largely the same list three
- * times. They're now disjoint by construction server-side (see
- * occurrenceWindowRange in app/api/feed/route.ts), and "This month" has
- * become a range filter inside Coming up, which is the only job it did that
- * Now didn't already do.
+ * Three tabs, not a window plus a bolted-on list. "This month" used to be a
+ * tab here, but it showed today's and tomorrow's cards all over again before
+ * getting to anything new — as did "Coming up" — so the three were largely
+ * the same list three times. Now/Coming up are disjoint by construction
+ * server-side (see occurrenceWindowRange in app/api/feed/route.ts), and "This
+ * month" has become a range filter inside Coming up, which is the only job it
+ * did that Now didn't already do. `book_early` is the third tab, added
+ * because Book Early competed for attention as a section wedged under
+ * Coming up — it's not a date window at all (the route returns an empty
+ * `whatsOn` for it), it swaps out What's on entirely for the full ranked
+ * Book Early list.
  */
 const WINDOW_OPTIONS: { value: FeedWindow; label: string }[] = [
   { value: "now", label: "Now" },
   { value: "coming_up", label: "Coming up" },
+  { value: "book_early", label: "Book early" },
 ];
 
-/** Coming up's range filter — the demoted "This month" tab. */
+/** Coming up's range filter — the demoted "This month" tab. Meaningless for
+ *  Book early (which has its own ~12-month lookahead, nothing to do with
+ *  `now`/`coming_up` ranges), so it's only ever rendered alongside Coming up. */
 const RANGE_OPTIONS: { value: FeedRange; label: string }[] = [
   { value: "all", label: "All" },
   { value: "month", label: "This month" },
 ];
 
+/** What's on's price filter — opt-in ("all" is the honest, unfiltered
+ *  catalogue; see FeedPrice's doc comment in feed-types.ts for why "cheap"
+ *  isn't the default). Applies to What's on only, so — like the range chips
+ *  — it's rendered on Now/Coming up and hidden on Book early. */
+const PRICE_OPTIONS: { value: FeedPrice; label: string }[] = [
+  { value: "all", label: "All" },
+  { value: "cheap", label: "Free / Under £15" },
+];
+
 /** What's on section header — deliberately its own wording (not the segmented
  *  control's own labels) so the header reads as "what you're looking at" ("Today
- *  & tomorrow") rather than echoing the tab name ("Now") back at the user. */
+ *  & tomorrow") rather than echoing the tab name ("Now") back at the user.
+ *  `book_early` still needs an entry (this is a `Record<FeedWindow, string>`),
+ *  but What's on is never rendered on that tab — see the section gating below
+ *  — so this value is unreachable rather than a real piece of copy. */
 const WHATS_ON_WINDOW_LABEL: Record<FeedWindow, string> = {
   now: "Today & tomorrow",
   coming_up: "Coming up",
+  book_early: "Book early",
 };
 
 async function fetchNowResponse(
@@ -68,10 +88,21 @@ async function fetchNowResponse(
   }
 }
 
-/** `window` drives What's on only — every other section (hero, Book early, Deals, Free any time) is independent of it. `range` is the demoted "This month" tab, only meaningful (and only sent as a distinct value) inside Coming up — these are the only two query params the feed route still takes besides `at`. */
-async function fetchFeed(window: FeedWindow, range: FeedRange, signal?: AbortSignal): Promise<FeedResponse | null> {
+/** `window` drives What's on (and, for `book_early`, swaps it out entirely) —
+ *  every other section (hero, Deals, Free any time) is independent of it.
+ *  `range` is the demoted "This month" tab and `price` the What's on price
+ *  filter; both are only meaningful inside Now/Coming up, but sent as-is
+ *  regardless — the route ignores them for `book_early`, same as it already
+ *  ignores `range` for `now`. These are the only query params the feed route
+ *  takes besides `at`. */
+async function fetchFeed(
+  window: FeedWindow,
+  range: FeedRange,
+  price: FeedPrice,
+  signal?: AbortSignal
+): Promise<FeedResponse | null> {
   try {
-    const params = new URLSearchParams({ window, range });
+    const params = new URLSearchParams({ window, range, price });
     const res = await fetch(`/api/feed?${params.toString()}`, { signal });
     return (await res.json()) as FeedResponse;
   } catch (err) {
@@ -86,21 +117,24 @@ function bookEarlyCardKey(card: FeedResponse["bookEarly"][number]): string {
 }
 
 /**
- * Fomo Home — a clean, four-section skim: Fomo Pick hero → What's on (the
- * only section the window control drives) → Book early → Free any time.
- * Deals & Offers moved out to its own page (app/(shell)/deals/page.tsx) in
- * the Home decluttering pass — user feedback was "the homepage is messy, all
- * blue, too much text", and Deals' own WHAT/WHO filter chips plus a fourth
- * card list were the single biggest chunk of that. Deals lives ONLY in the
- * bottom nav now (components/shell/BottomNav.tsx) — deliberately no pointer
- * card, teaser, or header shortcut to it anywhere on this page, so it reads
- * as a clean, separate destination rather than a Home section in disguise.
- * `deals` is still part of GET /api/feed's response (the Deals page reads
- * the same route) — Home just never touches that field.
+ * Fomo Home — a clean, tab-driven skim: Fomo Pick hero → then, depending on
+ * the window control, either What's on (Now/Coming up, with its own
+ * range/price filter chips) or the full Book early list (its own tab now,
+ * not a section wedged under Coming up) → Free any time, shown only on Now
+ * so it doesn't repeat itself under every tab. Deals & Offers moved out to
+ * its own page (app/(shell)/deals/page.tsx) in the Home decluttering pass —
+ * user feedback was "the homepage is messy, all blue, too much text", and
+ * Deals' own WHAT/WHO filter chips plus a fourth card list were the single
+ * biggest chunk of that. Deals lives ONLY in the bottom nav now
+ * (components/shell/BottomNav.tsx) — deliberately no pointer card, teaser,
+ * or header shortcut to it anywhere on this page, so it reads as a clean,
+ * separate destination rather than a Home section in disguise. `deals` is
+ * still part of GET /api/feed's response (the Deals page reads the same
+ * route) — Home just never touches that field.
  *
  * The merged read lives behind GET /api/feed (app/api/feed/route.ts) — this
- * page is presentation + the one piece of client state the route can't own
- * (the window).
+ * page is presentation + the client state the route can't own (the window,
+ * the range/price filters).
  *
  * HERO FALLBACK: unchanged from the pre-restructure page — GET /api/feed's
  * `hero` is the top-ranked live happening across every section, or null when
@@ -117,6 +151,9 @@ export default function HomePage() {
   // Coming up's range filter ("All" vs "This month") — a plain chip choice,
   // not a window switch, so it never triggers the scroll-into-view below.
   const [feedRange, setRange] = useState<FeedRange>("all");
+  // What's on's price filter ("All" vs "Free / Under £15") — same deal as
+  // `feedRange`: a chip tap, never a window switch.
+  const [feedPrice, setPrice] = useState<FeedPrice>("all");
   // Window-switch feedback (task: "no animation or changes properly when I
   // select This month / Coming up"). `feedLoading` dims the still-visible
   // previous What's on content the instant a segment is tapped;
@@ -165,7 +202,7 @@ export default function HomePage() {
     prevFeedWindowRef.current = feedWindow;
     (async () => {
       setFeedLoading(true);
-      const json = await fetchFeed(feedWindow, feedRange, controller.signal);
+      const json = await fetchFeed(feedWindow, feedRange, feedPrice, controller.signal);
       if (controller.signal.aborted) return;
       setFeed(json);
       setFeedLoading(false);
@@ -186,7 +223,7 @@ export default function HomePage() {
       }
     })();
     return () => controller.abort();
-  }, [feedWindow, feedRange]);
+  }, [feedWindow, feedRange, feedPrice]);
 
   // Weather is keyed on the resolved city (not a mount-once read) so
   // picking a different city — or geolocation resolving after the picker
@@ -267,6 +304,20 @@ export default function HomePage() {
     if (card.kind === "happening") return `happening-${card.happening.id}`;
     if (card.kind === "series") return `series-${card.key}`;
     return `event-${card.event.id}`;
+  }
+
+  // The price filter is checked first — it's the more aggressive of the two
+  // possible causes of an empty What's on, and "try another tab" is actively
+  // misleading advice when the real fix is loosening the price chip rather
+  // than switching windows.
+  function whatsOnEmptyMessage(): string {
+    if (feedPrice === "cheap") {
+      return "Nothing free or under £15 right now — try the All price filter.";
+    }
+    if (feedWindow === "coming_up" && feedRange === "month") {
+      return "Nothing else on this month — try the All filter.";
+    }
+    return `Nothing lined up for ${WHATS_ON_WINDOW_LABEL[feedWindow].toLowerCase()} yet — try another tab.`;
   }
 
   return (
@@ -370,20 +421,46 @@ export default function HomePage() {
         {/* Window control — drives What's on only, per the Home restructure. */}
         <SegmentedControl value={feedWindow} options={WINDOW_OPTIONS} onChange={setWindow} />
 
-        {/* Coming up's demoted "This month" tab — a chip row rather than a
-            third segment, since it only ever narrows Coming up and has no
-            meaning under Now. Hidden entirely outside Coming up so it never
-            reads as a filter on today/tomorrow. */}
-        {feedWindow === "coming_up" ? (
-          <div className="flex items-center gap-2">
-            {RANGE_OPTIONS.map((opt) => (
-              <Chip
-                key={opt.value}
-                label={opt.label}
-                selected={feedRange === opt.value}
-                onClick={() => setRange(opt.value)}
-              />
-            ))}
+        {/* Range/price filter chips — both narrow What's on only, so both are
+            hidden on Book early (which isn't What's on at all). Range only
+            has meaning inside Coming up (Now is always exactly
+            today+tomorrow), so it's further restricted to that tab; price
+            applies to either. Two separate rows rather than one wrapping
+            chip soup when both are visible together on Coming up, so they
+            read as two independent filters instead of one long list of
+            options to pick from. */}
+        {feedWindow !== "book_early" ? (
+          <div className="flex flex-col gap-2">
+            {feedWindow === "coming_up" ? (
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-label-sm font-semibold uppercase tracking-wide text-on-surface-variant">
+                  Range
+                </span>
+                {RANGE_OPTIONS.map((opt) => (
+                  <Chip
+                    key={opt.value}
+                    label={opt.label}
+                    selected={feedRange === opt.value}
+                    onClick={() => setRange(opt.value)}
+                  />
+                ))}
+              </div>
+            ) : null}
+            <div className="flex flex-wrap items-center gap-2">
+              {feedWindow === "coming_up" ? (
+                <span className="text-label-sm font-semibold uppercase tracking-wide text-on-surface-variant">
+                  Price
+                </span>
+              ) : null}
+              {PRICE_OPTIONS.map((opt) => (
+                <Chip
+                  key={opt.value}
+                  label={opt.label}
+                  selected={feedPrice === opt.value}
+                  onClick={() => setPrice(opt.value)}
+                />
+              ))}
+            </div>
           </div>
         ) : null}
 
@@ -402,103 +479,107 @@ export default function HomePage() {
           </div>
         )}
 
-        {/* What's on — window-driven date buckets. `scroll-mt-20` keeps the
-            sticky header from covering the section top when a switch scrolls
-            it into view (see the fetch effect above). */}
-        <div ref={whatsOnSectionRef} className="flex scroll-mt-20 flex-col gap-3">
-          {feed !== null ? (
-            <div className="flex items-center justify-between px-1">
-              <h2 className="text-headline-sm font-extrabold tracking-tight text-on-surface">
-                What&apos;s on
-                <span className="ml-1.5 font-semibold text-on-surface-variant">
-                  · {WHATS_ON_WINDOW_LABEL[feedWindow]}
+        {/* What's on — window-driven date buckets. Hidden entirely (heading,
+            count badge, skeletons, empty state, all of it) on Book early:
+            that tab isn't a date window at all, it's a swap-out to the full
+            Book Early list below, and the route returns an empty `whatsOn`
+            for it so there'd be nothing here to show anyway. `scroll-mt-20`
+            keeps the sticky header from covering the section top when a
+            window switch scrolls it into view (see the fetch effect above). */}
+        {feedWindow !== "book_early" ? (
+          <div ref={whatsOnSectionRef} className="flex scroll-mt-20 flex-col gap-3">
+            {feed !== null ? (
+              <div className="flex items-center justify-between px-1">
+                <h2 className="text-headline-sm font-extrabold tracking-tight text-on-surface">
+                  What&apos;s on
+                  <span className="ml-1.5 font-semibold text-on-surface-variant">
+                    · {WHATS_ON_WINDOW_LABEL[feedWindow]}
+                  </span>
+                </h2>
+                <span className="rounded-full border border-hairline-strong bg-surface-container px-2.5 py-0.5 text-label-sm font-extrabold text-primary">
+                  {whatsOnCount}
                 </span>
-              </h2>
-              <span className="rounded-full border border-hairline-strong bg-surface-container px-2.5 py-0.5 text-label-sm font-extrabold text-primary">
-                {whatsOnCount}
-              </span>
-            </div>
-          ) : null}
+              </div>
+            ) : null}
 
-          {feed === null ? (
-            <div className="flex flex-col gap-3">
-              {[0, 1].map((i) => (
-                <div key={i} className="h-24 animate-pulse rounded-lg bg-surface-container motion-reduce:animate-none" />
-              ))}
-            </div>
-          ) : (
-            <div
-              key={whatsOnRenderKey}
-              className={`feed-fade-in flex flex-col gap-5 transition-opacity duration-200 ${
-                feedLoading ? "pointer-events-none opacity-40" : "opacity-100"
-              }`}
-            >
-              {whatsOn.length === 0 ? (
-                <p className="px-1 text-body-sm text-on-surface-variant">
-                  {feedWindow === "coming_up" && feedRange === "month"
-                    ? "Nothing else on this month — try the All filter."
-                    : `Nothing lined up for ${WHATS_ON_WINDOW_LABEL[feedWindow].toLowerCase()} yet — try another tab.`}
-                </p>
-              ) : (
-                whatsOn.map((bucket) => {
-                  const isExpanded = expandedSections[bucket.key] ?? false;
-                  const visibleCards = isExpanded ? bucket.cards : bucket.cards.slice(0, SECTION_CAP);
-                  const hiddenCount = bucket.cards.length - visibleCards.length;
-                  return (
-                    <section key={bucket.key} className="flex flex-col gap-3">
-                      <div className="flex items-center justify-between px-1">
-                        <div className="flex items-center gap-2">
-                          <span className="h-2 w-2 rounded-full bg-accent" />
-                          <h3 className="text-headline-sm font-extrabold tracking-tight text-on-surface">
-                            {bucket.title}
-                          </h3>
+            {feed === null ? (
+              <div className="flex flex-col gap-3">
+                {[0, 1].map((i) => (
+                  <div key={i} className="h-24 animate-pulse rounded-lg bg-surface-container motion-reduce:animate-none" />
+                ))}
+              </div>
+            ) : (
+              <div
+                key={whatsOnRenderKey}
+                className={`feed-fade-in flex flex-col gap-5 transition-opacity duration-200 ${
+                  feedLoading ? "pointer-events-none opacity-40" : "opacity-100"
+                }`}
+              >
+                {whatsOn.length === 0 ? (
+                  <p className="px-1 text-body-sm text-on-surface-variant">{whatsOnEmptyMessage()}</p>
+                ) : (
+                  whatsOn.map((bucket) => {
+                    const isExpanded = expandedSections[bucket.key] ?? false;
+                    const visibleCards = isExpanded ? bucket.cards : bucket.cards.slice(0, SECTION_CAP);
+                    const hiddenCount = bucket.cards.length - visibleCards.length;
+                    return (
+                      <section key={bucket.key} className="flex flex-col gap-3">
+                        <div className="flex items-center justify-between px-1">
+                          <div className="flex items-center gap-2">
+                            <span className="h-2 w-2 rounded-full bg-accent" />
+                            <h3 className="text-headline-sm font-extrabold tracking-tight text-on-surface">
+                              {bucket.title}
+                            </h3>
+                          </div>
+                          {/* Meta badge and "See more" share this right-aligned
+                              row — the button used to be a full-width bar below
+                              the cards; user feedback asked for it "on the
+                              side" instead, next to the bucket's own badge. */}
+                          <div className="flex items-center gap-2">
+                            {bucket.meta ? (
+                              <span className="rounded-full border border-hairline-strong bg-surface-container px-2.5 py-0.5 text-label-sm font-extrabold text-primary">
+                                {bucket.meta}
+                              </span>
+                            ) : null}
+                            {hiddenCount > 0 ? (
+                              <button
+                                type="button"
+                                onClick={() => expandSection(bucket.key)}
+                                aria-label={`See all ${bucket.cards.length} in ${bucket.title}`}
+                                className="flex shrink-0 items-center gap-0.5 rounded-full bg-surface-container-lowest/80 px-2.5 py-1 text-label-sm font-semibold text-primary backdrop-blur-sm transition-opacity hover:opacity-80"
+                              >
+                                See more
+                                <Icon name="expand_more" size={16} />
+                              </button>
+                            ) : null}
+                          </div>
                         </div>
-                        {/* Meta badge and "See more" share this right-aligned
-                            row — the button used to be a full-width bar below
-                            the cards; user feedback asked for it "on the
-                            side" instead, next to the bucket's own badge. */}
-                        <div className="flex items-center gap-2">
-                          {bucket.meta ? (
-                            <span className="rounded-full border border-hairline-strong bg-surface-container px-2.5 py-0.5 text-label-sm font-extrabold text-primary">
-                              {bucket.meta}
-                            </span>
-                          ) : null}
-                          {hiddenCount > 0 ? (
-                            <button
-                              type="button"
-                              onClick={() => expandSection(bucket.key)}
-                              aria-label={`See all ${bucket.cards.length} in ${bucket.title}`}
-                              className="flex shrink-0 items-center gap-0.5 rounded-full bg-surface-container-lowest/80 px-2.5 py-1 text-label-sm font-semibold text-primary backdrop-blur-sm transition-opacity hover:opacity-80"
-                            >
-                              See more
-                              <Icon name="expand_more" size={16} />
-                            </button>
-                          ) : null}
+                        <div className="flex flex-col gap-3">
+                          {visibleCards.map((card) => (
+                            <FeedListCard key={cardKey(card)} card={card} />
+                          ))}
                         </div>
-                      </div>
-                      <div className="flex flex-col gap-3">
-                        {visibleCards.map((card) => (
-                          <FeedListCard key={cardKey(card)} card={card} />
-                        ))}
-                      </div>
-                    </section>
-                  );
-                })
-              )}
-            </div>
-          )}
-        </div>
+                      </section>
+                    );
+                  })
+                )}
+              </div>
+            )}
+          </div>
+        ) : null}
 
-        {/* Book early — now a Coming up-only section here (user feedback:
-            "Book now should be a section in Coming up", removed entirely
-            from Now). The API field itself stays window-independent — it's
-            unconditionally returned by GET /api/feed because /book-early,
-            /deals and /free all fetch window=now and depend on the full
-            list — Home is just choosier about when it renders it. Full
-            ranked list + its own timing/category/month filters and an Ask
-            Fomo button live at /book-early — see that page's own doc
-            comment. */}
-        {feedWindow === "coming_up" && bookEarly.length > 0 ? (
+        {/* Book early — now its own tab (user feedback: Book Early deserved
+            more room than a capped section wedged under Coming up, and
+            competed with What's on for the same tab's attention). The API
+            field itself stays window-independent — it's unconditionally
+            returned by GET /api/feed because /book-early, /deals and /free
+            all fetch window=now and depend on the full list — Home is just
+            choosier about when it renders it. As the tab's only content
+            there's no SECTION_CAP here (unlike What's on's buckets): the
+            full ranked list renders straight away, with "See all" still
+            linking to /book-early for that page's own timing/category/month
+            filters and Ask Fomo button — see that page's own doc comment. */}
+        {feedWindow === "book_early" ? (
           <section className="flex flex-col gap-3">
             <div className="flex items-start justify-between gap-2 px-1">
               <div className="flex flex-col gap-0.5">
@@ -518,19 +599,30 @@ export default function HomePage() {
                 <Icon name="chevron_right" size={16} />
               </Link>
             </div>
-            <div className="flex flex-col gap-3">
-              {bookEarly.slice(0, SECTION_CAP).map((card) => (
-                <BookEarlyCard
-                  key={bookEarlyCardKey(card)}
-                  card={card}
-                  initialSubscribed={card.kind === "happening" && alertHappeningIds.has(card.happening.id)}
-                />
-              ))}
-            </div>
+            {bookEarly.length === 0 ? (
+              <p className="px-1 text-body-sm text-on-surface-variant">
+                Nothing worth booking early right now — check back soon.
+              </p>
+            ) : (
+              <div className="flex flex-col gap-3">
+                {bookEarly.map((card) => (
+                  <BookEarlyCard
+                    key={bookEarlyCardKey(card)}
+                    card={card}
+                    initialSubscribed={card.kind === "happening" && alertHappeningIds.has(card.happening.id)}
+                  />
+                ))}
+              </div>
+            )}
           </section>
         ) : null}
 
-        <FreeAnyTimeList items={freeAnyTime} />
+        {/* Free any time — Now only. It used to render under every tab,
+            which read as repetition once Coming up and Book early each had
+            their own primary content to focus on; Now (today + tomorrow) is
+            the one tab short enough that "here's what's always free" still
+            earns its place at the bottom rather than padding out the scroll. */}
+        {feedWindow === "now" ? <FreeAnyTimeList items={freeAnyTime} /> : null}
       </div>
     </div>
   );

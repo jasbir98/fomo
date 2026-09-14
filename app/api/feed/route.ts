@@ -1,5 +1,5 @@
 /**
- * Fomo Home feed — GET /api/feed?window=now|coming_up&range=all|month&at=<ISO, optional>
+ * Fomo Home feed — GET /api/feed?window=now|coming_up|book_early&range=all|month&price=all|cheap&at=<ISO, optional>
  *
  * RESHAPED for the Home restructure (see lib/happenings/feed-types.ts's doc
  * comment for the full before/after). Home is now five sections instead of
@@ -10,12 +10,16 @@
  *                 (any kind — What's on, Deals, or Book Early candidates all
  *                 compete for this slot; whichever wins is excluded from its
  *                 own section below so nothing renders twice).
- *   whatsOn     — window-driven date buckets. Every dated happening EXCEPT
- *                 `kind: "deal"` (those moved to `deals`), plus cheap
- *                 Skiddle/Ticketmaster events. The old global filter chip
- *                 row (All/Free/Under £10/Deals/Festivals) is gone — see
- *                 `whatsOnHappeningPasses`'s doc comment for the "cheap"
- *                 gate that replaces it here.
+ *   whatsOn     — window-driven date buckets, empty outright for
+ *                 `window=book_early` (see `FeedWindow`'s doc comment).
+ *                 Every dated happening EXCEPT `kind: "deal"` (those moved to
+ *                 `deals`), merged with Skiddle/Ticketmaster events —
+ *                 deduped/merged against curated happenings and each other
+ *                 (lib/happenings/merge-events.ts) rather than shown twice.
+ *                 `price=cheap` opts back into the old hard price ceiling;
+ *                 the default `price=all` shows the whole merged catalogue
+ *                 regardless of price — see `whatsOnHappeningPasses`'s doc
+ *                 comment and `FeedPrice`'s own doc comment in feed-types.ts.
  *   bookEarly   — always-on, independent of `window`. Ranking/labels live in
  *                 lib/happenings/book-early.ts. Home only renders it under
  *                 "Coming up" (it's a section about future on-sales, so it
@@ -83,6 +87,7 @@ import {
 import { categoryStyle } from "@/lib/happenings/category-style";
 import { dealFacets } from "@/lib/happenings/groups";
 import { groupHappeningsIntoSeries, seriesLookup, type HappeningSeriesGroup } from "@/lib/happenings/series";
+import { dedupeProviderEvents, mergeProviderEventsIntoCards, type MergeableCard } from "@/lib/happenings/merge-events";
 import {
   buildBookEarlyEventCard,
   buildBookEarlyHappeningCard,
@@ -98,6 +103,7 @@ import type {
   FeedResponse,
   FeedWindow,
   FeedRange,
+  FeedPrice,
   FreeAnyTimeItem,
   HappeningCardData,
   VenueDealGroup,
@@ -116,11 +122,21 @@ const BOOK_EARLY_LOOKAHEAD_DAYS = 366;
 const BOOK_EARLY_MIN_CURATED = 3;
 
 function parseWindow(value: string | null): FeedWindow {
-  return value === "coming_up" ? "coming_up" : "now";
+  if (value === "coming_up") return "coming_up";
+  if (value === "book_early") return "book_early";
+  return "now";
 }
 
 function parseRange(value: string | null): FeedRange {
   return value === "month" ? "month" : "all";
+}
+
+/** "cheap" opts back into the old hard price ceiling; anything else (including
+ *  no param at all) is the honest, unfiltered merged catalogue — see
+ *  lib/happenings/feed-types.ts's `FeedPrice` doc comment for why "all" is
+ *  the default now, not "cheap". */
+function parsePrice(value: string | null): FeedPrice {
+  return value === "cheap" ? "cheap" : "all";
 }
 
 /** How far ahead the unfiltered "Coming up" window looks. */
@@ -147,9 +163,16 @@ function monthEndDayDate(today: string): string {
  * (`to` < `from`) range rather than clamping — "this month" genuinely has
  * nothing left to show at that point, and `nextOccurrences` already treats an
  * inverted range as no results.
+ *
+ * `window` is typed as `Exclude<FeedWindow, "book_early">` deliberately —
+ * `book_early` isn't a date window at all (see `FeedWindow`'s own doc
+ * comment), it has no meaningful `{from, to}` here, and the GET handler
+ * below skips calling this function entirely for it rather than letting it
+ * silently fall through to the `coming_up` branch and then discarding the
+ * (meaningless) result.
  */
 function occurrenceWindowRange(
-  window: FeedWindow,
+  window: Exclude<FeedWindow, "book_early">,
   range: FeedRange,
   now: Date,
   timeZone: string
@@ -269,8 +292,15 @@ function pickHero(happenings: Happening[], now: Date, timeZone: string): Happeni
  * `WHATS_ON_PRICE_EXEMPT_CATEGORIES` (lib/now/price.ts) — sports fixtures
  * pass regardless of price, per the user's 2026-09-14 call; the card's own
  * price badge (savingBadgeLabel) still shows an honest figure or nothing.
+ *
+ * All of the above is now scoped to `price === "cheap"` only (the opt-in
+ * What's on filter chip — see `FeedPrice`'s doc comment). Under the default
+ * `"all"` there is no unknown-price exclusion left to apply: a dated,
+ * non-deal happening passes regardless of its `kind` or price, because the
+ * whole point of "all" is the honest, unfiltered merged catalogue.
  */
-function whatsOnHappeningPasses(h: Happening): boolean {
+function whatsOnHappeningPasses(h: Happening, price: FeedPrice): boolean {
+  if (price === "all") return true;
   if (h.kind !== "event") return true;
   if (h.category && WHATS_ON_PRICE_EXEMPT_CATEGORIES.includes(h.category)) return true;
   return h.is_free === true;
@@ -579,6 +609,7 @@ export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const window = parseWindow(searchParams.get("window"));
   const range = parseRange(searchParams.get("range"));
+  const price = parsePrice(searchParams.get("price"));
   const atParam = searchParams.get("at");
   const now = atParam && !Number.isNaN(Date.parse(atParam)) ? new Date(atParam) : new Date();
   const timeZone = CITY.timezone;
@@ -628,111 +659,140 @@ export async function GET(request: Request) {
     const seriesByMemberId = seriesLookup(seriesGroups);
     const seriesLeads = pickSeriesLeads(seriesGroups, now, timeZone);
 
-    const { from, to } = occurrenceWindowRange(window, range, now, timeZone);
+    // Book Early replaces What's on outright rather than narrowing it (see
+    // `FeedWindow`'s own doc comment) — the entire happening-card loop, the
+    // `listUpcomingEvents` window query, dedupe/merge and bucketing below are
+    // real work (a DB round trip, an O(n·m) fuzzy match) that nobody reads
+    // when `whatsOn` is going to render as empty anyway, so it's skipped
+    // outright rather than computed and discarded.
+    let whatsOn: FeedBucket[] = [];
+    if (window !== "book_early") {
+      const { from, to } = occurrenceWindowRange(window, range, now, timeZone);
 
-    // What's on: every dated, non-deal happening (its soonest occurrence in
-    // the window), excluding the hero so it never appears twice. A series
-    // member collapses onto a single card the first time any of its members
-    // is encountered, dated by the soonest occurrence across every member
-    // (not just that one), and links to the series' lead.
-    const happeningCards: FeedCardData[] = [];
-    const seenSeriesInWindow = new Set<string>();
-    for (const h of happenings) {
-      if (!(isDated(h) && h.kind !== "deal" && h.id !== heroId && whatsOnHappeningPasses(h))) continue;
-      const group = seriesByMemberId.get(h.id);
-      if (group) {
-        if (seenSeriesInWindow.has(group.key)) continue;
-        const members = group.members.filter((m) => m.id !== heroId);
-        const soonest = soonestOccurrenceForMembers(members, from, to, timeZone);
-        if (!soonest) continue;
-        seenSeriesInWindow.add(group.key);
-        happeningCards.push({
-          kind: "series",
-          key: group.key,
-          title: group.title,
-          lead: seriesLeads.get(group.key) ?? h,
-          locationCount: group.members.length,
-          occurrence: soonest,
-        });
-        continue;
-      }
-      const occurrence = nextOccurrence(h, from, to, timeZone);
-      if (occurrence) happeningCards.push({ kind: "happening", happening: h, occurrence });
-    }
-
-    // Cheap events only, within the window — the hard "cheap" ceiling from
-    // lib/now/price.ts's priceSignalForEvent, applied server-side. Sports
-    // events are exempt from the ceiling (WHATS_ON_PRICE_EXEMPT_CATEGORIES,
-    // user's 2026-09-14 call) since live Ticketmaster/Skiddle sports rows
-    // almost never carry a `price_from` and would otherwise never qualify.
-    //
-    // Bounded by the window's own `from`, not `now`: on "Coming up" that's
-    // the day after tomorrow, so the `limit` budget isn't spent on today's
-    // events only for them to be discarded by the bucket filter below —
-    // which used to be able to starve the section empty on a busy day.
-    // Skipped entirely for an inverted range ("This month", selected with
-    // no days left in it), which by definition matches nothing.
-    const windowEvents =
-      to < from
-        ? []
-        : await listUpcomingEvents(db, {
-            destination: CITY.name,
-            from: from.toISOString(),
-            to: to.toISOString(),
-            limit: 60,
+      // What's on: every dated, non-deal happening (its soonest occurrence in
+      // the window), excluding the hero so it never appears twice. A series
+      // member collapses onto a single card the first time any of its members
+      // is encountered, dated by the soonest occurrence across every member
+      // (not just that one), and links to the series' lead.
+      const happeningCards: MergeableCard[] = [];
+      const seenSeriesInWindow = new Set<string>();
+      for (const h of happenings) {
+        if (!(isDated(h) && h.kind !== "deal" && h.id !== heroId && whatsOnHappeningPasses(h, price))) continue;
+        const group = seriesByMemberId.get(h.id);
+        if (group) {
+          if (seenSeriesInWindow.has(group.key)) continue;
+          const members = group.members.filter((m) => m.id !== heroId);
+          const soonest = soonestOccurrenceForMembers(members, from, to, timeZone);
+          if (!soonest) continue;
+          seenSeriesInWindow.add(group.key);
+          happeningCards.push({
+            kind: "series",
+            key: group.key,
+            title: group.title,
+            lead: seriesLeads.get(group.key) ?? h,
+            locationCount: group.members.length,
+            occurrence: soonest,
           });
-    const eventCards: FeedCardData[] = windowEvents
-      .filter(
-        (e) =>
-          priceSignalForEvent(e) === "cheap" ||
-          (e.category && WHATS_ON_PRICE_EXEMPT_CATEGORIES.includes(e.category))
-      )
-      .map((e) => ({ kind: "event" as const, event: e }));
+          continue;
+        }
+        const occurrence = nextOccurrence(h, from, to, timeZone);
+        if (occurrence) happeningCards.push({ kind: "happening", happening: h, occurrence });
+      }
 
-    const allCards = [...happeningCards, ...eventCards];
+      // Every event in the window is a candidate now — the old hard-coded
+      // "cheap" ceiling (lib/now/price.ts's priceSignalForEvent) silently
+      // dropped almost the entire Ticketmaster/Skiddle catalogue, because
+      // those rows essentially never carry a `price_from` and so score
+      // `null`, not "cheap". `price === "cheap"` opts back into that exact
+      // old predicate (the What's on filter chip); the default "all" applies
+      // no price filter at all — see `FeedPrice`'s own doc comment.
+      //
+      // Bounded by the window's own `from`, not `now`: on "Coming up" that's
+      // the day after tomorrow, so the `limit` budget isn't spent on today's
+      // events only for them to be discarded by the bucket filter below —
+      // which used to be able to starve the section empty on a busy day.
+      // Skipped entirely for an inverted range ("This month", selected with
+      // no days left in it), which by definition matches nothing. `limit`
+      // raised from 60 to 200: with the price ceiling gone by default, a busy
+      // window's full catalogue is much bigger, and truncating it here would
+      // arbitrarily drop rows before dedupe/merge and sorting ever see them.
+      const windowEvents =
+        to < from
+          ? []
+          : await listUpcomingEvents(db, {
+              destination: CITY.name,
+              from: from.toISOString(),
+              to: to.toISOString(),
+              limit: 200,
+            });
+      const priceFilteredEvents =
+        price === "cheap"
+          ? windowEvents.filter(
+              (e) =>
+                priceSignalForEvent(e) === "cheap" ||
+                (e.category && WHATS_ON_PRICE_EXEMPT_CATEGORIES.includes(e.category))
+            )
+          : windowEvents;
 
-    const dayDateOf = (c: FeedCardData): string =>
-      c.kind === "event" ? localDayDate(new Date(c.event.starts_at), timeZone) : c.occurrence.dayDate;
-    const startAtOf = (c: FeedCardData): string =>
-      c.kind === "event" ? c.event.starts_at : c.occurrence.startsAt ?? "";
+      // Ticketmaster and Skiddle both regularly list the same gig, and a
+      // curated `happenings` row for the same real-world event is common
+      // too now that the provider catalogue isn't being filtered back out —
+      // collapse both kinds of duplicate down to one card per real event
+      // before turning whatever's left into `EventCardData` (see
+      // lib/happenings/merge-events.ts's module doc for why/how).
+      const dedupedEvents = dedupeProviderEvents(priceFilteredEvents, timeZone);
+      const { cards: mergedHappeningCards, unmatchedEvents } = mergeProviderEventsIntoCards(
+        happeningCards,
+        dedupedEvents,
+        timeZone
+      );
+      const eventCards: FeedCardData[] = unmatchedEvents.map((e) => ({ kind: "event" as const, event: e }));
 
-    // "now" is exactly today + tomorrow; "coming_up" is everything after, so
-    // `today_tomorrow` is deliberately absent from its order — that bucket
-    // appearing under all three old windows was the redundancy this replaces.
-    // The range itself already excludes those days (occurrenceWindowRange),
-    // so this is belt-and-braces for a card whose local day lands on the
-    // boundary differently than its raw timestamp suggests.
-    const bucketOrder: FeedBucketKey[] =
-      window === "now" ? ["today_tomorrow"] : ["this_weekend", "coming_up"];
+      const allCards: FeedCardData[] = [...mergedHappeningCards, ...eventCards];
 
-    const grouped = new Map<FeedBucketKey, FeedCardData[]>();
-    for (const card of allCards) {
-      const key = bucketForDayDate(dayDateOf(card), now, timeZone);
-      if (!bucketOrder.includes(key)) continue;
-      const list = grouped.get(key) ?? [];
-      list.push(card);
-      grouped.set(key, list);
-    }
+      const dayDateOf = (c: FeedCardData): string =>
+        c.kind === "event" ? localDayDate(new Date(c.event.starts_at), timeZone) : c.occurrence.dayDate;
+      const startAtOf = (c: FeedCardData): string =>
+        c.kind === "event" ? c.event.starts_at : c.occurrence.startsAt ?? "";
 
-    const whatsOn: FeedBucket[] = bucketOrder
-      .map((key) => {
-        const cards = (grouped.get(key) ?? []).sort((a, b) => {
-          const dayCmp = dayDateOf(a).localeCompare(dayDateOf(b));
-          if (dayCmp !== 0) return dayCmp;
-          return startAtOf(a).localeCompare(startAtOf(b));
-        });
-        return { key, title: BUCKET_TITLES[key](now, timeZone), meta: bucketMeta(key, cards), cards };
-      })
-      .filter((bucket) => bucket.cards.length > 0);
+      // "now" is exactly today + tomorrow; "coming_up" is everything after, so
+      // `today_tomorrow` is deliberately absent from its order — that bucket
+      // appearing under all three old windows was the redundancy this replaces.
+      // The range itself already excludes those days (occurrenceWindowRange),
+      // so this is belt-and-braces for a card whose local day lands on the
+      // boundary differently than its raw timestamp suggests.
+      const bucketOrder: FeedBucketKey[] =
+        window === "now" ? ["today_tomorrow"] : ["this_weekend", "coming_up"];
 
-    // "Coming Up" as a heading under the Coming up tab, directly beneath a
-    // "This Weekend" heading, is the tab's own name echoed back — retitle it
-    // to the relationship the user actually reads off it ("the rest, after
-    // the weekend"). Only when the weekend bucket is genuinely present;
-    // alone, "Coming Up" is the correct label.
-    if (whatsOn.length > 1 && whatsOn[0].key === "this_weekend") {
-      const rest = whatsOn.find((b) => b.key === "coming_up");
-      if (rest) rest.title = "Later On";
+      const grouped = new Map<FeedBucketKey, FeedCardData[]>();
+      for (const card of allCards) {
+        const key = bucketForDayDate(dayDateOf(card), now, timeZone);
+        if (!bucketOrder.includes(key)) continue;
+        const list = grouped.get(key) ?? [];
+        list.push(card);
+        grouped.set(key, list);
+      }
+
+      whatsOn = bucketOrder
+        .map((key) => {
+          const cards = (grouped.get(key) ?? []).sort((a, b) => {
+            const dayCmp = dayDateOf(a).localeCompare(dayDateOf(b));
+            if (dayCmp !== 0) return dayCmp;
+            return startAtOf(a).localeCompare(startAtOf(b));
+          });
+          return { key, title: BUCKET_TITLES[key](now, timeZone), meta: bucketMeta(key, cards), cards };
+        })
+        .filter((bucket) => bucket.cards.length > 0);
+
+      // "Coming Up" as a heading under the Coming up tab, directly beneath a
+      // "This Weekend" heading, is the tab's own name echoed back — retitle it
+      // to the relationship the user actually reads off it ("the rest, after
+      // the weekend"). Only when the weekend bucket is genuinely present;
+      // alone, "Coming Up" is the correct label.
+      if (whatsOn.length > 1 && whatsOn[0].key === "this_weekend") {
+        const rest = whatsOn.find((b) => b.key === "coming_up");
+        if (rest) rest.title = "Later On";
+      }
     }
 
     // Book Early: its own longer, window-independent event lookahead — a

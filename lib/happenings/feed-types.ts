@@ -26,7 +26,15 @@ import type { FeedBucketKey } from "@/lib/happenings/format";
 import type { DealWhatGroup, DealWhoGroup } from "@/lib/happenings/groups";
 import type { BookEarlyCardData } from "@/lib/happenings/book-early";
 
-export type FeedWindow = "now" | "coming_up";
+/**
+ * Which section the Home window control is showing.
+ *
+ * `book_early` is a TAB, not a date window — it doesn't narrow What's on, it
+ * replaces it with the Book Early list (which has its own ~12-month lookahead
+ * that has nothing to do with `now`/`coming_up`'s ranges). The route returns
+ * an empty `whatsOn` for it rather than computing buckets nothing will read.
+ */
+export type FeedWindow = "now" | "coming_up" | "book_early";
 
 /**
  * Date-range filter for the `coming_up` window only — the old "This month"
@@ -39,6 +47,22 @@ export type FeedWindow = "now" | "coming_up";
  * Ignored for `window: "now"`, which is always exactly today + tomorrow.
  */
 export type FeedRange = "all" | "month";
+
+/**
+ * Price filter for What's on.
+ *
+ * "cheap" is the old hard-coded gate (free, or `price_from` <= £15 — see
+ * lib/now/price.ts's priceSignalForEvent), which used to be applied
+ * unconditionally and silently. That dropped essentially every
+ * Ticketmaster/Skiddle row, because those almost never carry a `price_from`
+ * at all and so score `null` rather than "cheap" — the provider catalogue was
+ * in the database and being filtered back out on the way to the screen.
+ *
+ * "all" (the default) is now the honest view of the merged catalogue;
+ * "cheap" is opt-in via the What's on filter chip. Note the asymmetry this
+ * fixes: an unknown price is no longer treated as "too expensive to show".
+ */
+export type FeedPrice = "all" | "cheap";
 
 export interface HappeningCardData {
   kind: "happening";
