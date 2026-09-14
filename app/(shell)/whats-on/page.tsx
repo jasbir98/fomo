@@ -6,7 +6,8 @@ import type { FeedCardData, FeedResponse, FeedWindow } from "@/lib/happenings/fe
 import { weekendDates } from "@/lib/happenings/format";
 import { distinctCategoryFacets, matchesCategoryFilter, type CategoryFacetKey } from "@/lib/happenings/whats-on-filters";
 import { Chip, Icon, PageHeader, SegmentedControl, StickyFilterBar } from "@/components/ui";
-import { DateFilterRow, FeedListCard, cardDayDate } from "@/components/happenings";
+import { DateFilterRow, FeedListCard } from "@/components/happenings";
+import { cardOnDay, cardPillDate } from "@/components/happenings/DateFilterRow";
 
 /** Only these two windows are date windows at all — `book_early` is a
  *  separate tab with its own dedicated page (/book-early), never reachable
@@ -88,7 +89,10 @@ function WhatsOnPageInner() {
   const dates = useMemo(() => {
     if (!cards) return [];
     const set = new Set<string>();
-    for (const card of cards) set.add(cardDayDate(card));
+    for (const card of cards) {
+      const day = cardPillDate(card);
+      if (day) set.add(day);
+    }
     return Array.from(set).sort();
   }, [cards]);
 
@@ -98,12 +102,9 @@ function WhatsOnPageInner() {
     if (!cards) return [];
     if (dateFilter === "all") return cards;
     if (dateFilter === "weekend") {
-      return cards.filter((c) => {
-        const d = cardDayDate(c);
-        return d === weekendSaturday || d === weekendSunday;
-      });
+      return cards.filter((c) => cardOnDay(c, weekendSaturday) || cardOnDay(c, weekendSunday));
     }
-    return cards.filter((c) => cardDayDate(c) === dateFilter);
+    return cards.filter((c) => cardOnDay(c, dateFilter));
   }, [cards, dateFilter, weekendSaturday, weekendSunday]);
 
   const categoryOptions = useMemo(() => distinctCategoryFacets(dateFilteredCards), [dateFilteredCards]);

@@ -87,6 +87,24 @@ export function HappeningHero({ happening, occurrence, variant = "fomo_pick", re
             ? "Fomo Pick · This Weekend"
             : "Fomo Pick · Coming Up";
 
+  // The recommendation reason often restates what the card already says
+  // ("last chance today · Kids free" under a "Last Chance" label, a "Kids
+  // free" badge and a "— today only." headline). Drop the parts that repeat
+  // the label, badge or headline; hide the pill if nothing new is left.
+  const headline = heroHeadline(happening, occurrence, now);
+  const shown = `${pickLabel} ${badge ?? ""} ${headline}`.toLowerCase();
+  const visibleReason =
+    reason
+      ?.split(" · ")
+      .filter((part) => {
+        const p = part.toLowerCase();
+        if (shown.includes(p)) return false;
+        if (p.includes("last chance") && shown.includes("last chance")) return false;
+        if ((p === "today" || p === "tomorrow") && shown.includes(p)) return false;
+        return true;
+      })
+      .join(" · ") || null;
+
   function handleCopy(e: MouseEvent) {
     e.stopPropagation();
     void doCopy();
@@ -132,9 +150,9 @@ export function HappeningHero({ happening, occurrence, variant = "fomo_pick", re
               <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-secondary-fixed-dim animate-pulse" />
               {pickLabel}
             </span>
-            {reason ? (
+            {visibleReason ? (
               <span className="inline-flex max-w-full shrink-0 items-center truncate rounded-full bg-surface-container-lowest/85 px-2.5 py-0.5 text-label-sm font-semibold text-on-surface backdrop-blur-md">
-                {reason}
+                {visibleReason}
               </span>
             ) : null}
           </div>

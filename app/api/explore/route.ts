@@ -62,7 +62,8 @@ import {
 import type { ExploreLayer, ExplorePin, ExploreResponse } from "@/lib/explore/types";
 import type { Place, EventItem } from "@/lib/types";
 import type { Happening } from "@/lib/happenings/types";
-import { cachedJson, CACHE_MEDIUM } from "@/lib/http/cache";
+import { localDayDate } from "@/lib/happenings/occurrence";
+import { cachedJson, CACHE_MEDIUM, CACHE_PRIVATE_NO_STORE } from "@/lib/http/cache";
 
 export const runtime = "nodejs";
 
@@ -367,7 +368,12 @@ export async function GET(request: Request) {
               lng: c.coords.lng,
               image: c.h.image_url,
               category: categoryStyle(c.h.category).label,
-              badge: happeningTimeLabel({ exact: true, startsAt: c.startsAt, dayDate: "" }, now, timeZone) ?? savingBadgeLabel(c.h),
+              badge:
+                happeningTimeLabel(
+                  { exact: true, startsAt: c.startsAt, dayDate: localDayDate(new Date(c.startsAt as string), timeZone) },
+                  now,
+                  timeZone
+                ) ?? savingBadgeLabel(c.h),
               href: `/happening/${c.h.id}`,
               starts_at: c.startsAt,
             }),
@@ -422,6 +428,7 @@ export async function GET(request: Request) {
     return cachedJson<ExploreResponse>({ pins }, CACHE_MEDIUM);
   } catch (err) {
     console.error("[api/explore] failed", err);
-    return cachedJson<ExploreResponse>({ pins: [], degraded: "explore-error" }, CACHE_MEDIUM);
+    // Never cache a failure — the browser would keep serving an empty map.
+    return cachedJson<ExploreResponse>({ pins: [], degraded: "explore-error" }, CACHE_PRIVATE_NO_STORE);
   }
 }

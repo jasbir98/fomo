@@ -15,6 +15,25 @@ export function cardDayDate(card: FeedCardData): string {
   return card.kind === "event" ? localDayDate(new Date(card.event.starts_at)) : card.occurrence.dayDate;
 }
 
+/** Last day a card is on — a multi-day run's `lastDayDate`, else its one day. */
+function cardLastDayDate(card: FeedCardData): string {
+  return card.kind === "event" ? cardDayDate(card) : card.occurrence.lastDayDate;
+}
+
+/** The day pill a card contributes, or null for something already running
+ *  (an exhibition that opened in June would otherwise add a "Jun 27" pill to
+ *  a list of upcoming dates). Ongoing cards still match any day in their run
+ *  via `cardOnDay`. */
+export function cardPillDate(card: FeedCardData, today: string = localDayDate(new Date())): string | null {
+  const day = cardDayDate(card);
+  return day < today ? null : day;
+}
+
+/** Whether a card is on `day` — inside its run for multi-day happenings. */
+export function cardOnDay(card: FeedCardData, day: string): boolean {
+  return cardDayDate(card) <= day && day <= cardLastDayDate(card);
+}
+
 /** "Sep" / "26" / "Sat" for one date pill — `monthShort` (not
  *  `Intl.DateTimeFormat(…, {month:"short"})`) sidesteps the en-GB "Sept" ICU
  *  quirk lib/happenings/format.ts's own module doc calls out; weekday
