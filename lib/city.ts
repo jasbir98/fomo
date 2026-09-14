@@ -110,6 +110,29 @@ export function cityBadge(city: CityConfig = CITY): string {
 }
 
 /**
+ * Cities the app can actually show. Just `CITY` today: the Home feed
+ * (`/api/feed`, `/api/now`, `/api/happenings/[id]`, `/api/saved`) and the
+ * Reels location filter (lib/db/social.ts) all query the curated Edinburgh
+ * dataset directly with no destination/city parameter, so picking a
+ * different city would silently keep showing Edinburgh on Home regardless —
+ * worse than not offering the choice. (`/api/events`, `/api/experiences`,
+ * `/api/places`, and `/api/weather` do geocode an arbitrary `destination`
+ * string already, but that's not enough to make this a genuinely
+ * multi-city app while its flagship feed isn't.)
+ *
+ * Exported as a list, not just the single `CITY` constant, so the client
+ * city picker (lib/useSelectedCity.ts) has one real source of truth to
+ * render from -- adding a second city later is extending this array, not
+ * hand-writing a second hardcoded list to keep in sync.
+ */
+export const SUPPORTED_CITIES: readonly CityConfig[] = [CITY];
+
+/** Looks up a `SUPPORTED_CITIES` entry by `slug` -- null for an unknown/stale persisted value. */
+export function findCityBySlug(slug: string): CityConfig | null {
+  return SUPPORTED_CITIES.find((city) => city.slug === slug) ?? null;
+}
+
+/**
  * Best-effort district for a free-text address. Returns null rather than
  * guessing — the locality line simply omits the district when unknown, which
  * reads fine ("0.2 mi" alone), whereas a wrong district is actively misleading.

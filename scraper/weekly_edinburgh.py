@@ -1019,8 +1019,10 @@ def attach_publisher_images() -> str | None:
 
 
 def supabase_connection() -> tuple[str, str] | None:
+    # happenings has no anon/authenticated write policy — only the
+    # service-role key works here, so it's required with no anon fallback.
     url = (os.environ.get("SUPABASE_URL") or os.environ.get("NEXT_PUBLIC_SUPABASE_URL") or "").rstrip("/")
-    key = (os.environ.get("SUPABASE_SERVICE_ROLE_KEY") or os.environ.get("SUPABASE_KEY") or "").strip()
+    key = (os.environ.get("SUPABASE_SERVICE_ROLE_KEY") or "").strip()
     return (url, key) if url and key else None
 
 

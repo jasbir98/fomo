@@ -23,7 +23,6 @@
  * accepted best-effort limitation, not a bug to chase down here.
  */
 import "server-only";
-import { NextResponse } from "next/server";
 import { supabaseServer } from "@/lib/supabase/server";
 import { CITY } from "@/lib/city";
 import { listSavedItemsPage } from "@/lib/db/saved";
@@ -35,6 +34,7 @@ import type { Candidate } from "@/lib/now/types";
 import type { SavedItem } from "@/lib/types";
 import type { Db } from "@/lib/supabase/types";
 import { isUnauthorizedError } from "@/lib/supabase-error";
+import { cachedJson, CACHE_PRIVATE_NO_STORE } from "@/lib/http/cache";
 
 export const runtime = "nodejs";
 
@@ -58,7 +58,7 @@ export async function GET(request: Request) {
     data: { user },
   } = await db.auth.getUser();
   if (!user) {
-    return NextResponse.json<SavedResponse>({ items: [], degraded: "unauthorized" });
+    return cachedJson<SavedResponse>({ items: [], degraded: "unauthorized" }, CACHE_PRIVATE_NO_STORE);
   }
 
   const { searchParams } = new URL(request.url);
@@ -77,11 +77,12 @@ export async function GET(request: Request) {
   try {
     const saved = await listSavedItemsPage(db, { limit, offset });
     const items = await resolveCandidates(db, saved);
-    return NextResponse.json<SavedResponse>({ items });
+    return cachedJson<SavedResponse>({ items }, CACHE_PRIVATE_NO_STORE);
   } catch (err) {
     console.error("[api/saved] failed", err);
-    return NextResponse.json<SavedResponse>(
-      isUnauthorizedError(err) ? { items: [], degraded: "unauthorized" } : { items: [] }
+    return cachedJson<SavedResponse>(
+      isUnauthorizedError(err) ? { items: [], degraded: "unauthorized" } : { items: [] },
+      CACHE_PRIVATE_NO_STORE
     );
   }
 }

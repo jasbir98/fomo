@@ -2,16 +2,17 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { CITY, cityBadge } from "@/lib/city";
+import { cityBadge, SUPPORTED_CITIES } from "@/lib/city";
 import { supabaseBrowserAuth } from "@/lib/supabase/client";
-import { useGeolocation } from "@/lib/geo";
+import { refreshGeolocation, useGeolocation } from "@/lib/geo";
+import { chooseCity, dismissCityPrompt, useSelectedCity } from "@/lib/useSelectedCity";
 import { rememberUserLocation, forgetUserLocation } from "@/lib/now/location";
 import type { CardKind, NowResponse } from "@/lib/now/types";
 import type { FeedCardData, FeedResponse, FeedWindow } from "@/lib/happenings/feed-types";
 import { NOTIFY_ME_ENABLED } from "@/lib/happenings/book-early";
 import type { WeatherCondition } from "@/lib/weather";
 import { WEATHER_THEME } from "@/lib/weatherUi";
-import { Icon, SegmentedControl } from "@/components/ui";
+import { CityPicker, Icon, SegmentedControl } from "@/components/ui";
 import { FomoCard } from "@/components/fomo/Card";
 import { HappeningHero, FeedListCard, FreeAnyTimeList, BookEarlyCard } from "@/components/happenings";
 
@@ -36,7 +37,8 @@ const WHATS_ON_WINDOW_LABEL: Record<FeedWindow, string> = {
 };
 
 async function fetchNowResponse(
-  coords: { lat: number; lng: number } | null
+  coords: { lat: number; lng: number } | null,
+  signal?: AbortSignal
 ): Promise<NowResponse | null> {
   try {
     const params = new URLSearchParams();
@@ -44,21 +46,23 @@ async function fetchNowResponse(
       params.set("lat", String(coords.lat));
       params.set("lng", String(coords.lng));
     }
-    const res = await fetch(`/api/now?${params.toString()}`);
+    const res = await fetch(`/api/now?${params.toString()}`, { signal });
     return (await res.json()) as NowResponse;
   } catch (err) {
+    if (err instanceof DOMException && err.name === "AbortError") return null;
     console.error("[home] /api/now fetch failed", err);
     return null;
   }
 }
 
 /** `window` drives What's on only — every other section (hero, Book early, Deals, Free any time) is independent of it, so this is the only query param the feed route still takes besides `at`. */
-async function fetchFeed(window: FeedWindow): Promise<FeedResponse | null> {
+async function fetchFeed(window: FeedWindow, signal?: AbortSignal): Promise<FeedResponse | null> {
   try {
     const params = new URLSearchParams({ window });
-    const res = await fetch(`/api/feed?${params.toString()}`);
+    const res = await fetch(`/api/feed?${params.toString()}`, { signal });
     return (await res.json()) as FeedResponse;
   } catch (err) {
+    if (err instanceof DOMException && err.name === "AbortError") return null;
     console.error("[home] /api/feed fetch failed", err);
     return null;
   }
@@ -115,6 +119,8 @@ export default function HomePage() {
   // set) — no reason to hit /api/alerts on every Home load otherwise.
   const [alertHappeningIds, setAlertHappeningIds] = useState<Set<string>>(new Set());
   const { coords, status: geoStatus } = useGeolocation();
+  const { city, source: citySource, shouldPrompt: shouldPromptCity } = useSelectedCity();
+  const [cityPickerOpen, setCityPickerOpen] = useState(false);
 
   // Coarse last-known location, for graceful degradation on a later cold open.
   // Not used for this request, which sends the live reading directly.
@@ -124,14 +130,12 @@ export default function HomePage() {
   }, [db, geoStatus, coords]);
 
   useEffect(() => {
-    let cancelled = false;
+    const controller = new AbortController();
     (async () => {
-      const json = await fetchNowResponse(coords);
-      if (!cancelled && json) setNow(json);
+      const json = await fetchNowResponse(coords, controller.signal);
+      if (!controller.signal.aborted && json) setNow(json);
     })();
-    return () => {
-      cancelled = true;
-    };
+    return () => controller.abort();
   }, [coords]);
 
   // Switching the window keeps the previous feed on screen
@@ -140,13 +144,13 @@ export default function HomePage() {
   // window's data lands (see `whatsOnRenderKey`). Only the very first load,
   // before `feed` has ever been set, shows the plain skeleton below instead.
   useEffect(() => {
-    let cancelled = false;
+    const controller = new AbortController();
     const isWindowSwitch = prevFeedWindowRef.current !== feedWindow;
     prevFeedWindowRef.current = feedWindow;
     (async () => {
       setFeedLoading(true);
-      const json = await fetchFeed(feedWindow);
-      if (cancelled) return;
+      const json = await fetchFeed(feedWindow, controller.signal);
+      if (controller.signal.aborted) return;
       setFeed(json);
       setFeedLoading(false);
       setWhatsOnRenderKey((k) => k + 1);
@@ -165,41 +169,52 @@ export default function HomePage() {
         });
       }
     })();
-    return () => {
-      cancelled = true;
-    };
+    return () => controller.abort();
   }, [feedWindow]);
 
+  // Weather is keyed on the resolved city (not a mount-once read) so
+  // picking a different city — or geolocation resolving after the picker
+  // hasn't been touched — re-fetches for it; the AbortController cleanup
+  // cancels the previous city's in-flight request so a slow response for it
+  // can never land after the new city's and show the wrong forecast.
   useEffect(() => {
-    let cancelled = false;
+    const weatherController = new AbortController();
     (async () => {
       try {
-        const res = await fetch(`/api/weather?destination=${encodeURIComponent(CITY.name)}`);
+        const res = await fetch(`/api/weather?destination=${encodeURIComponent(city.name)}`, {
+          signal: weatherController.signal,
+        });
         const json = (await res.json()) as {
           day?: { condition: WeatherCondition; tempMaxC: number | null } | null;
         };
-        if (!cancelled && json.day) setWeather({ condition: json.day.condition, tempC: json.day.tempMaxC });
+        if (!weatherController.signal.aborted && json.day) {
+          setWeather({ condition: json.day.condition, tempC: json.day.tempMaxC });
+        }
       } catch (err) {
+        if (err instanceof DOMException && err.name === "AbortError") return;
         console.error("[home] weather fetch failed", err);
       }
     })();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+    return () => weatherController.abort();
+  }, [city.slug, city.name]);
 
+  // "Notify me" alert-state is an independent, mount-once read (empty dep
+  // array) with no relationship to weather/coords/feedWindow — its own
+  // effect (and AbortController) so unmount/re-run actually cancels the
+  // in-flight network request, not just the state update.
   useEffect(() => {
     if (!NOTIFY_ME_ENABLED) return;
-    let cancelled = false;
-    fetch("/api/alerts")
+    const alertsController = new AbortController();
+    fetch("/api/alerts", { signal: alertsController.signal })
       .then((res) => res.json())
       .then((json: { happeningIds?: string[] }) => {
-        if (!cancelled) setAlertHappeningIds(new Set(json.happeningIds ?? []));
+        if (!alertsController.signal.aborted) setAlertHappeningIds(new Set(json.happeningIds ?? []));
       })
-      .catch((err) => console.error("[home] /api/alerts fetch failed", err));
-    return () => {
-      cancelled = true;
-    };
+      .catch((err) => {
+        if (err instanceof DOMException && err.name === "AbortError") return;
+        console.error("[home] /api/alerts fetch failed", err);
+      });
+    return () => alertsController.abort();
   }, []);
 
   async function refreshNow() {
@@ -208,12 +223,13 @@ export default function HomePage() {
   }
 
   function handlePrimary(kind: CardKind) {
-    if (kind === "location" && typeof navigator !== "undefined" && navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        () => void refreshNow(),
-        () => {}
-      );
-    }
+    // Goes through the shared store (lib/geo.ts) rather than calling
+    // getCurrentPosition directly, so the result is cached/deduped like any
+    // other refresh, and the [coords] effect above re-fetches /api/now once
+    // the shared `coords` actually updates (fixes a stale-closure bug where
+    // this used to call refreshNow() with the *old* coords immediately
+    // after asking for a new position).
+    if (kind === "location") void refreshGeolocation();
   }
 
   const showHappeningHero = feed?.hero != null;
@@ -256,10 +272,15 @@ export default function HomePage() {
               Feed
             </span>
           </div>
-          <span className="ml-1 flex shrink-0 items-center gap-1 rounded-full border border-hairline bg-surface-container-lowest px-2.5 py-0.5">
+          <button
+            type="button"
+            onClick={() => setCityPickerOpen(true)}
+            aria-label={`Change city (currently ${city.name})`}
+            className="ml-1 flex shrink-0 items-center gap-1 rounded-full border border-hairline bg-surface-container-lowest px-2.5 py-0.5 transition-colors hover:bg-surface-container-low"
+          >
             <Icon name="location_on" size={14} className="text-secondary" />
-            <span className="text-label-sm font-bold tracking-tight text-secondary">{cityBadge()}</span>
-          </span>
+            <span className="text-label-sm font-bold tracking-tight text-secondary">{cityBadge(city)}</span>
+          </button>
         </div>
 
         <div className="flex shrink-0 items-center gap-1">
@@ -283,6 +304,52 @@ export default function HomePage() {
         </div>
       </header>
 
+      {/* Surfaced once, only when geolocation is denied/unsupported and the
+          user has never confirmed or dismissed a city — an explicit,
+          rememberable ask instead of the old silent Edinburgh fallback.
+          Not a blocking modal: a dismissible inline banner that opens the
+          same picker the header pill does.
+
+          Gated on SUPPORTED_CITIES.length here (the render), not folded into
+          `shouldPrompt` itself (the state): with only one supported city
+          there's no actual choice to offer, so asking "which city?" is pure
+          noise that costs vertical space on a mobile feed for nothing.
+          `shouldPrompt` keeps computing normally off geolocation/dismissal
+          state regardless, so this starts showing itself automatically the
+          moment a second city is added — deliberate, not dead code. */}
+      {shouldPromptCity && SUPPORTED_CITIES.length > 1 ? (
+        <div className="mx-4 flex items-center gap-2 rounded-xl border border-hairline bg-surface-container-low px-3 py-2">
+          <Icon name="location_off" size={18} className="text-on-surface-variant" />
+          <p className="flex-1 text-body-sm text-on-surface-variant">
+            Couldn&rsquo;t detect your location — showing {city.name}.
+          </p>
+          <button
+            type="button"
+            onClick={() => setCityPickerOpen(true)}
+            className="shrink-0 text-label-sm font-semibold text-primary"
+          >
+            Confirm
+          </button>
+          <button
+            type="button"
+            onClick={dismissCityPrompt}
+            aria-label="Dismiss"
+            className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-on-surface-variant hover:bg-surface-container"
+          >
+            <Icon name="close" size={16} />
+          </button>
+        </div>
+      ) : null}
+
+      <CityPicker
+        open={cityPickerOpen}
+        onClose={() => setCityPickerOpen(false)}
+        cities={SUPPORTED_CITIES}
+        currentSlug={city.slug}
+        currentSource={citySource}
+        onSelect={chooseCity}
+      />
+
       <div className="flex flex-col gap-6 px-4">
         {/* Window control — drives What's on only, per the Home restructure. */}
         <SegmentedControl value={feedWindow} options={WINDOW_OPTIONS} onChange={setWindow} />
@@ -296,7 +363,7 @@ export default function HomePage() {
             <Icon name="explore" size={28} className="text-outline" />
             <p className="text-body-md text-on-surface-variant">
               {now?.degraded === "no-coverage"
-                ? `Fomo doesn't know ${CITY.name} well enough yet — check the Map tab for live nearby places.`
+                ? `Fomo doesn't know ${city.name} well enough yet — check the Map tab for live nearby places.`
                 : "Finding something worth your while…"}
             </p>
           </div>

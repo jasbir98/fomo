@@ -2,11 +2,11 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { CITY } from "@/lib/city";
+import { useSelectedCity } from "@/lib/useSelectedCity";
 import type { Experience } from "@/lib/types";
 import { formatExperiencePrice, formatExperienceRating } from "@/lib/experiences/format";
 import { useInfiniteList } from "@/lib/useInfiniteList";
-import { Chip, Icon, PageHeader } from "@/components/ui";
+import { Chip, Icon, PageHeader, SmartImage } from "@/components/ui";
 
 /** Category chip → the slug the /api/experiences route understands. */
 const CATEGORY_FILTERS: { label: string; icon: string; slug: string }[] = [
@@ -41,7 +41,8 @@ export default function ExperiencesBrowsePage() {
   const [activeSlug, setActiveSlug] = useState<string | null>(null);
   const [degraded, setDegraded] = useState<string | null>(null);
 
-  const destination = CITY.name;
+  const { city } = useSelectedCity();
+  const destination = city.name;
 
   // Paginated fetch — shared infinite-scroll machinery (liveRef mirror,
   // fetch-generation counter, hasMore-from-page-size) lives in
@@ -148,11 +149,11 @@ export default function ExperiencesBrowsePage() {
                 >
                   <div className="relative h-24 w-24 shrink-0 overflow-hidden rounded-lg bg-surface-container">
                     {exp.image_url ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
+                      <SmartImage
                         src={exp.image_url}
                         alt={exp.title ?? ""}
-                        loading="lazy"
+                        width={96}
+                        height={96}
                         className="h-full w-full object-cover"
                       />
                     ) : (

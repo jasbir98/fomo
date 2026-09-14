@@ -114,14 +114,21 @@ def safe_get(kind: str, url: str, **kwargs) -> requests.Response | None:
 # ---- env / supabase ---------------------------------------------------------
 
 def load_env() -> dict:
+    # places and place_photos have no anon/authenticated write policy (see
+    # supabase/lock_pipeline_tables.sql / harden_rls.sql) — only the
+    # service-role key works here, so it's required with no anon fallback.
     env = {
         **dotenv_values(ROOT / "scraper" / ".env"),
         **dotenv_values(ROOT / ".env.local"),
     }
     url = env.get("NEXT_PUBLIC_SUPABASE_URL") or env.get("SUPABASE_URL")
-    key = env.get("SUPABASE_SERVICE_ROLE_KEY") or env.get("SUPABASE_KEY")
+    key = env.get("SUPABASE_SERVICE_ROLE_KEY")
     if not url or not key:
-        sys.exit("ERROR: missing Supabase URL/key in .env.local or scraper/.env")
+        sys.exit(
+            "ERROR: missing NEXT_PUBLIC_SUPABASE_URL (or SUPABASE_URL) / "
+            "SUPABASE_SERVICE_ROLE_KEY in .env.local or scraper/.env — places "
+            "and place_photos have no anon write policy."
+        )
     return {"url": url, "key": key}
 
 

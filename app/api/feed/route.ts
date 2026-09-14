@@ -41,7 +41,6 @@
  * never throws over an empty catalog.
  */
 import "server-only";
-import { NextResponse } from "next/server";
 import { supabaseServer } from "@/lib/supabase/server";
 import { CITY, districtFromAddress } from "@/lib/city";
 import { listLiveHappenings } from "@/lib/db/happenings";
@@ -88,6 +87,7 @@ import type {
 import { isUnauthorizedError } from "@/lib/supabase-error";
 import type { Db } from "@/lib/supabase/types";
 import type { Place } from "@/lib/types";
+import { cachedJson, CACHE_PRIVATE_NO_STORE } from "@/lib/http/cache";
 
 export const runtime = "nodejs";
 
@@ -511,14 +511,19 @@ export async function GET(request: Request) {
     data: { user },
   } = await db.auth.getUser();
   if (!user) {
-    return NextResponse.json<FeedResponse>({
-      hero: null,
-      whatsOn: [],
-      bookEarly: [],
-      deals: { venueGroups: [], singles: [] },
-      freeAnyTime: [],
-      degraded: "unauthorized",
-    });
+    // Auth-gated (session cookie decides 401 vs 200) — explicit no-store so
+    // no intermediary caches this per-session response.
+    return cachedJson<FeedResponse>(
+      {
+        hero: null,
+        whatsOn: [],
+        bookEarly: [],
+        deals: { venueGroups: [], singles: [] },
+        freeAnyTime: [],
+        degraded: "unauthorized",
+      },
+      CACHE_PRIVATE_NO_STORE
+    );
   }
 
   const { searchParams } = new URL(request.url);
@@ -669,16 +674,19 @@ export async function GET(request: Request) {
 
     const freeAnyTime = await buildFreeAnyTime(db, happenings, seriesByMemberId, seriesLeads, placesById);
 
-    return NextResponse.json<FeedResponse>({ hero, whatsOn, bookEarly, deals, freeAnyTime });
+    return cachedJson<FeedResponse>({ hero, whatsOn, bookEarly, deals, freeAnyTime }, CACHE_PRIVATE_NO_STORE);
   } catch (err) {
     console.error("[api/feed] failed", err);
-    return NextResponse.json<FeedResponse>({
-      hero: null,
-      whatsOn: [],
-      bookEarly: [],
-      deals: { venueGroups: [], singles: [] },
-      freeAnyTime: [],
-      degraded: isUnauthorizedError(err) ? "unauthorized" : undefined,
-    });
+    return cachedJson<FeedResponse>(
+      {
+        hero: null,
+        whatsOn: [],
+        bookEarly: [],
+        deals: { venueGroups: [], singles: [] },
+        freeAnyTime: [],
+        degraded: isUnauthorizedError(err) ? "unauthorized" : undefined,
+      },
+      CACHE_PRIVATE_NO_STORE
+    );
   }
 }

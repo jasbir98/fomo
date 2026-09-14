@@ -22,6 +22,7 @@ import type { EventItem } from "@/lib/types";
 import { geocodeDestination, type Center } from "@/lib/places/geocode";
 import { normalizeCategory } from "@/lib/events/categories";
 import { getEventsForDestination } from "@/lib/events/getForDestination";
+import { cachedJson, CACHE_MEDIUM } from "@/lib/http/cache";
 
 export const runtime = "nodejs";
 
@@ -77,5 +78,12 @@ export async function GET(request: Request) {
     radiusKm,
   });
 
-  return NextResponse.json<EventsResponse>({ center, events, degraded });
+  // Not gated on auth.getUser() — `db` here is only used for the shared
+  // events cache, so this response is identical for every caller with the
+  // same query params. Third-party catalogue data, cacheable for a few
+  // minutes — `private` only (browser cache), not `public`/`s-maxage`:
+  // every /api/* request passes through proxy.ts, which can attach a
+  // session-refresh Set-Cookie, so this must never be shared-cacheable
+  // (see lib/http/cache.ts's file header).
+  return cachedJson<EventsResponse>({ center, events, degraded }, CACHE_MEDIUM);
 }

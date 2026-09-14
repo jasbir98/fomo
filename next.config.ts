@@ -1,4 +1,5 @@
 import type { NextConfig } from "next";
+import { REMOTE_IMAGE_HOSTNAMES } from "./lib/image/cdn";
 
 // Pre-deploy hardening (Vercel Hobby). Applies to every route via headers()
 // below — see each directive's inline reasoning for what it allows and why.
@@ -59,6 +60,27 @@ const SECURITY_HEADERS = [
 
 const nextConfig: NextConfig = {
   allowedDevOrigins: ['192.168.0.26', '192.168.129.61', '192.168.1.213'],
+  images: {
+    formats: ["image/avif", "image/webp"],
+    // 30 days — Vercel caches the transformed output at this TTL, and none
+    // of these upstream photos (Unsplash/GYG/Viator/etc.) change often
+    // enough to need a shorter one.
+    minimumCacheTTL: 60 * 60 * 24 * 30,
+    // Most placements in this app are small: 64x64 thumbnails, h-28/h-32/h-52
+    // cards, a handful of full-bleed heroes. Keeping small entries in
+    // imageSizes means a 64px thumbnail gets a ~128px (2x) transform instead
+    // of Next's default smallest of 16px jumping straight to 256/384, so
+    // small art never rides on a needlessly large generated file.
+    deviceSizes: [360, 414, 640, 750, 828, 1080, 1200, 1920],
+    imageSizes: [64, 96, 128, 160, 200, 256, 384],
+    // Built from lib/image/cdn.ts's REMOTE_IMAGE_HOSTNAMES instead of a
+    // second hardcoded list here, so this config and that module's own
+    // `isKnownImageHost` can't silently drift apart.
+    remotePatterns: REMOTE_IMAGE_HOSTNAMES.map((hostname) => ({
+      protocol: "https" as const,
+      hostname,
+    })),
+  },
   async headers() {
     return [
       {

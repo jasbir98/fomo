@@ -15,8 +15,14 @@ produced by `--dump-json`:
     python scraper/upsert_supabase.py path/to/reels.json
     python scraper/upsert_supabase.py path/to/reels.json --table social_posts
 
-Credentials are read from `scraper/.env` (via python-dotenv), NOT the Next
-app's `.env.local` — this is a fully separate tool. See `.env.example`.
+Credentials are read from `scraper/.env` (via python-dotenv) — falling back
+to the repo-root `.env.local` if not set there, since that's where
+SUPABASE_SERVICE_ROLE_KEY commonly already lives for the Next app's
+server-only admin client. See `.env.example`.
+
+WRITE KEY: `scraped_reels` and `social_posts` have no anon/authenticated
+write policy (see supabase/lock_pipeline_tables.sql) — this module requires
+SUPABASE_SERVICE_ROLE_KEY and never falls back to an anon key for writes.
 
 IMPORTANT: the `Prefer: resolution=merge-duplicates` upsert strategy below
 relies on `video_url` having a UNIQUE constraint/index in Postgres so
@@ -39,7 +45,9 @@ import requests
 from dotenv import load_dotenv
 
 SCRAPER_DIR = Path(__file__).resolve().parent
+REPO_ROOT = SCRAPER_DIR.parent
 load_dotenv(SCRAPER_DIR / ".env")
+load_dotenv(REPO_ROOT / ".env.local", override=False)
 
 # Only these columns are ever sent — anything else on a reel dict is dropped
 # defensively so a stray key can't cause a PostgREST schema-mismatch error.
@@ -59,12 +67,25 @@ ALLOWED_COLUMNS = {
 
 
 def _get_credentials() -> tuple[str, str]:
-    supabase_url = os.environ.get("SUPABASE_URL", "").strip().rstrip("/")
-    supabase_key = os.environ.get("SUPABASE_KEY", "").strip()
+    """URL + SERVICE-ROLE key for writing scraped_reels / social_posts.
+
+    Both tables have no anon/authenticated write policy (see
+    supabase/lock_pipeline_tables.sql), so this never falls back to an anon
+    key — a script running with only an anon key should fail loudly here
+    rather than send requests PostgREST will silently 401/403 on.
+    """
+    supabase_url = (
+        os.environ.get("SUPABASE_URL", "").strip()
+        or os.environ.get("NEXT_PUBLIC_SUPABASE_URL", "").strip()
+    ).rstrip("/")
+    supabase_key = os.environ.get("SUPABASE_SERVICE_ROLE_KEY", "").strip()
     if not supabase_url or not supabase_key:
         print(
-            "[upsert] Missing SUPABASE_URL / SUPABASE_KEY. Copy scraper/.env.example "
-            "to scraper/.env and fill in your project's URL + anon/service key.",
+            "[upsert] Missing SUPABASE_URL (or NEXT_PUBLIC_SUPABASE_URL) / "
+            "SUPABASE_SERVICE_ROLE_KEY. scraped_reels and social_posts have no "
+            "anon write policy, so the anon/publishable key will not work here. "
+            "Add SUPABASE_SERVICE_ROLE_KEY to scraper/.env (or ensure it's "
+            "already in the repo-root .env.local, which this script also reads).",
             file=sys.stderr,
         )
         sys.exit(1)

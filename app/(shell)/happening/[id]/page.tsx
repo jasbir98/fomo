@@ -235,7 +235,12 @@ export default function HappeningDetailPage({ params }: { params: Promise<{ id: 
             <img> inside PhotoCarousel has no onError hook of its own, so this
             is a hidden probe image purely to catch that and flip state. Only
             probes a real `image_url`; the default image itself is a bundled
-            local asset that can't fail the same way. */}
+            local asset that can't fail the same way.
+            Intentionally left as a bare <img>, not SmartImage: it never
+            paints (className="hidden"), it exists solely to fire onError, and
+            the same URL is already fetched — optimized — by PhotoCarousel's
+            <SmartImage> above, so this stays a second, cheap, unoptimized
+            request rather than duplicating a CDN-resized one. */}
         {happening.image_url && !imgError ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img src={happening.image_url} alt="" className="hidden" onError={() => setImgError(true)} />

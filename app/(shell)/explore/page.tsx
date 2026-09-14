@@ -1,49 +1,35 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import dynamic from "next/dynamic";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import mapboxgl from "mapbox-gl";
-import "mapbox-gl/dist/mapbox-gl.css";
 import {
   isSaved,
-  listPlacesByIds,
   recordCardSignal,
   saveItem,
   unsaveItem,
 } from "@/lib/db";
-import { CITY } from "@/lib/city";
+import { useSelectedCity } from "@/lib/useSelectedCity";
 import { supabaseBrowserAuth } from "@/lib/supabase/client";
 import { buildDirectionsUrl } from "@/lib/maps/links";
 import { buildAskFomoHref } from "@/lib/chat-seed";
 import type { Place } from "@/lib/types";
 import { sortByDistance, useGeolocation, type Coordinates } from "@/lib/geo";
 import { useProgressiveReveal } from "@/lib/useProgressiveReveal";
-import { BottomSheet, Chip, Icon, SegmentedControl } from "@/components/ui";
+import { BottomSheet, Chip, Icon, SmartImage } from "@/components/ui";
+
+const MapCanvas = dynamic(() => import("@/components/explore/MapCanvas").then((mod) => mod.MapCanvas), {
+  ssr: false,
+  loading: () => (
+    <div className="h-64 w-full animate-pulse rounded-xl border border-outline-variant/60 bg-surface-container" />
+  ),
+});
 
 
 /** Place coordinate extractor for sortByDistance. */
 function placeCoords(place: Place): Coordinates | null {
   return place.lat != null && place.lng != null ? { lat: place.lat, lng: place.lng } : null;
-}
-
-function parseDate(d: string): Date {
-  return new Date(`${d}T00:00:00`);
-}
-
-function toISODate(d: Date): string {
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  return `${y}-${m}-${day}`;
-}
-
-function formatDayLabel(iso: string): { weekday: string; day: string } {
-  const d = parseDate(iso);
-  return {
-    weekday: d.toLocaleDateString("en-US", { weekday: "short" }),
-    day: String(d.getDate()),
-  };
 }
 
 /** Category chip → the slug the /api/places route understands. */
@@ -54,25 +40,10 @@ const CATEGORY_FILTERS: { label: string; icon: string; slug: string }[] = [
   { label: "Transport", icon: "directions_transit", slug: "transport" },
 ];
 
-/** Marker tint per category slug (default-marker color). */
-const CATEGORY_COLOR: Record<string, string> = {
-  food: "#fc8a40", // sunset orange
-  photo: "#2f6f6f",
-  lockers: "#6b5bd2",
-  transport: "#0b7285",
-};
-const DEFAULT_MARKER_COLOR = "#031632"; // navy
-const ITINERARY_MARKER_COLOR = "#22c55e"; // green — matches the "Activity" legend dot on /plan
-
-/** Fallback center (Tokyo) when geocoding is unavailable. */
-const DEFAULT_CENTER: [number, number] = [139.767, 35.681];
-
 // Matches /api/places' new default (app/api/places/route.ts) — sent
 // explicitly so the Explore page's page size stays visible here rather than
 // depending on whatever the route defaults to.
 const PLACES_LIMIT = 24;
-
-const MAPBOX_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_TOKEN ?? "";
 
 interface PlacesResponse {
   center: { lat: number; lng: number } | null;
@@ -110,7 +81,8 @@ export default function MapDiscoveryPage() {
 
   const { coords } = useGeolocation();
 
-  const destination = CITY.name;
+  const { city } = useSelectedCity();
+  const destination = city.name;
 
   // Fetch places whenever the destination, category, or free-text search
   // changes. Debounced 300ms so typing doesn't fire a request per keystroke —
@@ -356,11 +328,12 @@ export default function MapDiscoveryPage() {
                 >
                   <div className="relative h-[120px] w-full bg-surface-container">
                     {place.image_url ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
+                      <SmartImage
                         src={place.image_url}
                         alt={place.name ?? ""}
-                        loading="lazy"
+                        width={300}
+                        height={120}
+                        sizes="(max-width: 300px) 85vw, 300px"
                         className="h-full w-full object-cover"
                       />
                     ) : (
@@ -408,11 +381,12 @@ export default function MapDiscoveryPage() {
                 photo there has one here too. */}
             <div className="relative h-[140px] w-full overflow-hidden rounded-xl bg-surface-container">
               {selectedPlace.image_url ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
+                <SmartImage
                   src={selectedPlace.image_url}
                   alt={selectedPlace.name ?? ""}
-                  loading="lazy"
+                  width={480}
+                  height={140}
+                  sizes="(max-width: 480px) 100vw, 480px"
                   className="h-full w-full object-cover"
                 />
               ) : (
@@ -499,125 +473,5 @@ export default function MapDiscoveryPage() {
         ) : null}
       </BottomSheet>
     </div>
-  );
-}
-
-/**
- * The Mapbox GL canvas. Renders a clear placeholder when
- * NEXT_PUBLIC_MAPBOX_TOKEN is unset so the app never crashes. Initializes the
- * map once (guarded against React's dev double-effect), recenters when the
- * geocoded center arrives, and re-drops markers when the place set changes.
- */
-function MapCanvas({
-  center,
-  places,
-  activeSlug,
-  markerColor,
-  fitToPlaces,
-  onMarkerClick,
-}: {
-  center: { lat: number; lng: number } | null;
-  places: Place[];
-  activeSlug: string | null;
-  /** Overrides the activeSlug/category-derived color — used by "My itinerary" mode. */
-  markerColor?: string;
-  /** Fit the viewport to `places` instead of relying on the geocoded
-   * `center` — "My itinerary" mode's places can be anywhere in a multi-city
-   * trip (e.g. a Kyoto day inside a "Tokyo Spring Trip"), nowhere near the
-   * trip-destination center the Explore-mode search is biased around. */
-  fitToPlaces?: boolean;
-  onMarkerClick?: (place: Place) => void;
-}) {
-  const containerRef = useRef<HTMLDivElement | null>(null);
-  const mapRef = useRef<mapboxgl.Map | null>(null);
-  const markersRef = useRef<mapboxgl.Marker[]>([]);
-
-  // Initialize the map exactly once (when a token + container exist).
-  useEffect(() => {
-    if (!MAPBOX_TOKEN || !containerRef.current || mapRef.current) return;
-    mapboxgl.accessToken = MAPBOX_TOKEN;
-    const map = new mapboxgl.Map({
-      container: containerRef.current,
-      style: "mapbox://styles/mapbox/streets-v12",
-      center: center ? [center.lng, center.lat] : DEFAULT_CENTER,
-      zoom: center ? 12 : 9,
-      attributionControl: false,
-    });
-    mapRef.current = map;
-    return () => {
-      map.remove();
-      mapRef.current = null;
-    };
-  }, [center]);
-
-  // Recenter when a geocoded center arrives / changes.
-  useEffect(() => {
-    if (!mapRef.current || !center) return;
-    mapRef.current.flyTo({ center: [center.lng, center.lat], zoom: 12, essential: true });
-  }, [center]);
-
-  // Re-drop markers when the place set (or category color) changes.
-  useEffect(() => {
-    const map = mapRef.current;
-    if (!map) return;
-    markersRef.current.forEach((m) => m.remove());
-    markersRef.current = [];
-    const color =
-      markerColor ??
-      (activeSlug ? (CATEGORY_COLOR[activeSlug] ?? DEFAULT_MARKER_COLOR) : DEFAULT_MARKER_COLOR);
-    const coords: [number, number][] = [];
-    for (const p of places) {
-      if (typeof p.lat !== "number" || typeof p.lng !== "number") continue;
-      coords.push([p.lng, p.lat]);
-      const marker = new mapboxgl.Marker({ color })
-        .setLngLat([p.lng, p.lat])
-        .setPopup(
-          new mapboxgl.Popup({ offset: 24, closeButton: false }).setText(
-            p.name ?? ""
-          )
-        )
-        .addTo(map);
-      // Tapping the pin opens the richer place card (BottomSheet) in
-      // addition to Mapbox's bare default popup — the card is the primary
-      // UX for viewing details / adding to trip.
-      marker.getElement().addEventListener("click", () => {
-        onMarkerClick?.(p);
-      });
-      markersRef.current.push(marker);
-    }
-    // "My itinerary" mode: fit the viewport to whatever pins actually exist
-    // instead of the Explore-mode destination center, which can be a whole
-    // country away from a day's real locations.
-    if (fitToPlaces && coords.length > 0) {
-      if (coords.length === 1) {
-        map.flyTo({ center: coords[0], zoom: 13, essential: true });
-      } else {
-        const bounds = coords.reduce(
-          (b, c) => b.extend(c),
-          new mapboxgl.LngLatBounds(coords[0], coords[0])
-        );
-        map.fitBounds(bounds, { padding: 48, maxZoom: 14, essential: true });
-      }
-    }
-  }, [places, activeSlug, markerColor, fitToPlaces, onMarkerClick]);
-
-  if (!MAPBOX_TOKEN) {
-    return (
-      <div className="flex h-64 w-full flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-outline-variant/70 bg-surface-container text-center">
-        <Icon name="map" size={40} className="text-outline-variant" />
-        <p className="max-w-[240px] text-label-md text-on-surface-variant">
-          Add <span className="font-semibold">NEXT_PUBLIC_MAPBOX_TOKEN</span> to
-          your <span className="font-semibold">.env.local</span> to enable the
-          live map.
-        </p>
-      </div>
-    );
-  }
-
-  return (
-    <div
-      ref={containerRef}
-      className="h-64 w-full overflow-hidden rounded-xl border border-outline-variant/60 bg-surface-container"
-    />
   );
 }

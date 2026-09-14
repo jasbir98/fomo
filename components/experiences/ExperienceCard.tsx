@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Icon } from "@/components/ui";
+import { Icon, SmartImage } from "@/components/ui";
 import type { Experience } from "@/lib/types";
 import { formatExperiencePrice, formatExperienceRating } from "@/lib/experiences/format";
 
@@ -32,11 +32,12 @@ export function ExperienceCard({ experience }: ExperienceCardProps) {
     >
       <div className="relative h-[140px] w-full shrink-0 overflow-hidden bg-surface-container">
         {experience.image_url ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
+          <SmartImage
             src={experience.image_url}
             alt={experience.title ?? ""}
-            loading="lazy"
+            width={220}
+            height={140}
+            sizes="220px"
             className="h-full w-full object-cover"
           />
         ) : (

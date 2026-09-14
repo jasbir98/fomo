@@ -17,12 +17,12 @@
  * request parsing + response shaping.
  */
 import "server-only";
-import { NextResponse } from "next/server";
 import { supabaseServer } from "@/lib/supabase/server";
 import { buildFeedContext } from "@/lib/now/context";
 import { buildNowResponse } from "@/lib/now/rank";
 import type { NowResponse } from "@/lib/now/types";
 import { isUnauthorizedError } from "@/lib/supabase-error";
+import { cachedJson, CACHE_PRIVATE_NO_STORE } from "@/lib/http/cache";
 
 export const runtime = "nodejs";
 
@@ -32,11 +32,15 @@ export async function GET(request: Request) {
     data: { user },
   } = await db.auth.getUser();
   if (!user) {
-    return NextResponse.json<NowResponse>({
-      mode: "drifter",
-      hero: null,
-      degraded: "unauthorized",
-    });
+    // Auth-gated + per-user location/context — explicit no-store.
+    return cachedJson<NowResponse>(
+      {
+        mode: "drifter",
+        hero: null,
+        degraded: "unauthorized",
+      },
+      CACHE_PRIVATE_NO_STORE
+    );
   }
 
   const { searchParams } = new URL(request.url);
@@ -58,13 +62,16 @@ export async function GET(request: Request) {
   try {
     const ctx = await buildFeedContext({ db, at, liveCoords });
     const response = await buildNowResponse(ctx);
-    return NextResponse.json<NowResponse>(response);
+    return cachedJson<NowResponse>(response, CACHE_PRIVATE_NO_STORE);
   } catch (err) {
     console.error("[api/now] ranking failed", err);
-    return NextResponse.json<NowResponse>({
-      mode: "drifter",
-      hero: null,
-      degraded: isUnauthorizedError(err) ? "unauthorized" : "no-coverage",
-    });
+    return cachedJson<NowResponse>(
+      {
+        mode: "drifter",
+        hero: null,
+        degraded: isUnauthorizedError(err) ? "unauthorized" : "no-coverage",
+      },
+      CACHE_PRIVATE_NO_STORE
+    );
   }
 }

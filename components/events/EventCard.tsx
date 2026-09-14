@@ -1,6 +1,6 @@
 "use client";
 
-import { Chip, Icon } from "@/components/ui";
+import { Chip, Icon, SmartImage } from "@/components/ui";
 import type { EventItem } from "@/lib/types";
 import { formatEventPrice, formatEventWhen } from "@/lib/events/format";
 import { formatDistanceLabel } from "@/lib/geo";
@@ -49,11 +49,12 @@ export function EventCard({ event, variant = "carousel", distanceKm, onClick }: 
       }`}
     >
       {event.image_url ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img
+        <SmartImage
           src={event.image_url}
           alt={event.name}
-          loading="lazy"
+          width={variant === "list" ? 80 : 220}
+          height={variant === "list" ? 80 : 140}
+          sizes={variant === "list" ? "80px" : "220px"}
           className="h-full w-full object-cover"
         />
       ) : (

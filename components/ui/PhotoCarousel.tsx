@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Icon } from "./Icon";
+import { SmartImage } from "./SmartImage";
 
 export type CarouselPhoto = {
   url: string;
@@ -40,8 +41,15 @@ export function PhotoCarousel({ photos, className = "" }: PhotoCarouselProps) {
 
   return (
     <div className={`relative h-full w-full overflow-hidden ${className}`}>
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src={active.url} alt={active.alt ?? ""} className="h-full w-full object-cover" />
+      <SmartImage
+        src={active.url}
+        alt={active.alt ?? ""}
+        width={480}
+        height={256}
+        sizes="(max-width: 480px) 100vw, 480px"
+        priority={index === 0}
+        className="h-full w-full object-cover"
+      />
 
       {multi ? (
         <>

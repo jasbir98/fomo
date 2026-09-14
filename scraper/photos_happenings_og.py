@@ -66,14 +66,20 @@ BAD_FILENAME_RE = re.compile(r"(logo|icon|favicon|sprite)", re.I)
 
 
 def load_env() -> dict:
+    # happenings has no anon/authenticated write policy — only the
+    # service-role key works here, so it's required with no anon fallback.
     env = {
         **dotenv_values(ROOT / "scraper" / ".env"),
         **dotenv_values(ROOT / ".env.local"),
     }
     url = env.get("NEXT_PUBLIC_SUPABASE_URL") or env.get("SUPABASE_URL")
-    key = env.get("SUPABASE_SERVICE_ROLE_KEY") or env.get("SUPABASE_KEY")
+    key = env.get("SUPABASE_SERVICE_ROLE_KEY")
     if not url or not key:
-        sys.exit("ERROR: missing Supabase URL/key in .env.local or scraper/.env")
+        sys.exit(
+            "ERROR: missing NEXT_PUBLIC_SUPABASE_URL (or SUPABASE_URL) / "
+            "SUPABASE_SERVICE_ROLE_KEY in .env.local or scraper/.env — "
+            "happenings has no anon write policy."
+        )
     return {"url": url, "key": key}
 
 

@@ -3,7 +3,7 @@
 import { Suspense, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { BottomSheet, Card, Chip, ConfirmDialog, Icon } from "@/components/ui";
+import { BottomSheet, Card, Chip, ConfirmDialog, Icon, SmartImage } from "@/components/ui";
 import { supabaseBrowserAuth } from "@/lib/supabase/client";
 import {
   addMessage,
@@ -826,10 +826,12 @@ function RichPlaceCard({
   return (
     <Card accent noPadding className="flex flex-col">
       <div className="relative h-40 bg-surface-container-high">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
+        <SmartImage
           src={card.image_url}
           alt={card.name}
+          width={400}
+          height={160}
+          sizes="(max-width: 400px) 100vw, 400px"
           className="h-full w-full object-cover"
         />
         <div className="absolute right-3 top-3 flex items-center gap-1 rounded-lg bg-background/90 px-2 py-1 shadow-sm backdrop-blur-md">
@@ -901,8 +903,14 @@ function PlaceCardModal({
       {card ? (
         <div className="flex flex-col gap-4">
           <div className="relative h-48 w-full overflow-hidden rounded-xl bg-surface-container-high">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={card.image_url} alt={card.name} className="h-full w-full object-cover" />
+            <SmartImage
+              src={card.image_url}
+              alt={card.name}
+              width={480}
+              height={192}
+              sizes="(max-width: 480px) 100vw, 480px"
+              className="h-full w-full object-cover"
+            />
             <div className="absolute right-3 top-3 flex items-center gap-1 rounded-lg bg-background/90 px-2 py-1 shadow-sm backdrop-blur-md">
               <Icon name="star" filled size={14} className="text-secondary-container" />
               <span className="text-label-sm text-on-surface">{card.rating.toFixed(1)}</span>

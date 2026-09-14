@@ -7,6 +7,11 @@ Operations:
   2. DELETE the 8 non-POI records + 4 merged-stub records that were removed
      during consolidation.
   3. Upsert photos into `place_photos` (one row per record that has a photo).
+
+WRITE KEY: `places` and `place_photos` have no anon/authenticated write
+policy (see supabase/lock_pipeline_tables.sql / harden_rls.sql) — this
+script requires SUPABASE_SERVICE_ROLE_KEY and never falls back to an anon
+key.
 """
 
 import json
@@ -22,20 +27,32 @@ SRC = ROOT / "data" / "consolidated" / "kanto_places.json"
 REPORT = ROOT / "data" / "consolidated" / "_report.json"
 
 
-def load_env():
-    env_path = ROOT / ".env"
+def _parse_env_file(path: Path) -> dict:
     env = {}
-    if env_path.exists():
-        for line in env_path.read_text().splitlines():
+    if path.exists():
+        for line in path.read_text().splitlines():
             line = line.strip()
             if line and not line.startswith("#") and "=" in line:
                 k, v = line.split("=", 1)
                 env[k.strip()] = v.strip()
-    for k in ("SUPABASE_URL", "SUPABASE_KEY"):
-        env.setdefault(k, os.environ.get(k, ""))
-    if not env["SUPABASE_URL"] or not env["SUPABASE_KEY"]:
-        sys.exit("ERROR: set SUPABASE_URL and SUPABASE_KEY in scraper/.env")
     return env
+
+
+def load_env():
+    # scraper/.env first, then the repo-root .env.local as a fallback (that's
+    # where SUPABASE_SERVICE_ROLE_KEY commonly already lives for the Next
+    # app's server-only admin client), then the process environment.
+    env = {**_parse_env_file(ROOT.parent / ".env.local"), **_parse_env_file(ROOT / ".env")}
+    env.setdefault("SUPABASE_URL", env.get("NEXT_PUBLIC_SUPABASE_URL", ""))
+    for k in ("SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY"):
+        env.setdefault(k, os.environ.get(k, ""))
+    if not env["SUPABASE_URL"] or not env["SUPABASE_SERVICE_ROLE_KEY"]:
+        sys.exit(
+            "ERROR: places and place_photos have no anon write policy — set "
+            "SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY in scraper/.env (or "
+            "ensure they're already in the repo-root .env.local)."
+        )
+    return {"SUPABASE_URL": env["SUPABASE_URL"], "SUPABASE_KEY": env["SUPABASE_SERVICE_ROLE_KEY"]}
 
 
 # ---- Supabase helpers -------------------------------------------------------

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Icon, NavCard } from "@/components/ui";
+import { Icon, NavCard, SmartImage } from "@/components/ui";
 import { WHO_GROUP_LABEL, type DealWhoGroup } from "@/lib/happenings/groups";
 import { savingBadgeLabel } from "@/lib/happenings/format";
 import type { DealCardData } from "@/lib/happenings/feed-types";
@@ -58,12 +58,12 @@ export function VenueDealCard({ placeId, placeName, placeImageUrl, district, off
     >
       <div className="h-16 w-16 shrink-0 overflow-hidden rounded-lg border border-hairline bg-surface-container">
         {showImage ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={placeImageUrl!}
+          <SmartImage
+            src={placeImageUrl}
             alt=""
+            width={64}
+            height={64}
             className="h-full w-full object-cover"
-            loading="lazy"
             onError={() => setImgError(true)}
           />
         ) : (

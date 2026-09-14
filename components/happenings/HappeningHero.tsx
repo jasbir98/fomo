@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, type MouseEvent } from "react";
-import { Icon, NavCard } from "@/components/ui";
+import { Icon, NavCard, SmartImage } from "@/components/ui";
 import { districtFromAddress } from "@/lib/city";
 import { daysUntilLastChance } from "@/lib/happenings/occurrence";
 import {
@@ -87,12 +87,14 @@ export function HappeningHero({ happening, occurrence }: HappeningHeroProps) {
       className="relative flex flex-col overflow-hidden rounded-3xl bg-surface-container-lowest shadow-level-3 cursor-pointer"
     >
       <div className="relative h-40 w-full shrink-0 overflow-hidden bg-surface-container">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
+        <SmartImage
           src={heroImage}
           alt=""
+          width={480}
+          height={160}
+          sizes="(max-width: 480px) 100vw, 480px"
+          priority
           className="h-full w-full object-cover"
-          loading="lazy"
           onError={() => setImgError(true)}
         />
         <div className="absolute inset-0 bg-gradient-to-t from-surface-container-lowest via-surface-container-lowest/15 to-transparent" />

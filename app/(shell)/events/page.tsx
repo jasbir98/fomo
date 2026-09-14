@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { CITY } from "@/lib/city";
+import { useSelectedCity } from "@/lib/useSelectedCity";
 import type { EventItem } from "@/lib/types";
 import { distanceKm, sortByDistance, useGeolocation, type Coordinates } from "@/lib/geo";
 import { useInfiniteList } from "@/lib/useInfiniteList";
@@ -78,7 +78,8 @@ export default function EventsPage() {
   const [degraded, setDegraded] = useState<string | null>(null);
   const { coords } = useGeolocation();
 
-  const destination = CITY.name;
+  const { city } = useSelectedCity();
+  const destination = city.name;
 
   // Events can also land via the Home carousel's fetch elsewhere in the app —
   // bumping this on tab focus (same as before this refactor) forces the

@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Icon, NavCard } from "@/components/ui";
+import { Icon, NavCard, SmartImage } from "@/components/ui";
 import { categoryDefaultImage } from "@/lib/happenings/category-style";
 import type { FreeAnyTimeItem } from "@/lib/happenings/feed-types";
 
@@ -33,21 +33,21 @@ export function FreeAnyTimeRow({ item }: { item: FreeAnyTimeItem }) {
     >
       <div className="h-16 w-16 shrink-0 overflow-hidden rounded-lg border border-hairline bg-surface-container">
         {showImage ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={item.imageUrl!}
+          <SmartImage
+            src={item.imageUrl}
             alt=""
+            width={64}
+            height={64}
             className="h-full w-full object-cover"
-            loading="lazy"
             onError={() => setImgError(true)}
           />
         ) : item.category ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
+          <SmartImage
             src={categoryDefaultImage(item.category)}
             alt=""
+            width={64}
+            height={64}
             className="h-full w-full object-cover p-2"
-            loading="lazy"
           />
         ) : (
           <div className="flex h-full w-full items-center justify-center">

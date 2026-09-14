@@ -302,10 +302,18 @@ export function ReelViewer({ reels, startIndex, places }: ReelViewerProps) {
                 thumbnailUrl: upcoming.thumbnail_url ?? upcoming.image_url,
               });
               return peekPoster ? (
+                // Poster for the upcoming reel — usually the same-origin
+                // /api/media-proxy proxy (see VideoEmbed's identical note);
+                // cdnResize (lib/image/cdn.ts) returns null for those, so
+                // this stays a plain <img>, just with explicit dimensions.
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
                   src={peekPoster}
                   alt=""
+                  width={405}
+                  height={720}
+                  loading="lazy"
+                  decoding="async"
                   className="h-full w-full object-cover"
                 />
               ) : (

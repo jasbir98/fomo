@@ -42,9 +42,15 @@ whole app leans on becomes a lie nobody notices — until a user does.
 ## End-to-end workflow
 
 All commands assume you're at the repo root, with `scraper/.env` populated
-(`ANTHROPIC_API_KEY`, `SUPABASE_URL`, `SUPABASE_KEY` — see
+(`ANTHROPIC_API_KEY`, `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` — see
 `scraper/.env.example`) and `.env.local` populated for the two `.mjs`
 scripts (`NEXT_PUBLIC_SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`).
+`happenings_staging` has no anon write policy (see
+`supabase/lock_pipeline_tables.sql`), so both the Python upsert step and the
+`.mjs` promote step require the service-role key — the anon key will not
+work for either. (If `SUPABASE_SERVICE_ROLE_KEY` is already set in the
+repo-root `.env.local`, the Python scripts will pick it up from there too —
+no need to duplicate it into `scraper/.env`.)
 
 ```bash
 BATCH=edi-happenings-2026-09-12

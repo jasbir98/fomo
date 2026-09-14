@@ -30,10 +30,11 @@
  * are a TTL cache with no country set, not part of the curated catalog.
  * Pass --allow-live-duplicates to turn the guard off.
  *
- * WRITE KEY. supabase/harden_rls.sql removes the anon write policy on `places`,
- * moving catalog writes to the service role. The service-role key is used when
- * present, falling back to the anon key for databases where that migration
- * hasn't been applied — the same fallback scripts/enrich-places-data.mjs uses.
+ * WRITE KEY. `places`, `places_staging`, and `place_sources` all have no
+ * anon/authenticated write policy (supabase/harden_rls.sql removed it from
+ * `places`; supabase/lock_pipeline_tables.sql removes it from the other two).
+ * SUPABASE_SERVICE_ROLE_KEY is therefore required — this script no longer
+ * falls back to the anon key for writes.
  *
  * DESTINATION. `destination` is "<city or prefecture>, <country label>". For
  * neighbourhood-level batches, where `city` holds a neighbourhood like "Leith",
@@ -51,8 +52,8 @@
  *
  * --dry-run reports what would be promoted, skipped and flagged, and writes nothing.
  *
- * Requires NEXT_PUBLIC_SUPABASE_URL plus SUPABASE_SERVICE_ROLE_KEY (preferred)
- * or NEXT_PUBLIC_SUPABASE_ANON_KEY.
+ * Requires NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY
+ * (server-only key — places_staging/place_sources have no anon write policy).
  */
 
 function parseArg(name) {
@@ -90,20 +91,19 @@ const COUNTRY_DESTINATION_LABEL = {
 
 const supabaseUrl = (process.env.NEXT_PUBLIC_SUPABASE_URL ?? "").replace(/\/$/, "");
 const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY ?? "";
-const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? "";
-const writeKey = serviceRoleKey || anonKey;
 
-if (!supabaseUrl || !writeKey) {
+if (!supabaseUrl || !serviceRoleKey) {
   console.error(
-    "[promote] Missing NEXT_PUBLIC_SUPABASE_URL, or both SUPABASE_SERVICE_ROLE_KEY and " +
-      "NEXT_PUBLIC_SUPABASE_ANON_KEY. Run with: node --env-file=.env.local scripts/promote-japan-places.mjs"
+    "[promote] Missing NEXT_PUBLIC_SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY. " +
+      "places_staging and place_sources have no anon write policy, so the anon key " +
+      "will not work here. Run with: node --env-file=.env.local scripts/promote-japan-places.mjs"
   );
   process.exit(1);
 }
 
 const headers = {
-  apikey: writeKey,
-  Authorization: `Bearer ${writeKey}`,
+  apikey: serviceRoleKey,
+  Authorization: `Bearer ${serviceRoleKey}`,
   "Content-Type": "application/json",
 };
 
@@ -204,7 +204,7 @@ async function fetchPaged(pathWithoutPaging) {
 
 async function main() {
   console.log(
-    `[promote] country=${COUNTRY_CODE} source=${SOURCE} key=${serviceRoleKey ? "service-role" : "anon"}` +
+    `[promote] country=${COUNTRY_CODE} source=${SOURCE} key=service-role` +
       `${DRY_RUN ? " DRY RUN (no writes)" : ""}${ALLOW_LIVE_DUPLICATES ? " duplicate-guard=OFF" : ""}`
   );
 

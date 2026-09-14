@@ -13,6 +13,7 @@ import { supabaseServer } from "@/lib/supabase/server";
 import { buildDiscoverResponse } from "@/lib/now/discover";
 import type { DiscoverIntentSlug, DiscoverResponse } from "@/lib/now/types";
 import { isUnauthorizedError } from "@/lib/supabase-error";
+import { cachedJson, CACHE_PRIVATE_NO_STORE } from "@/lib/http/cache";
 
 export const runtime = "nodejs";
 
@@ -24,7 +25,10 @@ export async function GET(request: Request) {
     data: { user },
   } = await db.auth.getUser();
   if (!user) {
-    return NextResponse.json<DiscoverResponse>({ title: "", meta: "", items: [], degraded: "unauthorized" });
+    return cachedJson<DiscoverResponse>(
+      { title: "", meta: "", items: [], degraded: "unauthorized" },
+      CACHE_PRIVATE_NO_STORE
+    );
   }
 
   const { searchParams } = new URL(request.url);
@@ -53,14 +57,17 @@ export async function GET(request: Request) {
 
   try {
     const result = await buildDiscoverResponse({ db, intent, coords, limit, offset });
-    return NextResponse.json<DiscoverResponse>(result);
+    return cachedJson<DiscoverResponse>(result, CACHE_PRIVATE_NO_STORE);
   } catch (err) {
     console.error("[api/discover] failed", err);
-    return NextResponse.json<DiscoverResponse>({
-      title: "",
-      meta: "",
-      items: [],
-      degraded: isUnauthorizedError(err) ? "unauthorized" : "empty",
-    });
+    return cachedJson<DiscoverResponse>(
+      {
+        title: "",
+        meta: "",
+        items: [],
+        degraded: isUnauthorizedError(err) ? "unauthorized" : "empty",
+      },
+      CACHE_PRIVATE_NO_STORE
+    );
   }
 }

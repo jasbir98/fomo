@@ -201,11 +201,19 @@ export function VideoEmbed({
   return (
     <div className={`relative h-full w-full overflow-hidden bg-black ${className}`}>
       {posterUrl ? (
+        // Same-origin /api/media-proxy URL (see proxiedThumbnailUrl) — cdnResize
+        // (lib/image/cdn.ts) always returns null for these, so this stays a
+        // plain <img> rather than SmartImage/next-image; explicit dimensions
+        // still help the browser reserve layout before the poster decodes.
         // eslint-disable-next-line @next/next/no-img-element
         <img
           src={posterUrl}
           alt={caption ?? ""}
           draggable={false}
+          width={405}
+          height={720}
+          loading="lazy"
+          decoding="async"
           className="absolute inset-0 h-full w-full object-cover"
         />
       ) : null}

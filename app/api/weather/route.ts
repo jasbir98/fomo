@@ -20,6 +20,7 @@ import {
   type DayForecast,
 } from "@/lib/weather";
 import type { Center } from "@/lib/places/geocode";
+import { cachedJson, CACHE_LONG, CACHE_SHORT } from "@/lib/http/cache";
 
 export const runtime = "nodejs";
 
@@ -46,22 +47,34 @@ export async function GET(request: Request) {
   try {
     const forecast = await getForecastForDestination(destination);
     const day = pickForecastDay(forecast.days, date);
-    return NextResponse.json<WeatherResponse>({
-      center: forecast.center,
-      day,
-      days: forecast.days,
-      degraded: forecast.degraded,
-    });
+    // Not user-specific (destination is the only input), but browser-cache
+    // only (`private`) — every /api/* route goes through proxy.ts, which
+    // can attach a session-refresh Set-Cookie, so this must never be
+    // `public`/`s-maxage` (see lib/http/cache.ts). Weather changes slowly,
+    // so a generous TTL + long SWR still pays off for repeat visits.
+    return cachedJson<WeatherResponse>(
+      {
+        center: forecast.center,
+        day,
+        days: forecast.days,
+        degraded: forecast.degraded,
+      },
+      CACHE_LONG
+    );
   } catch (err) {
     // Defense in depth — getForecastForDestination already catches its own
     // errors, but a route handler should never let anything unhandled
-    // reach the client.
+    // reach the client. Shorter TTL than the happy path so the browser
+    // doesn't keep serving a transient failure for long.
     console.error("[api/weather] unexpected failure", err);
-    return NextResponse.json<WeatherResponse>({
-      center: null,
-      day: null,
-      days: [],
-      degraded: "forecast-error",
-    });
+    return cachedJson<WeatherResponse>(
+      {
+        center: null,
+        day: null,
+        days: [],
+        degraded: "forecast-error",
+      },
+      CACHE_SHORT
+    );
   }
 }

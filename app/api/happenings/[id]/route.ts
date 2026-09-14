@@ -12,7 +12,6 @@
  * /api/feed's own).
  */
 import "server-only";
-import { NextResponse } from "next/server";
 import { supabaseServer } from "@/lib/supabase/server";
 import { CITY } from "@/lib/city";
 import { getHappeningById, listLiveHappenings } from "@/lib/db/happenings";
@@ -20,6 +19,7 @@ import { listPlacesByIds } from "@/lib/db/places";
 import { groupHappeningsIntoSeries } from "@/lib/happenings/series";
 import type { Happening } from "@/lib/happenings/types";
 import type { Place } from "@/lib/types";
+import { cachedJson, CACHE_PRIVATE_NO_STORE } from "@/lib/http/cache";
 
 /**
  * Same fallback as GET /api/feed's own `withPlaceImageFallback`: a happening
@@ -57,7 +57,11 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
     data: { user },
   } = await db.auth.getUser();
   if (!user) {
-    return NextResponse.json<HappeningResponse>({ happening: null, siblings: [] }, { status: 401 });
+    // Auth-gated (401 vs 200 per session) — must not be publicly cached
+    // despite the underlying happening data itself being non-user-specific.
+    return cachedJson<HappeningResponse>({ happening: null, siblings: [] }, CACHE_PRIVATE_NO_STORE, {
+      status: 401,
+    });
   }
 
   try {
@@ -92,9 +96,11 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
         }
       }
     }
-    return NextResponse.json<HappeningResponse>({ happening, siblings });
+    return cachedJson<HappeningResponse>({ happening, siblings }, CACHE_PRIVATE_NO_STORE);
   } catch (err) {
     console.error("[api/happenings/:id] failed", err);
-    return NextResponse.json<HappeningResponse>({ happening: null, siblings: [] }, { status: 500 });
+    return cachedJson<HappeningResponse>({ happening: null, siblings: [] }, CACHE_PRIVATE_NO_STORE, {
+      status: 500,
+    });
   }
 }

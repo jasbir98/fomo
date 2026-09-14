@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Icon, NavCard } from "@/components/ui";
+import { Icon, NavCard, SmartImage } from "@/components/ui";
 import { formatEventPrice, formatEventWhen } from "@/lib/events/format";
 import {
   ELIGIBILITY_ICON,
@@ -54,8 +54,7 @@ function Thumbnail({ src, alt, size = 64 }: { src: string; alt: string; size?: n
       className="shrink-0 overflow-hidden rounded-lg border border-hairline bg-surface-container"
       style={{ width: size, height: size }}
     >
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src={src} alt={alt} className="h-full w-full object-cover" loading="lazy" />
+      <SmartImage src={src} alt={alt} width={size} height={size} className="h-full w-full object-cover" />
     </div>
   );
 }
@@ -231,8 +230,17 @@ function FestivalRow({ happening }: { happening: Happening }) {
       ariaLabel={happening.title}
       className="flex cursor-pointer flex-col overflow-hidden rounded-3xl bg-surface-container-lowest shadow-level-2"
     >
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src={bannerImage} alt="" className="h-28 w-full object-cover" loading="lazy" />
+      {/* Full-width banner — the feed's max container is 480px (see e.g.
+          app/(shell)/happening/[id]/page.tsx's own max-w-[480px]), so that's
+          the realistic upper bound for the CDN/next-image transform width. */}
+      <SmartImage
+        src={bannerImage}
+        alt=""
+        width={480}
+        height={112}
+        sizes="(max-width: 480px) 100vw, 480px"
+        className="h-28 w-full object-cover"
+      />
       <div className="flex flex-col gap-3 p-4">
       <div className="flex items-start justify-between gap-2">
         <div className="flex flex-col gap-1">

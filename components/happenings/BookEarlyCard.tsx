@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Icon, NavCard } from "@/components/ui";
+import { Icon, NavCard, SmartImage } from "@/components/ui";
 import { formatEventPrice } from "@/lib/events/format";
 import { savingBadgeLabel } from "@/lib/happenings/format";
 import { categoryDefaultImage } from "@/lib/happenings/category-style";
@@ -15,8 +15,7 @@ import { NotifyMeButton } from "./NotifyMeButton";
 function Thumbnail({ src, alt }: { src: string; alt: string }) {
   return (
     <div className="h-20 w-20 shrink-0 overflow-hidden rounded-lg border border-hairline bg-surface-container">
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src={src} alt={alt} className="h-full w-full object-cover" loading="lazy" />
+      <SmartImage src={src} alt={alt} width={80} height={80} className="h-full w-full object-cover" />
     </div>
   );
 }

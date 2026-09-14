@@ -22,6 +22,7 @@ import "server-only";
 import { NextResponse } from "next/server";
 import { supabaseServer } from "@/lib/supabase/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
+import { cachedJson, CACHE_MEDIUM } from "@/lib/http/cache";
 import {
   listPlaces,
   listPlacesByCategory,
@@ -128,11 +129,17 @@ export async function GET(request: Request) {
         if (curated.length > 0) {
           // listPlacesByCity is unbounded (lib/db/places.ts) — this is the
           // one branch where offset-based pagination is exact, since the
-          // whole curated set is already in memory.
-          return NextResponse.json<PlacesResponse>({
-            center,
-            places: curated.slice(offset, offset + limit),
-          });
+          // whole curated set is already in memory. Not user-specific
+          // (`db` here reads the shared catalog only), but browser-cache
+          // only (`private`) — see lib/http/cache.ts's file header for why
+          // every /api/* response must avoid `public`/`s-maxage`.
+          return cachedJson<PlacesResponse>(
+            {
+              center,
+              places: curated.slice(offset, offset + limit),
+            },
+            CACHE_MEDIUM
+          );
         }
       } catch (err) {
         console.error("[api/places] curated lookup failed, falling through to live search", err);
@@ -143,11 +150,14 @@ export async function GET(request: Request) {
   // 2. No Google key → degrade to seeded rows so the map still shows something.
   if (!process.env.GOOGLE_PLACES_API_KEY) {
     const seeded = await safeSeedPlaces(db, category, q);
-    return NextResponse.json<PlacesResponse>({
-      center,
-      places: seeded.slice(offset, offset + limit),
-      degraded: "no-google-key",
-    });
+    return cachedJson<PlacesResponse>(
+      {
+        center,
+        places: seeded.slice(offset, offset + limit),
+        degraded: "no-google-key",
+      },
+      CACHE_MEDIUM
+    );
   }
 
   // 3. Fetch live POIs. Google Places (New) Text Search's `maxResultCount`
@@ -168,15 +178,18 @@ export async function GET(request: Request) {
       err instanceof GooglePlacesError ? "places-error" : "places-error";
     console.error(`[api/places] google places search failed (${reason})`, err);
     const seeded = await safeSeedPlaces(db, category, q);
-    return NextResponse.json<PlacesResponse>({
-      center,
-      places: seeded.slice(offset, offset + limit),
-      degraded: reason,
-    });
+    return cachedJson<PlacesResponse>(
+      {
+        center,
+        places: seeded.slice(offset, offset + limit),
+        degraded: reason,
+      },
+      CACHE_MEDIUM
+    );
   }
 
   if (mapped.length === 0) {
-    return NextResponse.json<PlacesResponse>({ center, places: [] });
+    return cachedJson<PlacesResponse>({ center, places: [] }, CACHE_MEDIUM);
   }
 
   // 4. Cache into `places` (dedupe on google_place_id) and return rows with ids.
@@ -223,14 +236,17 @@ export async function GET(request: Request) {
         `details=${error?.details ?? "<none>"} hint=${error?.hint ?? "<none>"} ` +
         `dataIsNull=${rows === null} dataLength=${Array.isArray(rows) ? rows.length : "n/a"}`
     );
-    return NextResponse.json<PlacesResponse>({
-      center,
-      places: mapped.map(syntheticPlace),
-      degraded: "cache-unavailable",
-    });
+    return cachedJson<PlacesResponse>(
+      {
+        center,
+        places: mapped.map(syntheticPlace),
+        degraded: "cache-unavailable",
+      },
+      CACHE_MEDIUM
+    );
   }
 
-  return NextResponse.json<PlacesResponse>({ center, places: data as Place[] });
+  return cachedJson<PlacesResponse>({ center, places: data as Place[] }, CACHE_MEDIUM);
 }
 
 /**

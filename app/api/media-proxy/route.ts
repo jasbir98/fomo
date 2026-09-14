@@ -22,6 +22,7 @@
  */
 import "server-only";
 import { NextResponse } from "next/server";
+import { CACHE_IMMUTABLE } from "@/lib/http/cache";
 
 export const runtime = "nodejs";
 
@@ -90,9 +91,21 @@ async function streamImage(rawUrl: string): Promise<NextResponse> {
     status: 200,
     headers: {
       "Content-Type": contentType,
-      // The bytes are fetched fresh every time (see module docstring on
-      // why), so this only controls the *browser's* cache, not ours.
-      "Cache-Control": "public, max-age=3600",
+      // The bytes are fetched fresh from the (possibly-expiring) upstream
+      // URL every time this handler runs (see module docstring), but the
+      // request is keyed on a stable input — either the TikTok `video` URL
+      // (re-resolved through oEmbed) or the caller-supplied `url` — so the
+      // *response bytes* for a given query string are stable for a long
+      // time even though the upstream signed CDN URL itself expires.
+      //
+      // Still `private` (browser cache only), NOT `public`/`s-maxage`,
+      // despite this route returning image bytes rather than JSON: it's
+      // matched by proxy.ts's `/api/*` matcher exactly like every other
+      // route in this file, so the same session-refresh Set-Cookie
+      // leak applies — see lib/http/cache.ts's file header for the full
+      // explanation of why a route handler can't reliably strip a
+      // middleware-injected Set-Cookie before the response is sent.
+      "Cache-Control": CACHE_IMMUTABLE,
     },
   });
 }

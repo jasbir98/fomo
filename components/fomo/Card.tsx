@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { Icon } from "@/components/ui";
+import { Icon, SmartImage } from "@/components/ui";
 import { buildAskFomoHref } from "@/lib/chat-seed";
 import { recordCardSignal } from "@/lib/db/signals";
 import { saveItem, unsaveItem } from "@/lib/db/saved";
@@ -231,6 +231,17 @@ export function FomoCard({
   );
 
   const photoHeight = isHero ? "h-52" : variant === "grid" ? "h-32" : "h-28";
+  // Real pixel dims for the CDN/next-image transform request — tile is a
+  // fixed 168px-wide rail card, grid is a ~2-up grid-cols-2 column (roughly
+  // 214px inside a 480px shell, see app/(shell)/discover/[intent]/page.tsx),
+  // hero is full-width up to the app's 480px shell max-width.
+  const photoWidth = isHero ? 480 : variant === "grid" ? 214 : 168;
+  const photoPx = isHero ? 208 : variant === "grid" ? 128 : 112;
+  const photoSizes = isHero
+    ? "(max-width: 480px) 100vw, 480px"
+    : variant === "grid"
+      ? "(max-width: 480px) 45vw, 214px"
+      : "168px";
 
   return (
     <div
@@ -243,8 +254,15 @@ export function FomoCard({
         className={`relative w-full shrink-0 cursor-pointer bg-surface-container ${photoHeight}`}
       >
         {hasRealPhoto ? (
-          /* eslint-disable-next-line @next/next/no-img-element */
-          <img src={candidate.image.url!} alt="" loading="lazy" className="h-full w-full object-cover" />
+          <SmartImage
+            src={candidate.image.url}
+            alt=""
+            width={photoWidth}
+            height={photoPx}
+            sizes={photoSizes}
+            priority={isHero}
+            className="h-full w-full object-cover"
+          />
         ) : (
           <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-primary to-primary-container">
             <Icon name={CATEGORY_GLYPH[candidate.subject.type]} size={32} filled className="text-on-primary/70" />

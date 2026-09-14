@@ -134,8 +134,10 @@ pip install -r requirements.txt
 cp .env.example .env
 ```
 
-Fill `SUPABASE_URL`, `SUPABASE_KEY`, `ANTHROPIC_API_KEY`, and optionally
-`PLACE_EXTRACT_MODEL` in `scraper/.env`.
+Fill `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `ANTHROPIC_API_KEY`, and
+optionally `PLACE_EXTRACT_MODEL` in `scraper/.env`. `places_staging` has no
+anon write policy (see `supabase/lock_pipeline_tables.sql`), so the upsert
+step requires the service-role key — the anon key will not work.
 
 ## Extract (legacy, Japan-only)
 

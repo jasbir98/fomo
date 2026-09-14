@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { Icon, SegmentedControl } from "@/components/ui";
 import { supabaseBrowserAuth } from "@/lib/supabase/client";
 import { uuid } from "@/lib/uuid";
-import { CITY } from "@/lib/city";
+import { useSelectedCity } from "@/lib/useSelectedCity";
 import { getPreferences } from "@/lib/db";
 import { QUICK_ACTIONS, type QuickAction } from "@/lib/translator-data";
 import {
@@ -86,6 +86,7 @@ export default function TranslatorPage() {
 
   const from = sourceLang;
   const to = targetLang;
+  const { city } = useSelectedCity();
 
   // Load the active trip + Travel DNA on mount to derive the destination's
   // local language (and the traveler's own language).
@@ -95,10 +96,10 @@ export default function TranslatorPage() {
       try {
         const prefs = await getPreferences(db);
         if (cancelled) return;
-        // One city, so the target language is simply Edinburgh's. Kept
+        // One city, so the target language is simply that city's. Kept
         // resolver-driven rather than hardcoded to English so adding a second
         // city stays a lib/city.ts change.
-        setTargetLang(resolveLocalLanguage(CITY.name));
+        setTargetLang(resolveLocalLanguage(city.name));
         setSourceLang(resolveUserLanguage(prefs?.languages));
       } catch (err) {
         console.error("[translator] failed to load trip/preferences", err);
@@ -107,7 +108,7 @@ export default function TranslatorPage() {
     return () => {
       cancelled = true;
     };
-  }, [db]);
+  }, [db, city.name]);
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });

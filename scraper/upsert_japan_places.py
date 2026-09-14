@@ -2,6 +2,10 @@
 """
 upsert_japan_places.py — upserts validated Japan place records into
 places_staging via Supabase REST. It does not write directly to `places`.
+
+WRITE KEY: places_staging has no anon/authenticated write policy (see
+supabase/lock_pipeline_tables.sql) — this script requires
+SUPABASE_SERVICE_ROLE_KEY and never falls back to an anon key.
 """
 
 from __future__ import annotations
@@ -16,7 +20,9 @@ import requests
 from dotenv import load_dotenv
 
 SCRAPER_DIR = Path(__file__).resolve().parent
+REPO_ROOT = SCRAPER_DIR.parent
 load_dotenv(SCRAPER_DIR / ".env")
+load_dotenv(REPO_ROOT / ".env.local", override=False)
 
 ALLOWED_COLUMNS = {
     "batch_id",
@@ -54,12 +60,21 @@ ALLOWED_COLUMNS = {
 
 
 def _get_credentials() -> tuple[str, str]:
-    supabase_url = os.environ.get("SUPABASE_URL", "").strip().rstrip("/")
-    supabase_key = os.environ.get("SUPABASE_KEY", "").strip()
+    """URL + SERVICE-ROLE key. places_staging has no anon write policy (see
+    supabase/lock_pipeline_tables.sql), so this never falls back to an anon
+    key — fail loudly instead of letting PostgREST 401/403 mid-run."""
+    supabase_url = (
+        os.environ.get("SUPABASE_URL", "").strip()
+        or os.environ.get("NEXT_PUBLIC_SUPABASE_URL", "").strip()
+    ).rstrip("/")
+    supabase_key = os.environ.get("SUPABASE_SERVICE_ROLE_KEY", "").strip()
     if not supabase_url or not supabase_key:
         print(
-            "[upsert-japan] Missing SUPABASE_URL / SUPABASE_KEY. Copy "
-            "scraper/.env.example to scraper/.env and fill in credentials.",
+            "[upsert-japan] Missing SUPABASE_URL (or NEXT_PUBLIC_SUPABASE_URL) / "
+            "SUPABASE_SERVICE_ROLE_KEY. places_staging has no anon write policy, "
+            "so the anon/publishable key will not work here. Add "
+            "SUPABASE_SERVICE_ROLE_KEY to scraper/.env (or ensure it's already "
+            "in the repo-root .env.local, which this script also reads).",
             file=sys.stderr,
         )
         sys.exit(1)

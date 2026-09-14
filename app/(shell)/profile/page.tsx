@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
+import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { supabaseBrowserAuth } from "@/lib/supabase/client";
@@ -23,12 +24,15 @@ import type {
 } from "@/lib/types";
 import type { Candidate } from "@/lib/now/types";
 import { useInfiniteList } from "@/lib/useInfiniteList";
-import { Button, BottomSheet, Card, Chip, Icon, PageHeader, SectionHeader, Toggle } from "@/components/ui";
-import { AvatarCropModal } from "@/components/fomo/AvatarCropModal";
+import { Button, BottomSheet, Card, Chip, Icon, PageHeader, SectionHeader, SmartImage, Toggle } from "@/components/ui";
 import { FomoCard } from "@/components/fomo/Card";
 import { INTEREST_TAG_META, type InterestTag } from "@/lib/taxonomy";
 import { NOTIFY_ME_ENABLED } from "@/lib/happenings/book-early";
 import { ensurePushSubscribed, pushReasonMessage, pushSupportReason } from "@/lib/push/client";
+
+const AvatarCropModal = dynamic(() => import("@/components/fomo/AvatarCropModal").then((mod) => mod.AvatarCropModal), {
+  ssr: false,
+});
 
 // One /api/saved page's worth of rows — matches /api/discover's own default
 // page size, same convention the old standalone /saved page used before its
@@ -382,10 +386,12 @@ export default function ProfilePage() {
             <div className="relative">
               <div className="h-28 w-28 overflow-hidden rounded-full border-4 border-surface-container shadow-lg">
                 {profile?.avatar_url ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
+                  <SmartImage
                     src={profile.avatar_url}
                     alt={displayName}
+                    width={112}
+                    height={112}
+                    priority
                     className="h-full w-full object-cover"
                     onError={() => {
                       // A broken storage URL (e.g. an un-encoded path) fails

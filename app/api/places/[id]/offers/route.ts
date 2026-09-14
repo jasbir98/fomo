@@ -12,10 +12,10 @@
  * belt-and-braces, matching /api/feed's and /api/happenings/[id]'s own).
  */
 import "server-only";
-import { NextResponse } from "next/server";
 import { supabaseServer } from "@/lib/supabase/server";
 import { listHappeningsForPlace } from "@/lib/db/happenings";
 import type { Happening } from "@/lib/happenings/types";
+import { cachedJson, CACHE_PRIVATE_NO_STORE } from "@/lib/http/cache";
 
 export const runtime = "nodejs";
 
@@ -30,14 +30,16 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
     data: { user },
   } = await db.auth.getUser();
   if (!user) {
-    return NextResponse.json<PlaceOffersResponse>({ offers: [] }, { status: 401 });
+    // Auth-gated (401 vs 200 depends on the session cookie) — must never be
+    // publicly cached even though the underlying data isn't per-user.
+    return cachedJson<PlaceOffersResponse>({ offers: [] }, CACHE_PRIVATE_NO_STORE, { status: 401 });
   }
 
   try {
     const offers = await listHappeningsForPlace(db, id);
-    return NextResponse.json<PlaceOffersResponse>({ offers });
+    return cachedJson<PlaceOffersResponse>({ offers }, CACHE_PRIVATE_NO_STORE);
   } catch (err) {
     console.error("[api/places/:id/offers] failed", err);
-    return NextResponse.json<PlaceOffersResponse>({ offers: [] }, { status: 500 });
+    return cachedJson<PlaceOffersResponse>({ offers: [] }, CACHE_PRIVATE_NO_STORE, { status: 500 });
   }
 }

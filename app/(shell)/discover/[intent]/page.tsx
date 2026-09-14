@@ -3,7 +3,7 @@
 import { Suspense, use, useEffect, useState } from "react";
 import Link from "next/link";
 import { useGeolocation } from "@/lib/geo";
-import { CITY } from "@/lib/city";
+import { useSelectedCity } from "@/lib/useSelectedCity";
 import type { DiscoverIntentSlug, DiscoverResponse } from "@/lib/now/types";
 import { Icon } from "@/components/ui";
 import { FomoCard } from "@/components/fomo/Card";
@@ -19,6 +19,7 @@ function DiscoverPageInner({ params }: { params: Promise<{ intent: string }> }) 
   const { intent } = use(params);
   const [result, setResult] = useState<DiscoverResponse | null>(null);
   const { coords } = useGeolocation();
+  const { city } = useSelectedCity();
 
   const validIntent = VALID_INTENTS.includes(intent as DiscoverIntentSlug) ? (intent as DiscoverIntentSlug) : null;
 
@@ -69,7 +70,7 @@ function DiscoverPageInner({ params }: { params: Promise<{ intent: string }> }) 
           <div className="flex flex-col items-center gap-2 py-16 text-center">
             <Icon name="explore" size={28} className="text-outline" />
             <p className="text-body-md text-on-surface-variant">
-              Nothing much on in {CITY.name} right now — here&rsquo;s what&rsquo;s worth doing anyway. Try the
+              Nothing much on in {city.name} right now — here&rsquo;s what&rsquo;s worth doing anyway. Try the
               Map tab for more.
             </p>
           </div>

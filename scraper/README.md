@@ -52,14 +52,28 @@ cd scraper
 pip install -r requirements.txt
 playwright install chromium
 cp .env.example .env
-# then edit .env and fill in SUPABASE_URL / SUPABASE_KEY
+# then edit .env and fill in SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY
 ```
 
-`SUPABASE_URL`/`SUPABASE_KEY` are read from `scraper/.env` — this is
+`SUPABASE_URL`/`SUPABASE_SERVICE_ROLE_KEY` are read from `scraper/.env`,
+falling back to the repo-root `.env.local` if not set there — this is mostly
 independent of the Next app's `.env.local` (which uses
-`NEXT_PUBLIC_SUPABASE_URL`/`NEXT_PUBLIC_SUPABASE_ANON_KEY`). You can copy the
-same project URL and anon key from your Supabase dashboard's **Settings >
-API** page into both files.
+`NEXT_PUBLIC_SUPABASE_URL`/`NEXT_PUBLIC_SUPABASE_ANON_KEY`), except for that
+one fallback, and except that `.env.local` is also where
+`SUPABASE_SERVICE_ROLE_KEY` typically already lives for the Next app's
+server-only admin client — if it's already there you don't need to add it to
+`scraper/.env` too.
+
+**Use the service-role key, not the anon key.** `places_staging`,
+`city_foods_staging`, `happenings_staging`, `scraped_reels`, `place_photos`,
+`place_sources`, `city_foods`, and `social_posts` all have no
+anon/authenticated write policy (see `supabase/lock_pipeline_tables.sql`) —
+every writer in this directory requires `SUPABASE_SERVICE_ROLE_KEY` and will
+exit with an error rather than silently fail if only the anon key is set.
+Get the service-role key from your Supabase dashboard's **Settings > API**
+page — treat it like a root password (it bypasses RLS entirely): never
+commit it, never put it in `NEXT_PUBLIC_`-prefixed env vars, never paste it
+anywhere client-side.
 
 **Prerequisite:** run these two migrations in the Supabase SQL Editor, in
 order, before scraping (see `supabase/README.md`):
@@ -316,7 +330,9 @@ python scrape_places_batch.py --platform tiktok --batch-size 6 \
   promotion) via the REST API; also runnable standalone against a
   `--dump-json` output file.
 - `requirements.txt` — `playwright`, `python-dotenv`, `requests`.
-- `.env.example` — copy to `.env` and fill in `SUPABASE_URL` / `SUPABASE_KEY`.
+- `.env.example` — copy to `.env` and fill in `SUPABASE_URL` /
+  `SUPABASE_SERVICE_ROLE_KEY` (see "Setup" above — the anon key no longer
+  works for any writer in this directory).
 - `.pw-profile/` — created on first run; holds your persistent, logged-in
   browser sessions per platform. **Do not commit this directory** — it
   contains your session cookies (add it to `.gitignore` if you version this

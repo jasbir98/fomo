@@ -16,6 +16,7 @@ import { NextResponse } from "next/server";
 import { supabaseServer } from "@/lib/supabase/server";
 import { listAlertHappeningIds, createAlert, deleteAlert } from "@/lib/db/push";
 import { isUnauthorizedError } from "@/lib/supabase-error";
+import { cachedJson, CACHE_PRIVATE_NO_STORE } from "@/lib/http/cache";
 
 export const runtime = "nodejs";
 
@@ -36,14 +37,18 @@ export async function GET() {
   const {
     data: { user },
   } = await db.auth.getUser();
-  if (!user) return NextResponse.json({ happeningIds: [] }, { status: 401 });
+  if (!user) return cachedJson({ happeningIds: [] }, CACHE_PRIVATE_NO_STORE, { status: 401 });
 
   try {
     const happeningIds = await listAlertHappeningIds(db);
-    return NextResponse.json({ happeningIds });
+    return cachedJson({ happeningIds }, CACHE_PRIVATE_NO_STORE);
   } catch (err) {
     console.error("[api/alerts] GET failed", err);
-    return NextResponse.json({ happeningIds: [] }, { status: isUnauthorizedError(err) ? 401 : 500 });
+    return cachedJson(
+      { happeningIds: [] },
+      CACHE_PRIVATE_NO_STORE,
+      { status: isUnauthorizedError(err) ? 401 : 500 }
+    );
   }
 }
 

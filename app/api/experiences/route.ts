@@ -22,6 +22,7 @@ import { supabaseServer } from "@/lib/supabase/server";
 import type { Experience } from "@/lib/types";
 import { geocodeDestination, type Center } from "@/lib/places/geocode";
 import { getExperiencesForDestination } from "@/lib/experiences/getForDestination";
+import { cachedJson, CACHE_MEDIUM } from "@/lib/http/cache";
 
 export const runtime = "nodejs";
 
@@ -72,5 +73,10 @@ export async function GET(request: Request) {
     offset,
   });
 
-  return NextResponse.json<ExperiencesResponse>({ center, experiences, degraded });
+  // Same reasoning as /api/events — `db` is only used for the shared
+  // experiences cache here, not auth, so the response body isn't
+  // user-specific. Still `private` only, never `public`/`s-maxage` — see
+  // lib/http/cache.ts's file header (proxy.ts can attach a session-refresh
+  // Set-Cookie to any /api/* response).
+  return cachedJson<ExperiencesResponse>({ center, experiences, degraded }, CACHE_MEDIUM);
 }
