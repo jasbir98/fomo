@@ -4,7 +4,10 @@
 // Cache name intentionally left as "roameo-shell-v1" — the version suffix IS
 // the cache-bust mechanism, so renaming it would be a gratuitous full-cache eviction.
 const CACHE = "roameo-shell-v1";
-const IMG_CACHE = "img-v1";
+// Bumped v1 -> v2 to evict entries written by the previous version, which
+// accepted opaque cross-origin responses (status 0, unreadable error state)
+// and so could be holding cached failures for third-party CDN photos.
+const IMG_CACHE = "img-v2";
 const OFFLINE_URL = "/offline";
 const PRECACHE = ["/offline", "/manifest.json", "/icons/icon-192.png", "/icons/icon-512.png"];
 const IMG_CACHE_MAX = 40; // LRU cap for image cache (reduced for opaque responses which are padded)
@@ -37,6 +40,19 @@ self.addEventListener("fetch", (event) => {
   const { request } = event;
   if (request.method !== "GET") return;
 
+  // Cross-origin (third-party CDN photos, the Google Fonts stylesheet, …):
+  // don't call respondWith at all, so the browser makes the request itself
+  // under its normal CSP context. Re-issuing it here via the Fetch API would
+  // instead be checked against `connect-src`, which lists only Supabase and
+  // Mapbox — so every host allowed by `img-src https:` / `style-src
+  // fonts.googleapis.com` got blocked and turned into a `Response.error()`
+  // (see CSP_DIRECTIVES in next.config.ts). Widening `connect-src` isn't an
+  // option: `img-src` is an open `https:` wildcard because event photos are
+  // hotlinked from arbitrary CDNs. The remote images worth caching are
+  // already reachable same-origin via `/_next/image` and `/api/media-proxy`,
+  // which the image branch below still handles.
+  if (new URL(request.url).origin !== self.location.origin) return;
+
   // Images: stale-while-revalidate with LRU cap.
   if (
     request.destination === "image" ||
@@ -50,12 +66,10 @@ self.addEventListener("fetch", (event) => {
 
         const fetchPromise = fetch(request)
           .then(async (response) => {
-            // Cache successful responses + opaque (no-cors third-party CDN images).
-            // Opaque responses (status 0, type "opaque") from no-cors fetches can't reveal
-            // error status, so we accept the tradeoff: may cache a 404, but SWR refresh and
-            // LRU cap (40 entries) mitigate the impact. Necessary to cache third-party CDN
-            // images (Unsplash, Supabase Storage, Google Places) which arrive as no-cors.
-            if (response.ok || (response.type === "opaque" && response.status === 0)) {
+            // Only same-origin requests reach here (see the cross-origin bail-out
+            // above), so responses are always CORS-readable — no opaque (status 0)
+            // case to special-case, and no risk of caching an unreadable error.
+            if (response.ok) {
               const cloned = response.clone();
               await cache.put(request, cloned);
               // Enforce LRU cap: delete oldest entries if over limit.
@@ -79,15 +93,7 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  // Everything else cross-origin (Google Fonts stylesheets, third-party
-  // scripts, …): don't call respondWith at all, so the browser performs the
-  // request itself under its normal CSP context. Re-issuing it here via the
-  // Fetch API would instead be checked against `connect-src`, which blocks
-  // hosts that are legitimately allowed by `style-src`/`font-src`
-  // (see CSP_DIRECTIVES in next.config.ts). There's no caching benefit to
-  // proxying them anyway — only the image branch above caches cross-origin.
-  if (new URL(request.url).origin !== self.location.origin) return;
-
+  // Everything else same-origin: cache-first for precached static assets.
   // Navigations: network-first, fall back to cached offline page.
   if (request.mode === "navigate") {
     event.respondWith(

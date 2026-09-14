@@ -47,27 +47,22 @@ export default function RootLayout({
         {/* Material Symbols: narrowed to actual usage — opsz 20..48 (valid axis range;
             smaller sizes are clamped by browser), wght 100..700 (full range preserved; Icon
             component supports variable weights), FILL 0..1 (filled/unfilled), GRAD dropped
-            (hardcoded 0, never varies). Preloaded to start fetch early; stylesheet below
-            applies it async. */}
+            (hardcoded 0, never varies).
+
+            Loaded as an ordinary render-blocking stylesheet, NOT the
+            media="print" async trick. Without JS to flip `media` back to
+            "all" (a Server Component can't attach the required onLoad
+            handler), a print-media stylesheet simply never applies to the
+            screen — which left every <Icon> rendering its raw ligature name
+            ("home", "search") as visible text. The response is a ~1KB CSS
+            file of @font-face rules, and until it applies the icons are
+            literal words, so blocking on it is also the better UX than a
+            flash of unstyled ligatures. */}
         {/* eslint-disable-next-line @next/next/no-page-custom-font, @next/next/google-font-display */}
         <link
-          rel="preload"
-          as="style"
-          href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL@20..48,100..700,0..1"
-        />
-        {/* eslint-disable-next-line @next/next/no-page-custom-font, @next/next/google-font-display */}
-        <link
-          href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL@20..48,100..700,0..1"
           rel="stylesheet"
-          media="print"
+          href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL@20..48,100..700,0..1"
         />
-        <noscript>
-          {/* eslint-disable-next-line @next/next/no-page-custom-font, @next/next/google-font-display */}
-          <link
-            href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL@20..48,100..700,0..1"
-            rel="stylesheet"
-          />
-        </noscript>
       </head>
       <body>
         <div className="mx-auto flex min-h-dvh w-full max-w-[480px] flex-col bg-background">
