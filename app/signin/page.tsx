@@ -96,7 +96,14 @@ function SigninContent() {
       const supabase = supabaseBrowserAuth();
       const { error: otpError } = await supabase.auth.signInWithOtp({
         email: trimmed,
-        options: { shouldCreateUser: true },
+        options: {
+          shouldCreateUser: true,
+          // Only used if the email template sends a link instead of (or as
+          // well as) the code — e.g. Supabase's default "Confirm signup"
+          // template for brand-new accounts. The callback verifies it and
+          // lands the user on `next`, so a clicked link still signs them in.
+          emailRedirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(nextParam)}`,
+        },
       });
       if (otpError) {
         setError(friendlyOtpError(otpError));
