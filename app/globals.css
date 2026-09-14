@@ -310,7 +310,7 @@ body {
 }
 
 /* ---- What's on window-switch feedback ----
-   Home's Now/This month/Coming up control (app/(shell)/page.tsx) dims the
+   Home's Now/Coming up control (app/(shell)/page.tsx) dims the
    What's on section while the new window's data loads, then plays this
    cross-fade+rise on the freshly-arrived buckets so the swap reads as a
    clear "something changed" moment instead of a silent content swap.

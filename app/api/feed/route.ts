@@ -1,5 +1,5 @@
 /**
- * Fomo Home feed — GET /api/feed?window=now|month|coming_up&at=<ISO, optional>
+ * Fomo Home feed — GET /api/feed?window=now|coming_up&range=all|month&at=<ISO, optional>
  *
  * RESHAPED for the Home restructure (see lib/happenings/feed-types.ts's doc
  * comment for the full before/after). Home is now five sections instead of
@@ -17,7 +17,12 @@
  *                 `whatsOnHappeningPasses`'s doc comment for the "cheap"
  *                 gate that replaces it here.
  *   bookEarly   — always-on, independent of `window`. Ranking/labels live in
- *                 lib/happenings/book-early.ts.
+ *                 lib/happenings/book-early.ts. Home only renders it under
+ *                 "Coming up" (it's a section about future on-sales, so it
+ *                 has no business under a today/tomorrow tab), but the field
+ *                 stays window-independent because /book-early, /deals and
+ *                 /free all read this same route with `window=now` and
+ *                 depend on getting the full list back.
  *   deals       — always-on, independent of `window`. Every `kind: "deal"`
  *                 happening (replaces the old recurrence-based
  *                 `standingDeals`), grouped by `place_id` into one card per
@@ -26,6 +31,15 @@
  *                 against the precomputed facets on each card — see
  *                 lib/happenings/groups.ts.
  *   freeAnyTime — unchanged.
+ *
+ * `window` was a three-way Now/This month/Coming up control and is now a
+ * two-way Now/Coming up one, because the three overlapped: all of them
+ * expanded occurrences from `now`, and both "This month" and "Coming up"
+ * re-rendered the same today/tomorrow cards "Now" had just shown. The two
+ * that remain partition the calendar — `now` is exactly today + tomorrow,
+ * `coming_up` starts the day after — so no card can appear under both.
+ * "This month" survives as `range`, which only caps `coming_up`'s lookahead
+ * at the end of the current month.
  *
  * Identity comes from the session cookie (lib/supabase/server.ts) —
  * proxy.ts already 401s every /api/* call with no session before this
@@ -49,6 +63,9 @@ import { listPlacesByCity, listPlacesByIds } from "@/lib/db/places";
 import { priceSignalForEvent, WHATS_ON_PRICE_EXEMPT_CATEGORIES } from "@/lib/now/price";
 import {
   localDayDate,
+  addDays,
+  startOfLocalDay,
+  endOfLocalDay,
   nextOccurrence,
   daysUntilLastChance,
   normalizeRecurrence,
@@ -80,6 +97,7 @@ import type {
   FeedCardData,
   FeedResponse,
   FeedWindow,
+  FeedRange,
   FreeAnyTimeItem,
   HappeningCardData,
   VenueDealGroup,
@@ -98,21 +116,53 @@ const BOOK_EARLY_LOOKAHEAD_DAYS = 366;
 const BOOK_EARLY_MIN_CURATED = 3;
 
 function parseWindow(value: string | null): FeedWindow {
-  return value === "month" || value === "coming_up" ? value : "now";
+  return value === "coming_up" ? "coming_up" : "now";
 }
 
-/** The occurrence-expansion range for a feed window, anchored to `now`. */
-function occurrenceWindowRange(window: FeedWindow, now: Date, timeZone: string): { from: Date; to: Date } {
+function parseRange(value: string | null): FeedRange {
+  return value === "month" ? "month" : "all";
+}
+
+/** How far ahead the unfiltered "Coming up" window looks. */
+const COMING_UP_LOOKAHEAD_DAYS = 90;
+
+/** The last calendar day of `today`'s month, as a "YYYY-MM-DD" day string. */
+function monthEndDayDate(today: string): string {
+  const [y, m] = today.split("-").map(Number);
+  const lastDayOfMonth = new Date(Date.UTC(y, m, 0)).getUTCDate();
+  return addDays(`${today.slice(0, 7)}-01`, lastDayOfMonth - 1);
+}
+
+/**
+ * The occurrence-expansion range for a feed window, anchored to `now`.
+ *
+ * The two windows are DISJOINT by construction — `now` ends at the close of
+ * tomorrow and `coming_up` starts at the top of the day after — which is what
+ * stops the same card rendering under both tabs. Previously every window
+ * started at `now`, so today's occurrences were expanded for all three and
+ * the overlap was only partly papered over by `bucketOrder` afterwards.
+ *
+ * `range` narrows `coming_up` only. When "month" is picked late enough that
+ * the month's end is already behind `from`, this returns an inverted
+ * (`to` < `from`) range rather than clamping — "this month" genuinely has
+ * nothing left to show at that point, and `nextOccurrences` already treats an
+ * inverted range as no results.
+ */
+function occurrenceWindowRange(
+  window: FeedWindow,
+  range: FeedRange,
+  now: Date,
+  timeZone: string
+): { from: Date; to: Date } {
+  const today = localDayDate(now, timeZone);
+
   if (window === "now") {
-    return { from: now, to: new Date(now.getTime() + 2 * 86_400_000) };
+    return { from: now, to: endOfLocalDay(addDays(today, 1), timeZone) };
   }
-  if (window === "month") {
-    const today = localDayDate(now, timeZone);
-    const [y, m] = today.split("-").map(Number);
-    const lastDayOfMonth = new Date(Date.UTC(y, m, 0)).getUTCDate();
-    return { from: now, to: new Date(Date.UTC(y, m - 1, lastDayOfMonth, 23, 59, 59)) };
-  }
-  return { from: now, to: new Date(now.getTime() + 90 * 86_400_000) };
+
+  const from = startOfLocalDay(addDays(today, 2), timeZone);
+  const lastDay = range === "month" ? monthEndDayDate(today) : addDays(today, COMING_UP_LOOKAHEAD_DAYS);
+  return { from, to: endOfLocalDay(lastDay, timeZone) };
 }
 
 /**
@@ -528,6 +578,7 @@ export async function GET(request: Request) {
 
   const { searchParams } = new URL(request.url);
   const window = parseWindow(searchParams.get("window"));
+  const range = parseRange(searchParams.get("range"));
   const atParam = searchParams.get("at");
   const now = atParam && !Number.isNaN(Date.parse(atParam)) ? new Date(atParam) : new Date();
   const timeZone = CITY.timezone;
@@ -577,7 +628,7 @@ export async function GET(request: Request) {
     const seriesByMemberId = seriesLookup(seriesGroups);
     const seriesLeads = pickSeriesLeads(seriesGroups, now, timeZone);
 
-    const { from, to } = occurrenceWindowRange(window, now, timeZone);
+    const { from, to } = occurrenceWindowRange(window, range, now, timeZone);
 
     // What's on: every dated, non-deal happening (its soonest occurrence in
     // the window), excluding the hero so it never appears twice. A series
@@ -614,12 +665,22 @@ export async function GET(request: Request) {
     // events are exempt from the ceiling (WHATS_ON_PRICE_EXEMPT_CATEGORIES,
     // user's 2026-09-14 call) since live Ticketmaster/Skiddle sports rows
     // almost never carry a `price_from` and would otherwise never qualify.
-    const windowEvents = await listUpcomingEvents(db, {
-      destination: CITY.name,
-      from: now.toISOString(),
-      to: to.toISOString(),
-      limit: 60,
-    });
+    //
+    // Bounded by the window's own `from`, not `now`: on "Coming up" that's
+    // the day after tomorrow, so the `limit` budget isn't spent on today's
+    // events only for them to be discarded by the bucket filter below —
+    // which used to be able to starve the section empty on a busy day.
+    // Skipped entirely for an inverted range ("This month", selected with
+    // no days left in it), which by definition matches nothing.
+    const windowEvents =
+      to < from
+        ? []
+        : await listUpcomingEvents(db, {
+            destination: CITY.name,
+            from: from.toISOString(),
+            to: to.toISOString(),
+            limit: 60,
+          });
     const eventCards: FeedCardData[] = windowEvents
       .filter(
         (e) =>
@@ -635,13 +696,19 @@ export async function GET(request: Request) {
     const startAtOf = (c: FeedCardData): string =>
       c.kind === "event" ? c.event.starts_at : c.occurrence.startsAt ?? "";
 
+    // "now" is exactly today + tomorrow; "coming_up" is everything after, so
+    // `today_tomorrow` is deliberately absent from its order — that bucket
+    // appearing under all three old windows was the redundancy this replaces.
+    // The range itself already excludes those days (occurrenceWindowRange),
+    // so this is belt-and-braces for a card whose local day lands on the
+    // boundary differently than its raw timestamp suggests.
     const bucketOrder: FeedBucketKey[] =
-      window === "now" ? ["today_tomorrow"] : ["today_tomorrow", "this_weekend", "coming_up"];
+      window === "now" ? ["today_tomorrow"] : ["this_weekend", "coming_up"];
 
     const grouped = new Map<FeedBucketKey, FeedCardData[]>();
     for (const card of allCards) {
       const key = bucketForDayDate(dayDateOf(card), now, timeZone);
-      if (!bucketOrder.includes(key)) continue; // "now" window: drop anything beyond today/tomorrow
+      if (!bucketOrder.includes(key)) continue;
       const list = grouped.get(key) ?? [];
       list.push(card);
       grouped.set(key, list);
@@ -657,6 +724,16 @@ export async function GET(request: Request) {
         return { key, title: BUCKET_TITLES[key](now, timeZone), meta: bucketMeta(key, cards), cards };
       })
       .filter((bucket) => bucket.cards.length > 0);
+
+    // "Coming Up" as a heading under the Coming up tab, directly beneath a
+    // "This Weekend" heading, is the tab's own name echoed back — retitle it
+    // to the relationship the user actually reads off it ("the rest, after
+    // the weekend"). Only when the weekend bucket is genuinely present;
+    // alone, "Coming Up" is the correct label.
+    if (whatsOn.length > 1 && whatsOn[0].key === "this_weekend") {
+      const rest = whatsOn.find((b) => b.key === "coming_up");
+      if (rest) rest.title = "Later On";
+    }
 
     // Book Early: its own longer, window-independent event lookahead — a
     // separate query from `windowEvents` above, which is bounded to the

@@ -22,7 +22,7 @@ export type SegmentedControlProps<T extends string = string> = {
  * surface-container track (measured against the active button's own
  * position/width via refs, so it works for any number/width of options —
  * not just an even 3-way split). Used for Timeline⇄Calendar, Voice⇄Photo,
- * and Home's Now/This month/Coming up window control.
+ * and Home's Now/Coming up window control.
  */
 export function SegmentedControl<T extends string = string>({
   value,

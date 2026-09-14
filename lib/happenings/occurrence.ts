@@ -89,6 +89,69 @@ export function weekdayOf(dayDate: string): Weekday {
   return new Date(Date.UTC(y, m - 1, d)).getUTCDay() as Weekday;
 }
 
+// --- local-day <-> instant --------------------------------------------------
+
+const offsetFormatterCache = new Map<string, Intl.DateTimeFormat>();
+
+function offsetFormatter(timeZone: string): Intl.DateTimeFormat {
+  let f = offsetFormatterCache.get(timeZone);
+  if (!f) {
+    f = new Intl.DateTimeFormat("en-GB", {
+      timeZone,
+      hourCycle: "h23",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+    });
+    offsetFormatterCache.set(timeZone, f);
+  }
+  return f;
+}
+
+/** How far `timeZone`'s wall clock is ahead of UTC at the instant `at`, in ms. */
+function zoneOffsetMs(at: Date, timeZone: string): number {
+  const parts = offsetFormatter(timeZone).formatToParts(at);
+  const get = (t: string) => Number(parts.find((p) => p.type === t)?.value ?? 0);
+  const asIfUtc = Date.UTC(
+    get("year"),
+    get("month") - 1,
+    get("day"),
+    // h23 still emits "24" for midnight in some ICU versions — normalize so
+    // the reconstructed instant lands on the right day rather than the next.
+    get("hour") % 24,
+    get("minute"),
+    get("second")
+  );
+  return asIfUtc - at.getTime();
+}
+
+/**
+ * The exact instant a local calendar day begins in `timeZone`.
+ *
+ * Two passes, because the zone's offset at UTC-midnight isn't necessarily the
+ * one in force at *local* midnight: on a DST-shift day the first guess lands
+ * on the wrong side of the transition, and re-resolving the offset at that
+ * candidate corrects it. Needed by the feed's window ranges, which must start
+ * and end on true day boundaries so "Now" (today + tomorrow) and "Coming up"
+ * (everything after) can't overlap or leave a gap between them.
+ */
+export function startOfLocalDay(dayDate: string, timeZone: string = CITY.timezone): Date {
+  const [y, m, d] = dayDate.split("-").map(Number);
+  const utcMidnight = Date.UTC(y, m - 1, d);
+  const firstPass = utcMidnight - zoneOffsetMs(new Date(utcMidnight), timeZone);
+  return new Date(utcMidnight - zoneOffsetMs(new Date(firstPass), timeZone));
+}
+
+/** The last representable instant of a local calendar day — i.e. 1ms before
+ *  the next day starts, so `[startOfLocalDay(a), endOfLocalDay(b)]` is a
+ *  closed range that can't double-count the boundary midnight. */
+export function endOfLocalDay(dayDate: string, timeZone: string = CITY.timezone): Date {
+  return new Date(startOfLocalDay(addDays(dayDate, 1), timeZone).getTime() - 1);
+}
+
 function yearOf(dayDate: string): number {
   return Number(dayDate.slice(0, 4));
 }

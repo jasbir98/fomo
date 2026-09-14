@@ -13,6 +13,12 @@
  * `freeAnyTime` are all independent of `window`/the old chip filter (which
  * is gone — filtering now lives inside Deals & Offers only); only `whatsOn`
  * respects the window control.
+ *
+ * WINDOWS ARE NOW DISJOINT. There were three (`now`/`month`/`coming_up`) and
+ * all three expanded occurrences from `now`, so today's cards appeared under
+ * every one of them. There are two now, and they partition the calendar with
+ * no overlap: `now` is exactly today + tomorrow, `coming_up` starts at the
+ * day after tomorrow. Nothing can ever render under both.
  */
 import type { EventItem } from "@/lib/types";
 import type { Happening, Occurrence, HappeningCategory } from "@/lib/happenings/types";
@@ -20,7 +26,19 @@ import type { FeedBucketKey } from "@/lib/happenings/format";
 import type { DealWhatGroup, DealWhoGroup } from "@/lib/happenings/groups";
 import type { BookEarlyCardData } from "@/lib/happenings/book-early";
 
-export type FeedWindow = "now" | "month" | "coming_up";
+export type FeedWindow = "now" | "coming_up";
+
+/**
+ * Date-range filter for the `coming_up` window only — the old "This month"
+ * tab, demoted to a filter because as a third tab it was almost entirely
+ * redundant: it re-rendered the same today/tomorrow cards as "Now" plus a
+ * subset of "Coming up". As a filter it does the one thing the tab was
+ * actually useful for — capping the lookahead at the end of the current
+ * month — without duplicating anything.
+ *
+ * Ignored for `window: "now"`, which is always exactly today + tomorrow.
+ */
+export type FeedRange = "all" | "month";
 
 export interface HappeningCardData {
   kind: "happening";
