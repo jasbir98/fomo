@@ -100,7 +100,7 @@ export interface SearchTicketmasterOpts {
   limit: number;
 }
 
-// Reverse of categoryFromTicketmasterSegment — used to translate a Roameo
+// Reverse of categoryFromTicketmasterSegment — used to translate a Fomo
 // category filter back into Ticketmaster's `classificationName` param.
 const CATEGORY_TO_SEGMENT: Partial<Record<EventCategory, string>> = {
   music: "Music",

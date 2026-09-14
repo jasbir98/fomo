@@ -14,7 +14,7 @@
  * itself fails.
  */
 import "server-only";
-import { supabase } from "@/lib/supabase";
+import { supabaseAdmin } from "@/lib/supabase/admin";
 import { listExperiencesByDestination } from "@/lib/db/experiences";
 import type { Experience } from "@/lib/types";
 import { geocodeDestination, type Center } from "@/lib/places/geocode";
@@ -24,6 +24,7 @@ import {
   type MappedExperience as ViatorMappedExperience,
 } from "@/lib/experiences/viator";
 import { searchGetYourGuideExperiences } from "@/lib/experiences/getyourguide";
+import type { Db } from "@/lib/supabase/types";
 
 const DEFAULT_LIMIT = 24;
 
@@ -90,6 +91,7 @@ function syntheticExperience(m: MappedExperience): Experience {
 }
 
 export async function getExperiencesForDestination(
+  db: Db,
   opts: GetExperiencesForDestinationOpts
 ): Promise<GetExperiencesForDestinationResult> {
   const { destination, q, category } = opts;
@@ -142,7 +144,7 @@ export async function getExperiencesForDestination(
     }
     let cached: Experience[] = [];
     try {
-      cached = await listExperiencesByDestination(destination);
+      cached = await listExperiencesByDestination(db, destination);
     } catch (err) {
       console.error("[experiences/getForDestination] cache fallback lookup failed", err);
     }
@@ -166,15 +168,19 @@ export async function getExperiencesForDestination(
     .filter((m) => m.image_url == null)
     .map(({ image_url: _image_url, ...rest }) => rest);
 
+  // Catalog writes always go through the service-role client — RLS's
+  // catalog policy (supabase/harden_rls.sql) is select-only for
+  // anon/authenticated from this phase on.
+  const admin = supabaseAdmin();
   const results = await Promise.all([
     rowsWithPhoto.length > 0
-      ? supabase
+      ? admin
           .from("experiences")
           .upsert(rowsWithPhoto, { onConflict: "provider,provider_product_id" })
           .select("*")
       : Promise.resolve({ data: [] as Experience[], error: null }),
     rowsWithoutPhoto.length > 0
-      ? supabase
+      ? admin
           .from("experiences")
           .upsert(rowsWithoutPhoto, { onConflict: "provider,provider_product_id" })
           .select("*")

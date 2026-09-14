@@ -1,0 +1,142 @@
+[
+  {
+    "prefecture": "City of Edinburgh",
+    "city": "Old Town",
+    "region": "Edinburgh & Lothians",
+    "tier": "mid",
+    "reason": "Dense historic core along the Royal Mile — pubs, closes, and independent shops packed into a small footprint."
+  },
+  {
+    "prefecture": "City of Edinburgh",
+    "city": "New Town",
+    "region": "Edinburgh & Lothians",
+    "tier": "mid",
+    "reason": "Georgian grid neighbourhood with George Street/Broughton Street bars, cafes, and galleries."
+  },
+  {
+    "prefecture": "City of Edinburgh",
+    "city": "Leith",
+    "region": "Edinburgh & Lothians",
+    "tier": "mid",
+    "reason": "Port district known for gastropubs, craft-beer taprooms, and a strong independent food/drink scene."
+  },
+  {
+    "prefecture": "City of Edinburgh",
+    "city": "Leith Shore",
+    "region": "Edinburgh & Lothians",
+    "tier": "minor",
+    "reason": "The Shore waterfront strip specifically — distinct pub/restaurant cluster from wider Leith."
+  },
+  {
+    "prefecture": "City of Edinburgh",
+    "city": "Stockbridge",
+    "region": "Edinburgh & Lothians",
+    "tier": "mid",
+    "reason": "Village-y neighbourhood with a Sunday market, independent cafes, bookshops, and pubs along the Water of Leith."
+  },
+  {
+    "prefecture": "City of Edinburgh",
+    "city": "Southside",
+    "region": "Edinburgh & Lothians",
+    "tier": "minor",
+    "reason": "Student-dense area near the university with cheap eats and casual venues."
+  },
+  {
+    "prefecture": "City of Edinburgh",
+    "city": "Newington",
+    "region": "Edinburgh & Lothians",
+    "tier": "mid",
+    "reason": "Student-priced food strip along Clerk Street/Newington Road, comedy and live-music venues."
+  },
+  {
+    "prefecture": "City of Edinburgh",
+    "city": "Bruntsfield",
+    "region": "Edinburgh & Lothians",
+    "tier": "minor",
+    "reason": "Residential neighbourhood with independent cafes, delis, and local pubs bordering the links."
+  },
+  {
+    "prefecture": "City of Edinburgh",
+    "city": "Marchmont",
+    "region": "Edinburgh & Lothians",
+    "tier": "minor",
+    "reason": "Tenement student neighbourhood with cafes and Meadows-adjacent free green space."
+  },
+  {
+    "prefecture": "City of Edinburgh",
+    "city": "Morningside",
+    "region": "Edinburgh & Lothians",
+    "tier": "minor",
+    "reason": "Residential high-street neighbourhood with independent cafes, bakeries, and charity/vintage shops."
+  },
+  {
+    "prefecture": "City of Edinburgh",
+    "city": "Tollcross",
+    "region": "Edinburgh & Lothians",
+    "tier": "minor",
+    "reason": "Theatre and cinema cluster (King's Theatre, Cameo Cinema) with nearby bars."
+  },
+  {
+    "prefecture": "City of Edinburgh",
+    "city": "Haymarket",
+    "region": "Edinburgh & Lothians",
+    "tier": "minor",
+    "reason": "Transport-hub neighbourhood with pubs and casual eateries serving commuters and match-day crowds."
+  },
+  {
+    "prefecture": "City of Edinburgh",
+    "city": "West End",
+    "region": "Edinburgh & Lothians",
+    "tier": "mid",
+    "reason": "Shandwick Place/William Street area with independent bars, theatres, and galleries."
+  },
+  {
+    "prefecture": "City of Edinburgh",
+    "city": "Grassmarket",
+    "region": "Edinburgh & Lothians",
+    "tier": "mid",
+    "reason": "Historic square below the Castle with one of the city's densest concentrations of pubs."
+  },
+  {
+    "prefecture": "City of Edinburgh",
+    "city": "Cowgate",
+    "region": "Edinburgh & Lothians",
+    "tier": "mid",
+    "reason": "Underground-arch nightlife strip — live music venues, clubs, and late-night bars, core Fringe venue territory."
+  },
+  {
+    "prefecture": "City of Edinburgh",
+    "city": "Canonmills",
+    "region": "Edinburgh & Lothians",
+    "tier": "minor",
+    "reason": "Small neighbourhood bridging New Town and Stockbridge with independent cafes and the Botanics nearby."
+  },
+  {
+    "prefecture": "City of Edinburgh",
+    "city": "Dean Village",
+    "region": "Edinburgh & Lothians",
+    "tier": "minor",
+    "reason": "Free scenic riverside walking route, historic mill village, mostly free sights rather than venues."
+  },
+  {
+    "prefecture": "City of Edinburgh",
+    "city": "Dalry",
+    "region": "Edinburgh & Lothians",
+    "tier": "minor",
+    "reason": "Residential neighbourhood west of Haymarket with local pubs and cheap eats off the tourist track."
+  },
+  {
+    "prefecture": "City of Edinburgh",
+    "city": "Portobello",
+    "region": "Edinburgh & Lothians",
+    "tier": "mid",
+    "reason": "Seaside high street with a free beach/promenade, independent cafes, and pubs."
+  },
+  {
+    "prefecture": "City of Edinburgh",
+    "city": "Corstorphine",
+    "region": "Edinburgh & Lothians",
+    "tier": "minor",
+    "reason": "Western residential district with a free hill/local park and neighbourhood pubs."
+  }
+]

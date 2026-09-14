@@ -1,4 +1,4 @@
-import { supabase } from "@/lib/supabase";
+import type { Db } from "@/lib/supabase/types";
 import type { Place, PlacePhoto } from "@/lib/types";
 
 // Curated pipeline rows often have no top-level `image_url` (extraction won't
@@ -22,29 +22,23 @@ function withThumbnail(row: PlaceRow): Place {
   return place;
 }
 
-/** List all places (shared seed data, no device scoping). */
-export async function listPlaces(): Promise<Place[]> {
-  const { data, error } = await supabase.from("places").select(PLACE_SELECT);
+/** List all places (shared catalog data, no user scoping — readable by anon and authenticated alike). */
+export async function listPlaces(db: Db): Promise<Place[]> {
+  const { data, error } = await db.from("places").select(PLACE_SELECT);
   if (error) throw error;
   return (data ?? []).map(withThumbnail);
 }
 
 /** Fetch a single place by id. Returns null if not found. */
-export async function getPlace(id: string): Promise<Place | null> {
-  const { data, error } = await supabase
-    .from("places")
-    .select("*")
-    .eq("id", id)
-    .maybeSingle();
+export async function getPlace(db: Db, id: string): Promise<Place | null> {
+  const { data, error } = await db.from("places").select("*").eq("id", id).maybeSingle();
   if (error) throw error;
   return data;
 }
 
 /** List places, optionally filtered by category. */
-export async function listPlacesByCategory(
-  category?: string
-): Promise<Place[]> {
-  let query = supabase.from("places").select(PLACE_SELECT);
+export async function listPlacesByCategory(db: Db, category?: string): Promise<Place[]> {
+  let query = db.from("places").select(PLACE_SELECT);
   if (category) query = query.eq("category", category);
   const { data, error } = await query;
   if (error) throw error;
@@ -57,8 +51,8 @@ export async function listPlacesByCategory(
  * found more than one citable image) — callers should fall back to the
  * place's own `image_url` when this returns [].
  */
-export async function listPlacePhotos(placeId: string): Promise<PlacePhoto[]> {
-  const { data, error } = await supabase
+export async function listPlacePhotos(db: Db, placeId: string): Promise<PlacePhoto[]> {
+  const { data, error } = await db
     .from("place_photos")
     .select("*")
     .eq("place_id", placeId)
@@ -72,12 +66,9 @@ export async function listPlacePhotos(placeId: string): Promise<PlacePhoto[]> {
  * into full rows (lat/lng, name, etc.) — e.g. the Map page's "My itinerary"
  * mode. Empty input short-circuits to avoid an unnecessary `.in()` call.
  */
-export async function listPlacesByIds(ids: string[]): Promise<Place[]> {
+export async function listPlacesByIds(db: Db, ids: string[]): Promise<Place[]> {
   if (ids.length === 0) return [];
-  const { data, error } = await supabase
-    .from("places")
-    .select(PLACE_SELECT)
-    .in("id", ids);
+  const { data, error } = await db.from("places").select(PLACE_SELECT).in("id", ids);
   if (error) throw error;
   return (data ?? []).map(withThumbnail);
 }
@@ -88,10 +79,10 @@ export async function listPlacesByIds(ids: string[]): Promise<Place[]> {
  * /api/places as the search-aware fallback when Google is unavailable —
  * `listPlaces()` alone ignores `q` entirely and returns every seed row.
  */
-export async function searchPlacesByName(q: string): Promise<Place[]> {
+export async function searchPlacesByName(db: Db, q: string): Promise<Place[]> {
   const term = q.trim().replace(/[,()%]/g, "");
   if (!term) return [];
-  const { data, error } = await supabase
+  const { data, error } = await db
     .from("places")
     .select(PLACE_SELECT)
     .or(`name.ilike.%${term}%,category.ilike.%${term}%,address.ilike.%${term}%`);
@@ -112,13 +103,13 @@ export async function searchPlacesByName(q: string): Promise<Place[]> {
  * "Scotland" won't match any city/prefecture column, but Scottish places
  * have addresses ending with ", Scotland" so they surface correctly.
  */
-export async function listPlacesByCity(query: string): Promise<Place[]> {
+export async function listPlacesByCity(db: Db, query: string): Promise<Place[]> {
   // Strip characters that are syntactically significant in PostgREST's
   // or=() filter grammar (comma separates conditions, parens nest them)
   // before interpolating untrusted input into the filter string.
   const q = query.trim().replace(/[,()]/g, "");
   if (!q) return [];
-  const { data, error } = await supabase
+  const { data, error } = await db
     .from("places")
     .select(PLACE_SELECT)
     .neq("source", "google")

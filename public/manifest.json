@@ -1,13 +1,13 @@
 {
-  "name": "Roameo",
-  "short_name": "Roameo",
-  "description": "Your AI travel companion — plan, discover, and roam with confidence.",
+  "name": "Fomo",
+  "short_name": "Fomo",
+  "description": "Fomo — what's on in Edinburgh: events, free things and deals.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
   "orientation": "portrait",
-  "theme_color": "#031632",
-  "background_color": "#f7f9fb",
+  "theme_color": "#1b365d",
+  "background_color": "#f8f9ff",
   "icons": [
     {
       "src": "/icons/icon-192.png",

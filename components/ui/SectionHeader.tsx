@@ -7,6 +7,8 @@ export interface SectionHeaderProps {
   meta?: string | null;
   /** When present, renders a "See all" link to this href. */
   seeAllHref?: string | null;
+  /** Overrides the link's default "See all" copy — e.g. "See 4 more". */
+  seeAllLabel?: string;
   className?: string;
 }
 
@@ -19,7 +21,7 @@ export interface SectionHeaderProps {
  * more" (plan-v1-home-pivot.md W1). Typography matches the rail header
  * already in app/(shell)/page.tsx so this drops in without a visual seam.
  */
-export function SectionHeader({ title, meta, seeAllHref, className = "" }: SectionHeaderProps) {
+export function SectionHeader({ title, meta, seeAllHref, seeAllLabel, className = "" }: SectionHeaderProps) {
   return (
     <div className={`mb-3 flex items-start justify-between gap-3 ${className}`}>
       <div className="min-w-0">
@@ -29,9 +31,9 @@ export function SectionHeader({ title, meta, seeAllHref, className = "" }: Secti
       {seeAllHref ? (
         <Link
           href={seeAllHref}
-          className="flex shrink-0 items-center gap-0.5 text-label-sm font-semibold text-primary transition-opacity hover:opacity-80"
+          className="flex shrink-0 items-center gap-0.5 rounded-full bg-surface-container-lowest/80 px-2.5 py-1 text-label-sm font-semibold text-primary backdrop-blur-sm transition-opacity hover:opacity-80"
         >
-          See all
+          {seeAllLabel ?? "See all"}
           <Icon name="chevron_right" size={16} />
         </Link>
       ) : null}

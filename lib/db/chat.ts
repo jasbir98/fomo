@@ -1,44 +1,38 @@
-import { supabase } from "@/lib/supabase";
+import type { Db } from "@/lib/supabase/types";
 import type { ChatMessage, ChatMessageInsert } from "@/lib/types";
 
-/** List chat messages for a trip, oldest first, scoped to the device. */
-export async function listMessages(
-  deviceId: string,
-  tripId: string
-): Promise<ChatMessage[]> {
-  const { data, error } = await supabase
+/**
+ * Chat history, scoped by the signed-in caller rather than a trip — Fomo has
+ * no trips anymore (see supabase/decouple_chat_from_trips.sql, which drops
+ * `chat_messages.trip_id`'s NOT NULL + its FK to `trips`; the column itself
+ * is left in place, nullable and unused). `chat_messages.user_id` already
+ * carries an `own_rows` RLS policy (supabase/harden_rls.sql), so a plain,
+ * unfiltered query is exactly as scoped as the old `.eq("trip_id", tripId)`
+ * one was — same convention lib/db/saved.ts's `listSavedItems` uses.
+ */
+export async function listMessages(db: Db): Promise<ChatMessage[]> {
+  const { data, error } = await db
     .from("chat_messages")
     .select("*")
-    .eq("device_id", deviceId)
-    .eq("trip_id", tripId)
     .order("created_at", { ascending: true });
   if (error) throw error;
   return data ?? [];
 }
 
-/** Insert a chat message (user or assistant turn) for a device+trip. */
-export async function addMessage(
-  deviceId: string,
-  message: Omit<ChatMessageInsert, "device_id">
-): Promise<ChatMessage> {
-  const { data, error } = await supabase
-    .from("chat_messages")
-    .insert({ device_id: deviceId, ...message })
-    .select("*")
-    .single();
+/** Insert a chat message (user or assistant turn). `trip_id` is never set — the column default applies. */
+export async function addMessage(db: Db, message: ChatMessageInsert): Promise<ChatMessage> {
+  const { data, error } = await db.from("chat_messages").insert({ ...message }).select("*").single();
   if (error) throw error;
   return data;
 }
 
-/** Delete all chat messages for a trip, scoped to the device. */
-export async function clearMessages(
-  deviceId: string,
-  tripId: string
-): Promise<void> {
-  const { error } = await supabase
-    .from("chat_messages")
-    .delete()
-    .eq("device_id", deviceId)
-    .eq("trip_id", tripId);
+/**
+ * Delete all of the signed-in caller's chat messages. RLS's `own_rows` policy
+ * is what actually restricts this; the always-true `.not(...)` only satisfies
+ * the database's safe-update check, which rejects a DELETE with no WHERE clause
+ * (code 21000) — same convention as lib/db/location.ts's `deleteUserLocation`.
+ */
+export async function clearMessages(db: Db): Promise<void> {
+  const { error } = await db.from("chat_messages").delete().not("id", "is", null);
   if (error) throw error;
 }

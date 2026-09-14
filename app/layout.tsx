@@ -10,13 +10,13 @@ const jakarta = Plus_Jakarta_Sans({
 });
 
 export const metadata: Metadata = {
-  title: "Roameo",
-  description: "Your AI travel companion — plan, discover, and roam with confidence.",
+  title: "Fomo",
+  description: "Fomo — what's on in Edinburgh: events, free things and deals.",
   manifest: "/manifest.json",
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
-    title: "Roameo",
+    title: "Fomo",
   },
   icons: {
     icon: "/icons/icon-192.png",
@@ -28,7 +28,7 @@ export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   viewportFit: "cover",
-  themeColor: "#031632",
+  themeColor: "#1b365d",
 };
 
 export default function RootLayout({
@@ -52,11 +52,20 @@ export default function RootLayout({
         <div className="mx-auto flex min-h-dvh w-full max-w-[480px] flex-col bg-background">
           {children}
         </div>
-        <script
-          dangerouslySetInnerHTML={{
-            __html: `if('serviceWorker' in navigator){window.addEventListener('load',function(){navigator.serviceWorker.register('/sw.js').catch(function(){});});}`,
-          }}
-        />
+        {/* Skip SW registration outside production: Turbopack's dev server + hand-rolled
+            sw.js (no HMR-awareness) is one thing, but the real trigger for the console
+            noise is CDP/automation-driven Chrome (this Browser pane included) rejecting
+            the registration outright with "An unknown error occurred when fetching the
+            script" even though /sw.js serves fine (verified via curl) — a known
+            automation-profile quirk, not an app bug. There's nothing to precache or work
+            offline for in dev, so just don't register there. */}
+        {process.env.NODE_ENV === "production" && (
+          <script
+            dangerouslySetInnerHTML={{
+              __html: `if('serviceWorker' in navigator){window.addEventListener('load',function(){navigator.serviceWorker.register('/sw.js').catch(function(){});});}`,
+            }}
+          />
+        )}
       </body>
     </html>
   );

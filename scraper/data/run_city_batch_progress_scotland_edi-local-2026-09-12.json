@@ -1,0 +1,82 @@
+{
+  "City of Edinburgh::Old Town": {
+    "status": "done",
+    "record_count": 33
+  },
+  "City of Edinburgh::New Town": {
+    "status": "done",
+    "record_count": 27
+  },
+  "City of Edinburgh::Leith": {
+    "status": "done",
+    "record_count": 49
+  },
+  "City of Edinburgh::Leith Shore": {
+    "status": "done",
+    "record_count": 21
+  },
+  "City of Edinburgh::Stockbridge": {
+    "status": "done",
+    "record_count": 31
+  },
+  "City of Edinburgh::Southside": {
+    "status": "done",
+    "record_count": 19
+  },
+  "City of Edinburgh::Newington": {
+    "status": "done",
+    "record_count": 20
+  },
+  "City of Edinburgh::Bruntsfield": {
+    "status": "done",
+    "record_count": 20
+  },
+  "City of Edinburgh::Marchmont": {
+    "status": "done",
+    "record_count": 17
+  },
+  "City of Edinburgh::Morningside": {
+    "status": "done",
+    "record_count": 19
+  },
+  "City of Edinburgh::Tollcross": {
+    "status": "done",
+    "record_count": 23
+  },
+  "City of Edinburgh::Haymarket": {
+    "status": "done",
+    "record_count": 20
+  },
+  "City of Edinburgh::West End": {
+    "status": "done",
+    "record_count": 45
+  },
+  "City of Edinburgh::Grassmarket": {
+    "status": "done",
+    "record_count": 27
+  },
+  "City of Edinburgh::Cowgate": {
+    "status": "done",
+    "record_count": 23
+  },
+  "City of Edinburgh::Canonmills": {
+    "status": "done",
+    "record_count": 8
+  },
+  "City of Edinburgh::Dean Village": {
+    "status": "done",
+    "record_count": 21
+  },
+  "City of Edinburgh::Dalry": {
+    "status": "done",
+    "record_count": 22
+  },
+  "City of Edinburgh::Portobello": {
+    "status": "done",
+    "record_count": 22
+  },
+  "City of Edinburgh::Corstorphine": {
+    "status": "done",
+    "record_count": 21
+  }
+}

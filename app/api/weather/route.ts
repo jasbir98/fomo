@@ -1,5 +1,5 @@
 /**
- * Roameo Weather — real forecast data for a trip destination (server-only).
+ * Fomo Weather — real forecast data for a trip destination (server-only).
  *
  * GET /api/weather?destination=<string>&date=<YYYY-MM-DD>
  *   destination: required, e.g. "Tokyo, Japan" (same string trips/items use).

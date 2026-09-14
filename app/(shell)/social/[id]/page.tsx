@@ -3,6 +3,8 @@
 import { use, useEffect, useState } from "react";
 import Link from "next/link";
 import { getSocialPost, listPlaces, listReels, listSocialPosts } from "@/lib/db";
+import { supabaseBrowserAuth } from "@/lib/supabase/client";
+import type { Db } from "@/lib/supabase/types";
 import type { Place, SocialPost } from "@/lib/types";
 import { Icon, PageHeader } from "@/components/ui";
 import { ReelViewer } from "@/components/social/ReelViewer";
@@ -14,25 +16,26 @@ type ViewerData = { reels: SocialPost[]; startIndex: number; places: Place[] };
  * (falling back to every reel, then the full social feed) so the tapped
  * post is always present in the stack, starting at its index.
  */
-async function buildViewerData(id: string, post: SocialPost): Promise<ViewerData> {
-  let reels: SocialPost[] = await listReels(post.destination ?? null);
+async function buildViewerData(db: Db, id: string, post: SocialPost): Promise<ViewerData> {
+  let reels: SocialPost[] = await listReels(db, post.destination ?? null);
   if (!reels.some((r) => r.id === id)) {
-    reels = await listReels(null);
+    reels = await listReels(db, null);
   }
   if (!reels.some((r) => r.id === id)) {
-    const allPosts = await listSocialPosts();
+    const allPosts = await listSocialPosts(db);
     reels = allPosts.some((r) => r.id === id) ? allPosts : [post];
   }
   const startIndex = Math.max(
     reels.findIndex((r) => r.id === id),
     0
   );
-  const places = await listPlaces();
+  const places = await listPlaces(db);
   return { reels, startIndex, places };
 }
 
 export default function SocialReelDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
+  const db = supabaseBrowserAuth();
 
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
@@ -41,14 +44,14 @@ export default function SocialReelDetailPage({ params }: { params: Promise<{ id:
   useEffect(() => {
     let cancelled = false;
 
-    getSocialPost(id)
+    getSocialPost(db, id)
       .then(async (post) => {
         if (cancelled) return;
         if (!post) {
           setNotFound(true);
           return;
         }
-        const data = await buildViewerData(id, post);
+        const data = await buildViewerData(db, id, post);
         if (!cancelled) setViewer(data);
       })
       .catch((err) => {
@@ -62,7 +65,7 @@ export default function SocialReelDetailPage({ params }: { params: Promise<{ id:
     return () => {
       cancelled = true;
     };
-  }, [id]);
+  }, [db, id]);
 
   if (loading) {
     return (
@@ -96,8 +99,8 @@ export default function SocialReelDetailPage({ params }: { params: Promise<{ id:
       <div className="relative min-h-0 flex-1">
         {/* No active-trip lookup on this route (single-post deep link, not
             trip-scoped) — tripId null just means ReelActionRow's "Add to
-            today" stays disabled here; Ask Roameo/Save still work fine. */}
-        <ReelViewer reels={viewer.reels} startIndex={viewer.startIndex} places={viewer.places} tripId={null} />
+            today" stays disabled here; Ask Fomo/Save still work fine. */}
+        <ReelViewer reels={viewer.reels} startIndex={viewer.startIndex} places={viewer.places} />
       </div>
     </div>
   );

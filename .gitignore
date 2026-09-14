@@ -49,3 +49,11 @@ next-env.d.ts
 # live files.
 /scraper/.venv/
 /scraper/.pw-profile/
+
+# scraper run output — regenerable pipeline results, not app source.
+# scraper/data (inputs + progress files), scraper/countries and
+# scraper/happenings (Python packages) stay tracked.
+/scraper/out/
+/scraper/consolidated/
+__pycache__/
+*.pyc

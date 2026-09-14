@@ -1,5 +1,5 @@
 /**
- * Roameo Media Proxy — re-serves reel-thumbnail images (server-only).
+ * Fomo Media Proxy — re-serves reel-thumbnail images (server-only).
  *
  * GET /api/media-proxy?video=<encoded TikTok video url>   (preferred for TikTok)
  * GET /api/media-proxy?url=<encoded CDN image url>        (Instagram, or fallback)

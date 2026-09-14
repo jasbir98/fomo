@@ -1,5 +1,5 @@
 /**
- * Roameo Experiences — bookable tours/activities API (server-only).
+ * Fomo Experiences — bookable tours/activities API (server-only).
  *
  * GET /api/experiences?destination=<string>&q=<text>&category=<slug>&limit=<n>&offset=<n>
  *   q:        free-text search, passed through to both provider adapters
@@ -18,6 +18,7 @@
  */
 import "server-only";
 import { NextResponse } from "next/server";
+import { supabaseServer } from "@/lib/supabase/server";
 import type { Experience } from "@/lib/types";
 import { geocodeDestination, type Center } from "@/lib/places/geocode";
 import { getExperiencesForDestination } from "@/lib/experiences/getForDestination";
@@ -31,6 +32,7 @@ interface ExperiencesResponse {
 }
 
 export async function GET(request: Request) {
+  const db = await supabaseServer();
   const { searchParams } = new URL(request.url);
   const destination = searchParams.get("destination")?.trim();
   if (!destination) {
@@ -61,7 +63,7 @@ export async function GET(request: Request) {
   // Geocode → map center (null-safe; provider search still works without it).
   const center = await geocodeDestination(destination);
 
-  const { experiences, degraded } = await getExperiencesForDestination({
+  const { experiences, degraded } = await getExperiencesForDestination(db, {
     destination,
     center,
     q,

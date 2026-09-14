@@ -1,7 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { useEffect, useSyncExternalStore } from "react";
+import { useEffect, useId, useRef, useSyncExternalStore } from "react";
 import { createPortal } from "react-dom";
 
 const noopSubscribe = () => () => {};
@@ -14,12 +14,17 @@ function useMounted(): boolean {
   );
 }
 
+const FOCUSABLE_SELECTOR =
+  'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])';
+
 export type BottomSheetProps = {
   open: boolean;
   onClose: () => void;
   title?: ReactNode;
   children?: ReactNode;
   className?: string;
+  /** Accessible name for the dialog when `title` isn't a plain string (or is absent) — falls back to "Dialog". Ignored when `title` is a string, which is used directly via aria-labelledby. */
+  ariaLabel?: string;
 };
 
 /**
@@ -34,9 +39,13 @@ export type BottomSheetProps = {
  * get the "fixed" overlay pinned to the header's own small box instead of
  * the viewport. Portaling sidesteps that regardless of call site.
  */
-export function BottomSheet({ open, onClose, title, children, className = "" }: BottomSheetProps) {
+export function BottomSheet({ open, onClose, title, children, className = "", ariaLabel }: BottomSheetProps) {
   const mounted = useMounted();
+  const titleId = useId();
+  const panelRef = useRef<HTMLDivElement>(null);
+  const titleIsString = typeof title === "string";
 
+  // Esc to close.
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => {
@@ -46,11 +55,58 @@ export function BottomSheet({ open, onClose, title, children, className = "" }: 
     return () => document.removeEventListener("keydown", onKey);
   }, [open, onClose]);
 
+  // Lock body scroll while open — restores whatever inline value (if any)
+  // was there before, so this nests harmlessly if something else also sets it.
+  useEffect(() => {
+    if (!open) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, [open]);
+
+  // Focus trap: move focus into the panel on open, cycle Tab/Shift+Tab
+  // within it, and hand focus back out on close.
+  useEffect(() => {
+    if (!open) return;
+    const panel = panelRef.current;
+    if (!panel) return;
+    const previouslyFocused = document.activeElement as HTMLElement | null;
+
+    const focusables = () => Array.from(panel.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR));
+    const first = focusables()[0];
+    (first ?? panel).focus();
+
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key !== "Tab") return;
+      const items = focusables();
+      if (items.length === 0) {
+        e.preventDefault();
+        return;
+      }
+      const firstEl = items[0];
+      const lastEl = items[items.length - 1];
+      if (e.shiftKey && document.activeElement === firstEl) {
+        e.preventDefault();
+        lastEl.focus();
+      } else if (!e.shiftKey && document.activeElement === lastEl) {
+        e.preventDefault();
+        firstEl.focus();
+      }
+    };
+    panel.addEventListener("keydown", onKeyDown);
+    return () => {
+      panel.removeEventListener("keydown", onKeyDown);
+      previouslyFocused?.focus?.();
+    };
+  }, [open]);
+
   if (!mounted) return null;
 
   return createPortal(
     <div
-      className={`fixed inset-0 z-[60] flex items-end justify-center transition-opacity duration-200 ${
+      className={`fixed inset-0 z-[60] flex items-end justify-center transition-opacity duration-200 motion-reduce:transition-none ${
         open ? "opacity-100" : "pointer-events-none opacity-0"
       }`}
       aria-hidden={!open}
@@ -65,9 +121,13 @@ export function BottomSheet({ open, onClose, title, children, className = "" }: 
       />
       {/* Sheet */}
       <div
+        ref={panelRef}
         role="dialog"
         aria-modal="true"
-        className={`relative w-full max-w-[480px] rounded-t-xl bg-surface-container-lowest pb-safe shadow-[0_-8px_32px_rgba(3,22,50,0.18)] transition-transform duration-300 ${
+        aria-labelledby={titleIsString ? titleId : undefined}
+        aria-label={!titleIsString ? (ariaLabel ?? "Dialog") : undefined}
+        tabIndex={-1}
+        className={`relative w-full max-w-[480px] rounded-t-xl bg-surface-container-lowest pb-safe shadow-[0_-8px_32px_rgba(3,22,50,0.18)] transition-transform duration-300 motion-reduce:transition-none focus:outline-none ${
           open ? "translate-y-0" : "translate-y-full"
         } ${className}`}
       >
@@ -75,7 +135,9 @@ export function BottomSheet({ open, onClose, title, children, className = "" }: 
           <span className="h-1.5 w-10 rounded-full bg-outline-variant" aria-hidden="true" />
         </div>
         {title ? (
-          <h2 className="px-5 pb-2 pt-1 text-headline-sm text-on-surface">{title}</h2>
+          <h2 id={titleIsString ? titleId : undefined} className="px-5 pb-2 pt-1 text-headline-sm text-on-surface">
+            {title}
+          </h2>
         ) : null}
         <div className="px-5 pb-5 pt-2">{children}</div>
       </div>

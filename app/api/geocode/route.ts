@@ -1,5 +1,5 @@
 /**
- * Roameo Geocode — destination autocomplete for the create-trip flow.
+ * Fomo Geocode — destination autocomplete for the create-trip flow.
  *
  * GET /api/geocode?q=<partial place name>
  *   → { suggestions: { name, lat, lng }[] }

@@ -1,0 +1,12 @@
+<svg viewBox="0 0 300 200" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Outdoors default image">
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#79ab3c"/>
+      <stop offset="100%" stop-color="#325307"/>
+    </linearGradient>
+  </defs>
+  <rect width="300" height="200" fill="url(#g)"/>
+  <circle cx="98" cy="66" r="17" fill="#ffffff" fill-opacity="0.9"/>
+  <polygon points="70,150 140,72 210,150" fill="#ffffff" fill-opacity="0.55"/>
+  <polygon points="140,150 190,92 240,150" fill="#ffffff" fill-opacity="0.88"/>
+</svg>

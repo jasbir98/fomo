@@ -3,12 +3,11 @@
 import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { getDeviceId } from "@/lib/device";
-import { createItem } from "@/lib/db/items";
 import { recordCardSignal } from "@/lib/db/signals";
 import { isSaved, saveItem, unsaveItem } from "@/lib/db/saved";
-import { buildAskRoameoHref } from "@/lib/chat-seed";
+import { buildAskFomoHref } from "@/lib/chat-seed";
 import { buildSearchMapUrl } from "@/lib/maps/links";
+import { supabaseBrowserAuth } from "@/lib/supabase/client";
 import type { CardSubjectType, Place, SocialPost } from "@/lib/types";
 import { resolvePlaceForReel } from "@/lib/social/reel-place";
 import { proxiedThumbnailUrl } from "@/lib/social/media-proxy";
@@ -21,7 +20,7 @@ import { VideoEmbed } from "./VideoEmbed";
  * reel "like" apart from an ordinary Save tap on the same subject:
  *  - REEL_LIKE_CARD_TYPE: the heart-swipe/heart-button gesture (the reel's
  *    core interaction) — this is the one reel_echo reads.
- *  - REEL_ACTION_CARD_TYPE: the RoameoCard-parity Ask Roameo/Save/Add-to-today
+ *  - REEL_ACTION_CARD_TYPE: the FomoCard-parity Ask Fomo/Save/Add-to-today
  *    row added alongside it (see ReelActionRow below).
  */
 const REEL_LIKE_CARD_TYPE = "reel_like";
@@ -40,14 +39,17 @@ const EXIT_DURATION_MS = 240;
 // dead zone where genuine taps did nothing.
 const BAR_OPEN_DRAG_THRESHOLD = 60;
 
-function likesStorageKey(deviceId: string): string {
-  return `roameo_reel_likes_${deviceId || "anon"}`;
-}
+// Not user-namespaced (unlike the pre-auth device_id-keyed version) — this is
+// just a local "which reels have I swiped in this browser" nicety, not
+// account data, so there's no correctness reason to split it per signed-in
+// user. See plan-v1.2-accounts.md §A.5 — lib/device.ts is gone entirely.
+// Key intentionally kept as roameo_... -- renaming would silently reset real users liked reels.
+const LIKES_STORAGE_KEY = "roameo_reel_likes";
 
-function loadLikedIds(deviceId: string): string[] {
+function loadLikedIds(): string[] {
   if (typeof window === "undefined") return [];
   try {
-    const raw = window.localStorage.getItem(likesStorageKey(deviceId));
+    const raw = window.localStorage.getItem(LIKES_STORAGE_KEY);
     const parsed = raw ? JSON.parse(raw) : [];
     return Array.isArray(parsed) ? parsed : [];
   } catch {
@@ -55,13 +57,13 @@ function loadLikedIds(deviceId: string): string[] {
   }
 }
 
-/** Persist a reel like to localStorage, device-scoped. Best-effort. */
-function persistLike(deviceId: string, reelId: string) {
+/** Persist a reel like to localStorage. Best-effort. */
+function persistLike(reelId: string) {
   if (typeof window === "undefined") return;
   try {
-    const liked = new Set(loadLikedIds(deviceId));
+    const liked = new Set(loadLikedIds());
     liked.add(reelId);
-    window.localStorage.setItem(likesStorageKey(deviceId), JSON.stringify(Array.from(liked)));
+    window.localStorage.setItem(LIKES_STORAGE_KEY, JSON.stringify(Array.from(liked)));
   } catch {
     // localStorage unavailable (private mode / blocked) — like just won't persist.
   }
@@ -87,7 +89,6 @@ export type ReelViewerProps = {
   places: Place[];
   /** Active trip id, for card_signals/saved_items rows — null when there's
    * no active trip (the "every reel, no destination filter" fallback). */
-  tripId: string | null;
 };
 
 /**
@@ -100,14 +101,11 @@ export type ReelViewerProps = {
  * place's own /place/[id] page (v1.1 W3: content always opens a page, never
  * a sheet), or to a maps search when no place resolved for this reel.
  */
-export function ReelViewer({ reels, startIndex, places, tripId }: ReelViewerProps) {
+export function ReelViewer({ reels, startIndex, places }: ReelViewerProps) {
   const router = useRouter();
-  // ReelViewer only ever mounts client-side (the page above gates on an
-  // async data fetch before rendering it), so it's safe to read the device
-  // id directly here rather than through the SSR-deferred useDeviceId hook.
-  const [deviceId] = useState(() => getDeviceId());
+  const db = supabaseBrowserAuth();
   const [index, setIndex] = useState(Math.max(startIndex, 0));
-  const [likedIds, setLikedIds] = useState<Set<string>>(() => new Set(loadLikedIds(deviceId)));
+  const [likedIds, setLikedIds] = useState<Set<string>>(() => new Set(loadLikedIds()));
   const [phase, setPhase] = useState<"idle" | "dragging" | "exiting">("idle");
   const [dragX, setDragX] = useState(0);
   const pointerId = useRef<number | null>(null);
@@ -121,7 +119,7 @@ export function ReelViewer({ reels, startIndex, places, tripId }: ReelViewerProp
     if (phase === "exiting") return;
     const current = reels[index];
     if (action === "like" && current) {
-      persistLike(deviceId, current.id);
+      persistLike(current.id);
       setLikedIds((prev) => {
         const next = new Set(prev);
         next.add(current.id);
@@ -132,17 +130,16 @@ export function ReelViewer({ reels, startIndex, places, tripId }: ReelViewerProp
       // reel_echo generator looks for (card_type REEL_LIKE_CARD_TYPE,
       // subject_type "place"); a placeless reel still leaves a trail via
       // subject_type "reel" even though no generator reads that yet.
-      if (deviceId) {
-        const likedPlace = resolvePlaceForReel(current, places);
-        void recordCardSignal({
-          device_id: deviceId,
-          trip_id: tripId,
+      // recordCardSignal never throws (it swallows and logs its own
+      // errors), so an unauthenticated visitor's write just no-ops loudly
+      // in the console rather than needing a guard here.
+      const likedPlace = resolvePlaceForReel(current, places);
+      void recordCardSignal(db, {
           card_type: REEL_LIKE_CARD_TYPE,
-          subject_type: likedPlace ? "place" : "reel",
-          subject_id: likedPlace ? likedPlace.id : current.id,
-          action: "saved",
-        });
-      }
+        subject_type: likedPlace ? "place" : "reel",
+        subject_id: likedPlace ? likedPlace.id : current.id,
+        action: "saved",
+      });
     }
     setPhase("exiting");
     setDragX(action === "like" ? EXIT_DISTANCE : -EXIT_DISTANCE);
@@ -375,10 +372,10 @@ export function ReelViewer({ reels, startIndex, places, tripId }: ReelViewerProp
         </div>
       </div>
 
-      {/* RoameoCard-parity row: primary contextual action / Ask Roameo / Save.
+      {/* FomoCard-parity row: primary contextual action / Ask Fomo / Save.
           Added alongside (not replacing) the like/skip swipe mechanic below —
           keyed (prefixed) so its saved/added state resets per-reel. */}
-      <ReelActionRow key={`action-${current.id}`} reel={current} place={place} deviceId={deviceId} tripId={tripId} />
+      <ReelActionRow key={`action-${current.id}`} reel={current} place={place} />
 
       {/* Action strip — place bar + Like/Skip, below the player so none of it
           can intercept taps meant for the embed. */}
@@ -435,31 +432,29 @@ export function ReelViewer({ reels, startIndex, places, tripId }: ReelViewerProp
 type ReelActionRowProps = {
   reel: SocialPost;
   place: Place | null;
-  deviceId: string;
-  tripId: string | null;
 };
 
 /**
- * The three RoameoCard actions Reels was missing (plan-v1-home-pivot.md §8):
- * primary contextual verb / Ask Roameo / Save. The swipe/heart "like" stays
+ * The three FomoCard actions Reels was missing (plan-v1-home-pivot.md §8):
+ * primary contextual verb / Ask Fomo / Save. The swipe/heart "like" stays
  * the reel's own core interaction (handled by commitSwipe above, in
  * ReelViewer) — this is purely additive, sitting just above that action
- * strip. Mirrors components/roameo/Card.tsx's own action semantics (same
- * helpers: buildAskRoameoHref, saveItem/unsaveItem, createItem,
- * recordCardSignal) rather than rendering RoameoCard itself, since a
+ * strip. Mirrors components/fomo/Card.tsx's own action semantics (same
+ * helpers: buildAskFomoHref, saveItem/unsaveItem,
+ * recordCardSignal) rather than rendering FomoCard itself, since a
  * Candidate-shaped wrapper would duplicate the photo/header this full-bleed
  * video card already has.
  *
- * A reel with no resolved place has no subject Ask Roameo or "Add to today"
+ * A reel with no resolved place has no subject Ask Fomo or "Add to today"
  * can act on, so both are hidden — only Save is offered, falling back to
  * `subject_type: "reel"` (a valid CardSubjectType) so even a placeless like
  * still has somewhere to go.
  */
-function ReelActionRow({ reel, place, deviceId, tripId }: ReelActionRowProps) {
+function ReelActionRow({ reel, place }: ReelActionRowProps) {
   const pathname = usePathname();
   const [saved, setSaved] = useState(false);
-  const [added, setAdded] = useState(false);
   const [busy, setBusy] = useState(false);
+  const db = supabaseBrowserAuth();
 
   const subjectType: CardSubjectType = place ? "place" : "reel";
   const subjectId = place ? place.id : reel.id;
@@ -468,9 +463,8 @@ function ReelActionRow({ reel, place, deviceId, tripId }: ReelActionRowProps) {
 
   // Seed the Save toggle's current state for this reel/place.
   useEffect(() => {
-    if (!deviceId) return;
     let cancelled = false;
-    isSaved(deviceId, subjectType, subjectId)
+    isSaved(db, subjectType, subjectId)
       .then((v) => {
         if (!cancelled) setSaved(v);
       })
@@ -478,13 +472,10 @@ function ReelActionRow({ reel, place, deviceId, tripId }: ReelActionRowProps) {
     return () => {
       cancelled = true;
     };
-  }, [deviceId, subjectType, subjectId]);
+  }, [db, subjectType, subjectId]);
 
-  function signal(action: "opened" | "saved" | "planned") {
-    if (!deviceId) return;
-    void recordCardSignal({
-      device_id: deviceId,
-      trip_id: tripId,
+  function signal(action: "opened" | "saved") {
+    void recordCardSignal(db, {
       card_type: REEL_ACTION_CARD_TYPE,
       subject_type: subjectType,
       subject_id: subjectId,
@@ -493,17 +484,15 @@ function ReelActionRow({ reel, place, deviceId, tripId }: ReelActionRowProps) {
   }
 
   async function handleToggleSave() {
-    if (!deviceId || busy) return;
+    if (busy) return;
     setBusy(true);
     try {
       if (saved) {
-        await unsaveItem(deviceId, subjectType, subjectId);
+        await unsaveItem(db, subjectType, subjectId);
         setSaved(false);
       } else {
-        await saveItem({
-          device_id: deviceId,
-          trip_id: tripId,
-          subject_type: subjectType,
+        await saveItem(db, {
+              subject_type: subjectType,
           subject_id: subjectId,
           note: null,
         });
@@ -517,47 +506,16 @@ function ReelActionRow({ reel, place, deviceId, tripId }: ReelActionRowProps) {
     }
   }
 
-  async function handleAddToday() {
-    if (!deviceId || !tripId || !place || added || busy) return;
-    setBusy(true);
-    try {
-      const now = new Date();
-      await createItem(deviceId, {
-        trip_id: tripId,
-        place_id: place.id,
-        title: place.name,
-        category: place.category,
-        location: place.station ?? place.name,
-        day_date: now.toISOString().slice(0, 10),
-        time_label: now.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }),
-        starts_at: now.toISOString(),
-      });
-      setAdded(true);
-      signal("planned");
-    } catch (err) {
-      console.error("[reels] add to today failed", err);
-    } finally {
-      setBusy(false);
-    }
-  }
+  // handleAddToday lived here. Fomo has no itinerary; the reel action row's
+  // "Add to today" button is replaced by the Directions link below, with
+  // saving handled by the bookmark action.
 
   const askHref = place
-    ? buildAskRoameoHref({ type: "place", id: place.id, name: subjectName, coords, returnTo: pathname })
+    ? buildAskFomoHref({ type: "place", id: place.id, name: subjectName, coords, returnTo: pathname })
     : null;
 
   return (
     <div className="flex shrink-0 items-center gap-2 px-4 pt-1">
-      {place ? (
-        <button
-          type="button"
-          onClick={() => void handleAddToday()}
-          disabled={busy || added || !tripId}
-          className="flex shrink-0 items-center gap-1 rounded-full bg-secondary-container px-3 py-1.5 text-label-sm font-semibold text-on-secondary-container transition-opacity hover:opacity-90 disabled:opacity-60"
-        >
-          <Icon name={added ? "check" : "add"} size={16} />
-          {added ? "Added" : "Add to today"}
-        </button>
-      ) : null}
       {askHref ? (
         <Link
           href={askHref}
@@ -565,7 +523,7 @@ function ReelActionRow({ reel, place, deviceId, tripId }: ReelActionRowProps) {
           className="flex shrink-0 items-center gap-1 rounded-full border border-outline-variant/60 px-3 py-1.5 text-label-sm font-semibold text-primary transition-colors hover:bg-surface-container"
         >
           <Icon name="chat" size={16} />
-          Ask Roameo
+          Ask Fomo
         </Link>
       ) : null}
       <button

@@ -1,5 +1,5 @@
 /**
- * Roameo AI chat — real streaming Claude integration (server-only).
+ * Fomo AI chat — real streaming Claude integration (server-only).
  *
  * Replaces the scripted `getChatReply` mock. The client POSTs the chat context
  * (mode, history, userText, trip, Travel DNA preferences, rules) and this route
@@ -15,17 +15,37 @@
  */
 import "server-only";
 import { getAnthropic, CHAT_MODEL } from "@/lib/ai/anthropic";
+import { supabaseServer } from "@/lib/supabase/server";
+import { consumeRateLimit, rateLimitedResponse } from "@/lib/rate-limit";
 import type {
   ActionProposal,
   AiReplyBlock,
   ChatMode,
   PlaceCard,
-} from "@/lib/roameo-ai";
+} from "@/lib/fomo-ai";
 import type { CardSubjectType, TravelPreferences } from "@/lib/types";
+import { INTEREST_TAG_META, type InterestTag } from "@/lib/taxonomy";
 
 export const runtime = "nodejs";
 
+// Pre-public-deploy abuse guards (rate limiting + input caps) — see
+// lib/rate-limit.ts and supabase/add_rate_limits.sql. Two windows checked
+// per request: a short burst cap and a generous daily cap.
+const CHAT_RATE_LIMIT_BURST = { limit: 30, windowSeconds: 10 * 60 };
+const CHAT_RATE_LIMIT_DAILY = { limit: 150, windowSeconds: 24 * 60 * 60 };
+
+/** Matches the client's own cap (app/(shell)/fomo/page.tsx's MAX_HISTORY_MESSAGES sends 12) but enforced here too, since this route has no way to know a request came from that UI. */
+const MAX_HISTORY_TURNS = 20;
+const MAX_MESSAGE_CHARS = 2000;
+
 type HistoryTurn = { role: "user" | "assistant"; text: string };
+
+function jsonError(message: string, status: number): Response {
+  return new Response(JSON.stringify({ type: "error", message }), {
+    status,
+    headers: { "content-type": "application/json" },
+  });
+}
 
 interface TripContext {
   destination: string | null;
@@ -34,7 +54,7 @@ interface TripContext {
   end_date: string | null;
 }
 
-/** plan-v1-home-pivot.md §7 — set when the client opened chat from a card's "Ask Roameo" action, carrying what the card was about. */
+/** plan-v1-home-pivot.md §7 — set when the client opened chat from a card's "Ask Fomo" action, carrying what the card was about. */
 interface ChatSeedContext {
   type: CardSubjectType;
   name: string;
@@ -50,6 +70,30 @@ interface ChatRequestBody {
   rules: string | null;
   seed?: ChatSeedContext | null;
 }
+
+// Readable labels for the persona columns added in Phase 4/5
+// (supabase/add_person_persona.sql) — replaces the old three-slider
+// prompt-builder below (Phase 8 cleanup, plan-v1.2-accounts.md §F).
+const BUDGET_BAND_LABELS: Record<string, string> = {
+  shoestring: "shoestring",
+  middle: "middle-of-the-road",
+  treat: "treat-yourself",
+};
+const WALK_TOLERANCE_LABELS: Record<string, string> = {
+  high: "happy to walk a lot",
+  medium: "moderate walker",
+  low: "prefers to keep walking short",
+};
+const DAY_RHYTHM_LABELS: Record<string, string> = {
+  early: "an early riser",
+  steady: "steady energy all day",
+  night: "a night owl",
+};
+const PACE_LABELS: Record<string, string> = {
+  packed: "likes a packed day",
+  balanced: "likes a balanced day",
+  slow: "prefers a slow day",
+};
 
 const MODE_GUIDANCE: Record<ChatMode, string> = {
   translate:
@@ -69,14 +113,14 @@ function buildSystemPrompt(body: ChatRequestBody): string {
   const parts: string[] = [];
 
   parts.push(
-    "You are Roameo, a knowledgeable local friend texting the traveler — warm and opinionated, never a dense guidebook. When you're not sure, commit to one recommendation and say why, rather than hedging with a list of options. Be specific: name the street, the stall, the dish, the exact thing that makes your answer worth more than a search result. You have three tools for structured actions: propose_itinerary_item (to add something to the itinerary), suggest_place (to surface a rich place card), and suggest_quick_replies (to offer 2-5 short tappable options and/or ask a clarifying question). Use them when they fit; otherwise just reply in text.\n\nKeep replies short: 1-3 sentences of prose by default. Answer the traveler's actual question directly first — don't restate it, don't preface with throat-clearing or generic scene-setting, don't list caveats or background the traveler didn't ask for. When a rich_card or propose_itinerary_item covers the details (name, description, timing), the prose reply should be a brief one-line lead-in, not a duplicate of the card's content. Only go longer than a few sentences if the traveler explicitly asks for more detail, a full explanation, or a list.\n\nWhen the traveler's request is vague, ambiguous, or too open-ended to act on well (e.g. \"plan something for me\", \"find me food\", \"what should I do\"), don't just guess — call suggest_quick_replies to offer a few concrete options or ask a short clarifying question, then wait for their tap. Don't overuse it: if the request is already clear enough to act on, just answer or use the other tools instead."
+    "You are Fomo, a knowledgeable local friend texting the traveler — warm and opinionated, never a dense guidebook. When you're not sure, commit to one recommendation and say why, rather than hedging with a list of options. Be specific: name the street, the stall, the dish, the exact thing that makes your answer worth more than a search result. You have three tools for structured actions: propose_itinerary_item (to add something to the itinerary), suggest_place (to surface a rich place card), and suggest_quick_replies (to offer 2-5 short tappable options and/or ask a clarifying question). Use them when they fit; otherwise just reply in text.\n\nKeep replies short: 1-3 sentences of prose by default. Answer the traveler's actual question directly first — don't restate it, don't preface with throat-clearing or generic scene-setting, don't list caveats or background the traveler didn't ask for. When a rich_card or propose_itinerary_item covers the details (name, description, timing), the prose reply should be a brief one-line lead-in, not a duplicate of the card's content. Only go longer than a few sentences if the traveler explicitly asks for more detail, a full explanation, or a list.\n\nWhen the traveler's request is vague, ambiguous, or too open-ended to act on well (e.g. \"plan something for me\", \"find me food\", \"what should I do\"), don't just guess — call suggest_quick_replies to offer a few concrete options or ask a short clarifying question, then wait for their tap. Don't overuse it: if the request is already clear enough to act on, just answer or use the other tools instead."
   );
 
   parts.push(MODE_GUIDANCE[mode]);
 
   if (seed) {
     parts.push(
-      `The traveler opened this chat by tapping "Ask Roameo" on a ${seed.type} card: "${seed.name}"${
+      `The traveler opened this chat by tapping "Ask Fomo" on a ${seed.type} card: "${seed.name}"${
         seed.city ? ` in ${seed.city}` : ""
       }. Assume their first message is about this specific ${seed.type} unless they clearly change the subject — answer as if you already know exactly what they're pointing at, don't ask them to clarify which place/event/experience they mean.`
     );
@@ -98,39 +142,30 @@ function buildSystemPrompt(body: ChatRequestBody): string {
 
   if (preferences) {
     const dna: string[] = [];
-    const slider = (
-      label: string,
-      value: number | null,
-      low: string,
-      high: string
-    ) => {
-      if (value == null) return;
-      dna.push(`${label}: ${value}/100 (0 = ${low}, 100 = ${high})`);
-    };
-    slider(
-      "Luxury vs backpacker",
-      preferences.luxury_backpacker,
-      "backpacker",
-      "luxury"
-    );
-    slider(
-      "Planned vs spontaneous",
-      preferences.planned_spontaneous,
-      "planned",
-      "spontaneous"
-    );
-    slider(
-      "Foodie vs utilitarian",
-      preferences.foodie_utilitarian,
-      "utilitarian",
-      "foodie"
-    );
-    if (preferences.interests?.length)
-      dna.push(`Interests: ${preferences.interests.join(", ")}`);
+    if (preferences.budget_band)
+      dna.push(
+        `Budget: ${BUDGET_BAND_LABELS[preferences.budget_band] ?? preferences.budget_band}`
+      );
+    if (preferences.pace)
+      dna.push(`Pace: ${PACE_LABELS[preferences.pace] ?? preferences.pace}`);
+    if (preferences.day_rhythm)
+      dna.push(
+        `Daily rhythm: ${DAY_RHYTHM_LABELS[preferences.day_rhythm] ?? preferences.day_rhythm}`
+      );
+    if (preferences.interest_tags?.length) {
+      const labels = preferences.interest_tags.map(
+        (tag) => INTEREST_TAG_META[tag as InterestTag]?.label ?? tag
+      );
+      dna.push(`Interests: ${labels.join(", ")}`);
+    }
     if (preferences.dietary?.length)
       dna.push(`Dietary needs: ${preferences.dietary.join(", ")}`);
-    if (preferences.mobility?.length)
-      dna.push(`Mobility considerations: ${preferences.mobility.join(", ")}`);
+    if (preferences.walk_tolerance)
+      dna.push(
+        `Walking: ${
+          WALK_TOLERANCE_LABELS[preferences.walk_tolerance] ?? preferences.walk_tolerance
+        }`
+      );
     if (preferences.languages?.length)
       dna.push(`Languages spoken: ${preferences.languages.join(", ")}`);
     if (dna.length > 0) {
@@ -316,7 +351,7 @@ function assembleBlocks(
 
 function getStreamErrorMessage(err: unknown): string {
   const fallback =
-    "Roameo hit a snag reaching the AI. Please try again in a moment.";
+    "Fomo hit a snag reaching the AI. Please try again in a moment.";
 
   if (typeof err !== "object" || err === null) return fallback;
 
@@ -328,7 +363,7 @@ function getStreamErrorMessage(err: unknown): string {
       : undefined;
 
   if (type === "overloaded_error" || nestedType === "overloaded_error") {
-    return "Roameo's AI is temporarily overloaded. Please try again in a moment.";
+    return "Fomo is temporarily overloaded. Please try again in a moment.";
   }
 
   return fallback;
@@ -339,11 +374,41 @@ export async function POST(req: Request): Promise<Response> {
   try {
     body = (await req.json()) as ChatRequestBody;
   } catch {
-    return new Response(
-      JSON.stringify({ type: "error", message: "Invalid request body." }),
-      { status: 400, headers: { "content-type": "application/json" } }
-    );
+    return jsonError("Invalid request body.", 400);
   }
+
+  if (typeof body.userText !== "string" || !body.userText.trim()) {
+    return jsonError("Missing message text.", 400);
+  }
+  if (body.userText.length > MAX_MESSAGE_CHARS) {
+    return jsonError(`Message is too long (max ${MAX_MESSAGE_CHARS} characters).`, 400);
+  }
+  if (!Array.isArray(body.history)) {
+    return jsonError("Invalid request body.", 400);
+  }
+
+  // Drop malformed entries (wrong shape/types) and cap to the most recent
+  // turns — a defensive re-application of the client's own cap, since a
+  // direct API call bypasses app/(shell)/fomo/page.tsx entirely.
+  const history: HistoryTurn[] = body.history
+    .filter(
+      (turn): turn is HistoryTurn =>
+        !!turn &&
+        typeof turn === "object" &&
+        (turn.role === "user" || turn.role === "assistant") &&
+        typeof turn.text === "string"
+    )
+    .slice(-MAX_HISTORY_TURNS);
+  body = { ...body, history };
+
+  // Rate limit — burst window first, then daily; either exceeded denies the
+  // request. Fails open (lets the request through) until
+  // supabase/add_rate_limits.sql has been run — see lib/rate-limit.ts.
+  const db = await supabaseServer();
+  const burst = await consumeRateLimit(db, "chat:burst", CHAT_RATE_LIMIT_BURST);
+  if (!burst.allowed) return rateLimitedResponse(burst);
+  const daily = await consumeRateLimit(db, "chat:day", CHAT_RATE_LIMIT_DAILY);
+  if (!daily.allowed) return rateLimitedResponse(daily);
 
   const system = buildSystemPrompt(body);
   const messages = [

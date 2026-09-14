@@ -1,5 +1,5 @@
 /**
- * Roameo Places — real POI data for the map (server-only).
+ * Fomo Places — real POI data for the map (server-only).
  *
  * GET /api/places?destination=<string>&category=<slug>&q=<text>&limit=<n>&offset=<n>
  *   category: food | photo | lockers | transport  (omit for a general mix)
@@ -20,7 +20,8 @@
  */
 import "server-only";
 import { NextResponse } from "next/server";
-import { supabase } from "@/lib/supabase";
+import { supabaseServer } from "@/lib/supabase/server";
+import { supabaseAdmin } from "@/lib/supabase/admin";
 import {
   listPlaces,
   listPlacesByCategory,
@@ -28,6 +29,7 @@ import {
   searchPlacesByName,
 } from "@/lib/db/places";
 import type { Place } from "@/lib/types";
+import type { Db } from "@/lib/supabase/types";
 import { geocodeDestination, type Center } from "@/lib/places/geocode";
 import {
   searchPlaces,
@@ -81,6 +83,7 @@ function syntheticPlace(m: MappedPlace): Place {
 }
 
 export async function GET(request: Request) {
+  const db = await supabaseServer();
   const { searchParams } = new URL(request.url);
   const destination = searchParams.get("destination")?.trim();
   if (!destination) {
@@ -121,7 +124,7 @@ export async function GET(request: Request) {
     const cityGuess = destination.split(",")[0]?.trim();
     if (cityGuess) {
       try {
-        const curated = await listPlacesByCity(cityGuess);
+        const curated = await listPlacesByCity(db, cityGuess);
         if (curated.length > 0) {
           // listPlacesByCity is unbounded (lib/db/places.ts) — this is the
           // one branch where offset-based pagination is exact, since the
@@ -139,7 +142,7 @@ export async function GET(request: Request) {
 
   // 2. No Google key → degrade to seeded rows so the map still shows something.
   if (!process.env.GOOGLE_PLACES_API_KEY) {
-    const seeded = await safeSeedPlaces(category, q);
+    const seeded = await safeSeedPlaces(db, category, q);
     return NextResponse.json<PlacesResponse>({
       center,
       places: seeded.slice(offset, offset + limit),
@@ -164,7 +167,7 @@ export async function GET(request: Request) {
     const reason =
       err instanceof GooglePlacesError ? "places-error" : "places-error";
     console.error(`[api/places] google places search failed (${reason})`, err);
-    const seeded = await safeSeedPlaces(category, q);
+    const seeded = await safeSeedPlaces(db, category, q);
     return NextResponse.json<PlacesResponse>({
       center,
       places: seeded.slice(offset, offset + limit),
@@ -191,12 +194,16 @@ export async function GET(request: Request) {
     .filter((m) => m.image_url == null)
     .map(({ image_url: _image_url, ...rest }) => rest);
 
+  // Catalog writes always go through the service-role client — RLS's
+  // catalog policy (supabase/harden_rls.sql) is select-only for
+  // anon/authenticated from this phase on.
+  const admin = supabaseAdmin();
   const results = await Promise.all([
     rowsWithPhoto.length > 0
-      ? supabase.from("places").upsert(rowsWithPhoto, { onConflict: "google_place_id" }).select("*")
+      ? admin.from("places").upsert(rowsWithPhoto, { onConflict: "google_place_id" }).select("*")
       : Promise.resolve({ data: [] as Place[], error: null }),
     rowsWithoutPhoto.length > 0
-      ? supabase.from("places").upsert(rowsWithoutPhoto, { onConflict: "google_place_id" }).select("*")
+      ? admin.from("places").upsert(rowsWithoutPhoto, { onConflict: "google_place_id" }).select("*")
       : Promise.resolve({ data: [] as Place[], error: null }),
   ]);
 
@@ -233,13 +240,14 @@ export async function GET(request: Request) {
  * instead of returning every seed place) or `category` filter active.
  */
 async function safeSeedPlaces(
+  db: Db,
   category?: string,
   q?: string
 ): Promise<Place[]> {
   try {
-    if (q) return await searchPlacesByName(q);
-    if (category) return await listPlacesByCategory(category);
-    return await listPlaces();
+    if (q) return await searchPlacesByName(db, q);
+    if (category) return await listPlacesByCategory(db, category);
+    return await listPlaces(db);
   } catch (err) {
     console.error("[api/places] seed fallback failed", err);
     return [];

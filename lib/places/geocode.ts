@@ -12,6 +12,13 @@ export interface PlaceSuggestion {
   name: string;
   lat: number;
   lng: number;
+  /**
+   * ISO-2 country code (e.g. "JP"), read from Mapbox's feature `context[]`
+   * entry whose `id` is prefixed `country.`. Null when the feature has no
+   * country context (rare — mostly `types=country` results themselves) or
+   * short_code is missing.
+   */
+  countryCode: string | null;
 }
 
 /**
@@ -48,7 +55,11 @@ export async function geocodeSuggestions(
       return [];
     }
     const data = (await res.json()) as {
-      features?: Array<{ place_name?: string; center?: [number, number] }>;
+      features?: Array<{
+        place_name?: string;
+        center?: [number, number];
+        context?: Array<{ id?: string; short_code?: string }>;
+      }>;
     };
     const out: PlaceSuggestion[] = [];
     for (const f of data.features ?? []) {
@@ -56,7 +67,9 @@ export async function geocodeSuggestions(
       if (!f.place_name || !c || c.length !== 2) continue;
       const [lng, lat] = c; // Mapbox returns [lng, lat].
       if (typeof lat !== "number" || typeof lng !== "number") continue;
-      out.push({ name: f.place_name, lat, lng });
+      const countryCtx = f.context?.find((entry) => entry.id?.startsWith("country."));
+      const countryCode = countryCtx?.short_code ? countryCtx.short_code.toUpperCase() : null;
+      out.push({ name: f.place_name, lat, lng, countryCode });
     }
     return out;
   } catch (err) {

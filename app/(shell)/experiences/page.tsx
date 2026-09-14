@@ -1,10 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import Link from "next/link";
-import { useDeviceId } from "@/lib/device";
-import { getCurrentTrip } from "@/lib/db";
-import type { Experience, Trip } from "@/lib/types";
+import { CITY } from "@/lib/city";
+import type { Experience } from "@/lib/types";
 import { formatExperiencePrice, formatExperienceRating } from "@/lib/experiences/format";
 import { useInfiniteList } from "@/lib/useInfiniteList";
 import { Chip, Icon, PageHeader } from "@/components/ui";
@@ -38,34 +37,11 @@ function providerLabel(provider: string): string {
 }
 
 export default function ExperiencesBrowsePage() {
-  const deviceId = useDeviceId();
-  const [trip, setTrip] = useState<Trip | null>(null);
-  const [tripChecked, setTripChecked] = useState(false);
   const [search, setSearch] = useState("");
   const [activeSlug, setActiveSlug] = useState<string | null>(null);
   const [degraded, setDegraded] = useState<string | null>(null);
 
-  const destination = trip?.destination ?? null;
-
-  // Load the active trip. No auto-seed — a device with no trip gets an empty
-  // state that routes into the create-trip flow (mirrors app/(shell)/map/page.tsx).
-  useEffect(() => {
-    if (!deviceId) return;
-    let cancelled = false;
-    (async () => {
-      try {
-        const t = await getCurrentTrip(deviceId);
-        if (!cancelled) setTrip(t);
-      } catch (err) {
-        console.error("[experiences] trip load failed", err);
-      } finally {
-        if (!cancelled) setTripChecked(true);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [deviceId]);
+  const destination = CITY.name;
 
   // Paginated fetch — shared infinite-scroll machinery (liveRef mirror,
   // fetch-generation counter, hasMore-from-page-size) lives in
@@ -98,33 +74,6 @@ export default function ExperiencesBrowsePage() {
     },
     [destination, activeSlug, search]
   );
-
-  // No active trip — invite the traveler to create one (experiences need a destination).
-  if (tripChecked && !trip) {
-    return (
-      <div className="flex min-h-dvh flex-col">
-        <PageHeader title="Experiences" showBack />
-        <div className="flex flex-1 flex-col items-center justify-center gap-5 px-8 text-center">
-          <div className="flex h-20 w-20 items-center justify-center rounded-full bg-primary-fixed text-primary">
-            <Icon name="confirmation_number" size={40} filled />
-          </div>
-          <div className="flex flex-col gap-2">
-            <h2 className="text-headline-md text-primary">No trip to explore yet</h2>
-            <p className="text-body-lg text-on-surface-variant">
-              Create a trip to find experiences worth booking.
-            </p>
-          </div>
-          <Link
-            href="/plan/new-trip"
-            className="mt-2 inline-flex min-h-[48px] items-center justify-center gap-2 rounded-xl bg-secondary-container px-6 text-label-md font-semibold text-on-secondary-container shadow-sm transition-opacity hover:opacity-90"
-          >
-            <Icon name="add" size={20} />
-            Create a trip
-          </Link>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="flex flex-col gap-4 pb-6">

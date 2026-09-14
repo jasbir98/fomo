@@ -1,0 +1,100 @@
+/**
+ * Fomo — POST/DELETE /api/push/subscribe
+ *
+ * POST: upsert the caller's PushSubscription (lib/push/client.ts's
+ * ensurePushSubscribed calls this right after `pushManager.subscribe`).
+ * DELETE: remove it (unsubscribeFromPush).
+ *
+ * Session gate: proxy.ts already 401s any /api/* request with no user;
+ * the explicit check below is belt-and-braces, matching every other route
+ * in this app (see app/api/saved/route.ts). RLS's `own_rows` policy on
+ * push_subscriptions (supabase/add_push_alerts.sql) is the real scoping —
+ * this route can't write another user's row even if it tried.
+ */
+import "server-only";
+import { NextResponse } from "next/server";
+import { supabaseServer } from "@/lib/supabase/server";
+import { upsertPushSubscription, deletePushSubscriptionByEndpoint } from "@/lib/db/push";
+import { isUnauthorizedError } from "@/lib/supabase-error";
+
+export const runtime = "nodejs";
+
+interface SubscribeBody {
+  endpoint?: unknown;
+  p256dh?: unknown;
+  auth?: unknown;
+  userAgent?: unknown;
+}
+
+function isNonEmptyString(v: unknown): v is string {
+  return typeof v === "string" && v.length > 0;
+}
+
+export async function POST(request: Request) {
+  const db = await supabaseServer();
+  const {
+    data: { user },
+  } = await db.auth.getUser();
+  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  let body: SubscribeBody;
+  try {
+    body = (await request.json()) as SubscribeBody;
+  } catch {
+    return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
+  }
+
+  if (!isNonEmptyString(body.endpoint) || !isNonEmptyString(body.p256dh) || !isNonEmptyString(body.auth)) {
+    return NextResponse.json({ error: "endpoint, p256dh and auth are required strings" }, { status: 400 });
+  }
+  // Endpoint is a URL a browser hands us — sanity-check its shape rather
+  // than trusting an arbitrary string into a unique-indexed column.
+  try {
+    new URL(body.endpoint);
+  } catch {
+    return NextResponse.json({ error: "endpoint must be a valid URL" }, { status: 400 });
+  }
+
+  const userAgent = isNonEmptyString(body.userAgent) ? body.userAgent.slice(0, 500) : null;
+
+  try {
+    await upsertPushSubscription(db, {
+      endpoint: body.endpoint,
+      p256dh: body.p256dh,
+      auth: body.auth,
+      userAgent,
+    });
+    return NextResponse.json({ ok: true });
+  } catch (err) {
+    console.error("[api/push/subscribe] POST failed", err);
+    if (isUnauthorizedError(err)) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return NextResponse.json({ error: "Failed to save subscription" }, { status: 500 });
+  }
+}
+
+export async function DELETE(request: Request) {
+  const db = await supabaseServer();
+  const {
+    data: { user },
+  } = await db.auth.getUser();
+  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  let body: SubscribeBody;
+  try {
+    body = (await request.json()) as SubscribeBody;
+  } catch {
+    return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
+  }
+  if (!isNonEmptyString(body.endpoint)) {
+    return NextResponse.json({ error: "endpoint is required" }, { status: 400 });
+  }
+
+  try {
+    await deletePushSubscriptionByEndpoint(db, body.endpoint);
+    return NextResponse.json({ ok: true });
+  } catch (err) {
+    console.error("[api/push/subscribe] DELETE failed", err);
+    if (isUnauthorizedError(err)) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return NextResponse.json({ error: "Failed to remove subscription" }, { status: 500 });
+  }
+}

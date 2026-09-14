@@ -58,8 +58,18 @@ load_dotenv(SCRAPER_DIR / ".env")
 
 sys.path.insert(0, str(SCRAPER_DIR))
 from countries import CountryConfig, COUNTRIES, get_country  # noqa: E402
+from llm_client import (  # noqa: E402
+    RESEARCH_CALL_KWARGS,
+    SUBMIT_CALL_KWARGS,
+    default_research_model,
+    make_research_client,
+    sanitize_history,
+)
 
-DEFAULT_MODEL = "claude-haiku-4-5"
+# Provider-aware: "deepseek-flash" when DEEPSEEK_API_KEY is set, otherwise
+# "claude-haiku-4-5". run_city_batch.py imports this, so it inherits the same
+# default. See scraper/llm_client.py.
+DEFAULT_MODEL = default_research_model()
 DEFAULT_OUTPUT_ROOT = SCRAPER_DIR / "out"
 
 # Target place counts per tier. "minor" is a range in the brief (15-20); we
@@ -135,20 +145,90 @@ FINAL_SUBMIT_PROMPT = (
     "or any food/dining establishments."
 )
 
+# --- "local" profile ---------------------------------------------------
+#
+# Opt-in alternative to the "tourist" profile above (the default, used by
+# every existing corpus). Where "tourist" explicitly excludes restaurants,
+# cafes, and bars in favour of "genuine tourist attractions", "local" targets
+# exactly the opposite skew: pubs, bars, cheap eats, live music, and free
+# sights — the places a resident actually goes to, not a landmark itinerary.
+# It also asks the model to populate price_level (Google's 0-4 scale), which
+# the tourist profile never requests (see PLACE_SCHEMA: price_level isn't
+# even a field the model can fill in under that profile — build_full_record
+# hardcodes it to null there).
+#
+# IMPORTANT: nothing under "tourist" in this file changes when this profile
+# is added — SYSTEM_PROMPT_TEMPLATE, FINAL_SUBMIT_PROMPT, PLACE_SCHEMA, and
+# SUBMIT_TOOL above/below are untouched constants, and build_system_prompt /
+# build_initial_user_prompt / research_and_extract_city route to them
+# unmodified for profile="tourist" (the default). See the byte-identical
+# self-test in this file's test hook for proof.
 
-def build_system_prompt(country: CountryConfig, city: str, prefecture: str, region: str, tier: str) -> str:
-    return SYSTEM_PROMPT_TEMPLATE.format(
+LOCAL_CATEGORY_EXAMPLES = (
+    "pubs, bars, craft-beer taprooms, historic pubs, cafes, bakeries, chip shops (chippies), "
+    "cheap or student-priced eateries, live music venues, comedy clubs, independent cinemas, "
+    "theatres, free museums and galleries, viewpoints, parks, gardens, cemeteries, walking "
+    "routes, markets, and charity/vintage shops or bookshops"
+)
+
+LOCAL_SYSTEM_PROMPT_TEMPLATE = """You are researching the places a LOCAL resident of {city}, {prefecture}, {country} ({region} region) actually goes to — not a tourist itinerary — for a travel app's "what would a local do" feature.
+
+Your job in this conversation:
+1. Use the web_search tool to research genuine local-oriented places in {city}, such as {category_examples}. {source_guidance}
+2. Aim for {target_desc} places, but do not pad the list — if {city} genuinely has fewer notable places, return fewer. Do not invent places to hit a count.
+3. Prioritise the density of pubs, bars, cheap eats, live music/comedy/cinema/theatre venues, free sights, markets, and independent shops over generic tourist landmarks. Unlike a tourist-attraction batch, restaurants, cafes, pubs, and bars ARE in scope here — this batch is specifically about them, so never exclude a place merely because it serves food or drink.
+4. Every factual field (description, hours, station, coordinates, address, price_level) must be traceable to a source URL you found via web_search. If a fact is not explicitly supported by a source you found, leave that field null (or "unknown" for hours) rather than guessing.
+5. Do not invent opening hours, coordinates, station proximity, or price_level.
+6. Photos: only include a photo if you found one on Wikimedia Commons with a clear url, license, credit, and source_url. Otherwise set photo to null.
+7. Write short, neutral descriptions in your own words based on cited facts — do not copy source prose verbatim.
+8. category must be lowercase, e.g. pub, bar, cafe, bakery, chippy, live music venue, comedy club, cinema, theatre, museum, gallery, viewpoint, park, garden, cemetery, market, bookshop, or a similarly specific category. Food- and drink-serving categories are expected and welcome in this batch.
+9. price_level matters for this batch: populate it on Google's 0-4 scale (0 = free, 1 = inexpensive, 2 = moderate, 3 = expensive, 4 = very expensive) whenever a source you found supports a specific level — an official site, a posted menu, or a source that states pricing explicitly. Leave price_level null rather than guessing when no source supports a specific level.
+10. field_sources must map each factual field name you populated (e.g. "description", "hours", "station", "lat", "lng", "address", "price_level") to the source URL that supports it.
+
+Once you have completed your research, call the submit_places tool with the full list of records. Do not call submit_places until you are done researching.
+"""
+
+LOCAL_FINAL_SUBMIT_PROMPT = (
+    "You've finished researching. Call submit_places now with every genuine local-oriented place you "
+    "found — pubs, bars, cheap eats, live music/comedy/cinema/theatre venues, free sights, markets, and "
+    "similar — following the citation, category, and price_level rules above. Include food- and "
+    "drink-serving places; do not exclude them."
+)
+
+PROFILES = {"tourist", "local"}
+
+
+def build_system_prompt(
+    country: CountryConfig, city: str, prefecture: str, region: str, tier: str, profile: str = "tourist"
+) -> str:
+    if profile == "local":
+        template = LOCAL_SYSTEM_PROMPT_TEMPLATE
+        category_examples = LOCAL_CATEGORY_EXAMPLES
+    else:
+        template = SYSTEM_PROMPT_TEMPLATE
+        category_examples = country.category_examples
+    return template.format(
         city=city,
         prefecture=prefecture,
         region=region,
         country=country.name,
         target_desc=TIER_TARGET_DESC[tier],
-        category_examples=country.category_examples,
+        category_examples=category_examples,
         source_guidance=country.source_guidance,
     )
 
 
-def build_initial_user_prompt(country: CountryConfig, city: str, prefecture: str, region: str, tier: str) -> str:
+def build_initial_user_prompt(
+    country: CountryConfig, city: str, prefecture: str, region: str, tier: str, profile: str = "tourist"
+) -> str:
+    if profile == "local":
+        return (
+            f"Research local-oriented places in {city}, {prefecture}, {country.name} ({region} region) — "
+            f"the pubs, bars, cheap eats, live music, and free sights a resident actually goes to, not a "
+            f"tourist itinerary. Tier: {tier} (target {TIER_TARGET_DESC[tier]} places). Search the web for "
+            f"candidates, verify facts against what you find, and populate price_level wherever a source "
+            f"supports it."
+        )
     return (
         f"Research tourist-relevant places in {city}, {prefecture}, {country.name} ({region} region). "
         f"Tier: {tier} (target {TIER_TARGET_DESC[tier]} places). Search the web for candidates, "
@@ -209,6 +289,43 @@ SUBMIT_TOOL = {
     },
 }
 
+# "local" profile variant: PLACE_SCHEMA above is left untouched (so the
+# tourist-profile tool definition is byte-for-byte identical to before this
+# profile existed); this is a separate schema that additionally exposes
+# price_level and allows/expects food & drink categories, used only when
+# --profile local is passed.
+LOCAL_PLACE_SCHEMA = {
+    **PLACE_SCHEMA,
+    "properties": {
+        **PLACE_SCHEMA["properties"],
+        "category": {
+            "type": "string",
+            "description": (
+                "Lowercase category, e.g. pub, bar, cafe, bakery, chippy, live music venue, comedy club, "
+                "cinema, theatre, museum, gallery, viewpoint, park, garden, cemetery, market, bookshop. "
+                "Food- and drink-serving categories are expected here."
+            ),
+        },
+        "price_level": {
+            "type": ["integer", "null"],
+            "description": (
+                "Google's 0-4 price scale: 0 free, 1 inexpensive, 2 moderate, 3 expensive, 4 very "
+                "expensive. Null if no source supports a specific level — never guess."
+            ),
+        },
+    },
+}
+
+LOCAL_SUBMIT_TOOL = {
+    "name": "submit_places",
+    "description": "Submit the researched local-oriented places for this city, once research is complete.",
+    "input_schema": {
+        "type": "object",
+        "properties": {"places": {"type": "array", "items": LOCAL_PLACE_SCHEMA}},
+        "required": ["places"],
+    },
+}
+
 
 # --- research + extraction loop -------------------------------------------
 
@@ -221,12 +338,20 @@ def research_and_extract_city(
     prefecture: str,
     region: str,
     tier: str,
+    profile: str = "tourist",
 ) -> list[dict[str, Any]]:
-    system_prompt = build_system_prompt(country, city, prefecture, region, tier)
+    if profile not in PROFILES:
+        raise ValueError(f"unknown profile {profile!r}. Must be one of: {', '.join(sorted(PROFILES))}")
+    system_prompt = build_system_prompt(country, city, prefecture, region, tier, profile)
     search_tool = web_search_tool_for_model(model, TIER_MAX_SEARCHES[tier])
+    final_submit_prompt = LOCAL_FINAL_SUBMIT_PROMPT if profile == "local" else FINAL_SUBMIT_PROMPT
+    submit_tool = LOCAL_SUBMIT_TOOL if profile == "local" else SUBMIT_TOOL
 
     messages: list[dict[str, Any]] = [
-        {"role": "user", "content": build_initial_user_prompt(country, city, prefecture, region, tier)}
+        {
+            "role": "user",
+            "content": build_initial_user_prompt(country, city, prefecture, region, tier, profile),
+        }
     ]
 
     # Phase 1: open research loop. web_search is a server tool, so Claude can
@@ -235,12 +360,16 @@ def research_and_extract_city(
     # by re-sending to let it continue.
     resumes = 0
     while True:
+        # RESEARCH_CALL_KWARGS disables thinking: DeepSeek ignores
+        # thinking.budget_tokens, so thinking can't be capped and would eat
+        # RESEARCH_MAX_TOKENS. See scraper/llm_client.py.
         response = client.messages.create(
             model=model,
             max_tokens=RESEARCH_MAX_TOKENS,
             system=system_prompt,
             tools=[search_tool],
             messages=messages,
+            **RESEARCH_CALL_KWARGS,
         )
 
         if response.stop_reason == "refusal":
@@ -271,17 +400,26 @@ def research_and_extract_city(
     # Phase 2: forced submit_places call. No web_search tool here — research
     # is done, we just want the structured result out of the accumulated
     # conversation context.
-    messages.append({"role": "user", "content": FINAL_SUBMIT_PROMPT})
+    #
+    # A research response cut off at max_tokens can end with a search call that
+    # never got its result, and the provider then rejects the whole history.
+    # Prune those first — here only, never between pause_turn resumes.
+    messages = sanitize_history(messages)
+    messages.append({"role": "user", "content": final_submit_prompt})
 
     nudges = 0
     while True:
+        # SUBMIT_CALL_KWARGS disables thinking: DeepSeek's deepseek-flash thinks
+        # by default and rejects a forced tool_choice in thinking mode (400).
+        # Disabling it is equally valid on Anthropic. See scraper/llm_client.py.
         with client.messages.stream(
             model=model,
             max_tokens=SUBMIT_MAX_TOKENS,
             system=system_prompt,
-            tools=[SUBMIT_TOOL],
+            tools=[submit_tool],
             tool_choice={"type": "tool", "name": "submit_places"},
             messages=messages,
+            **SUBMIT_CALL_KWARGS,
         ) as stream:
             submit_response = stream.get_final_message()
 
@@ -302,7 +440,7 @@ def research_and_extract_city(
                 f"(stop_reason={submit_response.stop_reason!r})"
             )
         messages.append({"role": "assistant", "content": submit_response.content})
-        messages.append({"role": "user", "content": FINAL_SUBMIT_PROMPT})
+        messages.append({"role": "user", "content": final_submit_prompt})
 
 
 def build_full_record(
@@ -314,6 +452,7 @@ def build_full_record(
     city: str,
     model: str,
     now: str,
+    profile: str = "tourist",
 ) -> dict[str, Any] | None:
     name = str(place.get("name") or "").strip()
     if not name:
@@ -328,9 +467,25 @@ def build_full_record(
         return None
 
     category = str(place.get("category") or "").strip().lower() or None
-    if category and ("food" in category or "restaurant" in category or "cafe" in category):
+    # The tourist profile is attraction-only, so food/drink categories that
+    # slip through are dropped. The local profile is the opposite — pubs,
+    # bars, and cafes are the point — so this exclusion does not apply there.
+    if profile != "local" and category and ("food" in category or "restaurant" in category or "cafe" in category):
         print(f"[discover-extract] dropping {name!r}: food/restaurant category {category!r}", file=sys.stderr)
         return None
+
+    price_level: int | None = None
+    if profile == "local":
+        raw_price_level = place.get("price_level")
+        if isinstance(raw_price_level, bool):
+            raw_price_level = None  # bool is a subclass of int; reject explicitly
+        if isinstance(raw_price_level, int) and 0 <= raw_price_level <= 4:
+            price_level = raw_price_level
+        elif raw_price_level is not None:
+            print(
+                f"[discover-extract] {name!r}: dropping out-of-range price_level {raw_price_level!r}",
+                file=sys.stderr,
+            )
 
     photo = place.get("photo")
     if isinstance(photo, dict):
@@ -358,7 +513,7 @@ def build_full_record(
         "lng": place.get("lng"),
         "address": place.get("address"),
         "rating": None,
-        "price_level": None,
+        "price_level": price_level,
         "image_url": None,
         "badges": [],
         "source_urls": source_urls,
@@ -387,6 +542,16 @@ def main() -> None:
     parser.add_argument("--tier", required=True, choices=["major", "mid", "minor"], help="Target place-count tier")
     parser.add_argument("--batch-id", required=True, help="Batch identifier, e.g. jp-saitama-wave2-2026-07-24")
     parser.add_argument(
+        "--profile",
+        choices=sorted(PROFILES),
+        default="tourist",
+        help=(
+            "Extraction profile. 'tourist' (default) is the original attraction-only, "
+            "food-excluded behaviour used by every existing corpus — unchanged. 'local' targets "
+            "pubs, bars, cheap eats, live music, and free sights, and populates price_level."
+        ),
+    )
+    parser.add_argument(
         "--output-dir",
         type=Path,
         default=None,
@@ -404,14 +569,9 @@ def main() -> None:
         )
         sys.exit(1)
 
-    api_key = os.environ.get("ANTHROPIC_API_KEY", "").strip()
-    if not api_key:
-        print("[discover-extract] ANTHROPIC_API_KEY is required in scraper/.env", file=sys.stderr)
-        sys.exit(1)
-
-    from anthropic import Anthropic
-
-    client = Anthropic(api_key=api_key)
+    # Provider (DeepSeek or Anthropic) is chosen by which key is set — see
+    # scraper/llm_client.py for the precedence rule and the DeepSeek quirks.
+    client, provider = make_research_client("discover-extract")
 
     output_dir = args.output_dir or (DEFAULT_OUTPUT_ROOT / args.batch_id)
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -420,12 +580,12 @@ def main() -> None:
 
     print(
         f"[discover-extract] {args.city}, {args.prefecture}, {country.name} ({args.region}), tier={args.tier}, "
-        f"model={args.model}, target={TIER_TARGET_DESC[args.tier]}"
+        f"profile={args.profile}, model={args.model}, target={TIER_TARGET_DESC[args.tier]}"
     )
 
     try:
         raw_places = research_and_extract_city(
-            client, args.model, country, args.city, args.prefecture, args.region, args.tier
+            client, args.model, country, args.city, args.prefecture, args.region, args.tier, args.profile
         )
     except Exception as exc:
         print(f"[discover-extract] ERROR {args.city}: {exc}", file=sys.stderr)
@@ -434,7 +594,9 @@ def main() -> None:
     now = datetime.now(timezone.utc).isoformat()
     records = []
     for place in raw_places:
-        record = build_full_record(place, args.batch_id, country, args.region, args.prefecture, args.city, args.model, now)
+        record = build_full_record(
+            place, args.batch_id, country, args.region, args.prefecture, args.city, args.model, now, args.profile
+        )
         if record is not None:
             records.append(record)
 

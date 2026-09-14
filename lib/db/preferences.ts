@@ -1,27 +1,21 @@
-import { supabase } from "@/lib/supabase";
+import type { Db } from "@/lib/supabase/types";
 import type { TravelPreferences } from "@/lib/types";
 
-/** Fetch travel preferences for a device. Returns null if none exist yet. */
-export async function getPreferences(
-  deviceId: string
-): Promise<TravelPreferences | null> {
-  const { data, error } = await supabase
-    .from("travel_preferences")
-    .select("*")
-    .eq("device_id", deviceId)
-    .maybeSingle();
+/** Fetch the signed-in user's travel preferences. Returns null if none exist yet. RLS scopes this to the caller's own row. */
+export async function getPreferences(db: Db): Promise<TravelPreferences | null> {
+  const { data, error } = await db.from("travel_preferences").select("*").maybeSingle();
   if (error) throw error;
   return data;
 }
 
-/** Create or update travel preferences for a device (device_id is the PK). */
+/** Create or update the signed-in user's travel preferences (user_id is the PK, filled by the auth.uid() default on insert). */
 export async function upsertPreferences(
-  deviceId: string,
+  db: Db,
   patch: Partial<TravelPreferences>
 ): Promise<TravelPreferences> {
-  const { data, error } = await supabase
+  const { data, error } = await db
     .from("travel_preferences")
-    .upsert({ device_id: deviceId, ...patch }, { onConflict: "device_id" })
+    .upsert({ ...patch }, { onConflict: "user_id" })
     .select("*")
     .single();
   if (error) throw error;

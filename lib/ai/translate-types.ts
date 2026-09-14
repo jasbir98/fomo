@@ -3,7 +3,7 @@
  * `/api/translate` route.
  *
  * Pure types only — no "use client" or "server-only" directive — so both the
- * client page (`app/roameo/translator/page.tsx`) and the server route
+ * client page (`app/fomo/translator/page.tsx`) and the server route
  * handler (`app/api/translate/route.ts`) can import from here without either
  * side pulling code across the client/server boundary.
  */
@@ -58,5 +58,10 @@ export interface TranslatePhotoResult {
 }
 
 export interface TranslateErrorResult {
+  /** Machine-readable error code, e.g. "rate_limited". */
   error: string;
+  /** Human-friendly message to show in place of the error code — prefer this over `error` when present (e.g. the 429 rate-limit response from app/api/translate). */
+  message?: string;
+  /** Present on a 429 rate-limit response — ISO timestamp the window resets at. */
+  resetAt?: string;
 }

@@ -149,7 +149,7 @@ export interface SearchSkiddleOpts {
   limit: number;
 }
 
-// Reverse of categoryFromSkiddleCode — used to translate a Roameo category
+// Reverse of categoryFromSkiddleCode — used to translate a Fomo category
 // filter back into Skiddle's `eventcode` query param.
 const CATEGORY_TO_EVENTCODE: Partial<Record<EventCategory, string>> = {
   nightlife: "CLUB",

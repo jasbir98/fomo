@@ -20,6 +20,7 @@ const TIKTOK_PARAMS =
   "?autoplay=1&loop=1&controls=1&volume_control=1&progress_bar=0&music_info=0&description=0&rel=0&native_context_menu=0";
 
 /** Whether the user has asked for sound this session, so later reels start unmuted. */
+// Key intentionally kept as roameo_... -- renaming would silently reset real users sound preference.
 const SOUND_PREF_KEY = "roameo_reel_sound_on";
 
 function readSoundPref(): boolean {

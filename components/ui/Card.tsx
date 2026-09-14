@@ -11,7 +11,10 @@ export type CardProps<T extends ElementType = "div"> = {
 } & Omit<ComponentPropsWithoutRef<T>, "as" | "children" | "className">;
 
 /**
- * White surface card: 16px radius, subtle border + soft shadow.
+ * White surface card: generous radius, no border — a soft diffuse
+ * navy-tinted shadow (--shadow-level-1) does the job of separating it from
+ * the page instead, matching the mockup's glass-panel treatment (no visible
+ * outline; see app/globals.css's elevation doc comment for the source).
  * Polymorphic via `as` (button/a/div). Optional left navy accent bar.
  */
 export function Card<T extends ElementType = "div">({
@@ -25,7 +28,7 @@ export function Card<T extends ElementType = "div">({
   const Component = (as ?? "div") as ElementType;
   return (
     <Component
-      className={`relative overflow-hidden rounded-lg bg-surface-container-lowest border border-outline-variant/60 shadow-[0_2px_8px_rgba(3,22,50,0.05)] ${
+      className={`relative overflow-hidden rounded-2xl bg-surface-container-lowest shadow-level-1 ${
         noPadding ? "" : "p-4"
       } ${accent ? "pl-5" : ""} ${className}`}
       {...props}

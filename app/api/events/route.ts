@@ -1,5 +1,5 @@
 /**
- * Roameo Events — "What's On Nearby" (server-only).
+ * Fomo Events — "What's On Nearby" (server-only).
  *
  * GET /api/events?destination=<string>&category=<slug>&q=<text>&from=&to=&radius=&limit=
  *   category: music | nightlife | festival | arts | comedy | sports | food | family | other
@@ -17,6 +17,7 @@
  */
 import "server-only";
 import { NextResponse } from "next/server";
+import { supabaseServer } from "@/lib/supabase/server";
 import type { EventItem } from "@/lib/types";
 import { geocodeDestination, type Center } from "@/lib/places/geocode";
 import { normalizeCategory } from "@/lib/events/categories";
@@ -33,6 +34,7 @@ interface EventsResponse {
 const DEFAULT_RADIUS_KM = 25;
 
 export async function GET(request: Request) {
+  const db = await supabaseServer();
   const { searchParams } = new URL(request.url);
   const destination = searchParams.get("destination")?.trim();
   if (!destination) {
@@ -64,7 +66,7 @@ export async function GET(request: Request) {
   // Geocode → map center (null-safe; providers require it for geo search).
   const center = await geocodeDestination(destination);
 
-  const { events, degraded } = await getEventsForDestination({
+  const { events, degraded } = await getEventsForDestination(db, {
     destination,
     center,
     category,

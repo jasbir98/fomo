@@ -1,9 +1,18 @@
 import "server-only";
-import type { OpeningHoursPeriod, Place } from "@/lib/types";
-import { getArrivalTip } from "@/lib/db/arrivalTips";
-import { getAlternatives, buildDisruptionAlert } from "@/lib/disruption";
+import type { EventItem, OpeningHoursPeriod, Place } from "@/lib/types";
 import { realEventImage } from "@/lib/events/skiddle";
-import type { Candidate, RankContext } from "@/lib/now/types";
+import type { Candidate, FeedContext } from "@/lib/now/types";
+import type { Persona } from "@/lib/now/persona";
+import { reachKm, reachMinutes, walkMinutes } from "@/lib/now/reach";
+import { priceFit, priceSignalForEvent, priceSignalForPlace } from "@/lib/now/price";
+import { DWELL_MINUTES, INTEREST_TAG_META, interestsForPlace } from "@/lib/taxonomy";
+import type { InterestTag } from "@/lib/taxonomy";
+
+// Phase 6 (plan §D.4) — walkMinutes moved to lib/now/reach.ts (the one owner
+// for persona-aware reach/pace); re-exported here so existing
+// `import { walkMinutes } from "@/lib/now/generators"` call sites
+// (lib/now/discover.ts) don't need their import path rewritten.
+export { walkMinutes };
 
 const EARTH_RADIUS_KM = 6371;
 
@@ -15,10 +24,6 @@ export function distanceKm(a: { lat: number; lng: number }, b: { lat: number; ln
   const lat2 = (b.lat * Math.PI) / 180;
   const h = Math.sin(dLat / 2) ** 2 + Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLng / 2) ** 2;
   return 2 * EARTH_RADIUS_KM * Math.asin(Math.min(1, Math.sqrt(h)));
-}
-
-export function walkMinutes(km: number): number {
-  return Math.round((km / 4.8) * 60); // ~4.8km/h walking pace
 }
 
 export function placeDistanceKm(coords: { lat: number; lng: number } | null, place: Place): number | null {
@@ -48,7 +53,7 @@ export function fmtMin(min: number): string {
   return `${Math.round(min)} min`;
 }
 
-/** `opening_hours` is `[{ day: 0-6, open: "HH:MM", close: "HH:MM" }]`; `close` can be past midnight relative to `open` on the same entry (an overnight span). Exported for the `closing` rail's condition check (lib/now/rails.ts) and the `closing` discover intent (lib/now/discover.ts). */
+/** `opening_hours` is `[{ day: 0-6, open: "HH:MM", close: "HH:MM" }]`; `close` can be past midnight relative to `open` on the same entry (an overnight span). Exported for the `closing` discover intent (lib/now/discover.ts). */
 export function minutesUntilClose(place: Place, at: Date): number | null {
   const periods = place.opening_hours as OpeningHoursPeriod[] | null;
   if (!periods || periods.length === 0) return null;
@@ -77,128 +82,17 @@ function usedIds(candidates: Candidate[]): Set<string> {
 }
 
 // ---------------------------------------------------------------------------
-// weather_swap — reuses lib/disruption.ts, the existing weather-swap engine.
-// Fires on today's scheduled items flagged weather_alert once the forecast
-// actually confirms disruptive weather (weather_alert is a manual/display
-// hint set elsewhere; this generator is the one place that cross-checks it
-// against the real forecast before acting on it).
-// ---------------------------------------------------------------------------
-async function weatherSwap(ctx: RankContext): Promise<Candidate[]> {
-  if (!ctx.weather?.isDisruptive || !ctx.trip.destination) return [];
-  const flagged = ctx.todaysItems.find((i) => i.weather_alert && i.starts_at && new Date(i.starts_at) >= ctx.at);
-  if (!flagged) return [];
-
-  const alert = buildDisruptionAlert(ctx.weather, flagged.title);
-  const { alternatives } = await getAlternatives(ctx.trip.destination);
-  const pick = alternatives[0];
-  if (!pick) return [];
-
-  return [
-    {
-      generator: "weather_swap",
-      baseScore: 100,
-      score: 100,
-      subject: { type: "itinerary_item", id: flagged.id },
-      pill: "Weather",
-      why: `Because your ${flagged.time_label ?? "next"} plan is outdoors`,
-      headline: `${alert.headline.split(" (")[0]}. Swap "${flagged.title}" for ${pick.title}.`,
-      detail: pick.why,
-      primaryAction: { label: "Swap them", kind: "swap" },
-      image: { url: pick.image_url, quality: pick.image_url ? "thin" : "none" },
-      urgency: "high",
-      validFrom: ctx.at.toISOString(),
-      validUntil: flagged.starts_at ?? ctx.at.toISOString(),
-      distanceKm: null,
-      subjectName: flagged.title ?? "Your plan",
-      coords: null,
-      railTitle: "Weather",
-      railMeta: "affects today",
-    },
-  ];
-}
-
-// ---------------------------------------------------------------------------
-// current_activity — you're mid-anchor right now.
-// ---------------------------------------------------------------------------
-function currentActivity(ctx: RankContext): Candidate[] {
-  const item = ctx.currentItem;
-  if (!item) return [];
-  const place = ctx.candidatePlaces.find((p) => p.id === item.place_id);
-  const endsAt = item.starts_at
-    ? new Date(new Date(item.starts_at).getTime() + (item.duration_minutes ?? 90) * 60_000)
-    : ctx.at;
-
-  return [
-    {
-      generator: "current_activity",
-      baseScore: 95,
-      score: 95,
-      subject: { type: item.place_id ? "place" : "itinerary_item", id: item.place_id ?? item.id },
-      pill: `Now · until ${endsAt.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`,
-      why: `You're here until ${endsAt.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}`,
-      headline: item.title ?? "Right now",
-      detail: place?.detail_line ?? item.location ?? "Enjoy — I'll have the next thing ready when you're done.",
-      primaryAction: { label: "Ask Roameo", kind: "tell" },
-      image: place ? placeImage(place) : { url: null, quality: "none" },
-      urgency: "low",
-      validFrom: ctx.at.toISOString(),
-      validUntil: endsAt.toISOString(),
-      distanceKm: 0,
-      subjectName: item.title ?? "Right now",
-      coords: place ? placeCoords(place) : null,
-      railTitle: "For after",
-      railMeta: "when you're moving again",
-    },
-  ];
-}
-
-// ---------------------------------------------------------------------------
-// leave_by — next anchor is close enough that you should be heading there.
-// ---------------------------------------------------------------------------
-function leaveBy(ctx: RankContext): Candidate[] {
-  if (ctx.currentItem || !ctx.nextAnchor?.starts_at) return [];
-  const minutesToStart = (new Date(ctx.nextAnchor.starts_at).getTime() - ctx.at.getTime()) / 60_000;
-  if (minutesToStart > 20 || minutesToStart < -5) return [];
-
-  const place = ctx.candidatePlaces.find((p) => p.id === ctx.nextAnchor!.place_id);
-  const dist = place ? placeDistanceKm(ctx.coords, place) : null;
-
-  return [
-    {
-      generator: "leave_by",
-      baseScore: 90,
-      score: 90,
-      subject: { type: "itinerary_item", id: ctx.nextAnchor.id },
-      pill: "Leave now",
-      why: minutesToStart <= 0 ? "It's time" : `Starts in ${fmtMin(minutesToStart)}`,
-      headline: `Head to ${ctx.nextAnchor.title ?? "your next stop"}`,
-      detail: dist != null ? `${fmtMin(walkMinutes(dist))} walk from here.` : ctx.nextAnchor.location ?? "",
-      primaryAction: { label: "Directions", kind: "directions" },
-      image: place ? placeImage(place) : { url: null, quality: "none" },
-      urgency: "high",
-      validFrom: ctx.at.toISOString(),
-      validUntil: ctx.nextAnchor.starts_at,
-      distanceKm: dist,
-      subjectName: ctx.nextAnchor.title ?? "Your next stop",
-      coords: place ? placeCoords(place) : null,
-      railTitle: "Coming up",
-      railMeta: "on your plan",
-    },
-  ];
-}
-
-// ---------------------------------------------------------------------------
 // closing_soon — a curated place near you shuts within 90 minutes.
 // ---------------------------------------------------------------------------
-/** Exported so lib/now/rails.ts's `closing` rail can reuse it both as its generator and as a lightweight condition check ("≥2 places close within 90 min"). */
-export function closingSoon(ctx: RankContext, exclude: Set<string>): Candidate[] {
+export function closingSoon(ctx: FeedContext, exclude: Set<string>): Candidate[] {
+  const commitRadius = reachKm(ctx.persona, "commit");
   const out: Candidate[] = [];
   for (const place of ctx.candidatePlaces) {
     if (exclude.has(`place:${place.id}`)) continue;
     const minsLeft = minutesUntilClose(place, ctx.at);
     if (minsLeft == null || minsLeft <= 0 || minsLeft > 90) continue;
     const dist = placeDistanceKm(ctx.coords, place);
-    if (dist != null && dist > 3) continue;
+    if (dist != null && dist > commitRadius) continue;
 
     const closeAt = new Date(ctx.at.getTime() + minsLeft * 60_000);
     out.push({
@@ -209,7 +103,7 @@ export function closingSoon(ctx: RankContext, exclude: Set<string>): Candidate[]
       pill: "Closing soon",
       why: `Because the doors shut at ${closeAt.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}`,
       headline: `${place.name}, now or not today`,
-      detail: place.detail_line ?? (dist != null ? `${fmtMin(walkMinutes(dist))} walk.` : ""),
+      detail: place.detail_line ?? (dist != null ? `${fmtMin(walkMinutes(dist, ctx.persona))} walk.` : ""),
       primaryAction: { label: "Take me there", kind: "directions" },
       image: placeImage(place),
       urgency: minsLeft <= 30 ? "high" : "medium",
@@ -228,61 +122,9 @@ export function closingSoon(ctx: RankContext, exclude: Set<string>): Candidate[]
 }
 
 // ---------------------------------------------------------------------------
-// arrival — cold-start / day-1 advice from the hand-authored arrival_tips set.
-// ---------------------------------------------------------------------------
-const COUNTRY_HINTS: [RegExp, string][] = [
-  [/japan|tokyo|kyoto|osaka|hakone|kanazawa|nara/i, "JP"],
-  [/scotland|edinburgh|glasgow|highlands|aberdeen|inverness/i, "GB"],
-];
-
-function guessCountry(ctx: RankContext): string | null {
-  const fromPlace = ctx.candidatePlaces.find((p) => p.country)?.country;
-  if (fromPlace) return fromPlace;
-  const dest = ctx.trip.destination ?? "";
-  for (const [re, code] of COUNTRY_HINTS) if (re.test(dest)) return code;
-  return null;
-}
-
-async function arrival(ctx: RankContext): Promise<Candidate[]> {
-  if (ctx.tripPhase !== "arrival") return [];
-  const country = guessCountry(ctx);
-  if (!country) return [];
-
-  const startOfDay = ctx.trip.start_date ? new Date(`${ctx.trip.start_date}T00:00:00Z`) : ctx.at;
-  const hoursSince = Math.max(0, (ctx.at.getTime() - startOfDay.getTime()) / 3_600_000);
-  const tip = await getArrivalTip(country, cityGuess(ctx.trip.destination), hoursSince).catch(() => null);
-  if (!tip) return [];
-
-  return [
-    {
-      generator: "arrival",
-      baseScore: 78,
-      score: 78,
-      subject: { type: "itinerary_item", id: `arrival:${tip.id}` },
-      pill: "Right now",
-      why: "Because you just landed",
-      headline: tip.headline,
-      detail: tip.detail,
-      primaryAction: { label: ctx.coords ? "Ask Roameo" : "Turn on location", kind: ctx.coords ? "tell" : "location" },
-      image: { url: null, quality: "none" },
-      urgency: "medium",
-      validFrom: ctx.at.toISOString(),
-      validUntil: new Date(ctx.at.getTime() + 6 * 3_600_000).toISOString(),
-      distanceKm: null,
-      subjectName: tip.headline,
-      coords: null,
-      railTitle: "Guessing from your hotel until location's on",
-      railMeta: "day 1",
-    },
-  ];
-}
-
-function cityGuess(destination: string | null): string | null {
-  return destination?.split(",")[0]?.trim() || null;
-}
-
-// ---------------------------------------------------------------------------
-// event_tonight — a cached event starting within 6 hours.
+// event_tonight — a cached event starting within 6 hours. Cheap/free only
+// (v0 §1: Fomo answers "what can I do right now that's free, cheap, or
+// discounted" — a full-price ticket doesn't belong in this generator).
 // ---------------------------------------------------------------------------
 /**
  * Ticketing feeds carry placeholder venue rows ("Virtual Event Edinburgh",
@@ -292,7 +134,7 @@ function cityGuess(destination: string | null): string | null {
  */
 const PLACEHOLDER_VENUE = /^(virtual event|online|tbc|tba|secret location|various)\b/i;
 
-/** Exported so app/api/saved/route.ts can build the same detail line for a saved event outside a full RankContext. */
+/** Exported so app/api/saved/route.ts can build the same detail line for a saved event outside a full FeedContext. */
 export function venueLabel(name: string | null): string | null {
   if (!name || PLACEHOLDER_VENUE.test(name.trim())) return null;
   return name;
@@ -305,8 +147,8 @@ export function venueLabel(name: string | null): string | null {
  * recommendation. Strip the city segment (already implied — the user is
  * standing in it) and rejoin the rest with an em dash.
  */
-export function eventHeadline(name: string, destination: string | null): string {
-  const city = destination?.split(",")[0]?.trim().toLowerCase() ?? "";
+export function eventHeadline(name: string, cityName: string): string {
+  const city = cityName.toLowerCase();
   const parts = name
     .split("|")
     .map((p) => p.trim())
@@ -318,12 +160,28 @@ export function eventHeadline(name: string, destination: string | null): string 
   );
 }
 
-/** Exported so lib/now/rails.ts's `tonight` rail can reuse it as a condition check. */
-export function eventTonight(ctx: RankContext): Candidate[] {
-  const sixHoursOut = ctx.at.getTime() + 6 * 3_600_000;
+/**
+ * Local (pre-rank.ts) budget-weighted score for picking *which* two events
+ * `eventTonight` surfaces — `Candidate.score` gets overwritten by
+ * lib/now/rank.ts's `scoreCandidate` (which applies the same `priceFit`
+ * again, via `ctx.persona.budget`) before final ranking, so this doesn't
+ * double-count in the final order; it only decides which events make the
+ * top-2 cut here, same as `local_pick`'s internal mention-count sort always
+ * has. Free-first for a shoestring persona (plan §D.5).
+ */
+function eventLocalScore(persona: Persona, e: EventItem): number {
+  return 70 * priceFit(persona.budget, priceSignalForEvent(e));
+}
+
+export function eventTonight(ctx: FeedContext): Candidate[] {
+  // Phase 6 (plan §D.5) — an early-bird persona's "tonight" window narrows
+  // from 6h to 3h; steady/night personas keep the original 6h flat window.
+  const windowHours = ctx.persona.rhythm === "early" ? 3 : 6;
+  const windowEnd = ctx.at.getTime() + windowHours * 3_600_000;
   const candidates = ctx.candidateEvents.filter((e) => {
+    if (priceSignalForEvent(e) !== "cheap") return false;
     const start = new Date(e.starts_at).getTime();
-    return start >= ctx.at.getTime() && start <= sixHoursOut;
+    return start >= ctx.at.getTime() && start <= windowEnd;
   });
   return candidates
     .map((e): Candidate => {
@@ -331,20 +189,21 @@ export function eventTonight(ctx: RankContext): Candidate[] {
         ctx.coords && e.lat != null && e.lng != null ? distanceKm(ctx.coords, { lat: e.lat, lng: e.lng }) : null;
       const start = new Date(e.starts_at);
       const startLabel = start.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
-      const title = eventHeadline(e.name, ctx.trip.destination);
+      const title = eventHeadline(e.name, ctx.city.name);
+      const score = eventLocalScore(ctx.persona, e);
       return {
         generator: "event_tonight",
-        baseScore: 70,
-        score: 70,
+        baseScore: score,
+        score,
         subject: { type: "event", id: e.id },
         pill: "Tonight",
         why: `Because doors are at ${startLabel}`,
         headline: title,
         detail:
-          [venueLabel(e.venue_name), dist != null ? `${fmtMin(walkMinutes(dist))} walk` : null]
+          [venueLabel(e.venue_name), dist != null ? `${fmtMin(walkMinutes(dist, ctx.persona))} walk` : null]
             .filter(Boolean)
             .join(" · ") || `On tonight at ${startLabel}.`,
-        primaryAction: { label: "Add to today", kind: "add" },
+        primaryAction: { label: "Save", kind: "add" },
         image: eventImage(e.image_url),
         urgency: "medium",
         validFrom: ctx.at.toISOString(),
@@ -362,128 +221,62 @@ export function eventTonight(ctx: RankContext): Candidate[] {
     .slice(0, 2);
 }
 
-// ---------------------------------------------------------------------------
-// gap_filler — an open window over 90 minutes needs filling. Exported as
-// `candidatesForGap` too — lib/now/dayplan.ts (Plan's gap blocks, §5.3)
-// calls the same logic for every gap in a day, not just ctx.gaps[0].
-// ---------------------------------------------------------------------------
-export function candidatesForGap(
-  places: Place[],
-  gap: { startsAt: Date; endsAt: Date; minutes: number },
-  isRaining: boolean,
-  exclude: Set<string>,
-  coords: { lat: number; lng: number } | null,
-  limit = 3
-): Candidate[] {
-  const pool = places
-    .filter((p) => !exclude.has(`place:${p.id}`))
-    .filter((p) => (isRaining ? isIndoorish(p) : true))
-    .sort((a, b) => (b.mention_count ?? 0) - (a.mention_count ?? 0));
-
-  // Round the total first, then split into h/m — rounding each part
-  // separately can carry a 59.6min remainder up to "60m" (e.g. "18h 60m").
-  const totalMinutes = Math.round(gap.minutes);
-  const hours = Math.floor(totalMinutes / 60);
-  const mins = totalMinutes % 60;
-  const durationLabel = hours > 0 ? `${hours}h ${mins > 0 ? `${mins}m ` : ""}free` : `${mins}m free`;
-
-  return pool.slice(0, limit).map((place): Candidate => {
-    const dist = placeDistanceKm(coords, place);
-    return {
-      generator: "gap_filler",
-      baseScore: 65,
-      score: 65,
-      subject: { type: "place", id: place.id },
-      pill: "A few hours",
-      why: `${durationLabel}${isRaining ? " · rain" : ""}`,
-      headline: place.name ?? "Something nearby",
-      detail: place.detail_line ?? (dist != null ? `${fmtMin(walkMinutes(dist))} walk.` : ""),
-      primaryAction: { label: "Add to today", kind: "add" },
-      image: placeImage(place),
-      urgency: "low",
-      validFrom: gap.startsAt.toISOString(),
-      validUntil: gap.endsAt.toISOString(),
-      distanceKm: dist,
-      subjectName: place.name ?? "Something nearby",
-      coords: placeCoords(place),
-      railTitle: isRaining ? "Indoors near me" : "A few hours",
-      railMeta: durationLabel,
-    };
-  });
-}
-
-function gapFiller(ctx: RankContext, exclude: Set<string>): Candidate[] {
-  if (ctx.gaps.length === 0) return [];
-  const isRaining = ctx.weather?.condition === "rainy" || ctx.weather?.condition === "windy";
-  return candidatesForGap(ctx.candidatePlaces, ctx.gaps[0], isRaining, exclude, ctx.coords);
-}
-
 const INDOOR_HINTS = ["museum", "gallery", "aquarium", "shopping", "mall", "arcade", "cafe", "indoor", "tea house"];
 export function isIndoorish(place: Place): boolean {
   const hay = `${place.category ?? ""} ${place.name ?? ""}`.toLowerCase();
   return INDOOR_HINTS.some((h) => hay.includes(h));
 }
 
-// ---------------------------------------------------------------------------
-// experience_leadtime — a bookable tour that needs booking today to run
-// tomorrow. No provider exposes real per-listing lead-time data to us, so
-// this uses the same heuristic the product brief calls out as a v1
-// approximation: afternoon/evening + tomorrow otherwise unplanned.
-// ---------------------------------------------------------------------------
-function experienceLeadtime(ctx: RankContext): Candidate[] {
-  if (ctx.at.getHours() < 15 || ctx.candidateExperiences.length === 0) return [];
-  const pick = [...ctx.candidateExperiences].sort((a, b) => (b.rating ?? 0) - (a.rating ?? 0))[0];
-  if (!pick) return [];
-
-  return [
-    {
-      generator: "experience_leadtime",
-      baseScore: 60,
-      score: 60,
-      subject: { type: "experience", id: pick.id },
-      pill: "Book tonight",
-      why: "Needs booking today to run tomorrow",
-      headline: pick.title,
-      detail: [pick.duration_label, pick.price_from ? `from ${pick.currency ?? ""}${pick.price_from}` : null]
-        .filter(Boolean)
-        .join(" · "),
-      primaryAction: { label: "Book", kind: "book" },
-      image: { url: pick.image_url, quality: pick.image_url ? "thin" : "none" },
-      urgency: "medium",
-      validFrom: ctx.at.toISOString(),
-      validUntil: new Date(ctx.at.getTime() + 8 * 3_600_000).toISOString(),
-      distanceKm: null,
-      subjectName: pick.title,
-      coords: placeCoords(pick),
-      railTitle: "Book something",
-      railMeta: "for tomorrow",
-    },
-  ];
+/** Category dwell estimate (lib/taxonomy.ts's DWELL_MINUTES), or null when the category is unmapped/missing — never a default guess. */
+function estimatedDwellMinutes(place: Place): number | null {
+  if (!place.category) return null;
+  return DWELL_MINUTES[place.category] ?? null;
 }
 
 // ---------------------------------------------------------------------------
 // local_pick — the floor. v1's reel-mention-ranked "Best of the City"
 // (plan-v1-home-pivot.md §0) — always produces something when the curated
 // pool is non-empty, so the stack is never truly empty in covered cities.
+// Cheap/free only (v0 §1) — same reasoning as event_tonight above.
 // ---------------------------------------------------------------------------
-function localPick(ctx: RankContext, exclude: Set<string>): Candidate[] {
+/** Overlap between a place's mapped interest tags and the stated persona interests — capped at 2, same cap `rank.ts`'s `interestFit` uses, so one generator's sort bias doesn't run away further than the score multiplier that follows it. */
+function interestOverlapCount(persona: Persona, tags: Set<InterestTag>): number {
+  let n = 0;
+  for (const tag of tags) if (persona.interests.has(tag)) n++;
+  return Math.min(n, 2);
+}
+
+function localPick(ctx: FeedContext, exclude: Set<string>): Candidate[] {
   const pool = [...ctx.candidatePlaces]
     .filter((p) => !exclude.has(`place:${p.id}`))
-    .sort((a, b) => (b.mention_count ?? 0) - (a.mention_count ?? 0) || (b.rating ?? 0) - (a.rating ?? 0));
+    .filter((p) => priceSignalForPlace(p) === "cheap")
+    .sort((a, b) => {
+      const overlapA = interestOverlapCount(ctx.persona, interestsForPlace(a));
+      const overlapB = interestOverlapCount(ctx.persona, interestsForPlace(b));
+      const scoreA = (a.mention_count ?? 0) * (1 + 0.4 * overlapA);
+      const scoreB = (b.mention_count ?? 0) * (1 + 0.4 * overlapB);
+      return scoreB - scoreA || (b.rating ?? 0) - (a.rating ?? 0);
+    });
 
-  return pool.slice(0, 4).map((place): Candidate => {
+  return pool.slice(0, 8).map((place): Candidate => {
     const dist = placeDistanceKm(ctx.coords, place);
     const mentioned = (place.mention_count ?? 0) > 0;
+    const tags = interestsForPlace(place);
+    const matchedTag = [...tags].find((t) => ctx.persona.interests.has(t));
     return {
       generator: "local_pick",
       baseScore: 40,
       score: 40,
       subject: { type: "place", id: place.id },
       pill: "Worth knowing",
-      why: mentioned ? "Keeps coming up in what people post here" : "A solid local pick",
+      why: matchedTag
+        ? `Because you said ${INTEREST_TAG_META[matchedTag].label.toLowerCase()}`
+        : mentioned
+          ? "Keeps coming up in what people post here"
+          : "A solid local pick",
       headline: place.name ?? "Nearby",
-      detail: place.detail_line ?? (dist != null ? `${fmtMin(walkMinutes(dist))} walk.` : place.category ?? ""),
-      primaryAction: { label: "Add to today", kind: "add" },
+      detail: place.detail_line ?? (dist != null ? `${fmtMin(walkMinutes(dist, ctx.persona))} walk.` : place.category ?? ""),
+      primaryAction: { label: "Save", kind: "add" },
       image: placeImage(place),
       urgency: "low",
       validFrom: ctx.at.toISOString(),
@@ -492,7 +285,7 @@ function localPick(ctx: RankContext, exclude: Set<string>): Candidate[] {
       subjectName: place.name ?? "Nearby",
       coords: placeCoords(place),
       railTitle: "Near you now",
-      railMeta: dist != null ? `${fmtMin(walkMinutes(dist))} away` : "nearby",
+      railMeta: dist != null ? `${fmtMin(walkMinutes(dist, ctx.persona))} away` : "nearby",
     };
   });
 }
@@ -505,31 +298,32 @@ function localPick(ctx: RankContext, exclude: Set<string>): Candidate[] {
 // — subject_type "place" when the liked reel has a resolved place, "reel"
 // otherwise (which this generator ignores, since it has nothing to route to).
 // Deliberately scoped to that one card_type, not every "saved" signal, so an
-// ordinary Save tap from Home/Plan/Map/the reel action row (card_type "reel")
-// doesn't also count as a reel echo — only a genuine reel like does. Reads
-// straight off ctx.recentSignals (already loaded by lib/now/context.ts's
-// listRecentSignals, 72h window) and ctx.candidatePlaces — no new query.
+// ordinary Save tap doesn't also count as a reel echo — only a genuine reel
+// like does. Reads straight off ctx.signals (already loaded by
+// lib/now/context.ts's listRecentSignals, 72h window) and ctx.candidatePlaces
+// — no new query.
 // ---------------------------------------------------------------------------
 const REEL_LIKE_CARD_TYPE = "reel_like";
-const REEL_ECHO_MAX_WALK_MIN = 30;
 
-/** Exported so lib/now/rails.ts's `reels` rail can reuse it as a condition check. */
-export function reelEcho(ctx: RankContext, exclude: Set<string>): Candidate[] {
+export function reelEcho(ctx: FeedContext, exclude: Set<string>): Candidate[] {
   const likedPlaceIds = new Set(
-    ctx.recentSignals
+    ctx.signals
       .filter((s) => s.card_type === REEL_LIKE_CARD_TYPE && s.subject_type === "place" && s.action === "saved")
       .map((s) => s.subject_id)
   );
   if (likedPlaceIds.size === 0) return [];
 
+  // Phase 6 (plan §D.4) — the old flat 30min literal is now the "browse"
+  // reach tier, persona-scoped.
+  const maxWalkMinutes = reachMinutes(ctx.persona, "browse");
   const out: Candidate[] = [];
   for (const place of ctx.candidatePlaces) {
     if (exclude.has(`place:${place.id}`)) continue;
     if (!likedPlaceIds.has(place.id)) continue;
     const dist = placeDistanceKm(ctx.coords, place);
     if (dist == null) continue;
-    const minutes = walkMinutes(dist);
-    if (minutes > REEL_ECHO_MAX_WALK_MIN) continue;
+    const minutes = walkMinutes(dist, ctx.persona);
+    if (minutes > maxWalkMinutes) continue;
 
     out.push({
       generator: "reel_echo",
@@ -540,7 +334,7 @@ export function reelEcho(ctx: RankContext, exclude: Set<string>): Candidate[] {
       why: "You liked this in a reel — it's close by",
       headline: place.name ?? "Nearby",
       detail: place.detail_line ?? `${fmtMin(minutes)} walk.`,
-      primaryAction: { label: "Add to today", kind: "add" },
+      primaryAction: { label: "Save", kind: "add" },
       image: placeImage(place),
       urgency: "low",
       validFrom: ctx.at.toISOString(),
@@ -558,94 +352,18 @@ export function reelEcho(ctx: RankContext, exclude: Set<string>): Candidate[] {
 }
 
 // ---------------------------------------------------------------------------
-// near_next — v1.1 W2. Every other proximity-scored generator measures
-// distance to ctx.coords (the traveller's own live/cached location); this is
-// the one that instead measures to ctx.nextAnchorCoords (the next planned
-// stop's place, resolved in lib/now/context.ts). Backs the `near_next` rail
-// (lib/now/rails.ts) — "what's around where I'm headed next", not "what's
-// around me right now".
+// indoor_pick — a rainy-day pick, independent of any day plan.
 // ---------------------------------------------------------------------------
-const NEAR_NEXT_RADIUS_KM = 0.8;
-
-export function nearNext(ctx: RankContext, exclude: Set<string>): Candidate[] {
-  const anchor = ctx.nextAnchorCoords;
-  if (!anchor) return [];
-  const anchorTitle = ctx.nextAnchor?.title ?? "your next stop";
-  const out: Candidate[] = [];
-
-  for (const place of ctx.candidatePlaces) {
-    if (exclude.has(`place:${place.id}`)) continue;
-    if (place.id === ctx.nextAnchor?.place_id) continue; // don't recommend the anchor itself
-    const coords = placeCoords(place);
-    if (!coords) continue;
-    const dist = distanceKm(anchor, coords);
-    if (dist > NEAR_NEXT_RADIUS_KM) continue;
-    out.push({
-      generator: "near_next",
-      baseScore: 55,
-      score: 55,
-      subject: { type: "place", id: place.id },
-      pill: "Near your next stop",
-      why: `${fmtMin(walkMinutes(dist))} from ${anchorTitle}`,
-      headline: place.name ?? "Nearby",
-      detail: place.detail_line ?? `${fmtMin(walkMinutes(dist))} walk from there.`,
-      primaryAction: { label: "Add to today", kind: "add" },
-      image: placeImage(place),
-      urgency: "low",
-      validFrom: ctx.at.toISOString(),
-      validUntil: ctx.nextAnchor?.starts_at ?? new Date(ctx.at.getTime() + 6 * 3_600_000).toISOString(),
-      distanceKm: dist,
-      subjectName: place.name ?? "Nearby",
-      coords,
-      railTitle: "Near your next stop",
-      railMeta: `Around ${anchorTitle}`,
-    });
-  }
-
-  for (const event of ctx.candidateEvents) {
-    if (exclude.has(`event:${event.id}`)) continue;
-    if (event.lat == null || event.lng == null) continue;
-    const dist = distanceKm(anchor, { lat: event.lat, lng: event.lng });
-    if (dist > NEAR_NEXT_RADIUS_KM) continue;
-    const title = eventHeadline(event.name, ctx.trip.destination);
-    out.push({
-      generator: "near_next",
-      baseScore: 55,
-      score: 55,
-      subject: { type: "event", id: event.id },
-      pill: "Near your next stop",
-      why: `${fmtMin(walkMinutes(dist))} from ${anchorTitle}`,
-      headline: title,
-      detail: [venueLabel(event.venue_name), `${fmtMin(walkMinutes(dist))} walk`].filter(Boolean).join(" · "),
-      primaryAction: { label: "Add to today", kind: "add" },
-      image: eventImage(event.image_url),
-      urgency: "low",
-      validFrom: ctx.at.toISOString(),
-      validUntil: event.starts_at,
-      distanceKm: dist,
-      subjectName: title,
-      coords: placeCoords(event),
-      railTitle: "Near your next stop",
-      railMeta: `Around ${anchorTitle}`,
-    });
-  }
-
-  // Descending — highest score first — consistent with every other
-  // multi-candidate generator in this file.
-  return out.sort((a, b) => b.score - a.score).slice(0, 10);
-}
-
-// ---------------------------------------------------------------------------
-// indoor_pick — v1.1 W2. Backs the `indoors` rail. Unlike gapFiller's
-// isRaining branch (which only fires inside an open gap), this fires
-// independent of the day plan — the `indoors` rail's own condition
-// (lib/now/rails.ts) is what gates it on the weather actually being
-// disruptive; this generator just does the place filtering.
-// ---------------------------------------------------------------------------
-export function indoorPick(ctx: RankContext, exclude: Set<string>): Candidate[] {
+export function indoorPick(ctx: FeedContext, exclude: Set<string>): Candidate[] {
+  // Phase 6 (plan §D.5) — same interest-overlap bias as local_pick's sort,
+  // ahead of the mention/rating tiebreak.
   const pool = ctx.candidatePlaces
     .filter((p) => !exclude.has(`place:${p.id}`) && isIndoorish(p))
-    .sort((a, b) => (b.mention_count ?? 0) - (a.mention_count ?? 0) || (b.rating ?? 0) - (a.rating ?? 0));
+    .sort((a, b) => {
+      const overlapA = interestOverlapCount(ctx.persona, interestsForPlace(a));
+      const overlapB = interestOverlapCount(ctx.persona, interestsForPlace(b));
+      return overlapB - overlapA || (b.mention_count ?? 0) - (a.mention_count ?? 0) || (b.rating ?? 0) - (a.rating ?? 0);
+    });
 
   return pool.slice(0, 10).map((place): Candidate => {
     const dist = placeDistanceKm(ctx.coords, place);
@@ -657,8 +375,8 @@ export function indoorPick(ctx: RankContext, exclude: Set<string>): Candidate[] 
       pill: "Indoors",
       why: "Because it's raining out",
       headline: place.name ?? "Nearby",
-      detail: place.detail_line ?? (dist != null ? `${fmtMin(walkMinutes(dist))} walk.` : ""),
-      primaryAction: { label: "Add to today", kind: "add" },
+      detail: place.detail_line ?? (dist != null ? `${fmtMin(walkMinutes(dist, ctx.persona))} walk.` : ""),
+      primaryAction: { label: "Save", kind: "add" },
       image: placeImage(place),
       urgency: "low",
       validFrom: ctx.at.toISOString(),
@@ -673,49 +391,14 @@ export function indoorPick(ctx: RankContext, exclude: Set<string>): Candidate[] 
 }
 
 // ---------------------------------------------------------------------------
-// experience_pick — v1.1 W2. Backs the `book` rail. experienceLeadtime above
-// is deliberately narrow (afternoon/evening only, one pick, feeds the
-// hero/next-up slot) — the `book` rail's condition is just "any bookable
-// experience exists", any time of day, so it needs its own unconstrained,
-// multi-item generator rather than reusing experienceLeadtime's single pick.
+// saved_pick — reads ctx.savedItems (lib/db/saved.ts's saved_items, loaded
+// in lib/now/context.ts). Best-effort: only resolves against subjects
+// already in this request's candidate pools (places/events/experiences),
+// matching reelEcho's precedent above of not issuing a fresh per-subject
+// lookup query. A saved item whose subject isn't in today's pool simply
+// won't surface here.
 // ---------------------------------------------------------------------------
-export function experiencePick(ctx: RankContext): Candidate[] {
-  const pool = [...ctx.candidateExperiences].sort((a, b) => (b.rating ?? 0) - (a.rating ?? 0));
-  return pool.slice(0, 10).map((exp): Candidate => ({
-    generator: "experience_pick",
-    baseScore: 50,
-    score: 50,
-    subject: { type: "experience", id: exp.id },
-    pill: exp.duration_label ?? "Experience",
-    why: exp.rating != null ? `${exp.rating.toFixed(1)}★ rated` : "Worth booking ahead",
-    headline: exp.title,
-    detail: [exp.duration_label, exp.price_from ? `from ${exp.currency ?? ""}${exp.price_from}` : null]
-      .filter(Boolean)
-      .join(" · "),
-    primaryAction: { label: "Book", kind: "book" },
-    image: { url: exp.image_url, quality: exp.image_url ? "thin" : "none" },
-    urgency: "low",
-    validFrom: ctx.at.toISOString(),
-    validUntil: new Date(ctx.at.getTime() + 48 * 3_600_000).toISOString(),
-    distanceKm: null,
-    subjectName: exp.title,
-    coords: placeCoords(exp),
-    railTitle: "Worth booking ahead",
-    railMeta: "book today",
-  }));
-}
-
-// ---------------------------------------------------------------------------
-// saved_pick — v1.1 W2. Backs the `saved` rail, reading ctx.savedItems
-// (lib/db/saved.ts's saved_items, loaded in lib/now/context.ts). Best-effort:
-// only resolves against subjects already in this request's candidate pools
-// (places/events/experiences for the current destination), matching
-// reelEcho's precedent above of not issuing a fresh per-subject lookup query.
-// A saved place/event/experience from a different trip/city, or a saved
-// itinerary_item/reel (no lookup pool here), simply won't surface — the
-// `saved` rail's minItems then drops the rail rather than showing nothing.
-// ---------------------------------------------------------------------------
-export function savedPick(ctx: RankContext, exclude: Set<string>): Candidate[] {
+export function savedPick(ctx: FeedContext, exclude: Set<string>): Candidate[] {
   if (ctx.savedItems.length === 0) return [];
   const out: Candidate[] = [];
 
@@ -735,8 +418,8 @@ export function savedPick(ctx: RankContext, exclude: Set<string>): Candidate[] {
         pill: "Saved",
         why: "You saved this",
         headline: place.name ?? "Saved place",
-        detail: place.detail_line ?? (dist != null ? `${fmtMin(walkMinutes(dist))} walk.` : ""),
-        primaryAction: { label: "Add to today", kind: "add" },
+        detail: place.detail_line ?? (dist != null ? `${fmtMin(walkMinutes(dist, ctx.persona))} walk.` : ""),
+        primaryAction: { label: "Save", kind: "add" },
         image: placeImage(place),
         urgency: "low",
         validFrom: ctx.at.toISOString(),
@@ -750,7 +433,7 @@ export function savedPick(ctx: RankContext, exclude: Set<string>): Candidate[] {
     } else if (saved.subject_type === "event") {
       const event = ctx.candidateEvents.find((e) => e.id === saved.subject_id);
       if (!event) continue;
-      const title = eventHeadline(event.name, ctx.trip.destination);
+      const title = eventHeadline(event.name, ctx.city.name);
       out.push({
         generator: "saved_pick",
         baseScore: 50,
@@ -760,7 +443,7 @@ export function savedPick(ctx: RankContext, exclude: Set<string>): Candidate[] {
         why: "You saved this",
         headline: title,
         detail: venueLabel(event.venue_name) ?? "",
-        primaryAction: { label: "Add to today", kind: "add" },
+        primaryAction: { label: "Save", kind: "add" },
         image: eventImage(event.image_url),
         urgency: "low",
         validFrom: ctx.at.toISOString(),
@@ -795,10 +478,64 @@ export function savedPick(ctx: RankContext, exclude: Set<string>): Candidate[] {
         railMeta: "from your saves",
       });
     }
-    // subject_type "itinerary_item" / "reel": no lookup pool here — skipped.
+    // subject_type "itinerary_item" / "reel" / "practicality": no lookup
+    // pool here — skipped.
   }
 
   return out;
+}
+
+// ---------------------------------------------------------------------------
+// family_pick — low dwell, short ("browse") reach, indoor preference when
+// it's raining. Gated on `persona.hasYoungKids`, which is permanently false
+// now that the trip-scoped `kid_ages` source is gone (see lib/now/persona.ts)
+// — kept per the brief, but dormant until a person-scoped replacement exists.
+// ---------------------------------------------------------------------------
+/** "Low dwell" ceiling for the kids pool — anything DWELL_MINUTES doesn't already flag as long stays in; short attention spans, not a hard science. */
+const FAMILY_MAX_DWELL_MINUTES = 45;
+
+export function familyPick(ctx: FeedContext, exclude: Set<string>): Candidate[] {
+  if (!ctx.persona.hasYoungKids) return [];
+  const reach = reachKm(ctx.persona, "browse");
+  const isRaining = ctx.weather?.condition === "rainy" || ctx.weather?.condition === "windy";
+
+  const pool = ctx.candidatePlaces
+    .filter((p) => !exclude.has(`place:${p.id}`))
+    .filter((p) => {
+      const dwell = estimatedDwellMinutes(p);
+      return dwell == null || dwell <= FAMILY_MAX_DWELL_MINUTES;
+    })
+    .map((p) => ({ place: p, dist: placeDistanceKm(ctx.coords, p) }))
+    .filter(({ dist }) => dist == null || dist <= reach)
+    .sort((a, b) => {
+      if (isRaining) {
+        const indoorA = Number(isIndoorish(a.place));
+        const indoorB = Number(isIndoorish(b.place));
+        if (indoorA !== indoorB) return indoorB - indoorA;
+      }
+      return (b.place.mention_count ?? 0) - (a.place.mention_count ?? 0) || (b.place.rating ?? 0) - (a.place.rating ?? 0);
+    });
+
+  return pool.slice(0, 8).map(({ place, dist }): Candidate => ({
+    generator: "family_pick",
+    baseScore: 42,
+    score: 42,
+    subject: { type: "place", id: place.id },
+    pill: "Easy with kids",
+    why: "Short and close by — easy with a little one",
+    headline: place.name ?? "Nearby",
+    detail: place.detail_line ?? (dist != null ? `${fmtMin(walkMinutes(dist, ctx.persona))} walk.` : place.category ?? ""),
+    primaryAction: { label: "Save", kind: "add" },
+    image: placeImage(place),
+    urgency: "low",
+    validFrom: ctx.at.toISOString(),
+    validUntil: new Date(ctx.at.getTime() + 8 * 3_600_000).toISOString(),
+    distanceKm: dist,
+    subjectName: place.name ?? "Nearby",
+    coords: placeCoords(place),
+    railTitle: "Easy with the little ones",
+    railMeta: dist != null ? `${fmtMin(walkMinutes(dist, ctx.persona))} away` : "nearby",
+  }));
 }
 
 /**
@@ -806,25 +543,16 @@ export function savedPick(ctx: RankContext, exclude: Set<string>): Candidate[] {
  * un-deduped beyond each generator's own exclusion pass) — lib/now/rank.ts
  * owns scoring, filtering, and diversity-constrained selection.
  */
-export async function generateCandidates(ctx: RankContext): Promise<Candidate[]> {
-  const early: Candidate[] = [
-    ...(await weatherSwap(ctx)),
-    ...currentActivity(ctx),
-    ...leaveBy(ctx),
-    ...(await arrival(ctx)),
-  ];
+export async function generateCandidates(ctx: FeedContext): Promise<Candidate[]> {
+  const early: Candidate[] = [...closingSoon(ctx, new Set())];
   const exclude = usedIds(early);
 
   const rest: Candidate[] = [
-    ...closingSoon(ctx, exclude),
     ...eventTonight(ctx),
-    ...gapFiller(ctx, exclude),
-    ...experienceLeadtime(ctx),
     ...reelEcho(ctx, exclude),
-    ...nearNext(ctx, exclude),
     ...indoorPick(ctx, exclude),
-    ...experiencePick(ctx),
     ...savedPick(ctx, exclude),
+    ...familyPick(ctx, exclude),
     ...localPick(ctx, exclude),
   ];
 

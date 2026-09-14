@@ -9,7 +9,7 @@ export type AppShellProps = {
 
 /**
  * Wraps shell routes with the canonical BottomNav and reserves bottom padding
- * so content clears the fixed nav (plus the raised Roameo FAB).
+ * so content clears the fixed nav (plus the raised Fomo FAB).
  *
  * 88px = the nav's 64px row + 24px of clearance for the FAB, which pokes
  * -top-6 (24px) above that row — see BottomNav. That base figure assumes no

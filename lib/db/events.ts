@@ -1,4 +1,4 @@
-import { supabase } from "@/lib/supabase";
+import type { Db } from "@/lib/supabase/types";
 import type { EventItem } from "@/lib/types";
 import { distanceKm, sortByDistance, type Coordinates } from "@/lib/geo";
 
@@ -21,11 +21,12 @@ export interface ListUpcomingEventsOpts {
  * filter grammar also breaks on raw commas/parens in interpolated input.
  */
 export async function listUpcomingEvents(
+  db: Db,
   opts: ListUpcomingEventsOpts = {}
 ): Promise<EventItem[]> {
   const { destination, category, from, to, limit } = opts;
 
-  let query = supabase
+  let query = db
     .from("events")
     .select("*")
     .gte("starts_at", from ?? new Date().toISOString())
@@ -59,6 +60,7 @@ export async function listUpcomingEvents(
  * SQL function.
  */
 export async function listEventsNearby(
+  db: Db,
   center: Coordinates,
   radiusKm: number,
   opts: Omit<ListUpcomingEventsOpts, "destination"> = {}
@@ -71,7 +73,7 @@ export async function listEventsNearby(
   const cosLat = Math.max(Math.cos((center.lat * Math.PI) / 180), 0.01);
   const dLng = radiusKm / (111 * cosLat);
 
-  let query = supabase
+  let query = db
     .from("events")
     .select("*")
     .gte("starts_at", from ?? new Date().toISOString())
@@ -100,23 +102,19 @@ export async function listEventsNearby(
 }
 
 /** Fetch a single event by id. Returns null if not found. */
-export async function getEvent(id: string): Promise<EventItem | null> {
-  const { data, error } = await supabase
-    .from("events")
-    .select("*")
-    .eq("id", id)
-    .maybeSingle();
+export async function getEvent(db: Db, id: string): Promise<EventItem | null> {
+  const { data, error } = await db.from("events").select("*").eq("id", id).maybeSingle();
   if (error) throw error;
   return data;
 }
 
 /**
  * Batch-fetch events by id, for resolving itinerary items' linkage back into
- * full rows — mirrors listPlacesByIds (lib/db/places.ts:75).
+ * full rows — mirrors listPlacesByIds (lib/db/places.ts).
  */
-export async function listEventsByIds(ids: string[]): Promise<EventItem[]> {
+export async function listEventsByIds(db: Db, ids: string[]): Promise<EventItem[]> {
   if (ids.length === 0) return [];
-  const { data, error } = await supabase.from("events").select("*").in("id", ids);
+  const { data, error } = await db.from("events").select("*").in("id", ids);
   if (error) throw error;
   return data ?? [];
 }

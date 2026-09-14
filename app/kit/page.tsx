@@ -40,7 +40,7 @@ export default function KitPage() {
 
   return (
     <main className="mx-auto flex max-w-[480px] flex-col gap-8 px-5 pb-24 pt-4">
-      <PageHeader title="Roameo UI Kit" showBack action={<Icon name="tune" />} />
+      <PageHeader title="Fomo UI Kit" showBack action={<Icon name="tune" />} />
 
       <Section title="Buttons">
         <div className="flex flex-wrap gap-3">
@@ -90,7 +90,7 @@ export default function KitPage() {
         <Input label="Destination" placeholder="Where to?" leadingIcon="search" />
         <Input label="Email" placeholder="you@example.com" helperText="We never share this." />
         <Input label="Field with error" defaultValue="bad" error="Something went wrong" />
-        <Textarea label="Rules for Roameo" placeholder="e.g. Always suggest window seats…" />
+        <Textarea label="Rules for Fomo" placeholder="e.g. Always suggest window seats…" />
       </Section>
 
       <Section title="Sliders">

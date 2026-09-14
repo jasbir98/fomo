@@ -11,13 +11,14 @@
  * missing, providers error, or the cache migration hasn't been run yet.
  */
 import "server-only";
-import { supabase } from "@/lib/supabase";
+import { supabaseAdmin } from "@/lib/supabase/admin";
 import { listUpcomingEvents } from "@/lib/db/events";
 import type { EventItem } from "@/lib/types";
 import { geocodeDestination, type Center } from "@/lib/places/geocode";
 import type { EventCategory } from "@/lib/events/categories";
 import { searchEvents, type MappedEvent } from "@/lib/events";
 import { dedupeEvents } from "@/lib/events/dedupe";
+import type { Db } from "@/lib/supabase/types";
 
 export const EVENTS_CACHE_TTL_MS = 6 * 60 * 60 * 1000; // 6 hours
 const DEFAULT_RADIUS_KM = 25;
@@ -79,6 +80,7 @@ function syntheticEvent(m: MappedEvent): EventItem {
 }
 
 export async function getEventsForDestination(
+  db: Db,
   opts: GetEventsForDestinationOpts
 ): Promise<GetEventsForDestinationResult> {
   const { destination, category, q, from, to } = opts;
@@ -91,7 +93,7 @@ export async function getEventsForDestination(
   // newest cached row for this destination/category/window is still fresh.
   let cached: EventItem[] = [];
   try {
-    cached = await listUpcomingEvents({ destination, category, from, to, limit });
+    cached = await listUpcomingEvents(db, { destination, category, from, to, limit });
   } catch (err) {
     console.error("[events/getForDestination] cached lookup failed, falling through to live search", err);
   }
@@ -160,15 +162,20 @@ export async function getEventsForDestination(
     .filter((m) => m.image_url == null)
     .map(({ image_url: _image_url, ...rest }) => rest);
 
+  // Catalog writes always go through the service-role client — RLS's
+  // catalog policy (supabase/harden_rls.sql) is select-only for
+  // anon/authenticated from this phase on, so a session-scoped `db` can't
+  // upsert here regardless of who's calling.
+  const admin = supabaseAdmin();
   const results = await Promise.all([
     rowsWithPhoto.length > 0
-      ? supabase
+      ? admin
           .from("events")
           .upsert(rowsWithPhoto, { onConflict: "provider,provider_event_id" })
           .select("*")
       : Promise.resolve({ data: [] as EventItem[], error: null }),
     rowsWithoutPhoto.length > 0
-      ? supabase
+      ? admin
           .from("events")
           .upsert(rowsWithoutPhoto, { onConflict: "provider,provider_event_id" })
           .select("*")

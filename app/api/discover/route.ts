@@ -1,37 +1,36 @@
 /**
- * Roameo chip discover surface (server-only). GET /api/discover?intent=&deviceId=&tripId=&lat=&lng=&limit=&offset=
+ * Fomo chip discover surface (server-only). GET /api/discover?intent=&lat=&lng=&limit=&offset=
+ *   Identity comes from the session cookie, not a query param — see
+ *   plan-v1.2-accounts.md §A.5. No session -> immediate `degraded:
+ *   "unauthorized"`, never a silent empty response.
  *   limit:  default 40, max 60
  *   offset: default 0 — pagination, see lib/now/discover.ts
  * See lib/now/discover.ts — this route is purely request parsing + response shaping.
  */
 import "server-only";
 import { NextResponse } from "next/server";
+import { supabaseServer } from "@/lib/supabase/server";
 import { buildDiscoverResponse } from "@/lib/now/discover";
 import type { DiscoverIntentSlug, DiscoverResponse } from "@/lib/now/types";
+import { isUnauthorizedError } from "@/lib/supabase-error";
 
 export const runtime = "nodejs";
 
-const VALID_INTENTS: DiscoverIntentSlug[] = [
-  "tonight",
-  "book",
-  "eat",
-  "gap",
-  "indoors",
-  "nearby",
-  "near-next",
-  "closing",
-];
+const VALID_INTENTS: DiscoverIntentSlug[] = ["eat", "nearby", "indoors", "tonight", "book"];
 
 export async function GET(request: Request) {
+  const db = await supabaseServer();
+  const {
+    data: { user },
+  } = await db.auth.getUser();
+  if (!user) {
+    return NextResponse.json<DiscoverResponse>({ title: "", meta: "", items: [], degraded: "unauthorized" });
+  }
+
   const { searchParams } = new URL(request.url);
-  const deviceId = searchParams.get("deviceId")?.trim();
-  const tripId = searchParams.get("tripId")?.trim();
   const intent = searchParams.get("intent")?.trim() as DiscoverIntentSlug | null;
-  if (!deviceId || !tripId || !intent || !VALID_INTENTS.includes(intent)) {
-    return NextResponse.json(
-      { error: "missing/invalid 'deviceId', 'tripId', or 'intent' query param" },
-      { status: 400 }
-    );
+  if (!intent || !VALID_INTENTS.includes(intent)) {
+    return NextResponse.json({ error: "missing/invalid 'intent' query param" }, { status: 400 });
   }
 
   // See app/api/now/route.ts's comment: searchParams.get is null when
@@ -52,18 +51,16 @@ export async function GET(request: Request) {
   const rawOffset = rawOffsetParam == null ? NaN : Number(rawOffsetParam);
   const offset = Number.isFinite(rawOffset) ? Math.max(Math.trunc(rawOffset), 0) : undefined;
 
-  // Plan's "More for this gap →" link (app/(shell)/plan/page.tsx) passes the
-  // gap's free-minute count through — see lib/now/discover.ts's `minutes`
-  // doc comment for what this does (and doesn't) affect.
-  const rawMinutesParam = searchParams.get("minutes");
-  const rawMinutes = rawMinutesParam == null ? NaN : Number(rawMinutesParam);
-  const minutes = Number.isFinite(rawMinutes) ? Math.max(Math.trunc(rawMinutes), 0) : undefined;
-
   try {
-    const result = await buildDiscoverResponse({ deviceId, tripId, intent, coords, limit, offset, minutes });
+    const result = await buildDiscoverResponse({ db, intent, coords, limit, offset });
     return NextResponse.json<DiscoverResponse>(result);
   } catch (err) {
     console.error("[api/discover] failed", err);
-    return NextResponse.json<DiscoverResponse>({ title: "", meta: "", items: [], degraded: "empty" });
+    return NextResponse.json<DiscoverResponse>({
+      title: "",
+      meta: "",
+      items: [],
+      degraded: isUnauthorizedError(err) ? "unauthorized" : "empty",
+    });
   }
 }

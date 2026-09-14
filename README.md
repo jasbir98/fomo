@@ -1,4 +1,4 @@
-# Roameo — v0 PWA
+# Fomo — v0 PWA
 
 An installable AI travel-companion PWA (Next.js 16 App Router + TypeScript + Tailwind v4 + Supabase). AI chat, the vision-based translator, and maps/places are **real integrations** (Claude, Mapbox, Google Places) — you'll need API credentials for those (see [Setup](#setup) below). Calendar connection is still **mocked** behind a swappable interface (Google Calendar OAuth is planned but not built).
 
@@ -14,7 +14,7 @@ An installable AI travel-companion PWA (Next.js 16 App Router + TypeScript + Tai
 
 - Node 20+ and npm
 - A Supabase project (free tier is fine)
-- An Anthropic API key (for Roameo chat + the translator)
+- An Anthropic API key (for Fomo chat + the translator)
 - A Mapbox access token (for map rendering + geocoding)
 - A Google Cloud API key with "Places API (New)" enabled (for live place search)
 
@@ -48,7 +48,7 @@ cp .env.example .env.local
 NEXT_PUBLIC_SUPABASE_URL=https://YOUR-PROJECT.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=YOUR-ANON-KEY
 
-# console.anthropic.com — server-only, powers Roameo chat + the translator
+# console.anthropic.com — server-only, powers Fomo chat + the translator
 ANTHROPIC_API_KEY=YOUR-ANTHROPIC-KEY
 
 # account.mapbox.com/access-tokens — public, powers map rendering + geocoding
@@ -83,7 +83,7 @@ Fresh device → `/` redirects into onboarding:
 3. **Home** (`/`) — trip header, "What's Hot", trending social, 90-minute wins
 4. **Discovery** — `/map`, `/place/[id]` (Add to Trip), `/social/[id]`, `/90-minute-wins`
 5. **Plan** (`/plan`) — Timeline ⇄ Calendar; the rain-flagged Arashiyama item → `/plan/disruption/[id]` (swap in a covered alternative); add/edit items
-6. **Roameo** (`/roameo`) — real Claude-powered chat (mode chips, rich cards, action proposals that add itinerary items) + `/roameo/translator` (real Claude-vision EN⇄JP)
+6. **Fomo** (`/fomo`) — real Claude-powered chat (mode chips, rich cards, action proposals that add itinerary items) + `/fomo/translator` (real Claude-vision EN⇄JP)
 7. **Profile** (`/profile`) — persisted Travel DNA + Rules (Edit/Manage deep-link back into setup in edit mode), saved trips
 
 Confirm writes land in the Supabase **Table Editor** as you go.
@@ -92,7 +92,7 @@ Confirm writes land in the Supabase **Table Editor** as you go.
 
 | Surface | File | Status |
 |---|---|---|
-| Roameo chat | `app/api/chat/route.ts`, `lib/ai/anthropic.ts` | **Real** — Claude, server-only `ANTHROPIC_API_KEY` |
+| Fomo chat | `app/api/chat/route.ts`, `lib/ai/anthropic.ts` | **Real** — Claude, server-only `ANTHROPIC_API_KEY` |
 | Translator | `app/api/translate/route.ts`, `lib/ai/anthropic.ts` | **Real** — Claude vision, same `ANTHROPIC_API_KEY` |
 | Map + geocoding | `app/(shell)/map/page.tsx`, `lib/places/geocode.ts` | **Real** — Mapbox GL, `NEXT_PUBLIC_MAPBOX_TOKEN` |
 | Place search | `lib/places/google.ts`, `app/api/places/route.ts` | **Real** — Google Places API (New), server-only `GOOGLE_PLACES_API_KEY` |
@@ -100,7 +100,7 @@ Confirm writes land in the Supabase **Table Editor** as you go.
 | Disruption suggestions | `lib/disruption.ts` | **Mocked** — hardcoded covered-alternative pairs (weather-alert flag is manual, not forecast-driven) |
 | Calendar | UI-only, `app/setup/connect-calendar/page.tsx` | **Mocked** — provider "connect" is visual only; no OAuth |
 
-`lib/roameo-ai.ts` and `lib/translator-data.ts` are leftover pre-integration scripted fallbacks, fully superseded by the routes above.
+`lib/fomo-ai.ts` and `lib/translator-data.ts` are leftover pre-integration scripted fallbacks, fully superseded by the routes above.
 
 ### Events
 
@@ -110,11 +110,11 @@ Confirm writes land in the Supabase **Table Editor** as you go.
 
 ```
 app/
-  (shell)/        # routes with the bottom nav (home, map, plan, roameo, profile, place, social, 90-minute-wins)
+  (shell)/        # routes with the bottom nav (home, map, plan, fomo, profile, place, social, 90-minute-wins)
   onboarding/     # full-screen, no nav
   setup/          # full-screen, no nav
   plan/add|item|disruption/   # full-screen task routes
-  roameo/translator/          # full-screen
+  fomo/translator/          # full-screen
 components/ui/    # design-system primitives (Button, Chip, Card, Input, Slider, BottomSheet, …)
 components/shell/ # BottomNav + AppShell
 lib/              # supabase client, device id, ai/ (Claude), places/ (Mapbox+Google), disruption mock

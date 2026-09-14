@@ -1,0 +1,17 @@
+<svg viewBox="0 0 300 200" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Arts default image">
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#a855e0"/>
+      <stop offset="100%" stop-color="#5b1594"/>
+    </linearGradient>
+  </defs>
+  <rect width="300" height="200" fill="url(#g)"/>
+  <ellipse cx="150" cy="105" rx="72" ry="48" fill="#ffffff" fill-opacity="0.88"/>
+  <ellipse cx="112" cy="122" rx="15" ry="11" fill="#5b1594"/>
+  <g fill="#ffffff" fill-opacity="1">
+    <circle cx="130" cy="72" r="8" fill-opacity="0.55"/>
+    <circle cx="160" cy="65" r="8" fill-opacity="0.7"/>
+    <circle cx="190" cy="80" r="8" fill-opacity="0.85"/>
+    <circle cx="200" cy="110" r="8" fill-opacity="1"/>
+  </g>
+</svg>

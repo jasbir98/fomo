@@ -135,6 +135,12 @@ def main() -> None:
     parser.add_argument("--dry-run", action="store_true", help="List which cities would run, without calling the API.")
     parser.add_argument("--progress-file", type=Path, default=None, help="Path for the resume-progress JSON (default: data/run_city_batch_progress_<country>_<batch-id>.json).")
     parser.add_argument(
+        "--profile",
+        choices=("tourist", "local"),
+        default="tourist",
+        help="Extraction profile forwarded to discover_and_extract_city.py's research_and_extract_city. 'tourist' (default) is unchanged existing behaviour.",
+    )
+    parser.add_argument(
         "--output-dir",
         type=Path,
         default=None,
@@ -195,14 +201,12 @@ def main() -> None:
         print("[batch] nothing to do — all cities already done for this batch-id, or the filters matched none.")
         return
 
-    api_key = os.environ.get("ANTHROPIC_API_KEY", "").strip()
-    if not api_key:
-        print("[batch] ANTHROPIC_API_KEY is required in scraper/.env", file=sys.stderr)
-        sys.exit(1)
+    # Provider (DeepSeek or Anthropic) is chosen by which key is set — see
+    # scraper/llm_client.py for the precedence rule and the DeepSeek quirks.
+    from llm_client import make_research_client
 
-    from anthropic import Anthropic
-
-    client = Anthropic(api_key=api_key)
+    client, provider = make_research_client("batch")
+    print(f"[batch] provider={provider}, model={args.model}")
     output_dir.mkdir(parents=True, exist_ok=True)
 
     succeeded = 0
@@ -221,9 +225,11 @@ def main() -> None:
             failed += 1
             continue
 
-        print(f"[batch] ({i}/{len(entries)}) {city}, {prefecture} ({region}), tier={tier} ...")
+        print(f"[batch] ({i}/{len(entries)}) {city}, {prefecture} ({region}), tier={tier}, profile={args.profile} ...")
         try:
-            raw_places = research_and_extract_city(client, args.model, country, city, prefecture, region, tier)
+            raw_places = research_and_extract_city(
+                client, args.model, country, city, prefecture, region, tier, args.profile
+            )
         except Exception as exc:
             print(f"[batch] ERROR {city}: {exc}", file=sys.stderr)
             progress[key] = {"status": "failed", "error": str(exc)}
@@ -234,7 +240,9 @@ def main() -> None:
         now = datetime.now(timezone.utc).isoformat()
         records = []
         for place in raw_places:
-            record = build_full_record(place, args.batch_id, country, region, prefecture, city, args.model, now)
+            record = build_full_record(
+                place, args.batch_id, country, region, prefecture, city, args.model, now, args.profile
+            )
             if record is not None:
                 records.append(record)
 

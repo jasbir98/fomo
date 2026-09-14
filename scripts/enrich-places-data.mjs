@@ -182,7 +182,7 @@ async function probeImageWidth(url) {
       const buf = Buffer.from(await res.arrayBuffer());
       const meta = await sharp(buf).metadata();
       return meta.width ?? null;
-    } catch (err) {
+    } catch {
       return null; // network error, timeout, non-image response, truncated data, etc.
     }
   }

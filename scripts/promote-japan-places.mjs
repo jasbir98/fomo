@@ -1,31 +1,58 @@
 #!/usr/bin/env node
 /**
- * promote-japan-places.mjs — promotes approved `places_staging` rows into
- * the shared `places` table, records per-field provenance in
- * `place_sources`, and marks the staging row as promoted.
+ * promote-japan-places.mjs — promotes approved `places_staging` rows into the
+ * shared `places` table, records per-field provenance in `place_sources`, and
+ * marks each staging row as promoted.
  *
- * Despite the filename (kept for backward compat with existing usage/docs),
- * this script is country-agnostic: it promotes whatever staging rows match
- * `--source` (default `seed-japan-pipeline`), and derives each row's
- * `destination` suffix from `staging.country` via COUNTRY_DESTINATION_LABEL
- * (falling back to the raw `staging.country` value for an unmapped code, or
- * `--destination-suffix` to force one suffix for the whole run).
+ * Despite the filename (kept for backward compatibility with existing usage and
+ * docs), this script is country-agnostic: it promotes approved staging rows for
+ * `--country-code` (default JP), tagging each new place with `--source`.
  *
- * Idempotent: only selects staging rows that are approved and not yet
- * promoted, so re-running after a partial failure or a new batch is safe.
+ * Idempotent: only selects staging rows that are approved and not yet promoted,
+ * so re-running after a partial failure or a new batch is safe.
  *
- * Uses the Supabase REST API directly (not @supabase/supabase-js) to avoid
- * that client's mandatory Realtime/WebSocket init, which isn't available in
- * plain Node 20.
+ * LIVE-DUPLICATE GUARD. Before inserting, each staging row is checked against
+ * the places already live for the same country (and against rows promoted
+ * earlier in the same run):
+ *   - Same name under strict normalisation (case, a leading "the", punctuation)
+ *     AND the same prefecture -> SKIPPED. The staging row is un-approved, with
+ *     `place_id` set to the existing place and the reason in `rejected_reason`,
+ *     so later runs don't retry it.
+ *   - Same name only once parenthetical qualifiers are stripped (e.g.
+ *     "Scottish National Gallery of Modern Art (Modern One)") -> PROMOTED, but
+ *     listed as a possible duplicate for review, with the distance when both
+ *     rows have coordinates.
+ * The fuzzy rule deliberately never skips on its own: in the first Edinburgh
+ * batch it also paired "The Haymarket (Nicholson's)", a pub, with "Haymarket",
+ * the railway station across the road. Coordinates decide nothing either,
+ * because some live Scotland rows carry collapsed coordinates from an earlier
+ * pipeline bug. Provider-cache rows (source = "google") are not checked — they
+ * are a TTL cache with no country set, not part of the curated catalog.
+ * Pass --allow-live-duplicates to turn the guard off.
+ *
+ * WRITE KEY. supabase/harden_rls.sql removes the anon write policy on `places`,
+ * moving catalog writes to the service role. The service-role key is used when
+ * present, falling back to the anon key for databases where that migration
+ * hasn't been applied — the same fallback scripts/enrich-places-data.mjs uses.
+ *
+ * DESTINATION. `destination` is "<city or prefecture>, <country label>". For
+ * neighbourhood-level batches, where `city` holds a neighbourhood like "Leith",
+ * pass --destination-city Edinburgh so every row reads "Edinburgh, Scotland".
+ *
+ * Uses the Supabase REST API directly (not @supabase/supabase-js) to avoid that
+ * client's mandatory Realtime/WebSocket init, which isn't available in plain
+ * Node 20.
  *
  * Usage:
  *   node --env-file=.env.local scripts/promote-japan-places.mjs
- *   node --env-file=.env.local scripts/promote-japan-places.mjs --source seed-scotland-pipeline
- *   node --env-file=.env.local scripts/promote-japan-places.mjs --source seed-scotland-pipeline --destination-suffix Scotland
+ *   node --env-file=.env.local scripts/promote-japan-places.mjs --country-code GB --source seed-scotland-pipeline
+ *   node --env-file=.env.local scripts/promote-japan-places.mjs --country-code GB \
+ *     --source seed-edinburgh-local --destination-city Edinburgh --dry-run
  *
- * Requires NEXT_PUBLIC_SUPABASE_URL / NEXT_PUBLIC_SUPABASE_ANON_KEY (same
- * vars the app itself uses, see lib/supabase.ts) — the anon role already has
- * write access to `places`, `places_staging`, and `place_sources`.
+ * --dry-run reports what would be promoted, skipped and flagged, and writes nothing.
+ *
+ * Requires NEXT_PUBLIC_SUPABASE_URL plus SUPABASE_SERVICE_ROLE_KEY (preferred)
+ * or NEXT_PUBLIC_SUPABASE_ANON_KEY.
  */
 
 function parseArg(name) {
@@ -34,6 +61,10 @@ function parseArg(name) {
   if (idx !== -1) return process.argv[idx + 1];
   const prefixed = process.argv.find((a) => a.startsWith(`${flag}=`));
   return prefixed ? prefixed.slice(flag.length + 1) : undefined;
+}
+
+function hasFlag(name) {
+  return process.argv.includes(`--${name}`);
 }
 
 // Which places_staging rows to promote — filtered by `places_staging.country`
@@ -45,30 +76,34 @@ const COUNTRY_CODE = (parseArg("country-code") ?? DEFAULT_COUNTRY_CODE).toUpperC
 const DEFAULT_SOURCE = "seed-japan-pipeline";
 const SOURCE = parseArg("source") ?? DEFAULT_SOURCE;
 const DESTINATION_SUFFIX_OVERRIDE = parseArg("destination-suffix");
+const DESTINATION_CITY_OVERRIDE = parseArg("destination-city");
+const DRY_RUN = hasFlag("dry-run");
+const ALLOW_LIVE_DUPLICATES = hasFlag("allow-live-duplicates");
 
 // `places.country` -> the human-readable label used in the `destination`
 // string (e.g. "Edinburgh, Scotland"), matching how the app's own
-// destination strings read (see lib/db/trips.ts's "Tokyo, Japan" demo trip).
-// Add an entry here for each new country's pipeline.
+// destination strings read. Add an entry here for each new country's pipeline.
 const COUNTRY_DESTINATION_LABEL = {
   JP: "Japan",
   GB: "Scotland",
 };
 
 const supabaseUrl = (process.env.NEXT_PUBLIC_SUPABASE_URL ?? "").replace(/\/$/, "");
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? "";
+const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY ?? "";
+const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? "";
+const writeKey = serviceRoleKey || anonKey;
 
-if (!supabaseUrl || !supabaseAnonKey) {
+if (!supabaseUrl || !writeKey) {
   console.error(
-    "[promote] Missing NEXT_PUBLIC_SUPABASE_URL / NEXT_PUBLIC_SUPABASE_ANON_KEY. " +
-      "Run with: node --env-file=.env.local scripts/promote-japan-places.mjs"
+    "[promote] Missing NEXT_PUBLIC_SUPABASE_URL, or both SUPABASE_SERVICE_ROLE_KEY and " +
+      "NEXT_PUBLIC_SUPABASE_ANON_KEY. Run with: node --env-file=.env.local scripts/promote-japan-places.mjs"
   );
   process.exit(1);
 }
 
 const headers = {
-  apikey: supabaseAnonKey,
-  Authorization: `Bearer ${supabaseAnonKey}`,
+  apikey: writeKey,
+  Authorization: `Bearer ${writeKey}`,
   "Content-Type": "application/json",
 };
 
@@ -118,7 +153,7 @@ function buildPlaceRow(staging) {
   if (row.hours_status !== "known" && row.hours === "unknown") {
     row.hours = null;
   }
-  const cityOrPrefecture = staging.city || staging.prefecture;
+  const cityOrPrefecture = DESTINATION_CITY_OVERRIDE ?? (staging.city || staging.prefecture);
   const destinationSuffix =
     DESTINATION_SUFFIX_OVERRIDE ?? COUNTRY_DESTINATION_LABEL[staging.country] ?? staging.country;
   row.destination =
@@ -126,7 +161,32 @@ function buildPlaceRow(staging) {
   return row;
 }
 
-async function fetchAllApprovedStaging() {
+/** Case, a leading "the", and punctuation — but parenthetical content is kept. */
+function strictName(name) {
+  return (name ?? "").trim().toLowerCase().replace(/^the\s+/, "").replace(/[^a-z0-9]/g, "");
+}
+
+/** strictName with parenthetical qualifiers like "(Modern One)" removed first. */
+function looseName(name) {
+  return strictName((name ?? "").replace(/\s*\([^)]*\)/g, ""));
+}
+
+function distanceMetres(a, b) {
+  const toRad = (d) => (d * Math.PI) / 180;
+  const dLat = toRad(b.lat - a.lat);
+  const dLng = toRad(b.lng - a.lng);
+  const h = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(a.lat)) * Math.cos(toRad(b.lat)) * Math.sin(dLng / 2) ** 2;
+  return 6371000 * 2 * Math.asin(Math.sqrt(h));
+}
+
+function addToIndex(index, keyFn, place) {
+  const key = keyFn(place.name);
+  if (!key) return;
+  if (!index.has(key)) index.set(key, []);
+  index.get(key).push(place);
+}
+
+async function fetchPaged(pathWithoutPaging) {
   // PostgREST caps a single response at 1000 rows by default — without
   // pagination here, any batch bigger than that silently loses rows every
   // run (surfaced when the Scotland batch's 3371 approved rows only
@@ -134,9 +194,7 @@ async function fetchAllApprovedStaging() {
   const PAGE_SIZE = 1000;
   const rows = [];
   for (let offset = 0; ; offset += PAGE_SIZE) {
-    const page = await rest(
-      `places_staging?country=eq.${encodeURIComponent(COUNTRY_CODE)}&approved=eq.true&extraction_status=neq.promoted&select=*&limit=${PAGE_SIZE}&offset=${offset}`
-    );
+    const page = await rest(`${pathWithoutPaging}&limit=${PAGE_SIZE}&offset=${offset}`);
     if (!page || page.length === 0) break;
     rows.push(...page);
     if (page.length < PAGE_SIZE) break;
@@ -145,16 +203,37 @@ async function fetchAllApprovedStaging() {
 }
 
 async function main() {
-  const stagingRows = await fetchAllApprovedStaging();
+  console.log(
+    `[promote] country=${COUNTRY_CODE} source=${SOURCE} key=${serviceRoleKey ? "service-role" : "anon"}` +
+      `${DRY_RUN ? " DRY RUN (no writes)" : ""}${ALLOW_LIVE_DUPLICATES ? " duplicate-guard=OFF" : ""}`
+  );
+
+  const stagingRows = await fetchPaged(
+    `places_staging?country=eq.${encodeURIComponent(COUNTRY_CODE)}&approved=eq.true&extraction_status=neq.promoted&select=*`
+  );
 
   if (!stagingRows || stagingRows.length === 0) {
     console.log(`[promote] nothing to promote — no approved, un-promoted staging rows for country=${COUNTRY_CODE}.`);
     return;
   }
+  console.log(`[promote] found ${stagingRows.length} staging row(s) to promote.`);
 
-  console.log(`[promote] country=${COUNTRY_CODE} source=${SOURCE}: found ${stagingRows.length} staging row(s) to promote.`);
+  const byStrict = new Map();
+  const byLoose = new Map();
+  if (!ALLOW_LIVE_DUPLICATES) {
+    const live = await fetchPaged(
+      `places?country=eq.${encodeURIComponent(COUNTRY_CODE)}&select=id,name,prefecture,lat,lng`
+    );
+    for (const place of live) {
+      addToIndex(byStrict, strictName, place);
+      addToIndex(byLoose, looseName, place);
+    }
+    console.log(`[promote] duplicate guard: checking against ${live.length} live place(s).`);
+  }
 
   const results = [];
+  const skipped = [];
+  const flagged = [];
   let failed = 0;
 
   for (const staging of stagingRows) {
@@ -166,7 +245,57 @@ async function main() {
       continue;
     }
 
+    if (!ALLOW_LIVE_DUPLICATES) {
+      const exact = (byStrict.get(strictName(staging.name)) ?? []).find(
+        (p) => (p.prefecture ?? "") === (staging.prefecture ?? "")
+      );
+      if (exact) {
+        skipped.push({ name: staging.name, already_live_as: exact.name, existing_id: exact.id });
+        console.log(`[promote] SKIP duplicate: "${staging.name}" is already live as "${exact.name}" (${exact.id})`);
+        if (!DRY_RUN) {
+          try {
+            await rest(`places_staging?id=eq.${staging.id}`, {
+              method: "PATCH",
+              headers: { Prefer: "return=minimal" },
+              body: JSON.stringify({
+                approved: false,
+                place_id: exact.id,
+                rejected_reason: `duplicate of live place ${exact.id} ("${exact.name}")`,
+              }),
+            });
+          } catch (err) {
+            console.error(`[promote] WARN: could not mark "${staging.name}" as a duplicate: ${err.message}`);
+          }
+        }
+        continue;
+      }
+
+      const fuzzy = (byLoose.get(looseName(staging.name)) ?? [])[0];
+      if (fuzzy) {
+        const bothHaveCoords =
+          staging.lat != null && staging.lng != null && fuzzy.lat != null && fuzzy.lng != null;
+        flagged.push({
+          name: staging.name,
+          possible_duplicate_of: fuzzy.name,
+          existing_id: fuzzy.id,
+          distance_m: bothHaveCoords
+            ? Math.round(distanceMetres({ lat: staging.lat, lng: staging.lng }, { lat: fuzzy.lat, lng: fuzzy.lng }))
+            : null,
+        });
+      }
+    }
+
     const placeRow = buildPlaceRow(staging);
+
+    if (DRY_RUN) {
+      results.push({ name: staging.name, place_id: "(dry run)" });
+      // Index the would-be row so same-name rows later in this run are caught too.
+      const pending = { id: "(pending)", name: staging.name, prefecture: staging.prefecture, lat: staging.lat, lng: staging.lng };
+      addToIndex(byStrict, strictName, pending);
+      addToIndex(byLoose, looseName, pending);
+      continue;
+    }
+
     let inserted;
     try {
       const rows = await rest("places", {
@@ -188,6 +317,8 @@ async function main() {
     }
 
     const placeId = inserted.id;
+    addToIndex(byStrict, strictName, inserted);
+    addToIndex(byLoose, looseName, inserted);
 
     const fieldSources =
       staging.field_sources && typeof staging.field_sources === "object"
@@ -232,8 +363,20 @@ async function main() {
     console.log(`[promote] OK  ${staging.name} → ${placeId}`);
   }
 
-  console.log(`\n[promote] done. promoted=${results.length} failed=${failed}`);
-  if (results.length > 0) console.table(results);
+  console.log(
+    `\n[promote] done${DRY_RUN ? " (dry run — nothing written)" : ""}. ` +
+      `promoted=${results.length} skipped_duplicates=${skipped.length} ` +
+      `flagged_possible_duplicates=${flagged.length} failed=${failed}`
+  );
+  if (skipped.length > 0) {
+    console.log("\n[promote] skipped — already live:");
+    console.table(skipped);
+  }
+  if (flagged.length > 0) {
+    console.log("\n[promote] promoted, but review — possible duplicates:");
+    console.table(flagged);
+  }
+  if (results.length > 0 && !DRY_RUN) console.table(results);
 }
 
 main().catch((err) => {

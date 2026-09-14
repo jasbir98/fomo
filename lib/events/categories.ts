@@ -1,4 +1,4 @@
-// Roameo event category normalization — shared by every provider mapper in
+// Fomo event category normalization — shared by every provider mapper in
 // lib/events/ and by the /api/events route's `category` query filter.
 // Mirrors normalizeCategory's shape in lib/places/google.ts.
 import "server-only";
@@ -37,7 +37,7 @@ export function normalizeCategory(
     : undefined;
 }
 
-// Skiddle's `eventcode` → Roameo category.
+// Skiddle's `eventcode` → Fomo category.
 const SKIDDLE_EVENTCODE_MAP: Record<string, EventCategory> = {
   CLUB: "nightlife",
   LIVE: "music",
@@ -51,7 +51,7 @@ const SKIDDLE_EVENTCODE_MAP: Record<string, EventCategory> = {
   SPORT: "sports",
 };
 
-/** Map a Skiddle `eventcode` (e.g. "LIVE") to a Roameo category slug. */
+/** Map a Skiddle `eventcode` (e.g. "LIVE") to a Fomo category slug. */
 export function categoryFromSkiddleCode(
   raw: string | null | undefined
 ): EventCategory {
@@ -59,7 +59,7 @@ export function categoryFromSkiddleCode(
   return SKIDDLE_EVENTCODE_MAP[raw.toUpperCase().trim()] ?? "other";
 }
 
-// Ticketmaster's `classifications[].segment.name` → Roameo category.
+// Ticketmaster's `classifications[].segment.name` → Fomo category.
 const TICKETMASTER_SEGMENT_MAP: Record<string, EventCategory> = {
   Music: "music",
   Sports: "sports",
@@ -68,7 +68,7 @@ const TICKETMASTER_SEGMENT_MAP: Record<string, EventCategory> = {
   Miscellaneous: "other",
 };
 
-/** Map a Ticketmaster classification segment name to a Roameo category slug. */
+/** Map a Ticketmaster classification segment name to a Fomo category slug. */
 export function categoryFromTicketmasterSegment(
   raw: string | null | undefined
 ): EventCategory {

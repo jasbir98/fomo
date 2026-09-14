@@ -1,25 +1,24 @@
-import { supabase } from "@/lib/supabase";
-import type { RoameoRules } from "@/lib/types";
+import type { Db } from "@/lib/supabase/types";
+import type { FomoRules } from "@/lib/types";
 
-/** Fetch the Roameo rules row for a device. Returns null if none exist yet. */
-export async function getRules(deviceId: string): Promise<RoameoRules | null> {
-  const { data, error } = await supabase
-    .from("roameo_rules")
-    .select("*")
-    .eq("device_id", deviceId)
-    .maybeSingle();
+// TS type renamed Roameo -> Fomo; the underlying Supabase table is intentionally
+// still named "roameo_rules" (renaming a live table is a migration for zero user benefit).
+
+/** Fetch the signed-in user's Fomo rules row. Returns null if none exist yet. RLS scopes this to the caller's own row. */
+export async function getRules(db: Db): Promise<FomoRules | null> {
+  const { data, error } = await db.from("roameo_rules").select("*").maybeSingle();
   if (error) throw error;
   return data;
 }
 
-/** Create or update the rules row for a device (device_id is the PK). */
+/** Create or update the signed-in user's rules row (user_id is the PK, filled by the auth.uid() default on insert). */
 export async function upsertRules(
-  deviceId: string,
+  db: Db,
   patch: { rules_text?: string | null; quick_chips?: string[] }
-): Promise<RoameoRules> {
-  const { data, error } = await supabase
+): Promise<FomoRules> {
+  const { data, error } = await db
     .from("roameo_rules")
-    .upsert({ device_id: deviceId, ...patch }, { onConflict: "device_id" })
+    .upsert({ ...patch }, { onConflict: "user_id" })
     .select("*")
     .single();
   if (error) throw error;

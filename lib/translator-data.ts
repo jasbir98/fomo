@@ -1,5 +1,5 @@
 /**
- * Roameo Translator — fixed EN⇄JA phrase table (v0, mocked).
+ * Fomo Translator — fixed EN⇄JA phrase table (v0, mocked).
  *
  * No network calls. `translate()` looks up a fixed table; `getDemoTranscript()`
  * replays the exact scripted exchange shown in the prototype

@@ -1,10 +1,12 @@
 /**
- * Roameo "right now" ranker (server-only).
+ * Fomo "right now" ranker (server-only).
  *
- * GET /api/now?deviceId=<uuid>&tripId=<uuid, optional>&lat=&lng=&at=<ISO, optional>
- *   tripId: defaults to the device's current trip when omitted.
+ * GET /api/now?lat=&lng=&at=<ISO, optional>
+ *   Identity comes from the session cookie (lib/supabase/server.ts), not a
+ *   query param — see plan-v1.2-accounts.md §A.5. No session -> immediate
+ *   `degraded: "unauthorized"`, never a silent empty response.
  *   lat/lng: live device coordinates for this request, if location is
- *            granted. Falls back to the coarse `device_location` cache, then
+ *            granted. Falls back to the coarse `user_location` cache, then
  *            to no location at all — the ranker degrades gracefully at every
  *            step (plan-v1-home-pivot.md §4.5, §12).
  *   at:      ISO timestamp override, for testing/scrubbing (the artifact
@@ -16,34 +18,28 @@
  */
 import "server-only";
 import { NextResponse } from "next/server";
-import { getCurrentTrip } from "@/lib/db/trips";
-import { buildRankContext } from "@/lib/now/context";
+import { supabaseServer } from "@/lib/supabase/server";
+import { buildFeedContext } from "@/lib/now/context";
 import { buildNowResponse } from "@/lib/now/rank";
 import type { NowResponse } from "@/lib/now/types";
+import { isUnauthorizedError } from "@/lib/supabase-error";
 
 export const runtime = "nodejs";
 
 export async function GET(request: Request) {
-  const { searchParams } = new URL(request.url);
-  const deviceId = searchParams.get("deviceId")?.trim();
-  if (!deviceId) {
-    return NextResponse.json({ error: "missing required 'deviceId' query param" }, { status: 400 });
+  const db = await supabaseServer();
+  const {
+    data: { user },
+  } = await db.auth.getUser();
+  if (!user) {
+    return NextResponse.json<NowResponse>({
+      mode: "drifter",
+      hero: null,
+      degraded: "unauthorized",
+    });
   }
 
-  let tripId = searchParams.get("tripId")?.trim() || undefined;
-  if (!tripId) {
-    const current = await getCurrentTrip(deviceId).catch(() => null);
-    if (!current) {
-      return NextResponse.json<NowResponse>({
-        mode: "drifter",
-        hero: null,
-        next: null,
-        rails: [],
-        degraded: "no-trip",
-      });
-    }
-    tripId = current.id;
-  }
+  const { searchParams } = new URL(request.url);
 
   // searchParams.get(...) is null when the param is absent, and Number(null)
   // is 0 (not NaN) — Number.isFinite(0) is true, so without the explicit
@@ -60,16 +56,7 @@ export async function GET(request: Request) {
   const at = atParam && !Number.isNaN(Date.parse(atParam)) ? new Date(atParam) : new Date();
 
   try {
-    const ctx = await buildRankContext({ deviceId, tripId, at, liveCoords });
-    if (!ctx) {
-      return NextResponse.json<NowResponse>({
-        mode: "drifter",
-        hero: null,
-        next: null,
-        rails: [],
-        degraded: "no-trip",
-      });
-    }
+    const ctx = await buildFeedContext({ db, at, liveCoords });
     const response = await buildNowResponse(ctx);
     return NextResponse.json<NowResponse>(response);
   } catch (err) {
@@ -77,9 +64,7 @@ export async function GET(request: Request) {
     return NextResponse.json<NowResponse>({
       mode: "drifter",
       hero: null,
-      next: null,
-      rails: [],
-      degraded: "no-coverage",
+      degraded: isUnauthorizedError(err) ? "unauthorized" : "no-coverage",
     });
   }
 }

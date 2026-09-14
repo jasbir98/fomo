@@ -2,25 +2,49 @@
 
 import { use, useEffect, useState } from "react";
 import Link from "next/link";
-import { useRouter, usePathname } from "next/navigation";
-import { useDeviceId } from "@/lib/device";
-import { buildAskRoameoHref } from "@/lib/chat-seed";
-import {
-  getPlace,
-  listPlacePhotos,
-  getCurrentTrip,
-  createItem,
-  deleteItem,
-  listItems,
-} from "@/lib/db";
+import { usePathname } from "next/navigation";
+import { supabaseBrowserAuth } from "@/lib/supabase/client";
+import { buildAskFomoHref } from "@/lib/chat-seed";
+import { getPlace, listPlacePhotos } from "@/lib/db";
+import { isSaved, saveItem, unsaveItem } from "@/lib/db/saved";
 import { buildDirectionsUrl } from "@/lib/maps/links";
 import type { Place, PlacePhoto } from "@/lib/types";
-import { Button, Icon, PageHeader, PhotoCarousel, StatusPill } from "@/components/ui";
+import { Button, Icon, PageHeader, PhotoCarousel, ShareButton, StatusPill } from "@/components/ui";
 import type { CarouselPhoto } from "@/components/ui";
+import { FeedListCard } from "@/components/happenings";
+import { nextOccurrence, normalizeRecurrence } from "@/lib/happenings/occurrence";
+import type { Happening } from "@/lib/happenings/types";
+import type { HappeningCardData } from "@/lib/happenings/feed-types";
+import type { PlaceOffersResponse } from "@/app/api/places/[id]/offers/route";
+
+const ONE_YEAR_MS = 366 * 86_400_000;
+
+/** GET /api/places/[id]/offers returns raw `Happening[]`, not the feed's `HappeningCardData` — the place page needs a display occurrence per row (a date-bucketed feed card already has one; a direct-link detail read doesn't), so it's computed here the same way the happening detail page computes its own upcoming list: `nextOccurrence` over a year-long window, or the single "always" pin for a standing offer. A happening with no occurrence in that window (an expired `once` row lib/db/happenings.ts's `status: "live"` filter hasn't caught up to yet) is dropped rather than shown dateless. */
+function toOfferCards(offers: Happening[]): HappeningCardData[] {
+  const now = new Date();
+  const isAlways = (h: Happening) => normalizeRecurrence(h.recurrence).type === "always";
+  return offers.flatMap((h) => {
+    const occurrence = isAlways(h)
+      ? nextOccurrence(h, now, now)
+      : nextOccurrence(h, now, new Date(now.getTime() + ONE_YEAR_MS));
+    return occurrence ? [{ kind: "happening" as const, happening: h, occurrence }] : [];
+  });
+}
+
+async function fetchPlaceOffers(id: string): Promise<Happening[]> {
+  try {
+    const res = await fetch(`/api/places/${id}/offers`);
+    if (!res.ok) return [];
+    const json = (await res.json()) as PlaceOffersResponse;
+    return json.offers;
+  } catch (err) {
+    console.error("[place] offers fetch failed", err);
+    return [];
+  }
+}
 
 type ParsedTip = { label: string | null; text: string };
 type ParsedReview = { author: string; rating: number; text: string };
-type AddState = "idle" | "adding" | "added" | "removing" | "error";
 
 /** Place.tips is jsonb: an array of plain strings ("Label: text") or {label,text} objects. */
 function parseTips(raw: unknown): ParsedTip[] {
@@ -63,19 +87,19 @@ function parseReviews(raw: unknown): ParsedReview[] {
 
 export default function PlaceDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
-  const deviceId = useDeviceId();
-  const router = useRouter();
+  const db = supabaseBrowserAuth();
   const pathname = usePathname();
 
   const [place, setPlace] = useState<Place | null>(null);
   const [photos, setPhotos] = useState<PlacePhoto[]>([]);
+  const [offers, setOffers] = useState<Happening[]>([]);
   const [loading, setLoading] = useState(true);
-  const [addState, setAddState] = useState<AddState>("idle");
-  const [itemId, setItemId] = useState<string | null>(null);
+  const [saved, setSaved] = useState(false);
+  const [savePending, setSavePending] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
-    Promise.all([getPlace(id), listPlacePhotos(id)])
+    Promise.all([getPlace(db, id), listPlacePhotos(db, id)])
       .then(([placeData, photoRows]) => {
         if (cancelled) return;
         setPlace(placeData);
@@ -88,74 +112,47 @@ export default function PlaceDetailPage({ params }: { params: Promise<{ id: stri
     return () => {
       cancelled = true;
     };
-  }, [id]);
+  }, [db, id]);
 
-  // Seed "already added" state from the current trip's itinerary so a place
-  // added on a previous visit shows "Remove" rather than a dead-end "Added".
   useEffect(() => {
-    if (!deviceId || !place) return;
     let cancelled = false;
-    (async () => {
-      try {
-        const trip = await getCurrentTrip(deviceId);
-        if (!trip || cancelled) return;
-        const items = await listItems(deviceId, trip.id);
-        const match = items.find(
-          (it) => it.title?.trim().toLowerCase() === place.name?.trim().toLowerCase()
-        );
-        if (cancelled) return;
-        if (match) {
-          setAddState("added");
-          setItemId(match.id);
-        }
-      } catch (err) {
-        console.error("Failed to check itinerary status", err);
-      }
-    })();
+    fetchPlaceOffers(id)
+      .then((data) => {
+        if (!cancelled) setOffers(data);
+      })
+      .catch((err) => console.error("Failed to load place offers", err));
     return () => {
       cancelled = true;
     };
-  }, [deviceId, place]);
+  }, [id]);
 
-  async function handleAddToTrip() {
-    if (!deviceId || !place || addState === "adding" || addState === "added") return;
-    setAddState("adding");
+  useEffect(() => {
+    let cancelled = false;
+    isSaved(db, "place", id)
+      .then((value) => {
+        if (!cancelled) setSaved(value);
+      })
+      .catch((err) => console.error("Failed to check saved status", err));
+    return () => {
+      cancelled = true;
+    };
+  }, [db, id]);
+
+  async function handleToggleSave() {
+    if (savePending) return;
+    setSavePending(true);
     try {
-      const trip = await getCurrentTrip(deviceId);
-      if (!trip) {
-        // No active trip — send the traveler to create one first.
-        setAddState("idle");
-        router.push("/plan/new-trip");
-        return;
+      if (saved) {
+        await unsaveItem(db, "place", id);
+        setSaved(false);
+      } else {
+        await saveItem(db, { subject_type: "place", subject_id: id, note: null });
+        setSaved(true);
       }
-      const created = await createItem(deviceId, {
-        trip_id: trip.id,
-        place_id: place.id,
-        title: place.name,
-        category: place.category,
-        location: place.station ?? place.name,
-        day_date: trip.start_date,
-      });
-      setItemId(created.id);
-      setAddState("added");
     } catch (err) {
-      console.error("Failed to add place to trip", err);
-      setAddState("error");
-    }
-  }
-
-  /** Un-add: same `deleteItem` used everywhere else "Add to itinerary"
-   * exists (chat, map, reel detail) — no duplicate removal logic added. */
-  async function handleRemoveFromTrip() {
-    if (!deviceId || !itemId || addState === "removing") return;
-    setAddState("removing");
-    try {
-      await deleteItem(deviceId, itemId);
-      setItemId(null);
-      setAddState("idle");
-    } catch (err) {
-      console.error("Failed to remove place from trip", err);
-      setAddState("error");
+      console.error("Failed to update saved status", err);
+    } finally {
+      setSavePending(false);
     }
   }
 
@@ -174,8 +171,8 @@ export default function PlaceDetailPage({ params }: { params: Promise<{ id: stri
         <div className="flex flex-col items-center gap-3 px-5 py-16 text-center text-on-surface-variant">
           <Icon name="location_off" size={32} />
           <p className="text-body-md">We couldn&rsquo;t find this place.</p>
-          <Link href="/map" className="text-label-md font-medium text-secondary">
-            Back to Map
+          <Link href="/explore" className="text-label-md font-medium text-secondary">
+            Back to Explore
           </Link>
         </div>
       </div>
@@ -196,6 +193,11 @@ export default function PlaceDetailPage({ params }: { params: Promise<{ id: stri
       : place.image_url
         ? [{ url: place.image_url, alt: place.name ?? "" }]
         : [];
+  const placeName = place.name ?? "Place";
+  // App isn't deployed yet — window.location.origin is the correct base for
+  // a shareable link until there's a real production host.
+  const shareUrl = typeof window !== "undefined" ? `${window.location.origin}${pathname}` : "";
+  const shareText = `${[placeName, primaryBadge].filter(Boolean).join(" · ")} — found on Fomo`;
 
   function openDirections() {
     if (directionsUrl) window.open(directionsUrl, "_blank", "noopener");
@@ -203,7 +205,11 @@ export default function PlaceDetailPage({ params }: { params: Promise<{ id: stri
 
   return (
     <div className="flex flex-col gap-6 pb-6">
-      <PageHeader title={place.name ?? "Place"} showBack />
+      <PageHeader
+        title={placeName}
+        showBack
+        action={<ShareButton title={placeName} text={shareText} url={shareUrl} />}
+      />
 
       {/* Hero */}
       <section className="relative h-64 w-full overflow-hidden">
@@ -220,7 +226,7 @@ export default function PlaceDetailPage({ params }: { params: Promise<{ id: stri
 
       <div className="flex flex-col gap-6 px-5">
         {/* Description & stats */}
-        <section className="rounded-xl border border-outline-variant/40 bg-surface-container-lowest p-5 shadow-sm">
+        <section className="rounded-2xl bg-surface-container-lowest p-5 shadow-level-1">
           <div className="mb-3 flex items-center justify-between gap-3">
             <div className="flex items-center gap-2 text-secondary">
               <Icon name="star" filled size={18} />
@@ -246,7 +252,7 @@ export default function PlaceDetailPage({ params }: { params: Promise<{ id: stri
           ) : null}
           <p className="mb-4 text-body-md text-on-surface-variant">
             {place.description ??
-              `${place.category ?? "Spot"} near ${place.station ?? "your route"} — a Roameo pick worth the detour.`}
+              `${place.category ?? "Spot"} near ${place.station ?? "your route"} — a Fomo pick worth the detour.`}
           </p>
           <div className="grid grid-cols-2 gap-4 border-t border-outline-variant/30 pt-4">
             <div className="flex items-center gap-3">
@@ -266,28 +272,49 @@ export default function PlaceDetailPage({ params }: { params: Promise<{ id: stri
           </div>
         </section>
 
-        {/* Roameo's Tips */}
+        {/* Offers here — every live Deals & Offers happening linked to this
+            place via place_id (Home restructure task 2). Reuses
+            FeedListCard's happening row, same chrome as the Home Deals
+            section's single (non-venue-grouped) cards. */}
+        {offers.length > 0 ? (
+          <section className="flex flex-col gap-3">
+            <div className="flex items-center gap-2">
+              <Icon name="sell" size={20} className="text-accent" />
+              <h2 className="text-headline-sm text-primary">Offers Here</h2>
+              <span className="rounded-full bg-surface-container px-2.5 py-0.5 text-label-sm font-bold text-secondary">
+                {offers.length}
+              </span>
+            </div>
+            <div className="flex flex-col gap-3">
+              {toOfferCards(offers).map((card) => (
+                <FeedListCard key={card.happening.id} card={card} />
+              ))}
+            </div>
+          </section>
+        ) : null}
+
+        {/* Fomo's Tips */}
         {tips.length > 0 ? (
           <section>
             <div className="mb-4 flex items-center gap-2">
               <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary-container">
                 <Icon name="smart_toy" size={20} className="text-on-primary-container" />
               </div>
-              <h2 className="text-headline-sm text-primary">Roameo&rsquo;s Tips</h2>
+              <h2 className="text-headline-sm text-primary">Fomo&rsquo;s Tips</h2>
             </div>
             <div className="flex flex-col gap-3">
               {tips.map((tip, i) => (
                 <div
                   key={i}
-                  className={`flex items-start gap-4 rounded-xl p-5 ${
+                  className={`flex items-start gap-4 rounded-2xl p-5 shadow-level-1 ${
                     i === 0
-                      ? "border-l-4 border-secondary-container bg-primary text-on-primary"
-                      : "border border-outline-variant/40 bg-surface-container-lowest"
+                      ? "border-l-4 border-secondary-fixed-dim bg-primary text-on-primary"
+                      : "bg-surface-container-lowest"
                   }`}
                 >
                   <Icon
                     name={i === 0 ? "camera" : "restaurant"}
-                    className={`mt-0.5 ${i === 0 ? "text-secondary-container" : "text-secondary"}`}
+                    className={`mt-0.5 ${i === 0 ? "text-secondary-fixed-dim" : "text-secondary"}`}
                   />
                   <div>
                     {tip.label ? (
@@ -320,7 +347,7 @@ export default function PlaceDetailPage({ params }: { params: Promise<{ id: stri
               {reviews.map((review, i) => (
                 <div
                   key={i}
-                  className="min-w-[260px] rounded-xl border border-outline-variant/40 bg-surface-container-lowest p-4 shadow-sm"
+                  className="min-w-[260px] rounded-2xl bg-surface-container-lowest p-4 shadow-level-1"
                 >
                   <div className="mb-2 flex items-center gap-3">
                     <div className="flex h-9 w-9 items-center justify-center rounded-full bg-tertiary-fixed text-[11px] font-bold text-on-tertiary-fixed">
@@ -354,7 +381,7 @@ export default function PlaceDetailPage({ params }: { params: Promise<{ id: stri
             type="button"
             onClick={openDirections}
             disabled={!directionsUrl}
-            className="relative h-40 w-full overflow-hidden rounded-xl border border-outline-variant/40 bg-surface-container text-left disabled:pointer-events-none disabled:opacity-60"
+            className="relative h-40 w-full overflow-hidden rounded-2xl bg-surface-container text-left shadow-level-1 disabled:pointer-events-none disabled:opacity-60"
           >
             <div className="absolute inset-0 flex items-center justify-center">
               <Icon name="map" size={64} className="text-outline-variant" />
@@ -374,20 +401,6 @@ export default function PlaceDetailPage({ params }: { params: Promise<{ id: stri
 
       {/* Sticky bottom actions */}
       <div className="sticky bottom-[64px] z-30 flex flex-col gap-2 border-t border-outline-variant/40 bg-surface-container-lowest/95 px-5 py-4 backdrop-blur-md shadow-[0_-4px_16px_rgba(3,22,50,0.08)]">
-        {addState === "added" ? (
-          <div className="flex items-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-on-primary">
-            <Icon name="check_circle" filled size={18} className="text-secondary-container" />
-            <p className="flex-1 text-label-md">Added to your trip.</p>
-            <Link href="/plan" className="text-label-md font-semibold text-secondary-container">
-              View Plan
-            </Link>
-          </div>
-        ) : null}
-        {addState === "error" ? (
-          <div className="rounded-xl bg-error-container px-4 py-2.5 text-label-md text-on-error-container">
-            Couldn&rsquo;t add to trip. Try again.
-          </div>
-        ) : null}
         <div className="flex gap-3">
           <Button
             variant="orange"
@@ -399,31 +412,25 @@ export default function PlaceDetailPage({ params }: { params: Promise<{ id: stri
             Get Directions
           </Button>
           <Link
-            href={buildAskRoameoHref({
+            href={buildAskFomoHref({
               type: "place",
               id,
               name: place.name ?? "This place",
               coords: place.lat != null && place.lng != null ? { lat: place.lat, lng: place.lng } : null,
               returnTo: pathname,
             })}
-            aria-label="Ask Roameo about this place"
+            aria-label="Ask Fomo about this place"
             className="flex min-h-[48px] items-center justify-center rounded-xl border-[1.5px] border-primary px-4 text-primary transition-colors hover:bg-primary/5 active:bg-primary/10"
           >
             <Icon name="chat" size={20} />
           </Link>
           <Button
-            variant={addState === "added" ? "danger" : "outline"}
-            leadingIcon={addState === "added" ? "delete" : "add_circle"}
-            onClick={addState === "added" ? handleRemoveFromTrip : handleAddToTrip}
-            disabled={addState === "adding" || addState === "removing"}
+            variant={saved ? "danger" : "outline"}
+            leadingIcon={saved ? "bookmark" : "bookmark_border"}
+            onClick={handleToggleSave}
+            disabled={savePending}
           >
-            {addState === "added"
-              ? "Remove"
-              : addState === "adding"
-                ? "Adding…"
-                : addState === "removing"
-                  ? "Removing…"
-                  : "Add"}
+            {saved ? "Saved" : "Save"}
           </Button>
         </div>
       </div>

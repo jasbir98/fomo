@@ -2,21 +2,15 @@
 
 import { use, useEffect, useState } from "react";
 import Link from "next/link";
-import { useRouter, usePathname } from "next/navigation";
-import { useDeviceId } from "@/lib/device";
-import { buildAskRoameoHref } from "@/lib/chat-seed";
-import { getEvent, getCurrentTrip, createItem, deleteItem, listItems } from "@/lib/db";
-import {
-  eventDayDate,
-  formatEventPrice,
-  formatEventTime,
-  formatEventWhen,
-} from "@/lib/events/format";
+import { usePathname } from "next/navigation";
+import { supabaseBrowserAuth } from "@/lib/supabase/client";
+import { buildAskFomoHref } from "@/lib/chat-seed";
+import { getEvent } from "@/lib/db";
+import { isSaved, saveItem, unsaveItem } from "@/lib/db/saved";
+import { formatEventPrice, formatEventWhen } from "@/lib/events/format";
 import type { EventItem } from "@/lib/types";
-import { Button, Icon, PageHeader, PhotoCarousel, StatusPill } from "@/components/ui";
+import { Button, Icon, PageHeader, PhotoCarousel, ShareButton, StatusPill } from "@/components/ui";
 import type { CarouselPhoto } from "@/components/ui";
-
-type AddState = "idle" | "adding" | "added" | "removing" | "error";
 
 /** Same lat/lng-first, address-fallback shape as lib/maps/links.ts's
  * buildDirectionsUrl for Place — Event has no google_place_id, so no
@@ -35,27 +29,22 @@ function eventDirectionsUrl(event: EventItem): string | null {
  * data-fetching pattern, layout, and shared components (PageHeader,
  * PhotoCarousel, StatusPill), so every card that used to fetch-then-open a
  * sheet for an event now navigates here instead, exactly like a place card
- * navigates to /place/[id]. The add-to-trip machinery (including the
- * outside-trip-dates guard) is carried over from the retired
- * components/events/EventDetailSheet.tsx, since an event — unlike a place —
- * has a fixed date that can fall outside the trip's start/end window.
+ * navigates to /place/[id]. Fomo has no trips anymore — the secondary action
+ * is a save/bookmark toggle (lib/db/saved.ts) instead of add-to-itinerary.
  */
 export default function EventDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
-  const deviceId = useDeviceId();
-  const router = useRouter();
+  const db = supabaseBrowserAuth();
   const pathname = usePathname();
 
   const [event, setEvent] = useState<EventItem | null>(null);
   const [loading, setLoading] = useState(true);
-  const [tripStartDate, setTripStartDate] = useState<string | null>(null);
-  const [tripEndDate, setTripEndDate] = useState<string | null>(null);
-  const [addState, setAddState] = useState<AddState>("idle");
-  const [itemId, setItemId] = useState<string | null>(null);
+  const [saved, setSaved] = useState(false);
+  const [savePending, setSavePending] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
-    getEvent(id)
+    getEvent(db, id)
       .then((data) => {
         if (!cancelled) setEvent(data);
       })
@@ -66,88 +55,35 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
     return () => {
       cancelled = true;
     };
-  }, [id]);
+  }, [db, id]);
 
-  // Seed the trip's date window + "already added" state from the current
-  // trip's itinerary, so an event added on a previous visit shows "Remove"
-  // rather than a dead-end "Added", and so outsideTripDates below is correct
-  // on first paint.
   useEffect(() => {
-    if (!deviceId || !event) return;
     let cancelled = false;
-    (async () => {
-      try {
-        const trip = await getCurrentTrip(deviceId);
-        if (!trip || cancelled) return;
-        setTripStartDate(trip.start_date);
-        setTripEndDate(trip.end_date);
-        const items = await listItems(deviceId, trip.id);
-        if (cancelled) return;
-        const dayDate = eventDayDate(event.starts_at);
-        const match = items.find(
-          (it) =>
-            it.title?.trim().toLowerCase() === event.name.trim().toLowerCase() &&
-            it.day_date === dayDate
-        );
-        if (match) {
-          setAddState("added");
-          setItemId(match.id);
-        }
-      } catch (err) {
-        console.error("Failed to check itinerary status", err);
-      }
-    })();
+    isSaved(db, "event", id)
+      .then((value) => {
+        if (!cancelled) setSaved(value);
+      })
+      .catch((err) => console.error("Failed to check saved status", err));
     return () => {
       cancelled = true;
     };
-  }, [deviceId, event]);
+  }, [db, id]);
 
-  const dayDate = event ? eventDayDate(event.starts_at) : "";
-  const outsideTripDates =
-    !!tripStartDate &&
-    !!tripEndDate &&
-    !!dayDate &&
-    (dayDate < tripStartDate || dayDate > tripEndDate);
-
-  async function handleAddToTrip() {
-    if (!deviceId || !event || addState === "adding" || addState === "added" || outsideTripDates) return;
-    setAddState("adding");
+  async function handleToggleSave() {
+    if (savePending) return;
+    setSavePending(true);
     try {
-      const trip = await getCurrentTrip(deviceId);
-      if (!trip) {
-        setAddState("idle");
-        router.push("/plan/new-trip");
-        return;
+      if (saved) {
+        await unsaveItem(db, "event", id);
+        setSaved(false);
+      } else {
+        await saveItem(db, { subject_type: "event", subject_id: id, note: null });
+        setSaved(true);
       }
-      const created = await createItem(deviceId, {
-        trip_id: trip.id,
-        place_id: event.place_id,
-        title: event.name,
-        category: "activity",
-        location: event.venue_name ?? event.address,
-        day_date: eventDayDate(event.starts_at),
-        time_label: formatEventTime(event.starts_at),
-      });
-      setItemId(created.id);
-      setAddState("added");
     } catch (err) {
-      console.error("Failed to add event to trip", err);
-      setAddState("error");
-    }
-  }
-
-  /** Un-add: same `deleteItem` used everywhere else "Add to itinerary"
-   * exists — no duplicate removal logic added. */
-  async function handleRemoveFromTrip() {
-    if (!deviceId || !itemId || addState === "removing") return;
-    setAddState("removing");
-    try {
-      await deleteItem(deviceId, itemId);
-      setItemId(null);
-      setAddState("idle");
-    } catch (err) {
-      console.error("Failed to remove event from trip", err);
-      setAddState("error");
+      console.error("Failed to update saved status", err);
+    } finally {
+      setSavePending(false);
     }
   }
 
@@ -180,6 +116,12 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
   // array reuses PhotoCarousel's existing placeholder-when-empty behavior
   // (see app/(shell)/place/[id]/page.tsx) rather than a bespoke hero block.
   const heroPhotos: CarouselPhoto[] = event.image_url ? [{ url: event.image_url, alt: event.name }] : [];
+  // App isn't deployed yet — window.location.origin is the correct base for
+  // a shareable link until there's a real production host.
+  const shareUrl = typeof window !== "undefined" ? `${window.location.origin}${pathname}` : "";
+  const shareText = `${[event.name, formatEventWhen(event.starts_at, event.ends_at), price || "Free"]
+    .filter(Boolean)
+    .join(" · ")} — found on Fomo`;
 
   function openDirections() {
     if (directionsUrl) window.open(directionsUrl, "_blank", "noopener");
@@ -187,7 +129,11 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
 
   return (
     <div className="flex flex-col gap-6 pb-6">
-      <PageHeader title={event.name} showBack />
+      <PageHeader
+        title={event.name}
+        showBack
+        action={<ShareButton title={event.name} text={shareText} url={shareUrl} />}
+      />
 
       {/* Hero */}
       <section className="relative h-64 w-full overflow-hidden">
@@ -271,25 +217,6 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
 
       {/* Sticky bottom actions */}
       <div className="sticky bottom-[64px] z-30 flex flex-col gap-2 border-t border-outline-variant/40 bg-surface-container-lowest/95 px-5 py-4 backdrop-blur-md shadow-[0_-4px_16px_rgba(3,22,50,0.08)]">
-        {addState === "added" ? (
-          <div className="flex items-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-on-primary">
-            <Icon name="check_circle" filled size={18} className="text-secondary-container" />
-            <p className="flex-1 text-label-md">Added to your trip.</p>
-            <Link href="/plan" className="text-label-md font-semibold text-secondary-container">
-              View Plan
-            </Link>
-          </div>
-        ) : null}
-        {addState === "error" ? (
-          <div className="rounded-xl bg-error-container px-4 py-2.5 text-label-md text-on-error-container">
-            Couldn&rsquo;t update your trip. Try again.
-          </div>
-        ) : null}
-        {outsideTripDates && addState !== "added" ? (
-          <p className="text-label-sm text-on-surface-variant">
-            This event falls outside your trip dates, so it can&rsquo;t be added to the itinerary.
-          </p>
-        ) : null}
         <div className="flex gap-3">
           {event.ticket_url ? (
             <a
@@ -313,35 +240,25 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
             </Button>
           )}
           <Link
-            href={buildAskRoameoHref({
+            href={buildAskFomoHref({
               type: "event",
               id,
               name: event.name,
               coords: event.lat != null && event.lng != null ? { lat: event.lat, lng: event.lng } : null,
               returnTo: pathname,
             })}
-            aria-label="Ask Roameo about this event"
+            aria-label="Ask Fomo about this event"
             className="flex min-h-[48px] items-center justify-center rounded-xl border-[1.5px] border-primary px-4 text-primary transition-colors hover:bg-primary/5 active:bg-primary/10"
           >
             <Icon name="chat" size={20} />
           </Link>
           <Button
-            variant={addState === "added" ? "danger" : "outline"}
-            leadingIcon={addState === "added" ? "delete" : "add_circle"}
-            onClick={addState === "added" ? handleRemoveFromTrip : handleAddToTrip}
-            disabled={
-              addState === "adding" || addState === "removing" || (addState !== "added" && outsideTripDates)
-            }
+            variant={saved ? "danger" : "outline"}
+            leadingIcon={saved ? "bookmark" : "bookmark_border"}
+            onClick={handleToggleSave}
+            disabled={savePending}
           >
-            {outsideTripDates && addState !== "added"
-              ? "Outside trip dates"
-              : addState === "added"
-                ? "Remove"
-                : addState === "adding"
-                  ? "Adding…"
-                  : addState === "removing"
-                    ? "Removing…"
-                    : "Add"}
+            {saved ? "Saved" : "Save"}
           </Button>
         </div>
       </div>

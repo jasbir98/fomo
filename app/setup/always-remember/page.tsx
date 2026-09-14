@@ -3,7 +3,7 @@
 import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Button, Chip, PageHeader, Textarea } from "@/components/ui";
-import { useDeviceId } from "@/lib/device";
+import { supabaseBrowserAuth } from "@/lib/supabase/client";
 import { getRules, upsertRules } from "@/lib/db";
 
 // Exact quick-addition chip copy from always_remember/code.html.
@@ -17,7 +17,7 @@ const QUICK_ADDITIONS = [
 function AlwaysRememberForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const deviceId = useDeviceId();
+  const db = supabaseBrowserAuth();
   const isEdit = searchParams.get("edit") === "1" || searchParams.get("from") === "profile";
 
   const [rulesText, setRulesText] = useState("");
@@ -25,9 +25,8 @@ function AlwaysRememberForm() {
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    if (!deviceId) return;
     let cancelled = false;
-    getRules(deviceId).then((rules) => {
+    getRules(db).then((rules) => {
       if (cancelled || !rules) return;
       if (rules.rules_text) setRulesText(rules.rules_text);
       if (rules.quick_chips?.length) setQuickChips(rules.quick_chips);
@@ -35,7 +34,7 @@ function AlwaysRememberForm() {
     return () => {
       cancelled = true;
     };
-  }, [deviceId]);
+  }, [db]);
 
   function appendQuickAddition(text: string) {
     setQuickChips((prev) => (prev.includes(text) ? prev : [...prev, text]));
@@ -47,11 +46,11 @@ function AlwaysRememberForm() {
   }
 
   async function finish(persistRules: boolean) {
-    if (!deviceId || saving) return;
+    if (saving) return;
     setSaving(true);
     try {
       if (persistRules) {
-        await upsertRules(deviceId, { rules_text: rulesText, quick_chips: quickChips });
+        await upsertRules(db, { rules_text: rulesText, quick_chips: quickChips });
       }
       // No auto-seeded demo trip anymore — new travelers land on Home's empty
       // state (or already have a trip from the calendar-detected setup step),
@@ -96,7 +95,7 @@ function AlwaysRememberForm() {
         <div className="flex flex-col gap-4">
           <h1 className="text-headline-lg-mobile text-primary">Always Remember</h1>
           <p className="text-body-lg text-on-surface-variant">
-            Tell Roameo about your travel preferences, dietary restrictions, or
+            Tell Fomo about your travel preferences, dietary restrictions, or
             anything else you want applied to all your future itineraries.
           </p>
         </div>
@@ -132,7 +131,7 @@ function AlwaysRememberForm() {
           variant="orange"
           fullWidth
           size="md"
-          disabled={!deviceId || saving}
+          disabled={saving}
           onClick={() => finish(true)}
           className="h-14 text-headline-sm"
         >

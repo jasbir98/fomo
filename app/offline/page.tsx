@@ -1,5 +1,5 @@
 export const metadata = {
-  title: "Offline — Roameo",
+  title: "Offline — Fomo",
 };
 
 export default function OfflinePage() {
@@ -14,8 +14,8 @@ export default function OfflinePage() {
       </span>
       <h1 className="text-headline-md text-on-surface">You&rsquo;re offline</h1>
       <p className="max-w-xs text-body-md text-on-surface-variant">
-        Roameo can&rsquo;t reach the network right now. Check your connection —
-        your trip is saved and will be here when you&rsquo;re back.
+        Fomo can&rsquo;t reach the network right now. Check your connection —
+        your saved things will be here when you&rsquo;re back.
       </p>
     </main>
   );

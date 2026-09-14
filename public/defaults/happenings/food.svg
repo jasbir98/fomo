@@ -1,0 +1,16 @@
+<svg viewBox="0 0 300 200" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Food and drink default image">
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#dd5252"/>
+      <stop offset="100%" stop-color="#7a1010"/>
+    </linearGradient>
+  </defs>
+  <rect width="300" height="200" fill="url(#g)"/>
+  <g fill="#ffffff" fill-opacity="0.88">
+    <polygon points="112,55 124,55 128,112 122,112 122,150 114,150 114,112 108,112"/>
+    <rect x="176" y="55" width="4" height="55"/>
+    <rect x="186" y="55" width="4" height="55"/>
+    <rect x="196" y="55" width="4" height="55"/>
+    <rect x="184" y="110" width="12" height="40" rx="3"/>
+  </g>
+</svg>

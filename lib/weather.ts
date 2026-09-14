@@ -1,5 +1,5 @@
 /**
- * Roameo Weather — real forecast data via Open-Meteo (server-only).
+ * Fomo Weather — real forecast data via Open-Meteo (server-only).
  *
  * No API key required. Geocodes a destination string with the existing
  * Mapbox helper (`lib/places/geocode.ts`) and fetches Open-Meteo's daily
@@ -42,11 +42,17 @@ export interface ForecastResult {
    * the destination's offset. Null on failure/no destination.
    */
   utcOffsetSeconds: number | null;
+  /**
+   * IANA timezone name (e.g. "Asia/Tokyo") from Open-Meteo's `timezone=auto`
+   * resolution — same lookup that produces `utcOffsetSeconds`, just the
+   * name instead of the numeric offset. Null on failure/no destination.
+   */
+  timezone: string | null;
   /** Set (and `days` empty) when geocoding or the Open-Meteo call failed — callers must degrade gracefully, never throw to the client. */
   degraded?: string;
 }
 
-// WMO weather codes → Roameo's 4 themed conditions. Open-Meteo exposes ~28
+// WMO weather codes → Fomo's 4 themed conditions. Open-Meteo exposes ~28
 // distinct codes but the UI only has 4 backgrounds, so this buckets them by
 // which state would most usefully warn a walking-tour traveler:
 //   0-1   clear / mainly clear                -> sunny
@@ -91,6 +97,7 @@ function classifyCondition(
 
 interface OpenMeteoResponse {
   utc_offset_seconds?: number;
+  timezone?: string;
   daily?: {
     time?: string[];
     weather_code?: number[];
@@ -112,7 +119,13 @@ export async function getForecastForDestination(
 ): Promise<ForecastResult> {
   const center = await geocodeDestination(destination);
   if (!center) {
-    return { center: null, days: [], utcOffsetSeconds: null, degraded: "geocode-failed" };
+    return {
+      center: null,
+      days: [],
+      utcOffsetSeconds: null,
+      timezone: null,
+      degraded: "geocode-failed",
+    };
   }
 
   const url =
@@ -125,12 +138,12 @@ export async function getForecastForDestination(
     res = await fetch(url);
   } catch (err) {
     console.error("[weather] open-meteo network error", err);
-    return { center, days: [], utcOffsetSeconds: null, degraded: "forecast-error" };
+    return { center, days: [], utcOffsetSeconds: null, timezone: null, degraded: "forecast-error" };
   }
 
   if (!res.ok) {
     console.error(`[weather] open-meteo failed: ${res.status} ${res.statusText}`);
-    return { center, days: [], utcOffsetSeconds: null, degraded: "forecast-error" };
+    return { center, days: [], utcOffsetSeconds: null, timezone: null, degraded: "forecast-error" };
   }
 
   let data: OpenMeteoResponse;
@@ -138,13 +151,14 @@ export async function getForecastForDestination(
     data = (await res.json()) as OpenMeteoResponse;
   } catch (err) {
     console.error("[weather] open-meteo response parse failed", err);
-    return { center, days: [], utcOffsetSeconds: null, degraded: "forecast-error" };
+    return { center, days: [], utcOffsetSeconds: null, timezone: null, degraded: "forecast-error" };
   }
 
   const utcOffsetSeconds = data.utc_offset_seconds ?? null;
+  const timezone = data.timezone ?? null;
   const daily = data.daily;
   if (!daily?.time || daily.time.length === 0) {
-    return { center, days: [], utcOffsetSeconds, degraded: "forecast-error" };
+    return { center, days: [], utcOffsetSeconds, timezone, degraded: "forecast-error" };
   }
 
   const days: DayForecast[] = daily.time.map((date, i) => {
@@ -162,7 +176,7 @@ export async function getForecastForDestination(
     };
   });
 
-  return { center, days, utcOffsetSeconds };
+  return { center, days, utcOffsetSeconds, timezone };
 }
 
 /**

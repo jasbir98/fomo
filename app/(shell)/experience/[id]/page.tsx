@@ -2,15 +2,14 @@
 
 import { use, useEffect, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useDeviceId } from "@/lib/device";
-import { getExperience, getCurrentTrip, createItem, deleteItem, listItems } from "@/lib/db";
+import { usePathname } from "next/navigation";
+import { supabaseBrowserAuth } from "@/lib/supabase/client";
+import { getExperience } from "@/lib/db";
+import { isSaved, saveItem, unsaveItem } from "@/lib/db/saved";
 import type { Experience } from "@/lib/types";
 import { formatExperiencePrice, formatExperienceRating } from "@/lib/experiences/format";
-import { Button, Icon, PageHeader, PhotoCarousel, StatusPill } from "@/components/ui";
+import { Button, Icon, PageHeader, PhotoCarousel, ShareButton, StatusPill } from "@/components/ui";
 import type { CarouselPhoto } from "@/components/ui";
-
-type AddState = "idle" | "adding" | "added" | "removing" | "error";
 
 /** Human-readable badge for a provider slug ("viator" | "getyourguide"). */
 function providerLabel(provider: string): string {
@@ -22,17 +21,17 @@ function providerLabel(provider: string): string {
 
 export default function ExperienceDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
-  const deviceId = useDeviceId();
-  const router = useRouter();
+  const db = supabaseBrowserAuth();
+  const pathname = usePathname();
 
   const [experience, setExperience] = useState<Experience | null>(null);
   const [loading, setLoading] = useState(true);
-  const [addState, setAddState] = useState<AddState>("idle");
-  const [itemId, setItemId] = useState<string | null>(null);
+  const [saved, setSaved] = useState(false);
+  const [savePending, setSavePending] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
-    getExperience(id)
+    getExperience(db, id)
       .then((data) => {
         if (cancelled) return;
         setExperience(data);
@@ -44,74 +43,35 @@ export default function ExperienceDetailPage({ params }: { params: Promise<{ id:
     return () => {
       cancelled = true;
     };
-  }, [id]);
+  }, [db, id]);
 
-  // Seed "already added" state from the current trip's itinerary so an
-  // experience added on a previous visit shows "Remove" rather than a
-  // dead-end "Added". Matched on experience_id — a real FK, unlike the place
-  // page's title-string match.
   useEffect(() => {
-    if (!deviceId || !experience) return;
     let cancelled = false;
-    (async () => {
-      try {
-        const trip = await getCurrentTrip(deviceId);
-        if (!trip || cancelled) return;
-        const items = await listItems(deviceId, trip.id);
-        const match = items.find((it) => it.experience_id === experience.id);
-        if (cancelled) return;
-        if (match) {
-          setAddState("added");
-          setItemId(match.id);
-        }
-      } catch (err) {
-        console.error("Failed to check itinerary status", err);
-      }
-    })();
+    isSaved(db, "experience", id)
+      .then((value) => {
+        if (!cancelled) setSaved(value);
+      })
+      .catch((err) => console.error("Failed to check saved status", err));
     return () => {
       cancelled = true;
     };
-  }, [deviceId, experience]);
+  }, [db, id]);
 
-  async function handleAddToTrip() {
-    if (!deviceId || !experience || addState === "adding" || addState === "added") return;
-    setAddState("adding");
+  async function handleToggleSave() {
+    if (savePending) return;
+    setSavePending(true);
     try {
-      const trip = await getCurrentTrip(deviceId);
-      if (!trip) {
-        // No active trip — send the traveler to create one first.
-        setAddState("idle");
-        router.push("/plan/new-trip");
-        return;
+      if (saved) {
+        await unsaveItem(db, "experience", id);
+        setSaved(false);
+      } else {
+        await saveItem(db, { subject_type: "experience", subject_id: id, note: null });
+        setSaved(true);
       }
-      const created = await createItem(deviceId, {
-        trip_id: trip.id,
-        experience_id: experience.id,
-        title: experience.title,
-        category: experience.category,
-        location: experience.city ?? experience.title,
-        day_date: trip.start_date,
-      });
-      setItemId(created.id);
-      setAddState("added");
     } catch (err) {
-      console.error("Failed to add experience to trip", err);
-      setAddState("error");
-    }
-  }
-
-  /** Un-add: same `deleteItem` used everywhere else "Add to itinerary"
-   * exists (chat, map, place detail) — no duplicate removal logic added. */
-  async function handleRemoveFromTrip() {
-    if (!deviceId || !itemId || addState === "removing") return;
-    setAddState("removing");
-    try {
-      await deleteItem(deviceId, itemId);
-      setItemId(null);
-      setAddState("idle");
-    } catch (err) {
-      console.error("Failed to remove experience from trip", err);
-      setAddState("error");
+      console.error("Failed to update saved status", err);
+    } finally {
+      setSavePending(false);
     }
   }
 
@@ -151,10 +111,19 @@ export default function ExperienceDetailPage({ params }: { params: Promise<{ id:
     ? [{ url: experience.image_url, alt: experience.title ?? "" }]
     : [];
   const price = formatExperiencePrice(experience);
+  const experienceTitle = experience.title ?? "Experience";
+  // App isn't deployed yet — window.location.origin is the correct base for
+  // a shareable link until there's a real production host.
+  const shareUrl = typeof window !== "undefined" ? `${window.location.origin}${pathname}` : "";
+  const shareText = `${[experienceTitle, price || "Free"].filter(Boolean).join(" · ")} — found on Fomo`;
 
   return (
     <div className="flex flex-col gap-6 pb-6">
-      <PageHeader title={experience.title ?? "Experience"} showBack />
+      <PageHeader
+        title={experienceTitle}
+        showBack
+        action={<ShareButton title={experienceTitle} text={shareText} url={shareUrl} />}
+      />
 
       {/* Hero */}
       <section className="relative h-64 w-full overflow-hidden">
@@ -216,20 +185,6 @@ export default function ExperienceDetailPage({ params }: { params: Promise<{ id:
 
       {/* Sticky bottom actions */}
       <div className="sticky bottom-[64px] z-30 flex flex-col gap-2 border-t border-outline-variant/40 bg-surface-container-lowest/95 px-5 py-4 backdrop-blur-md shadow-[0_-4px_16px_rgba(3,22,50,0.08)]">
-        {addState === "added" ? (
-          <div className="flex items-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-on-primary">
-            <Icon name="check_circle" filled size={18} className="text-secondary-container" />
-            <p className="flex-1 text-label-md">Added to your trip.</p>
-            <Link href="/plan" className="text-label-md font-semibold text-secondary-container">
-              View Plan
-            </Link>
-          </div>
-        ) : null}
-        {addState === "error" ? (
-          <div className="rounded-xl bg-error-container px-4 py-2.5 text-label-md text-on-error-container">
-            Couldn&rsquo;t add to trip. Try again.
-          </div>
-        ) : null}
         <div className="flex gap-3">
           <Button
             variant="orange"
@@ -241,18 +196,12 @@ export default function ExperienceDetailPage({ params }: { params: Promise<{ id:
             Book Now
           </Button>
           <Button
-            variant={addState === "added" ? "danger" : "outline"}
-            leadingIcon={addState === "added" ? "delete" : "add_circle"}
-            onClick={addState === "added" ? handleRemoveFromTrip : handleAddToTrip}
-            disabled={addState === "adding" || addState === "removing"}
+            variant={saved ? "danger" : "outline"}
+            leadingIcon={saved ? "bookmark" : "bookmark_border"}
+            onClick={handleToggleSave}
+            disabled={savePending}
           >
-            {addState === "added"
-              ? "Remove"
-              : addState === "adding"
-                ? "Adding…"
-                : addState === "removing"
-                  ? "Removing…"
-                  : "Add"}
+            {saved ? "Saved" : "Save"}
           </Button>
         </div>
       </div>

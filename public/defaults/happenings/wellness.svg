@@ -1,0 +1,11 @@
+<svg viewBox="0 0 300 200" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Wellness default image">
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#3aa0bd"/>
+      <stop offset="100%" stop-color="#0a5567"/>
+    </linearGradient>
+  </defs>
+  <rect width="300" height="200" fill="url(#g)"/>
+  <path d="M150,48 C196,72 196,132 150,158 C104,132 104,72 150,48 Z" fill="#ffffff" fill-opacity="0.88"/>
+  <path d="M150,54 L150,152" stroke="#0a5567" stroke-width="3" fill="none"/>
+</svg>

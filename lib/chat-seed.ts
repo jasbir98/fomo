@@ -1,7 +1,7 @@
-// Client-safe. Builds the "Ask Roameo" deep-link (plan-v1-home-pivot.md §7):
-// every card's Ask Roameo action opens chat pre-seeded with what the card was
+// Client-safe. Builds the "Ask Fomo" deep-link (plan-v1-home-pivot.md §7):
+// every card's Ask Fomo action opens chat pre-seeded with what the card was
 // about, plus a `returnTo` path so closing chat lands back where you tapped
-// from, not on the bare Roameo tab.
+// from, not on the bare Fomo tab.
 import type { CardSubjectType } from "@/lib/types";
 
 export interface ChatSeed {
@@ -15,7 +15,7 @@ export interface ChatSeed {
 
 const PARAM_PREFIX = "seed";
 
-export function buildAskRoameoHref(seed: ChatSeed): string {
+export function buildAskFomoHref(seed: ChatSeed): string {
   const params = new URLSearchParams();
   params.set(`${PARAM_PREFIX}Type`, seed.type);
   params.set(`${PARAM_PREFIX}Id`, seed.id);
@@ -26,10 +26,10 @@ export function buildAskRoameoHref(seed: ChatSeed): string {
     params.set(`${PARAM_PREFIX}Lng`, String(seed.coords.lng));
   }
   params.set("returnTo", seed.returnTo);
-  return `/roameo?${params.toString()}`;
+  return `/fomo?${params.toString()}`;
 }
 
-/** Reads a ChatSeed back out of the Roameo page's own search params. Null when the page was opened without a seed (the plain FAB entry). */
+/** Reads a ChatSeed back out of the Fomo page's own search params. Null when the page was opened without a seed (the plain FAB entry). */
 export function readChatSeed(searchParams: URLSearchParams): ChatSeed | null {
   const type = searchParams.get(`${PARAM_PREFIX}Type`) as CardSubjectType | null;
   const id = searchParams.get(`${PARAM_PREFIX}Id`);
@@ -53,6 +53,7 @@ const QUESTIONS_BY_TYPE: Record<CardSubjectType, string[]> = {
   experience: ["Is it worth the price?", "What should I bring?", "How do I get there?"],
   itinerary_item: ["Any tips for this?", "What's nearby after?", "How long should I plan for it?"],
   reel: ["Where exactly is this?", "Is it worth visiting?", "How do I get there?"],
+  practicality: ["What do I actually need to do?", "Where do I sort this?", "Anything I should watch out for?"],
 };
 
 /** Suggested-question chips for a seeded chat — never an empty input on open (plan-v1-home-pivot.md §7). */

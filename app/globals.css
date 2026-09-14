@@ -4,103 +4,260 @@
   /* ---- Fonts ---- */
   --font-sans: var(--font-jakarta), ui-sans-serif, system-ui, sans-serif;
 
-  /* ---- Color tokens (Roameo DESIGN.md) ---- */
-  --color-surface: #f7f9fb;
-  --color-surface-dim: #d8dadc;
-  --color-surface-bright: #f7f9fb;
+  /* ---- Color tokens (Modern Maritime Edinburgh — Fomo design.md) ----
+     Replaces the previous Celestial Glass Light (amber) palette. Token NAMES
+     are unchanged — this design system uses the same Material 3 naming the app
+     already had, so this is a pure value swap and no component needed editing
+     for the palette alone.
+
+     Note on the source doc: its YAML frontmatter and its prose section disagree
+     on hex values (prose calls #1b365d "Primary" and cites Tailwind-slate values
+     like #0284c7 / #64748b that appear nowhere else). The frontmatter wins — it
+     is what the Stitch mockups actually compiled against, verified by counting
+     hex occurrences across their code.html. In frontmatter terms the prose's
+     "Primary" is `primary-container`, which is why that token, not `primary`,
+     carries the dominant navy in the mockups (headers, CTAs, selected chips). */
+  --color-surface: #f8f9ff;
+  --color-surface-dim: #cbdbf5;
+  --color-surface-bright: #f8f9ff;
   --color-surface-container-lowest: #ffffff;
-  --color-surface-container-low: #f2f4f6;
-  --color-surface-container: #eceef0;
-  --color-surface-container-high: #e6e8ea;
-  --color-surface-container-highest: #e0e3e5;
-  --color-on-surface: #191c1e;
-  --color-on-surface-variant: #44474d;
-  --color-inverse-surface: #2d3133;
-  --color-inverse-on-surface: #eff1f3;
-  --color-outline: #75777e;
-  --color-outline-variant: #c5c6ce;
-  --color-surface-tint: #4e5f7e;
-  --color-surface-variant: #e0e3e5;
+  --color-surface-container-low: #eff4ff;
+  --color-surface-container: #e5eeff;
+  --color-surface-container-high: #dce9ff;
+  --color-surface-container-highest: #d3e4fe;
+  --color-on-surface: #0b1c30;
+  --color-on-surface-variant: #44474e;
+  --color-inverse-surface: #213145;
+  --color-inverse-on-surface: #eaf1ff;
+  --color-outline: #74777f;
+  --color-outline-variant: #c4c6cf;
+  --color-surface-tint: #465f88;
+  --color-surface-variant: #d3e4fe;
 
-  --color-primary: #031632;
+  --color-primary: #002046;
   --color-on-primary: #ffffff;
-  --color-primary-container: #1a2b48;
-  --color-on-primary-container: #8293b5;
-  --color-inverse-primary: #b6c7eb;
+  --color-primary-container: #1b365d;
+  --color-on-primary-container: #87a0cd;
+  --color-inverse-primary: #aec7f7;
 
-  --color-secondary: #9b4500;
+  --color-secondary: #006398;
   --color-on-secondary: #ffffff;
-  --color-secondary-container: #fc8a40;
-  --color-on-secondary-container: #672c00;
+  /* Deviates from the frontmatter's #5bb8fe (user call, 2026-09-13: too light
+     and bright). A deep maritime blue in the #1b365d family, one step lighter
+     than primary-container so the active nav tab, CTAs and badges stay
+     distinguishable from navy headers. Being dark, it takes white text. */
+  --color-secondary-container: #2c5282;
+  --color-on-secondary-container: #ffffff;
 
-  --color-tertiary: #06172a;
+  --color-tertiary: #001c56;
   --color-on-tertiary: #ffffff;
-  --color-tertiary-container: #1c2c40;
-  --color-on-tertiary-container: #8393ac;
+  --color-tertiary-container: #002f84;
+  --color-on-tertiary-container: #789bff;
 
   --color-error: #ba1a1a;
   --color-on-error: #ffffff;
   --color-error-container: #ffdad6;
   --color-on-error-container: #93000a;
 
-  --color-primary-fixed: #d7e2ff;
-  --color-primary-fixed-dim: #b6c7eb;
-  --color-on-primary-fixed: #081b38;
-  --color-on-primary-fixed-variant: #374765;
+  --color-primary-fixed: #d6e3ff;
+  --color-primary-fixed-dim: #aec7f7;
+  --color-on-primary-fixed: #001b3d;
+  --color-on-primary-fixed-variant: #2e476f;
 
-  --color-secondary-fixed: #ffdbc9;
-  --color-secondary-fixed-dim: #ffb68d;
-  --color-on-secondary-fixed: #331200;
-  --color-on-secondary-fixed-variant: #763300;
+  --color-secondary-fixed: #cce5ff;
+  --color-secondary-fixed-dim: #93ccff;
+  --color-on-secondary-fixed: #001d31;
+  --color-on-secondary-fixed-variant: #004b73;
 
-  --color-tertiary-fixed: #d3e4fe;
-  --color-tertiary-fixed-dim: #b7c8e1;
-  --color-on-tertiary-fixed: #0b1c30;
-  --color-on-tertiary-fixed-variant: #38485d;
+  --color-tertiary-fixed: #dbe1ff;
+  --color-tertiary-fixed-dim: #b4c5ff;
+  --color-on-tertiary-fixed: #00174b;
+  --color-on-tertiary-fixed-variant: #003ea8;
 
-  --color-background: #f7f9fb;
-  --color-on-background: #191c1e;
+  --color-background: #f8f9ff;
+  --color-on-background: #0b1c30;
 
-  /* ---- Type scale (Plus Jakarta Sans) ---- */
-  --text-headline-lg: 2rem; /* 32px */
-  --text-headline-lg--line-height: 2.5rem; /* 40px */
+  /* ---- Accent (off-palette, deliberate) ----
+     The mockups use #2563eb ~19 times — the "FEED"/"SAVED" screen label, chip
+     leading icons, the "NATIONAL EVENT" tag, free badges — and it appears
+     NOWHERE in the design doc's frontmatter palette. The doc's prose names it
+     "Tertiary / Electric Royal Blue ... reserved for urgent actions,
+     flash-event badges, ticket confirmation states", so it has a real defined
+     role, but the frontmatter's `tertiary` is #001c56, a near-black navy.
+
+     Named `accent` rather than folded into `tertiary`: overwriting an M3 role
+     token would break the on-/container- pairings that go with it, and the
+     alternative — scattering the literal #2563eb across components — is how a
+     second, invisible design system gets started. One named token instead. */
+  --color-accent: #2563eb;
+  --color-on-accent: #ffffff;
+
+  /* ---- Happening category accents ----
+     One distinct, AA-safe accent per lib/happenings/types.ts's
+     HappeningCategory union (see lib/happenings/category-style.ts, the single
+     mapping module that turns these into badge/dot classes + icon + label).
+     Each is a saturated ~700-weight shade chosen so white text/icons on top
+     clear 4.5:1 — the same "solid pill" contrast strategy the app already
+     uses for bg-primary-container/text-on-primary-container. Kept off the
+     M3 role tokens (primary/secondary/tertiary) deliberately: these are a
+     categorical palette for telling 14 unrelated things apart, not part of
+     the brand's tonal system, same rationale as the standalone `accent`
+     token above. */
+  --color-cat-music: #4338ca;
+  --color-cat-nightlife: #be185d;
+  --color-cat-festival: #b45309;
+  --color-cat-arts: #7e22ce;
+  --color-cat-comedy: #c2410c;
+  --color-cat-sports: #15803d;
+  --color-cat-food: #b91c1c;
+  --color-cat-family: #0f766e;
+  --color-cat-museum: #78350f;
+  --color-cat-cinema: #334155;
+  --color-cat-other: #57534e;
+  --color-cat-wellness: #0e7490;
+  --color-cat-outdoors: #4d7c0f;
+  --color-cat-tours: #0369a1;
+
+  /* ---- Type scale (Plus Jakarta Sans — Modern Maritime Edinburgh) ----
+     Tighter than the Celestial Glass scale it replaces: every tier drops
+     1-4px and the label tiers gain weight. Existing class names are kept, so
+     this re-tunes ~20 screens in place rather than requiring per-file edits —
+     that is intentional (full re-skin), not an oversight.
+
+     `title-md` is retained as a legacy alias: this design system has no
+     `title` tier, and its `headline-md` happens to carry exactly the values
+     `title-md` already had (20/28/600). Files using it need no change; new
+     work should reach for `headline-md`. */
+  --text-display-lg: 2.5rem; /* 40px */
+  --text-display-lg--line-height: 3rem; /* 48px */
+  --text-display-lg--font-weight: 800;
+  --text-display-lg--letter-spacing: -0.03em;
+
+  --text-display-mobile: 2rem; /* 32px */
+  --text-display-mobile--line-height: 2.375rem; /* 38px */
+  --text-display-mobile--font-weight: 800;
+  --text-display-mobile--letter-spacing: -0.025em;
+
+  --text-headline-lg: 1.875rem; /* 30px */
+  --text-headline-lg--line-height: 2.375rem; /* 38px */
   --text-headline-lg--font-weight: 700;
   --text-headline-lg--letter-spacing: -0.02em;
 
-  --text-headline-lg-mobile: 1.75rem; /* 28px */
-  --text-headline-lg-mobile--line-height: 2.25rem; /* 36px */
+  --text-headline-lg-mobile: 1.5rem; /* 24px */
+  --text-headline-lg-mobile--line-height: 2rem; /* 32px */
   --text-headline-lg-mobile--font-weight: 700;
-  --text-headline-lg-mobile--letter-spacing: -0.02em;
+  --text-headline-lg-mobile--letter-spacing: -0.015em;
 
-  --text-headline-md: 1.5rem; /* 24px */
-  --text-headline-md--line-height: 2rem; /* 32px */
+  --text-headline-md: 1.25rem; /* 20px */
+  --text-headline-md--line-height: 1.75rem; /* 28px */
   --text-headline-md--font-weight: 600;
+  --text-headline-md--letter-spacing: -0.01em;
 
-  --text-headline-sm: 1.25rem; /* 20px */
-  --text-headline-sm--line-height: 1.75rem; /* 28px */
+  --text-headline-sm: 1rem; /* 16px */
+  --text-headline-sm--line-height: 1.5rem; /* 24px */
   --text-headline-sm--font-weight: 600;
+  --text-headline-sm--letter-spacing: -0.005em;
 
-  --text-body-lg: 1.125rem; /* 18px */
-  --text-body-lg--line-height: 1.75rem; /* 28px */
+  --text-title-md: 1.25rem; /* 20px — legacy alias of headline-md */
+  --text-title-md--line-height: 1.75rem; /* 28px */
+  --text-title-md--font-weight: 600;
+
+  --text-body-lg: 1.0625rem; /* 17px */
+  --text-body-lg--line-height: 1.625rem; /* 26px */
   --text-body-lg--font-weight: 400;
+  --text-body-lg--letter-spacing: -0.005em;
 
-  --text-body-md: 1rem; /* 16px */
-  --text-body-md--line-height: 1.5rem; /* 24px */
+  --text-body-md: 0.9375rem; /* 15px */
+  --text-body-md--line-height: 1.375rem; /* 22px */
   --text-body-md--font-weight: 400;
 
-  --text-label-md: 0.875rem; /* 14px */
-  --text-label-md--line-height: 1.25rem; /* 20px */
-  --text-label-md--font-weight: 500;
-  --text-label-md--letter-spacing: 0.01em;
+  --text-body-sm: 0.8125rem; /* 13px */
+  --text-body-sm--line-height: 1.125rem; /* 18px */
+  --text-body-sm--font-weight: 400;
 
-  --text-label-sm: 0.75rem; /* 12px */
-  --text-label-sm--line-height: 1rem; /* 16px */
-  --text-label-sm--font-weight: 600;
+  --text-label-lg: 0.875rem; /* 14px */
+  --text-label-lg--line-height: 1.25rem; /* 20px */
+  --text-label-lg--font-weight: 600;
+  --text-label-lg--letter-spacing: 0.01em;
 
-  /* ---- Radii (override defaults) ---- */
-  --radius-md: 12px; /* inputs */
-  --radius-lg: 16px; /* cards */
-  --radius-xl: 24px; /* buttons / dialogue */
+  --text-label-md: 0.75rem; /* 12px */
+  --text-label-md--line-height: 1rem; /* 16px */
+  --text-label-md--font-weight: 600;
+  --text-label-md--letter-spacing: 0.02em;
+
+  --text-label-sm: 0.6875rem; /* 11px */
+  --text-label-sm--line-height: 0.875rem; /* 14px */
+  --text-label-sm--font-weight: 700;
+  --text-label-sm--letter-spacing: 0.04em;
+
+  /* ---- Radii (Modern Maritime Edinburgh) ----
+     md/lg/xl are unchanged by this design system — it specifies 0.75/1/1.5rem,
+     which is exactly what they already were. Only `sm` and `DEFAULT` are new.
+
+     Note the Stitch mockups' own tailwind.config declared DEFAULT:1rem,
+     lg:2rem, xl:3rem, which contradicts the design doc's frontmatter AND its
+     prose ("Base 0.5rem, Containers 1rem, Hero/Overlays 1.5rem"). The
+     frontmatter is used here: it agrees with the prose, it matches the radii
+     visible in the exported feed screenshot, and it leaves existing
+     rounded-md/lg/xl usages untouched.
+
+     The design's 0.5rem "base components" tier had no token in this app and
+     is added as `rounded-base` rather than as Tailwind's bare `rounded`:
+     v4 themes the bare utility via `--radius`, not `--radius-DEFAULT`, and
+     nothing in the codebase uses bare `rounded` anyway, so a named tier is
+     both valid and clearer at the call site.
+
+     2xl/3xl are held over from the retired glass design. This design system's
+     largest container radius is xl. They stay defined so the files still using
+     rounded-2xl/3xl keep compiling; the re-skin pass should migrate those to
+     rounded-xl and then these two can be deleted. */
+  --radius-sm: 0.25rem; /* 4px  — checkboxes */
+  --radius-base: 0.5rem; /* 8px  — inputs, badges, segmented toggles */
+  --radius-md: 0.75rem; /* 12px — inputs */
+  --radius-lg: 1rem; /* 16px — cards, category tiles, dropdowns */
+  --radius-xl: 1.5rem; /* 24px — bottom sheets, map overlays, banners */
+  --radius-2xl: 2rem; /* 32px — LEGACY (glass), migrate to xl */
+  --radius-3xl: 3rem; /* 48px — LEGACY (glass), migrate to xl */
+
+  /* ---- Spacing ---- */
+  --spacing-gutter: 1rem;
+  --spacing-gutter-tablet: 1.25rem;
+  --spacing-gutter-desktop: 1.5rem;
+  --spacing-margin: 1rem;
+  --spacing-margin-tablet: 2rem;
+  --spacing-margin-desktop: 3rem;
+
+  /* ---- Elevation (cool oceanic ambient shadows) ----
+     Tonal surface separation first, shadow second. All three are tinted with
+     the navy (0,32,70) rather than neutral black — a black shadow over
+     #f8f9ff reads as grey dirt against this palette.
+
+     Retuned 2026-09-14 (user feedback: "borders look very bad... card
+     shadows look very good [in the mockup]") to match the Stitch mockup's
+     own `.glass-panel` treatment (stitch_miles_edinburgh_deals_app/
+     fomo_edinburgh_cheap_free_feed_navy_blue/code.html: `box-shadow: 0 4px
+     20px -2px rgba(15,23,42,0.04), inset 0 1px 1px 0 rgba(255,255,255,0.9)`)
+     — a wider, softer blur than the previous values gave, so a card reads by
+     its shadow rather than needing a visible border to separate it from the
+     page. Card components were updated alongside this (see
+     components/happenings/*, components/ui/Card.tsx, components/fomo/
+     Card.tsx) to drop their `border-outline-variant`/`border-hairline`
+     outer borders now that the shadow alone carries that job; a hairline
+     stays fine for INTERNAL dividers within a card (a footer row, a
+     promo-code box) — the mockup keeps those too. */
+  --shadow-level-1:
+    0 1px 3px 0 rgb(0 32 70 / 0.05), 0 4px 16px -4px rgb(0 32 70 / 0.06);
+  --shadow-level-2:
+    0 4px 10px -2px rgb(0 32 70 / 0.08), 0 12px 28px -8px rgb(0 32 70 / 0.1);
+  --shadow-level-3:
+    0 10px 20px -4px rgb(0 32 70 / 0.12), 0 24px 44px -10px rgb(0 32 70 / 0.16);
+
+  /* ---- Hairlines ----
+     The design system's boundary colours are navy at low alpha, not `outline`.
+     Level 1 surfaces use `hairline`; focus rings and hovered cards use
+     `hairline-strong`. */
+  --color-hairline: rgb(27 54 93 / 0.08);
+  --color-hairline-strong: rgb(27 54 93 / 0.16);
 }
 
 body {
@@ -120,6 +277,21 @@ body {
     "opsz" 24;
 }
 
+/* ---- Glass surface (Celestial Glass Light) ----
+   Formalizes the translucent-background-plus-backdrop-blur pattern already
+   used ad hoc across the app (sticky headers, overlay badges) into one
+   reusable utility, plus the spec's "inner glow on the top edge" detail
+   that ad hoc usage skipped. */
+@utility glass-surface {
+  background: color-mix(in srgb, var(--color-surface-container-lowest) 72%, transparent);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid color-mix(in srgb, var(--color-outline) 12%, transparent);
+  box-shadow:
+    0 4px 20px rgba(0, 0, 0, 0.03),
+    inset 0 1px 0 rgba(255, 255, 255, 0.5);
+}
+
 /* ---- Safe-area helpers ---- */
 @utility pt-safe {
   padding-top: env(safe-area-inset-top);
@@ -135,4 +307,30 @@ body {
 }
 @utility min-h-safe-dvh {
   min-height: calc(100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+}
+
+/* ---- What's on window-switch feedback ----
+   Home's Now/This month/Coming up control (app/(shell)/page.tsx) dims the
+   What's on section while the new window's data loads, then plays this
+   cross-fade+rise on the freshly-arrived buckets so the swap reads as a
+   clear "something changed" moment instead of a silent content swap.
+   Plain CSS (not an `@utility`) so the prefers-reduced-motion override below
+   is guaranteed to win regardless of Tailwind's own layer ordering. */
+@keyframes feed-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.feed-fade-in {
+  animation: feed-fade-in 280ms ease-out;
+}
+@media (prefers-reduced-motion: reduce) {
+  .feed-fade-in {
+    animation: none;
+  }
 }

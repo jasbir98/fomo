@@ -1,0 +1,24 @@
+<svg viewBox="0 0 300 200" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Festival default image">
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#dd8a3c"/>
+      <stop offset="100%" stop-color="#7a3600"/>
+    </linearGradient>
+  </defs>
+  <rect width="300" height="200" fill="url(#g)"/>
+  <rect x="65" y="62" width="170" height="4" fill="#ffffff" fill-opacity="0.9"/>
+  <g fill="#ffffff" fill-opacity="0.88">
+    <polygon points="72,66 100,66 86,112"/>
+    <polygon points="110,66 138,66 124,118"/>
+    <polygon points="148,66 176,66 162,108"/>
+    <polygon points="186,66 214,66 200,116"/>
+    <polygon points="224,66 252,66 238,110"/>
+  </g>
+  <g fill="#ffffff" fill-opacity="0.7">
+    <circle cx="95" cy="140" r="4"/>
+    <circle cx="150" cy="150" r="5"/>
+    <circle cx="205" cy="138" r="4"/>
+    <circle cx="175" cy="128" r="3"/>
+    <circle cx="120" cy="128" r="3"/>
+  </g>
+</svg>
