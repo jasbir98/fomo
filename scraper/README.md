@@ -119,9 +119,10 @@ python classify_reels.py --limit 50 --batch-size 15
 
 Re-run `classify_reels.py` any time — it only ever processes rows still
 marked `classified = false`, so it's safe to run repeatedly as new reels get
-scraped. `--model` (or the `REEL_CLASSIFY_MODEL` env var) overrides the
-default `claude-haiku-4-5-20251001`. Requires `ANTHROPIC_API_KEY` in
-`scraper/.env`.
+scraped. `--model` overrides the default model (DeepSeek by default, Anthropic
+if only ANTHROPIC_API_KEY is set). The script prints the provider + model at
+startup. Requires `DEEPSEEK_API_KEY` (in `.env.local` or `scraper/.env`) or
+`ANTHROPIC_API_KEY` in `scraper/.env`.
 
 ## First-run login
 
@@ -226,6 +227,107 @@ python scrape_places_batch.py --platform tiktok --only-city chiyoda \
 python scrape_places_batch.py --platform tiktok --batch-size 6 \
   --batch-rest-min 90 --batch-rest-max 180
 ```
+
+## Edinburgh reels — complete pipeline
+
+Fomo is an Edinburgh-only app, so the reels pipeline is optimized for Edinburgh
+local content. The full pipeline with all three sources (TikTok places, Instagram
+places, local hashtags) and classification:
+
+```bash
+# 1. Log in once to both platforms (opens real Chrome)
+python scraper/browser_session.py --platform tiktok
+python scraper/browser_session.py --platform instagram
+
+# 2. Dry run: see what queries would run (TikTok)
+python scraper/scrape_places_batch.py --city edinburgh --platform tiktok --dry-run
+
+# 3. Scrape Edinburgh places from TikTok and Instagram
+python scraper/scrape_places_batch.py --city edinburgh --platform tiktok --limit-per-place 5
+python scraper/scrape_places_batch.py --city edinburgh --platform instagram --limit-per-place 5
+
+# 4. Dry run: see Edinburgh topics that would be scraped
+python scraper/scrape_places_batch.py --city edinburgh --topics --dry-run
+
+# 5. Scrape Edinburgh local hashtags (topics) from both platforms
+python scraper/scrape_places_batch.py --city edinburgh --topics --platform both --limit-per-place 8
+
+# 6. Classify and promote approved reels to social_posts
+python scraper/classify_reels.py --limit 100 --batch-size 20
+
+# 7. (Optional) Dry-run classification to see verdicts without upserting
+python scraper/classify_reels.py --limit 50 --dry-run
+```
+
+### How it works
+
+- **`--city edinburgh` preset**: automatically selects Edinburgh places (by
+  prefecture "City of Edinburgh" or city in {Edinburgh, Leith, Dean Village,
+  Stockbridge, ...}), dedupes by normalized name (so the same venue across
+  different source files is scraped once), uses the template `{name} Edinburgh`
+  for TikTok queries, sets destination to "Edinburgh" for every reel, and saves
+  progress to `data/batch_progress_edinburgh.json`.
+- **Places**: scraped from TikTok and Instagram using Edinburgh place names —
+  e.g. "The Golf Tavern" queries as "#thegolftavern" on Instagram and "The Golf
+  Tavern Edinburgh" on TikTok. Each reel is tagged with the place name as
+  `location` and "Edinburgh" as `destination`, so the classifier can restrict
+  place matches to the Edinburgh bbox.
+- **Topics**: built-in list of Edinburgh local hashtags (edinburghfood,
+  edinburghcafe, thingstodoinedinburgh, leith, etc.) scraped on both platforms
+  with `--topics`. Useful for finding general local content that isn't
+  searchable by a specific place name.
+- **Dry-run**: `--dry-run` shows the first 20 queries per platform and total
+  count without opening a browser or touching Supabase.
+
+### Running TikTok and Instagram in parallel
+
+Both platforms can scrape Edinburgh places at the same time, in two separate
+terminals, without racing each other or covering the same places twice:
+
+```bash
+python scraper/scrape_places_batch.py --city edinburgh --platform tiktok --exclusive
+python scraper/scrape_places_batch.py --city edinburgh --platform instagram --reverse --exclusive
+```
+
+- **`--reverse`** walks the place list last → first instead of first → last.
+  Run one platform forward and the other with `--reverse` so they start at
+  opposite ends of the list and work towards each other, meeting in the
+  middle — then both stop once the list is covered.
+- **`--exclusive`** makes a place scraped by at most one platform: before each
+  place, the process re-checks the shared progress file and skips anything
+  the *other* platform has already finished, or is actively working on right
+  now (a fresh "in_progress" claim). This is checked continuously as the run
+  goes, not just once at startup, so the two processes stay out of each
+  other's way as they each advance through the list.
+- Progress writes are safe to interleave: every write takes a short-lived
+  file lock (`batch_progress_edinburgh.json.lock`), re-reads the file, updates
+  only its own entry, and writes it back — so nothing gets lost or
+  overwritten even with both processes hammering the same progress file back
+  to back.
+- **Stale claims expire**: if a process dies mid-place (crash, Ctrl-C that
+  didn't clean up), its claim on that place is normally released immediately;
+  if it isn't, the claim still expires after `--claim-ttl-minutes` (default
+  `45`) and becomes eligible for the other platform to pick up.
+- Both processes should use the **same logged-in Chrome** (attach mode, the
+  default) — log into both platforms first with `browser_session.py --platform
+  tiktok` and `--platform instagram` before starting either run.
+- **Don't pass `--close-browser` to either process.** It quits the shared
+  Chrome when that process's run ends, which would kill the other platform's
+  session mid-run. Leave it off on both.
+- **Resumable**: progress is tracked per place/topic in `batch_progress_edinburgh.json`;
+  re-run the same command to resume from where it left off (use `--force` to
+  re-scrape).
+- **Volume / ban risk**: keep `--limit-per-place` low (5-8). TikTok and
+  Instagram rate-limit and ban accounts for high-volume scraping. If you hit a
+  soft throttle (many empty results), cool off for a few hours before resuming.
+  Always use your own account, never automate login, never solve CAPTCHAs or
+  checkpoints.
+- **Classification**: nothing appears in the app until `classify_reels.py`
+  approves it. The classifier asks an LLM (DeepSeek by default) whether each
+  reel is genuinely about that place/topic IN Edinburgh and useful to someone
+  in the city (food, drink, events, deals, things to do). Rejected reels stay
+  in `scraped_reels` with a classification reason for audit; use `--dry-run` to
+  see verdicts before upserting.
 
 - **Place list**: reads every `*.json` file in `--consolidated-dir` (default
   `consolidated/`, the enrichment pipeline's per-city output — see

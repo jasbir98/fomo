@@ -30,6 +30,12 @@ export interface HappeningHeroProps {
    *  a Fomo Pick hero does — that reads as urgency about TODAY, which is
    *  backwards for a card whose whole point is booking ahead. */
   variant?: "fomo_pick" | "book_early";
+  /** Short "why this" copy from the recommendation score (see
+   *  lib/happenings/hero.ts's `happeningRecommendationScore`), e.g. "Free ·
+   *  last chance tomorrow" — shown as a small eyebrow pill under the
+   *  Fomo Pick/Book Early label. Null/undefined renders nothing extra,
+   *  which is the normal case on the Book Early tab (see FeedHero). */
+  reason?: string | null;
 }
 
 /**
@@ -45,7 +51,7 @@ export interface HappeningHeroProps {
  * on Book early, which shows no hero at all rather than either fallback when
  * it has no Book Early candidate to lead with.
  */
-export function HappeningHero({ happening, occurrence, variant = "fomo_pick" }: HappeningHeroProps) {
+export function HappeningHero({ happening, occurrence, variant = "fomo_pick", reason }: HappeningHeroProps) {
   const [copied, setCopied] = useState(false);
   const [imgError, setImgError] = useState(false);
   const now = new Date();
@@ -121,10 +127,17 @@ export function HappeningHero({ happening, occurrence, variant = "fomo_pick" }: 
         <div className="absolute inset-0 bg-gradient-to-t from-surface-container-lowest via-surface-container-lowest/15 to-transparent" />
 
         <div className="absolute inset-x-3 top-3 flex items-start justify-between gap-2">
-          <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-primary-container/90 px-3 py-1 text-label-sm font-bold text-on-primary-container backdrop-blur-md">
-            <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-secondary-fixed-dim animate-pulse" />
-            {pickLabel}
-          </span>
+          <div className="flex min-w-0 flex-col items-start gap-1">
+            <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-primary-container/90 px-3 py-1 text-label-sm font-bold text-on-primary-container backdrop-blur-md">
+              <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-secondary-fixed-dim animate-pulse" />
+              {pickLabel}
+            </span>
+            {reason ? (
+              <span className="inline-flex max-w-full shrink-0 items-center truncate rounded-full bg-surface-container-lowest/85 px-2.5 py-0.5 text-label-sm font-semibold text-on-surface backdrop-blur-md">
+                {reason}
+              </span>
+            ) : null}
+          </div>
           {badge ? (
             <span className="shrink-0 rounded-full border border-on-primary/20 bg-primary-container px-3 py-1 text-label-md font-bold text-on-primary-container shadow-md backdrop-blur-md">
               {badge}

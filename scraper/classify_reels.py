@@ -36,36 +36,41 @@ load_dotenv(SCRAPER_DIR / ".env")
 sys.path.insert(0, str(SCRAPER_DIR))
 
 from upsert_supabase import _get_credentials, upsert_reels  # noqa: E402
+import llm_client  # noqa: E402
 
-DEFAULT_MODEL = "claude-haiku-4-5"
+DEFAULT_MODEL = llm_client.default_research_model()
 MAX_CAPTION_CHARS = 600
 
-SYSTEM_PROMPT = """You review scraped TikTok/Instagram reels for a travel app.
+# Edinburgh bbox from lib/city.ts — used to restrict place matching
+# when destination contains "edinburgh"
+EDINBURGH_BBOX = {"minLat": 55.85, "maxLat": 56.01, "minLng": -3.46, "maxLng": -3.05}
 
-Each reel was found by searching TikTok/Instagram for a specific named
-tourist place. You do not have access to the video itself — only the
-caption, author handle, platform, and the place name it was searched under.
+SYSTEM_PROMPT = """You review scraped TikTok/Instagram reels for Fomo, a local Edinburgh app.
 
-Each item also gives the destination (city/region) the place was searched
-in. Use it to catch same-named-but-different places -- e.g. a place called
-"Aberdeen Beach" or "Perth" was searched for in Scotland, but many place
-names re-occur worldwide (Aberdeen, MD; Perth, Australia; Glasgow, KY), and
-a caption can make the true location explicit (mentions a different city/
-country, wrong landmarks, wrong language/currency context, etc).
+Each reel was found by searching TikTok/Instagram for a specific named place
+in Edinburgh. You do not have access to the video itself — only the caption,
+author handle, platform, and the place name it was searched under.
+
+Each item also gives the destination (city/region) the place was searched in,
+and may include hashtags from the reel's caption. Use these to catch
+same-named-but-different places -- e.g. many place names re-occur in
+different cities, and a caption can make the true location explicit.
+
+For Edinburgh reels (destination contains "edinburgh"), approve only reels
+that are actually about that place IN Edinburgh and useful to someone in
+the city: food, drink, events, deals, things to do, views, venues, local
+tips, café menus, pub quizzes, student deals, happy hours, new openings,
+and similar local content.
 
 Decide is_tourist_reel=true only if the caption text plausibly indicates the
-reel is actually about that place, in that destination, as a travel/tourist
-destination.
+reel is genuinely about that place/topic IN that destination.
 
 Say is_tourist_reel=false for:
 - captions with no discernible relation to the named place
-- generic meme/trend/audio reposts unrelated to travel
+- generic meme/trend/audio reposts unrelated to the destination
 - spam, ads, or unrelated business promotion
-- a same-named but clearly different place (wrong city/country/context --
-  including the same name in a different country/region than the given
-  destination)
-- captions too generic, untranslated-and-unclear, or empty to tell either
-  way
+- a same-named but clearly different place (wrong city/country/context)
+- captions too generic, untranslated-and-unclear, or empty to tell either way
 
 Prefer false when genuinely uncertain — this filters a public feed, and a
 missed reel is cheaper than a wrong one. Give a short one-sentence reason
@@ -165,15 +170,45 @@ def fetch_approved(supabase_url: str, supabase_key: str) -> list[dict]:
     return rows
 
 
-def fetch_places(supabase_url: str, supabase_key: str) -> list[dict]:
-    """All `places` rows (id/name/source/rating), for resolving place_id on promotion.
+def _in_edinburgh_bbox(place: dict) -> bool:
+    lat, lng = place.get("lat"), place.get("lng")
+    return (
+        lat is not None
+        and lng is not None
+        and EDINBURGH_BBOX["minLat"] <= lat <= EDINBURGH_BBOX["maxLat"]
+        and EDINBURGH_BBOX["minLng"] <= lng <= EDINBURGH_BBOX["maxLng"]
+    )
 
-    Small table (low hundreds of rows) so a single unpaginated fetch is fine.
+
+def fetch_places(supabase_url: str, supabase_key: str) -> list[dict]:
+    """All `places` rows (id/name/source/rating/lat/lng), for resolving place_id on promotion.
+
+    Paginated: ~3,400 rows and PostgREST caps a response at 1,000. Ordered by
+    id so offset pages are stable. Callers narrow to Edinburgh with
+    _in_edinburgh_bbox — filtering here would make a short page look like the
+    last one.
     """
+    page_size = 1000
+    offset = 0
+    rows: list[dict] = []
     try:
-        return _rest_get(
-            supabase_url, supabase_key, "places", {"select": "id,name,source,rating", "limit": "5000"}
-        )
+        while True:
+            page = _rest_get(
+                supabase_url,
+                supabase_key,
+                "places",
+                {
+                    "select": "id,name,source,rating,lat,lng",
+                    "order": "id",
+                    "limit": str(page_size),
+                    "offset": str(offset),
+                },
+            )
+            rows.extend(page)
+            if len(page) < page_size:
+                break
+            offset += page_size
+        return rows
     except requests.RequestException as exc:
         print(f"[classify] warning: couldn't fetch places for place_id lookup: {exc}", file=sys.stderr)
         return []
@@ -474,6 +509,7 @@ def classify_batch(client: Any, model: str, batch: list[dict]) -> dict[str, dict
             }
         )
 
+    # Use llm_client's SUBMIT_CALL_KWARGS to disable thinking on DeepSeek
     response = client.messages.create(
         model=model,
         max_tokens=4000,
@@ -481,6 +517,7 @@ def classify_batch(client: Any, model: str, batch: list[dict]) -> dict[str, dict
         tools=[CLASSIFY_TOOL],
         tool_choice={"type": "tool", "name": "submit_classifications"},
         messages=[{"role": "user", "content": json.dumps(items, ensure_ascii=False)}],
+        **llm_client.SUBMIT_CALL_KWARGS,
     )
 
     tool_use = next((b for b in response.content if b.type == "tool_use"), None)
@@ -495,16 +532,16 @@ def classify_batch(client: Any, model: str, batch: list[dict]) -> dict[str, dict
 
 def main() -> None:
     parser = argparse.ArgumentParser(
-        description="Classify scraped_reels rows as tourist-destination reels or not, "
+        description="Classify scraped_reels rows as local-content reels or not, "
         "promoting approved ones to social_posts."
     )
     parser.add_argument("--limit", type=int, default=50, help="Max unclassified rows to process this run.")
     parser.add_argument("--batch-size", type=int, default=15, help="Reels per Claude call.")
     parser.add_argument("--model", default=os.environ.get("REEL_CLASSIFY_MODEL", DEFAULT_MODEL))
+    parser.add_argument("--dry-run", action="store_true", help="Classify and print verdicts without upserting to Supabase.")
     args = parser.parse_args()
 
     supabase_url, supabase_key = _get_credentials()
-    places_rows = fetch_places(supabase_url, supabase_key)
 
     reels = fetch_unclassified(supabase_url, supabase_key, args.limit)
     classified_count = 0
@@ -512,15 +549,9 @@ def main() -> None:
     if not reels:
         print("[classify] nothing unclassified this run.")
     else:
-        api_key = os.environ.get("ANTHROPIC_API_KEY", "").strip()
-        if not api_key:
-            print("[classify] ANTHROPIC_API_KEY is required in scraper/.env", file=sys.stderr)
-            sys.exit(1)
-        from anthropic import Anthropic
-
-        client = Anthropic(api_key=api_key)
-
-        print(f"[classify] {len(reels)} unclassified reel(s), batch size {args.batch_size}, model {args.model}")
+        client, provider = llm_client.make_research_client("classify")
+        print(f"[classify] {len(reels)} unclassified reel(s), batch size {args.batch_size}")
+        print(f"[classify] model {args.model} ({provider})")
 
         for start in range(0, len(reels), args.batch_size):
             batch = reels[start : start + args.batch_size]
@@ -539,23 +570,24 @@ def main() -> None:
                 is_tourist_reel = bool(result.get("is_tourist_reel"))
                 reason = str(result.get("reason") or "")[:500]
 
-                _rest_patch(
-                    supabase_url,
-                    supabase_key,
-                    "scraped_reels",
-                    {"video_url": f"eq.{reel['video_url']}"},
-                    {
-                        "classified": True,
-                        "is_tourist_reel": is_tourist_reel,
-                        "classification_reason": reason,
-                        "classified_at": datetime.now(timezone.utc).isoformat(),
-                    },
-                )
+                if not args.dry_run:
+                    _rest_patch(
+                        supabase_url,
+                        supabase_key,
+                        "scraped_reels",
+                        {"video_url": f"eq.{reel['video_url']}"},
+                        {
+                            "classified": True,
+                            "is_tourist_reel": is_tourist_reel,
+                            "classification_reason": reason,
+                            "classified_at": datetime.now(timezone.utc).isoformat(),
+                        },
+                    )
                 classified_count += 1
 
                 verdict = "approved" if is_tourist_reel else "rejected"
                 place = reel.get("location") or "?"
-                print(f"  [{verdict}] '{place}' -- {reel['video_url']} -- {reason}")
+                print(f"  [{verdict}] '{place}' -- {reason}")
 
     # Promotion runs over the *entire* approved set every time (unconditionally,
     # even when there was nothing new to classify above) — not just
@@ -564,32 +596,41 @@ def main() -> None:
     # promotion (classified in scraped_reels but never upserted to
     # social_posts, e.g. from a prior crash) self-healing on the next run.
     promoted_count = 0
-    approved = fetch_approved(supabase_url, supabase_key)
-    if approved:
-        promoted_rows = []
-        for reel in approved:
-            place_id, _ = resolve_place_id(reel.get("caption"), reel.get("location"), places_rows)
-            promoted_rows.append(
-                {
-                    "platform": reel.get("platform"),
-                    "video_url": reel["video_url"],
-                    "thumbnail_url": reel.get("thumbnail_url"),
-                    "caption": reel.get("caption"),
-                    "author_handle": reel.get("author_handle"),
-                    "likes": reel.get("likes"),
-                    "location": reel.get("location"),
-                    "destination": reel.get("destination"),
-                    "place_id": place_id,
-                }
-            )
-        try:
-            promoted_count = upsert_reels(promoted_rows, table="social_posts")
-        except Exception as exc:
-            print(
-                f"[classify] promotion to social_posts failed, but classifications are saved — "
-                f"will retry automatically on the next run: {exc}",
-                file=sys.stderr,
-            )
+    if not args.dry_run:
+        approved = fetch_approved(supabase_url, supabase_key)
+        if approved:
+            # Fetch every place once, then narrow per reel: the approved set
+            # mixes Edinburgh and older Scotland/Japan reels, so one shared
+            # candidate list would re-resolve (and null out) the others'
+            # place_id on every run.
+            all_places = fetch_places(supabase_url, supabase_key)
+            edinburgh_places = [p for p in all_places if _in_edinburgh_bbox(p)]
+            promoted_rows = []
+            for reel in approved:
+                is_edinburgh = "edinburgh" in (reel.get("destination") or "").lower()
+                places_rows = edinburgh_places if is_edinburgh else all_places
+                place_id, _ = resolve_place_id(reel.get("caption"), reel.get("location"), places_rows)
+                promoted_rows.append(
+                    {
+                        "platform": reel.get("platform"),
+                        "video_url": reel["video_url"],
+                        "thumbnail_url": reel.get("thumbnail_url"),
+                        "caption": reel.get("caption"),
+                        "author_handle": reel.get("author_handle"),
+                        "likes": reel.get("likes"),
+                        "location": reel.get("location"),
+                        "destination": reel.get("destination"),
+                        "place_id": place_id,
+                    }
+                )
+            try:
+                promoted_count = upsert_reels(promoted_rows, table="social_posts")
+            except Exception as exc:
+                print(
+                    f"[classify] promotion to social_posts failed, but classifications are saved — "
+                    f"will retry automatically on the next run: {exc}",
+                    file=sys.stderr,
+                )
 
     print(f"[classify] classified {classified_count} reel(s) this run; {promoted_count} approved reel(s) promoted to social_posts.")
 

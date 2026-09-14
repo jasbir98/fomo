@@ -78,17 +78,16 @@ import {
   startOfLocalDay,
   endOfLocalDay,
   nextOccurrence,
-  daysUntilLastChance,
   normalizeRecurrence,
 } from "@/lib/happenings/occurrence";
 import {
   bucketForDayDate,
   formatPlaceCategoryLabel,
-  happeningHeroScore,
   oneLinerSummary,
   shortLocationLine,
   type FeedBucketKey,
 } from "@/lib/happenings/format";
+import { happeningRecommendationScore, eventRecommendationScore } from "@/lib/happenings/hero";
 import { categoryStyle } from "@/lib/happenings/category-style";
 import { dealFacets, isGenuineDeal } from "@/lib/happenings/groups";
 import { groupHappeningsIntoSeries, seriesLookup, type HappeningSeriesGroup } from "@/lib/happenings/series";
@@ -106,22 +105,28 @@ import type {
   DealsSection,
   FeedBucket,
   FeedCardData,
+  FeedHeroCard,
   FeedResponse,
   FeedWindow,
   FeedRange,
   FeedPrice,
   FreeAnyTimeItem,
-  HappeningCardData,
   VenueDealGroup,
 } from "@/lib/happenings/feed-types";
 import { isUnauthorizedError } from "@/lib/supabase-error";
 import type { Db } from "@/lib/supabase/types";
-import type { Place } from "@/lib/types";
+import type { EventItem, Place } from "@/lib/types";
 import { cachedJson, CACHE_PRIVATE_NO_STORE } from "@/lib/http/cache";
 
 export const runtime = "nodejs";
 
 const HERO_LOOKAHEAD_DAYS = 30;
+/** How far ahead a provider event (Skiddle/Ticketmaster) can start and still
+ *  be a hero candidate — much shorter than a happening's own 30-day
+ *  lookahead because an unverified provider row has no curator judgment
+ *  behind it; the user's own call (task brief) restricts these to free/cheap
+ *  events only, never sports-exempt-but-unpriced ones. */
+const HERO_EVENT_LOOKAHEAD_DAYS = 7;
 /** Book Early's own window: candidates up to a year out (task brief), independent of the request's `window`. */
 const BOOK_EARLY_LOOKAHEAD_DAYS = 366;
 /** Below this many researched Book Early items, top up with provider events so the section isn't a lone card. */
@@ -266,21 +271,59 @@ function pickSeriesLeads(groups: HappeningSeriesGroup[], now: Date, timeZone: st
   return leads;
 }
 
-/** Picks the single best hero happening, independent of the request's own window — see the route's doc comment. Scored over EVERY dated happening regardless of kind, so the hero can come from What's on, Deals, or a Book Early candidate alike. */
-function pickHero(happenings: Happening[], now: Date, timeZone: string): HappeningCardData | null {
-  const to = new Date(now.getTime() + HERO_LOOKAHEAD_DAYS * 86_400_000);
-  let best: { card: HappeningCardData; score: number } | null = null;
+/**
+ * Picks the single best hero card, independent of the request's own window
+ * — see the route's doc comment. Two candidate pools compete for the slot:
+ * every dated happening (any kind, incl. deals) within `HERO_LOOKAHEAD_DAYS`,
+ * and every free-or-cheap provider event (lib/now/price.ts's
+ * `priceSignalForEvent`) starting within `HERO_EVENT_LOOKAHEAD_DAYS` — an
+ * unpriced-but-sports-exempt event (which `whatsOnHappeningPasses` lets into
+ * What's on) is deliberately NOT a hero candidate, per the user's own call:
+ * the hero is led by demonstrable value, not just "this is in the window".
+ * Scoring itself lives in lib/happenings/hero.ts, which also produces the
+ * short `reason` string carried on the winning card. Ties (equal score) go
+ * to whichever candidate's own start time is sooner.
+ */
+function pickHero(happenings: Happening[], events: EventItem[], now: Date, timeZone: string): FeedHeroCard | null {
+  const happeningTo = new Date(now.getTime() + HERO_LOOKAHEAD_DAYS * 86_400_000);
+  const eventCutoff = now.getTime() + HERO_EVENT_LOOKAHEAD_DAYS * 86_400_000;
+
+  // Every candidate's score/reason/tiebreak start time, computed up front —
+  // deliberately NOT reduced to a running "best so far" via a mutated outer
+  // variable inside this loop: TypeScript's control-flow narrowing can't see
+  // through a nested closure's reassignment of an outer `let`, which turns a
+  // "let best = null; function consider() { best = ... }" pattern into a
+  // spurious "Property does not exist on type 'never'" at the read site.
+  // Collecting candidates into a plain array and reducing in a second, non-
+  // nested loop sidesteps that entirely.
+  const candidates: { card: FeedHeroCard; score: number; startMs: number }[] = [];
 
   for (const h of happenings) {
     if (!isDated(h)) continue;
-    const occurrence = nextOccurrence(h, now, to, timeZone);
+    const occurrence = nextOccurrence(h, now, happeningTo, timeZone);
     if (!occurrence) continue;
-    const score = happeningHeroScore(h, daysUntilLastChance(occurrence, now, timeZone), now, timeZone);
-    if (!best || score > best.score) {
-      best = { card: { kind: "happening", happening: h, occurrence }, score };
+    const { score, reason } = happeningRecommendationScore(h, occurrence, now, timeZone);
+    const startMs = occurrence.startsAt
+      ? new Date(occurrence.startsAt).getTime()
+      : new Date(`${occurrence.dayDate}T00:00:00Z`).getTime();
+    candidates.push({ card: { kind: "happening", happening: h, occurrence, reason }, score, startMs });
+  }
+
+  for (const e of events) {
+    const startMs = new Date(e.starts_at).getTime();
+    if (Number.isNaN(startMs) || startMs < now.getTime() || startMs > eventCutoff) continue;
+    if (priceSignalForEvent(e) !== "cheap") continue; // free-or-cheap only, never a guessed-cheap sports exemption
+    const { score, reason } = eventRecommendationScore(e, now, timeZone);
+    candidates.push({ card: { kind: "event", event: e, reason }, score, startMs });
+  }
+
+  let best: (typeof candidates)[number] | null = null;
+  for (const c of candidates) {
+    if (!best || c.score > best.score || (c.score === best.score && c.startMs < best.startMs)) {
+      best = c;
     }
   }
-  return best?.card ?? null;
+  return best ? best.card : null;
 }
 
 /**
@@ -638,8 +681,21 @@ export async function GET(request: Request) {
     // per-happening photo.
     const happenings = rawHappenings.map((h) => withPlaceImageFallback(h, placesById));
 
-    const hero = pickHero(happenings, now, timeZone);
-    const heroId = hero?.happening.id ?? null;
+    // Fetched here (not down by Book Early, where it used to live) because
+    // `pickHero` also needs the provider-event catalogue for its free/cheap
+    // event candidates — a year-long lookahead comfortably covers the hero's
+    // own much shorter `HERO_EVENT_LOOKAHEAD_DAYS` window, so this one query
+    // serves both without a second round trip.
+    const bookEarlyEvents = await listUpcomingEvents(db, {
+      destination: CITY.name,
+      from: now.toISOString(),
+      to: new Date(now.getTime() + BOOK_EARLY_LOOKAHEAD_DAYS * 86_400_000).toISOString(),
+      limit: 100,
+    });
+
+    const hero = pickHero(happenings, bookEarlyEvents, now, timeZone);
+    const heroHappeningId = hero?.kind === "happening" ? hero.happening.id : null;
+    const heroEventId = hero?.kind === "event" ? hero.event.id : null;
 
     // Series grouping (lib/happenings/series.ts) — collapses e.g. the three
     // parkruns into one "Parkrun · 3 locations" card wherever they'd
@@ -668,11 +724,11 @@ export async function GET(request: Request) {
       const happeningCards: MergeableCard[] = [];
       const seenSeriesInWindow = new Set<string>();
       for (const h of happenings) {
-        if (!(isDated(h) && h.kind !== "deal" && h.id !== heroId && whatsOnHappeningPasses(h, price))) continue;
+        if (!(isDated(h) && h.kind !== "deal" && h.id !== heroHappeningId && whatsOnHappeningPasses(h, price))) continue;
         const group = seriesByMemberId.get(h.id);
         if (group) {
           if (seenSeriesInWindow.has(group.key)) continue;
-          const members = group.members.filter((m) => m.id !== heroId);
+          const members = group.members.filter((m) => m.id !== heroHappeningId);
           const soonest = soonestOccurrenceForMembers(members, from, to, timeZone);
           if (!soonest) continue;
           seenSeriesInWindow.add(group.key);
@@ -707,7 +763,7 @@ export async function GET(request: Request) {
       // raised from 60 to 200: with the price ceiling gone by default, a busy
       // window's full catalogue is much bigger, and truncating it here would
       // arbitrarily drop rows before dedupe/merge and sorting ever see them.
-      const windowEvents =
+      const windowEventsRaw =
         to < from
           ? []
           : await listUpcomingEvents(db, {
@@ -716,6 +772,10 @@ export async function GET(request: Request) {
               to: to.toISOString(),
               limit: 200,
             });
+      // Exclude the hero itself so an event-kind hero never also renders as
+      // a What's on card — mirrors the happening-side `h.id !== heroHappeningId`
+      // exclusion above.
+      const windowEvents = heroEventId ? windowEventsRaw.filter((e) => e.id !== heroEventId) : windowEventsRaw;
       const priceFilteredEvents =
         price === "cheap"
           ? windowEvents.filter(
@@ -775,16 +835,6 @@ export async function GET(request: Request) {
       }
     }
 
-    // Book Early: its own longer, window-independent event lookahead — a
-    // separate query from `windowEvents` above, which is bounded to the
-    // request's own (often much shorter) window.
-    const bookEarlyEvents = await listUpcomingEvents(db, {
-      destination: CITY.name,
-      from: now.toISOString(),
-      to: new Date(now.getTime() + BOOK_EARLY_LOOKAHEAD_DAYS * 86_400_000).toISOString(),
-      limit: 100,
-    });
-
     // On the Book early TAB, the global Fomo Pick hero has no business
     // sitting above a list whose whole point is "book this ahead of time" —
     // so on that request only, the hero slot is the top-ranked Book Early
@@ -798,13 +848,13 @@ export async function GET(request: Request) {
     const bookEarlyAll = buildBookEarly(
       happenings,
       bookEarlyEvents,
-      window === "book_early" ? null : heroId,
+      window === "book_early" ? null : heroHappeningId,
       now,
       timeZone,
       seriesByMemberId
     );
 
-    let responseHero = hero;
+    let responseHero: FeedHeroCard | null = hero;
     let bookEarly = bookEarlyAll;
     let heroKind: FeedResponse["heroKind"];
     if (window === "book_early") {
@@ -814,7 +864,10 @@ export async function GET(request: Request) {
           ? (bookEarlyAll[topIndex] as BookEarlyHappeningCard)
           : undefined;
       if (top) {
-        responseHero = { kind: "happening", happening: top.happening, occurrence: top.occurrence };
+        // No comparable recommendationScore run for the Book Early tab's own
+        // pick (it's ranked by rankBookEarly's own tiering, not this
+        // module's score) — `reason` stays null rather than a misleading one.
+        responseHero = { kind: "happening", happening: top.happening, occurrence: top.occurrence, reason: null };
         bookEarly = [...bookEarlyAll.slice(0, topIndex), ...bookEarlyAll.slice(topIndex + 1)];
         heroKind = "book_early";
       } else {
@@ -824,7 +877,7 @@ export async function GET(request: Request) {
       }
     }
 
-    const dealCards = buildDealCards(happenings, heroId, now, timeZone);
+    const dealCards = buildDealCards(happenings, heroHappeningId, now, timeZone);
     const deals = await buildDealsSection(db, dealCards);
 
     const freeAnyTime = await buildFreeAnyTime(db, happenings, seriesByMemberId, seriesLeads, placesById);

@@ -57,3 +57,10 @@ next-env.d.ts
 /scraper/consolidated/
 __pycache__/
 *.pyc
+# Raw scrape backups (third-party handles/captions) and the progress-file
+# lock used by parallel batch runs — local only.
+/scraper/data/scraped_*.jsonl
+/scraper/data/*.lock
+
+# VS Code unsaved-buffer artifacts (the ":" breaks Windows checkouts)
+untitled:*

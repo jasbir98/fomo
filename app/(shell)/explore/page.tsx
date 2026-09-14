@@ -1,121 +1,127 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import dynamic from "next/dynamic";
-import Link from "next/link";
-import { usePathname } from "next/navigation";
-import {
-  isSaved,
-  recordCardSignal,
-  saveItem,
-  unsaveItem,
-} from "@/lib/db";
-import { useSelectedCity } from "@/lib/useSelectedCity";
-import { supabaseBrowserAuth } from "@/lib/supabase/client";
-import { buildDirectionsUrl } from "@/lib/maps/links";
-import { buildAskFomoHref } from "@/lib/chat-seed";
-import type { Place } from "@/lib/types";
-import { sortByDistance, useGeolocation, type Coordinates } from "@/lib/geo";
-import { useProgressiveReveal } from "@/lib/useProgressiveReveal";
-import { BottomSheet, Chip, Icon, SmartImage } from "@/components/ui";
+import { CITY } from "@/lib/city";
+import { useGeolocation, sortByDistance, distanceKm } from "@/lib/geo";
+import type { ExploreLayer, ExplorePin, ExploreResponse } from "@/lib/explore/types";
+import type { ExploreCategorySlug } from "@/lib/explore/categories";
+import { NEIGHBOURHOOD_RADIUS_KM, findNeighbourhood } from "@/lib/explore/neighbourhoods";
+import type { ExploreCollection } from "@/lib/explore/collections";
+import type { MapBounds, MapCanvasHandle } from "@/components/explore/MapCanvas";
+import { LayerSwitch } from "@/components/explore/LayerSwitch";
+import { NeighbourhoodChips } from "@/components/explore/NeighbourhoodChips";
+import { CategoryChips } from "@/components/explore/CategoryChips";
+import { CollectionsRail } from "@/components/explore/CollectionsRail";
+import { ResultsList } from "@/components/explore/ResultsList";
+import { ExploreSheet } from "@/components/explore/ExploreSheet";
+import { PageHeader, Icon } from "@/components/ui";
 
-const MapCanvas = dynamic(() => import("@/components/explore/MapCanvas").then((mod) => mod.MapCanvas), {
+const MapStage = dynamic(() => import("@/components/explore/MapStage").then((mod) => mod.MapStage), {
   ssr: false,
   loading: () => (
-    <div className="h-64 w-full animate-pulse rounded-xl border border-outline-variant/60 bg-surface-container" />
+    <div className="h-[52vh] min-h-[320px] w-full animate-pulse rounded-xl border border-outline-variant/60 bg-surface-container" />
   ),
 });
 
-
-/** Place coordinate extractor for sortByDistance. */
-function placeCoords(place: Place): Coordinates | null {
-  return place.lat != null && place.lng != null ? { lat: place.lat, lng: place.lng } : null;
+/** Approximate rating parsed back out of a place pin's own "★ 4.6" badge
+ *  (see app/api/explore/route.ts's `placeBadge`) — the "Best viewpoints"
+ *  collection wants a rating sort, and `ExplorePin` deliberately doesn't
+ *  carry a raw numeric rating field alongside the pre-formatted badge (see
+ *  lib/explore/types.ts's header on why the pin contract stays small).
+ *  Null (no sort signal) for any other badge shape ("Free", "Deal", a price). */
+function parseRatingFromBadge(badge: string | null): number | null {
+  if (!badge) return null;
+  const m = /★\s*([\d.]+)/.exec(badge);
+  if (!m) return null;
+  const n = Number(m[1]);
+  return Number.isFinite(n) ? n : null;
 }
 
-/** Category chip → the slug the /api/places route understands. */
-const CATEGORY_FILTERS: { label: string; icon: string; slug: string }[] = [
-  { label: "Food", icon: "restaurant", slug: "food" },
-  { label: "Photo spots", icon: "camera_alt", slug: "photo" },
-  { label: "Lockers", icon: "vpn_key", slug: "lockers" },
-  { label: "Transport", icon: "directions_transit", slug: "transport" },
-];
-
-// Matches /api/places' new default (app/api/places/route.ts) — sent
-// explicitly so the Explore page's page size stays visible here rather than
-// depending on whatever the route defaults to.
-const PLACES_LIMIT = 24;
-
-interface PlacesResponse {
-  center: { lat: number; lng: number } | null;
-  places: Place[];
-  degraded?: string;
+/** True when `iso` falls on a Saturday or Sunday in the city's own timezone — backs the "This weekend" collection's client-side narrowing (lib/explore/collections.ts's own doc comment). */
+function isWeekendStart(iso: string): boolean {
+  const weekday = new Intl.DateTimeFormat("en-GB", { timeZone: CITY.timezone, weekday: "short" }).format(
+    new Date(iso)
+  );
+  return weekday === "Sat" || weekday === "Sun";
 }
 
-/** Defensively pull the first tip string out of a jsonb `tips` column. */
-function firstTip(tips: unknown): string | null {
-  if (!Array.isArray(tips) || tips.length === 0) return null;
-  const first = tips[0];
-  if (typeof first === "string") return first;
-  if (first && typeof first === "object") {
-    const obj = first as Record<string, unknown>;
-    if (typeof obj.text === "string") return obj.text;
-  }
-  return null;
-}
+export default function ExplorePage() {
+  const [layer, setLayer] = useState<ExploreLayer>("everything");
+  const [categories, setCategories] = useState<ExploreCategorySlug[]>([]);
+  const [search, setSearch] = useState("");
+  const [neighbourhood, setNeighbourhood] = useState<string | null>(null);
 
-export default function MapDiscoveryPage() {
-  const db = supabaseBrowserAuth();
-  const pathname = usePathname();
-  const [activeSlug, setActiveSlug] = useState<string | null>(null);
-  const [places, setPlaces] = useState<Place[]>([]);
-  const [center, setCenter] = useState<{ lat: number; lng: number } | null>(null);
+  // Collection-preset-only narrowing — cleared whenever the user takes
+  // manual control (changes layer or toggles a category chip) so a stale
+  // "Cheap eats" price cap doesn't silently keep filtering after that.
+  const [maxPriceLevel, setMaxPriceLevel] = useState<number | null>(null);
+  const [sortOverride, setSortOverride] = useState<"distance" | "rating" | null>(null);
+  const [weekendOnly, setWeekendOnly] = useState(false);
+
+  // `bbox` is what actually goes into the /api/explore request ("Search this
+  // area" committed it); `pendingBounds` is just the map's current view after
+  // a user pan, driving the button's visibility until it's committed or
+  // discarded (neighbourhood jump, Near me, a fresh collection).
+  const [bbox, setBbox] = useState<MapBounds | null>(null);
+  const [pendingBounds, setPendingBounds] = useState<MapBounds | null>(null);
+
+  const [pins, setPins] = useState<ExplorePin[]>([]);
   const [loading, setLoading] = useState(true);
   const [degraded, setDegraded] = useState<string | null>(null);
-  const [search, setSearch] = useState("");
-  const [selectedPlace, setSelectedPlace] = useState<Place | null>(null);
-  // Ask Fomo / Save action-row state — mirrors components/fomo/Card.tsx's
-  // own `saved`/`busy` local state, since the sheet hand-rolls the same four
-  // actions rather than rendering FomoCard directly (see handleToggleSave).
-  const [saved, setSaved] = useState(false);
-  const [saveBusy, setSaveBusy] = useState(false);
+
+  const [selectedPinId, setSelectedPinId] = useState<string | null>(null);
+  const [sheetPin, setSheetPin] = useState<ExplorePin | null>(null);
+
+  const [isRainy, setIsRainy] = useState(false);
 
   const { coords } = useGeolocation();
+  const mapRef = useRef<MapCanvasHandle>(null);
+  const mapAnchorRef = useRef<HTMLDivElement>(null);
 
-  const { city } = useSelectedCity();
-  const destination = city.name;
-
-  // Fetch places whenever the destination, category, or free-text search
-  // changes. Debounced 300ms so typing doesn't fire a request per keystroke —
-  // `visiblePlaces` below gives an instant local narrowing while this is in
-  // flight. Non-empty search drives a real Google Text Search (not
-  // constrained to the active category, since free-text intent overrides it);
-  // an empty search falls back to the existing category fetch.
+  // Today's rain check, once — promotes "Rainy-day ideas" to the front of
+  // the Collections rail (task brief §6). Same isDisruptive signal Smart
+  // Disruption already reads off /api/weather; a failure just leaves the
+  // rail in its default order rather than blocking anything.
   useEffect(() => {
-    if (!destination) return; // guards the initial mount — loading stays true
     let cancelled = false;
-    const trimmedSearch = search.trim();
-    // Explicitly send `limit` — see the null-vs-0 guard comment in
-    // app/api/places/route.ts: relying on the route's own default here would
-    // work today, but pinning it keeps this page's page-size decision
-    // visible and independent of the API's default changing later.
-    const params = new URLSearchParams({ destination, limit: String(PLACES_LIMIT) });
-    if (trimmedSearch) {
-      params.set("q", trimmedSearch);
-    } else if (activeSlug) {
-      params.set("category", activeSlug);
-    }
+    (async () => {
+      try {
+        const res = await fetch(`/api/weather?destination=${encodeURIComponent(CITY.name)}`);
+        const data = (await res.json()) as { day?: { isDisruptive?: boolean } | null };
+        if (!cancelled) setIsRainy(Boolean(data.day?.isDisruptive));
+      } catch (err) {
+        console.error("[explore] weather lookup failed", err);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // Pins fetch — layer/category/search/area/price all live server-side
+  // (app/api/explore/route.ts); debounced 300ms so typing a search term
+  // doesn't fire a request per keystroke.
+  useEffect(() => {
+    let cancelled = false;
+    const params = new URLSearchParams({ layer });
+    if (categories.length > 0) params.set("category", categories.join(","));
+    const q = search.trim();
+    if (q) params.set("q", q);
+    if (bbox) params.set("bbox", `${bbox.minLat},${bbox.minLng},${bbox.maxLat},${bbox.maxLng}`);
+    if (maxPriceLevel != null) params.set("maxPrice", String(maxPriceLevel));
+
     const timer = setTimeout(() => {
       (async () => {
         setLoading(true);
         try {
-          const res = await fetch(`/api/places?${params.toString()}`);
-          const data = (await res.json()) as PlacesResponse;
+          const res = await fetch(`/api/explore?${params.toString()}`);
+          const data = (await res.json()) as ExploreResponse;
           if (cancelled) return;
-          setPlaces(data.places ?? []);
-          setCenter(data.center);
+          setPins(data.pins ?? []);
           setDegraded(data.degraded ?? null);
         } catch (err) {
-          if (!cancelled) console.error("[map] places load failed", err);
+          if (!cancelled) console.error("[explore] pins fetch failed", err);
         } finally {
           if (!cancelled) setLoading(false);
         }
@@ -125,353 +131,183 @@ export default function MapDiscoveryPage() {
       cancelled = true;
       clearTimeout(timer);
     };
-  }, [destination, activeSlug, search]);
+  }, [layer, categories, search, bbox, maxPriceLevel]);
 
-  // Instant local narrowing over the currently loaded places (name/category/
-  // address) while the debounced search fetch above is in flight.
-  //
-  // NOTE: this deliberately does NOT also re-filter by `activeSlug` client
-  // side. `place.category` is not a consistent slug across sources — curated
-  // seed/DB rows store the filter slug ("food"), but live Google-sourced
-  // rows store a humanized Google place type ("japanese restaurant",
-  // "tourist attraction", etc, see lib/places/google.ts's humanizeType). An
-  // exact-match client filter against `activeSlug` would silently blank out
-  // every live-Google result. The server is the correct place to enforce the
-  // category scope (it already does, across all three places.ts code paths:
-  // live searchPlaces(category), listPlacesByCategory(category) DB fallback,
-  // and — for search — searchPlacesByName) so no client-side re-filter here.
-  const visiblePlaces = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    if (!q) return places;
-    return places.filter((p) =>
-      [p.name, p.category, p.address]
-        .filter(Boolean)
-        .some((v) => (v as string).toLowerCase().includes(q))
-    );
-  }, [places, search]);
+  // Neighbourhood radius + "this weekend" narrowing, both client-side over
+  // whatever /api/explore already returned — see lib/explore/neighbourhoods.ts
+  // and lib/explore/collections.ts's own doc comments on why these stay
+  // client-side rather than becoming new server query params.
+  const scopedPins = useMemo(() => {
+    let list = pins;
+    if (neighbourhood) {
+      const n = findNeighbourhood(neighbourhood);
+      if (n) {
+        list = list.filter((p) => distanceKm(n.center, { lat: p.lat, lng: p.lng }) <= NEIGHBOURHOOD_RADIUS_KM);
+      }
+    }
+    if (weekendOnly) {
+      list = list.filter((p) => p.starts_at != null && isWeekendStart(p.starts_at));
+    }
+    return list;
+  }, [pins, neighbourhood, weekendOnly]);
 
-  // Nearest-to-farthest from the device's live location; unchanged order
-  // when location is unavailable/denied. Only the "Nearby Places" list order
-  // changes -- map pins/centering stay destination-driven, unrelated to this.
-  const sortedVisiblePlaces = useMemo(
-    () => sortByDistance(visiblePlaces, coords, placeCoords),
-    [visiblePlaces, coords]
-  );
-  const nearbyRootRef = useRef<HTMLDivElement>(null);
-  const nearbySentinelRef = useRef<HTMLDivElement>(null);
-  const nearbyVisibleCount = useProgressiveReveal(
-    sortedVisiblePlaces.length,
-    nearbyRootRef,
-    nearbySentinelRef
-  );
+  // Distance-sorted when location is granted (task brief §7); "Best
+  // viewpoints" overrides to a rating sort, "Deals near you" pins the
+  // distance sort explicitly even before location resolves (sortByDistance
+  // itself is a safe no-op with coords: null either way).
+  const sortedPins = useMemo(() => {
+    if (sortOverride === "rating") {
+      return [...scopedPins].sort(
+        (a, b) => (parseRatingFromBadge(b.badge) ?? -1) - (parseRatingFromBadge(a.badge) ?? -1)
+      );
+    }
+    return sortByDistance(scopedPins, coords, (p) => ({ lat: p.lat, lng: p.lng }));
+  }, [scopedPins, sortOverride, coords]);
 
-  // Memoized so it's a stable reference into MapCanvas's marker-creation
-  // effect deps — otherwise every re-render (e.g. the sheet opening/closing)
-  // would re-drop all markers.
-  const handleMarkerClick = useCallback(
-    (place: Place) => {
-      setSelectedPlace(place);
-      setSaved(false);
-      // Seed the Save toggle's current state the same way.
-      isSaved(db, "place", place.id)
-        .then(setSaved)
-        .catch((err) => console.error("[map] saved lookup failed", err));
-    },
-    [db]
-  );
-
-  function closePlaceSheet() {
-    setSelectedPlace(null);
+  function clearCollectionPreset() {
+    setMaxPriceLevel(null);
+    setSortOverride(null);
+    setWeekendOnly(false);
   }
 
-  // handleAddToTrip lived here. Fomo has no itinerary — a map pin's only
-  // contextual action is now the save toggle below, plus Directions.
+  function handleLayerChange(next: ExploreLayer) {
+    setLayer(next);
+    clearCollectionPreset();
+    setSelectedPinId(null);
+    setSheetPin(null);
+  }
 
-  /** Save toggle — same upsert/delete semantics as FomoCard's `handleSave`. */
-  async function handleToggleSave() {
-    if (!selectedPlace || saveBusy) return;
-    setSaveBusy(true);
-    try {
-      if (saved) {
-        await unsaveItem(db, "place", selectedPlace.id);
-        setSaved(false);
-      } else {
-        await saveItem(db, {
-          subject_type: "place",
-          subject_id: selectedPlace.id,
-          note: null,
-        });
-        setSaved(true);
-        void recordCardSignal(db, {
-          card_type: "map",
-          subject_type: "place",
-          subject_id: selectedPlace.id,
-          action: "saved",
-        });
-      }
-    } catch (err) {
-      console.error("[map] save toggle failed", err);
-    } finally {
-      setSaveBusy(false);
+  function toggleCategory(slug: ExploreCategorySlug) {
+    setCategories((prev) => (prev.includes(slug) ? prev.filter((s) => s !== slug) : [...prev, slug]));
+    clearCollectionPreset();
+  }
+
+  function handleNeighbourhoodSelect(slug: string | null) {
+    setNeighbourhood(slug);
+    setBbox(null);
+    setPendingBounds(null);
+    if (slug) {
+      const n = findNeighbourhood(slug);
+      if (n) mapRef.current?.flyTo(n.center, n.zoom);
     }
   }
 
-  // "Ask Fomo" deep-link for the currently-open place-detail sheet — same
-  // helper/params FomoCard uses, seeded from the raw Place row.
-  const askHref = selectedPlace
-    ? buildAskFomoHref({
-        type: "place",
-        id: selectedPlace.id,
-        name: selectedPlace.name ?? "This place",
-        coords: placeCoords(selectedPlace),
-        returnTo: pathname,
-      })
-    : null;
+  function handleNearMe() {
+    if (!coords) return;
+    setNeighbourhood(null);
+    setBbox(null);
+    setPendingBounds(null);
+    mapRef.current?.flyTo(coords, 15);
+  }
+
+  function handleSearchThisArea() {
+    if (!pendingBounds) return;
+    setNeighbourhood(null);
+    setBbox(pendingBounds);
+    setPendingBounds(null);
+  }
+
+  function handleCollectionSelect(c: ExploreCollection) {
+    setLayer(c.layer);
+    setCategories(c.categories ?? []);
+    setMaxPriceLevel(c.maxPriceLevel ?? null);
+    setSortOverride(c.sort ?? null);
+    setWeekendOnly(Boolean(c.weekendOnly));
+    setSelectedPinId(null);
+    setSheetPin(null);
+    mapAnchorRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+
+  function handleCardSelect(pin: ExplorePin) {
+    setSelectedPinId(pin.id);
+    mapRef.current?.flyTo({ lat: pin.lat, lng: pin.lng }, 16);
+  }
+
+  function handlePinClick(pin: ExplorePin) {
+    setSelectedPinId(pin.id);
+    setSheetPin(pin);
+  }
+
+  function handleWidenSearch() {
+    setBbox(null);
+    setPendingBounds(null);
+    setNeighbourhood(null);
+    setCategories([]);
+    setSearch("");
+  }
 
   return (
     <div className="flex flex-col gap-4 pb-6">
-      {/* Top app bar */}
-      <header className="sticky top-0 z-40 flex min-h-[48px] items-center justify-between bg-background/90 px-5 pt-safe backdrop-blur-sm">
-        <div className="flex min-w-0 items-center gap-3">
-          <Icon name="explore" className="shrink-0 text-primary" />
-        </div>
-        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-outline-variant bg-surface-container-lowest">
-          <Icon name="person" size={18} className="text-on-surface-variant" />
-        </div>
-      </header>
+      <PageHeader title="Explore Edinburgh" />
 
       <div className="flex flex-col gap-4 px-5">
-        {/* TODO(deals): the design replaces this with an All Places ⇄ Deals
-            toggle once happenings land on the map. */}
-        <>
-            {/* Search bar — free-text place search (debounced, queries Google) */}
-            <div className="flex h-12 items-center gap-3 rounded-xl border border-outline-variant bg-surface-container-lowest px-4 shadow-sm">
-              <Icon name="search" size={20} className="text-primary" />
-              <input
-                type="text"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search places…"
-                className="flex-1 bg-transparent text-body-md text-on-surface placeholder:text-on-surface-variant outline-none"
-              />
-              {search ? (
-                <button
-                  type="button"
-                  aria-label="Clear search"
-                  onClick={() => setSearch("")}
-                  className="text-on-surface-variant transition-colors hover:text-primary"
-                >
-                  <Icon name="close" size={20} />
-                </button>
-              ) : null}
-            </div>
+        {/* Search — free-text across places, deals, events and free things */}
+        <div className="flex h-12 items-center gap-3 rounded-xl border border-outline-variant bg-surface-container-lowest px-4 shadow-sm">
+          <Icon name="search" size={20} className="text-primary" />
+          <input
+            type="text"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search Edinburgh…"
+            className="flex-1 bg-transparent text-body-md text-on-surface placeholder:text-on-surface-variant outline-none"
+          />
+          {search ? (
+            <button
+              type="button"
+              aria-label="Clear search"
+              onClick={() => setSearch("")}
+              className="text-on-surface-variant transition-colors hover:text-primary"
+            >
+              <Icon name="close" size={20} />
+            </button>
+          ) : null}
+        </div>
 
-            {/* Category filter chips — drive the /api/places query */}
-            <div className="-mx-5 flex gap-2 overflow-x-auto px-5 pb-1 [&::-webkit-scrollbar]:hidden">
-              {CATEGORY_FILTERS.map((c) => (
-                <Chip
-                  key={c.slug}
-                  label={c.label}
-                  leadingIcon={c.icon}
-                  selected={activeSlug === c.slug}
-                  onClick={() =>
-                    setActiveSlug((prev) => (prev === c.slug ? null : c.slug))
-                  }
-                />
-              ))}
-            </div>
-        </>
+        <div ref={mapAnchorRef} className="flex flex-col gap-3">
+          <LayerSwitch value={layer} onChange={handleLayerChange} />
 
-        {/* Real Mapbox map (or a token-missing placeholder) */}
-        <MapCanvas
-          center={center}
-          places={sortedVisiblePlaces}
-          activeSlug={activeSlug}
-          onMarkerClick={handleMarkerClick}
-        />
+          <MapStage
+            ref={mapRef}
+            center={CITY.center}
+            pins={sortedPins}
+            selectedPinId={selectedPinId}
+            onPinClick={handlePinClick}
+            onBoundsChange={setPendingBounds}
+            showSearchThisArea={pendingBounds !== null}
+            onSearchThisArea={handleSearchThisArea}
+            onNearMe={handleNearMe}
+            nearMeAvailable={coords !== null}
+          />
+        </div>
 
-        {degraded ? (
+        <NeighbourhoodChips selected={neighbourhood} onSelect={handleNeighbourhoodSelect} />
+        <CategoryChips selected={categories} onToggle={toggleCategory} />
+
+        <div className="flex flex-col gap-2">
+          <h2 className="text-headline-sm text-primary">Collections</h2>
+          <CollectionsRail isRainy={isRainy} onSelect={handleCollectionSelect} />
+        </div>
+
+        {degraded === "explore-error" ? (
           <p className="text-label-sm text-on-surface-variant">
-            {degraded === "no-google-key"
-              ? "Showing sample places — add GOOGLE_PLACES_API_KEY for live data."
-              : degraded === "cache-unavailable"
-                ? "Live places shown; run the places migration to enable full detail links."
-                : "Couldn't reach live places — showing samples."}
+            Couldn&apos;t reach live data — showing what we have.
           </p>
         ) : null}
-
       </div>
 
-      {/* Nearby place cards */}
-      <section className="flex flex-col gap-3 pt-2">
-        <h2 className="px-5 text-headline-md text-primary">Nearby Places</h2>
-        {loading ? (
-          <div className="flex justify-center px-5 py-6">
-            <Icon name="hourglass_top" size={28} className="animate-pulse text-primary" />
-          </div>
-        ) : sortedVisiblePlaces.length === 0 ? (
-          <p className="px-5 text-body-md text-on-surface-variant">
-            {search ? "No places found for that search." : "No places nearby yet."}
-          </p>
-        ) : (
-          <div
-            ref={nearbyRootRef}
-            className="flex gap-4 overflow-x-auto px-5 pb-2 snap-x snap-mandatory [&::-webkit-scrollbar]:hidden"
-          >
-            {sortedVisiblePlaces.slice(0, nearbyVisibleCount).map((place) => {
-              const tip = firstTip(place.tips);
-              return (
-                <Link
-                  key={place.id}
-                  href={`/place/${place.id}`}
-                  className="flex w-[85vw] max-w-[300px] shrink-0 snap-center flex-col overflow-hidden rounded-lg border border-l-4 border-outline-variant/60 border-l-primary bg-surface-container-lowest shadow-md transition-shadow hover:shadow-lg"
-                >
-                  <div className="relative h-[120px] w-full bg-surface-container">
-                    {place.image_url ? (
-                      <SmartImage
-                        src={place.image_url}
-                        alt={place.name ?? ""}
-                        width={300}
-                        height={120}
-                        sizes="(max-width: 300px) 85vw, 300px"
-                        className="h-full w-full object-cover"
-                      />
-                    ) : (
-                      <div className="flex h-full w-full items-center justify-center">
-                        <Icon name="image" className="text-outline" />
-                      </div>
-                    )}
-                  </div>
-                  <div className="flex flex-col gap-1 p-4">
-                    <h3 className="text-headline-sm text-on-surface">{place.name}</h3>
-                    <div className="flex items-center gap-2 text-label-sm text-on-surface-variant">
-                      {place.rating ? (
-                        <span className="flex items-center gap-0.5 text-secondary">
-                          <Icon name="star" filled size={14} /> {place.rating}
-                        </span>
-                      ) : null}
-                      {place.rating && place.category ? <span>&bull;</span> : null}
-                      {place.category ? <span className="capitalize">{place.category}</span> : null}
-                    </div>
-                    {tip ? (
-                      <div className="mt-2 flex items-start gap-2 rounded-lg border border-primary-fixed-dim bg-primary-fixed p-2 text-on-primary-fixed-variant">
-                        <Icon name="info" size={16} className="mt-0.5 text-primary" />
-                        <p className="text-label-md">{tip}</p>
-                      </div>
-                    ) : null}
-                  </div>
-                </Link>
-              );
-            })}
-            <div ref={nearbySentinelRef} className="w-px shrink-0" />
-          </div>
-        )}
-      </section>
+      <div className="px-5">
+        <ResultsList
+          pins={sortedPins}
+          loading={loading}
+          degraded={degraded}
+          userCoords={coords}
+          selectedPinId={selectedPinId}
+          onCardSelect={handleCardSelect}
+          onWidenSearch={handleWidenSearch}
+        />
+      </div>
 
-      {/* Marker tap → quick place card (view details / add to trip) */}
-      <BottomSheet
-        open={selectedPlace !== null}
-        onClose={closePlaceSheet}
-        title={selectedPlace?.name ?? ""}
-      >
-        {selectedPlace ? (
-          <div className="flex flex-col gap-3">
-            {/* Photo — same field (Place.image_url) as the Nearby Places
-                cards and the place detail hero, so any place that has a
-                photo there has one here too. */}
-            <div className="relative h-[140px] w-full overflow-hidden rounded-xl bg-surface-container">
-              {selectedPlace.image_url ? (
-                <SmartImage
-                  src={selectedPlace.image_url}
-                  alt={selectedPlace.name ?? ""}
-                  width={480}
-                  height={140}
-                  sizes="(max-width: 480px) 100vw, 480px"
-                  className="h-full w-full object-cover"
-                />
-              ) : (
-                <div className="flex h-full w-full items-center justify-center">
-                  <Icon name="image" size={28} className="text-outline" />
-                </div>
-              )}
-            </div>
-            <div className="flex items-center gap-2 text-label-sm text-on-surface-variant">
-              {selectedPlace.rating ? (
-                <span className="flex items-center gap-0.5 text-secondary">
-                  <Icon name="star" filled size={14} /> {selectedPlace.rating}
-                </span>
-              ) : null}
-              {selectedPlace.rating && selectedPlace.category ? <span>&bull;</span> : null}
-              {selectedPlace.category ? (
-                <span className="capitalize">{selectedPlace.category}</span>
-              ) : null}
-            </div>
-            {/* Short description — same fallback text pattern as the place
-                detail page (app/(shell)/place/[id]/page.tsx) for places with
-                no editorial description yet. */}
-            <p className="text-body-md text-on-surface-variant">
-              {selectedPlace.description ??
-                `${selectedPlace.category ?? "Spot"} near ${selectedPlace.station ?? "your route"} — a Fomo pick worth the detour.`}
-            </p>
-            {selectedPlace.address ? (
-              <p className="flex items-start gap-2 text-body-md text-on-surface-variant">
-                <Icon name="location_on" size={18} className="mt-0.5 shrink-0 text-primary" />
-                {selectedPlace.address}
-              </p>
-            ) : null}
-            {/* Same action-row shape as FomoCard's hero variant: primary
-                contextual verb / Ask Fomo / Directions / Save. The map pin
-                keeps this inline (v1.1 W3's one legitimate map exception)
-                rather than sending the user to /place/[id] for it — "View
-                full details" below is the one that does. */}
-            <div className="mt-1 flex flex-wrap items-center gap-2">
-              {askHref ? (
-                <Link
-                  href={askHref}
-                  onClick={() =>
-                    void recordCardSignal(db, {
-                                  card_type: "map",
-                      subject_type: "place",
-                      subject_id: selectedPlace.id,
-                      action: "opened",
-                    })
-                  }
-                  className="flex min-h-[44px] flex-1 basis-[45%] items-center justify-center gap-2 rounded-xl border border-outline-variant px-4 text-label-md font-semibold text-primary transition-opacity hover:opacity-90"
-                >
-                  <Icon name="chat" size={18} />
-                  Ask Fomo
-                </Link>
-              ) : null}
-              {buildDirectionsUrl(selectedPlace) ? (
-                <a
-                  href={buildDirectionsUrl(selectedPlace) ?? undefined}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  aria-label="Get directions"
-                  className="flex min-h-[44px] w-[44px] shrink-0 items-center justify-center rounded-xl border border-outline-variant text-primary transition-opacity hover:opacity-90"
-                >
-                  <Icon name="directions" size={20} />
-                </a>
-              ) : null}
-              <button
-                type="button"
-                aria-label={saved ? "Remove from saved" : "Save"}
-                onClick={handleToggleSave}
-                disabled={saveBusy}
-                className="flex min-h-[44px] w-[44px] shrink-0 items-center justify-center rounded-xl border border-outline-variant text-primary transition-opacity hover:opacity-90 disabled:opacity-60"
-              >
-                <Icon name={saved ? "bookmark" : "bookmark_add"} filled={saved} size={20} />
-              </button>
-            </div>
-            <Link
-              href={`/place/${selectedPlace.id}`}
-              className="text-center text-label-md font-semibold text-primary hover:underline"
-            >
-              View full details
-            </Link>
-          </div>
-        ) : null}
-      </BottomSheet>
+      <ExploreSheet pin={sheetPin} onClose={() => setSheetPin(null)} />
     </div>
   );
 }

@@ -1,7 +1,11 @@
 export { HappeningHero } from "./HappeningHero";
 export type { HappeningHeroProps } from "./HappeningHero";
+export { FeedHero } from "./FeedHero";
+export type { FeedHeroProps } from "./FeedHero";
 export { FeedListCard } from "./FeedListCard";
 export type { FeedListCardProps } from "./FeedListCard";
+export { DateFilterRow, cardDayDate, dayPillParts } from "./DateFilterRow";
+export type { DateFilterRowProps } from "./DateFilterRow";
 export { FreeAnyTimeList, FreeAnyTimeRow } from "./FreeAnyTimeList";
 export type { FreeAnyTimeListProps } from "./FreeAnyTimeList";
 export { BookEarlyCard } from "./BookEarlyCard";

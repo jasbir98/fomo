@@ -1,0 +1,264 @@
+{
+  "tiktok": {
+    "name:city-of-edinburgh:the-golf-tavern": {
+      "status": "done",
+      "count": 5,
+      "city": "Bruntsfield",
+      "at": "2026-09-14T23:06:02.610556+00:00"
+    },
+    "name:city-of-edinburgh:bennets-bar": {
+      "status": "done",
+      "count": 5,
+      "city": "Bruntsfield",
+      "at": "2026-09-14T23:06:28.026287+00:00"
+    },
+    "name:city-of-edinburgh:the-blackbird": {
+      "status": "done",
+      "count": 5,
+      "city": "Tollcross",
+      "at": "2026-09-14T23:06:53.339527+00:00"
+    },
+    "name:city-of-edinburgh:cloisters-bar": {
+      "status": "done",
+      "count": 5,
+      "city": "Tollcross",
+      "at": "2026-09-14T23:07:12.333018+00:00"
+    },
+    "name:city-of-edinburgh:the-ventoux": {
+      "status": "done",
+      "count": 5,
+      "city": "Bruntsfield",
+      "at": "2026-09-14T23:07:29.077773+00:00"
+    },
+    "name:city-of-edinburgh:dagda": {
+      "status": "done",
+      "count": 5,
+      "city": "Bruntsfield",
+      "at": "2026-09-14T23:07:58.654957+00:00"
+    },
+    "name:city-of-edinburgh:the-blue-blazer": {
+      "status": "done",
+      "count": 5,
+      "city": "Bruntsfield",
+      "at": "2026-09-14T23:08:26.325957+00:00"
+    },
+    "name:city-of-edinburgh:the-cameo-picturehouse": {
+      "status": "done",
+      "count": 5,
+      "city": "Tollcross",
+      "at": "2026-09-14T23:08:47.687427+00:00"
+    },
+    "name:city-of-edinburgh:bruntsfield-links": {
+      "status": "done",
+      "count": 5,
+      "city": "Bruntsfield",
+      "at": "2026-09-14T23:10:58.634140+00:00"
+    },
+    "name:city-of-edinburgh:the-edinburgh-bookshop": {
+      "status": "done",
+      "count": 5,
+      "city": "Bruntsfield",
+      "at": "2026-09-14T23:11:20.068151+00:00"
+    },
+    "name:city-of-edinburgh:artisan-roast": {
+      "status": "done",
+      "count": 5,
+      "city": "Bruntsfield",
+      "at": "2026-09-14T23:11:41.545778+00:00"
+    },
+    "name:city-of-edinburgh:la-barantine": {
+      "status": "done",
+      "count": 5,
+      "city": "Bruntsfield",
+      "at": "2026-09-14T23:12:09.834690+00:00"
+    },
+    "name:city-of-edinburgh:cuckoo-s-bakery": {
+      "status": "done",
+      "count": 5,
+      "city": "Bruntsfield",
+      "at": "2026-09-14T23:12:31.197609+00:00"
+    },
+    "name:city-of-edinburgh:confelicity-bakery": {
+      "status": "done",
+      "count": 5,
+      "city": "Bruntsfield",
+      "at": "2026-09-14T23:12:59.397693+00:00"
+    },
+    "name:city-of-edinburgh:lovecrumbs": {
+      "status": "done",
+      "count": 5,
+      "city": "Bruntsfield",
+      "at": "2026-09-14T23:13:23.265634+00:00"
+    },
+    "name:city-of-edinburgh:twelve-triangles-bruntsfield": {
+      "status": "done",
+      "count": 5,
+      "city": "Bruntsfield",
+      "at": "2026-09-14T23:13:42.351349+00:00"
+    },
+    "name:city-of-edinburgh:the-chocolate-tree": {
+      "status": "done",
+      "count": 5,
+      "city": "Bruntsfield",
+      "at": "2026-09-14T23:15:43.606651+00:00"
+    },
+    "name:city-of-edinburgh:project-coffee": {
+      "status": "done",
+      "count": 5,
+      "city": "Bruntsfield",
+      "at": "2026-09-14T23:16:02.032819+00:00"
+    },
+    "name:city-of-edinburgh:montpeliers-of-bruntsfield": {
+      "status": "done",
+      "count": 5,
+      "city": "Bruntsfield",
+      "at": "2026-09-14T23:16:27.465754+00:00"
+    },
+    "name:city-of-edinburgh:the-bruntsfield-links-short-hole-golf-course": {
+      "status": "done",
+      "count": 5,
+      "city": "Bruntsfield",
+      "at": "2026-09-14T23:16:46.864016+00:00"
+    },
+    "name:city-of-edinburgh:one-canon-public-hoose": {
+      "status": "done",
+      "count": 5,
+      "city": "Canonmills",
+      "at": "2026-09-14T23:17:17.351567+00:00"
+    },
+    "name:city-of-edinburgh:o-connor-s": {
+      "status": "done",
+      "count": 5,
+      "city": "Canonmills",
+      "at": "2026-09-14T23:17:40.289413+00:00"
+    },
+    "name:city-of-edinburgh:the-orchard-bar-restaurant": {
+      "status": "done",
+      "count": 5,
+      "city": "Canonmills",
+      "at": "2026-09-14T23:18:40.286571+00:00"
+    },
+    "name:city-of-edinburgh:di-giorgio": {
+      "status": "done",
+      "count": 5,
+      "city": "Canonmills",
+      "at": "2026-09-14T23:19:11.451196+00:00"
+    },
+    "name:city-of-edinburgh:king-george-v-park-eyre-place": {
+      "status": "done",
+      "count": 5,
+      "city": "Canonmills",
+      "at": "2026-09-14T23:19:37.756766+00:00"
+    },
+    "name:city-of-edinburgh:canonmills-bridge-and-former-mill-building": {
+      "status": "done",
+      "count": 5,
+      "city": "Canonmills",
+      "at": "2026-09-14T23:20:03.591483+00:00"
+    },
+    "name:city-of-edinburgh:warriston-path": {
+      "status": "done",
+      "count": 5,
+      "city": "Canonmills",
+      "at": "2026-09-14T23:20:35.047858+00:00"
+    },
+    "name:city-of-edinburgh:canonmills-crossroads-pubs-local-drinking-scene": {
+      "status": "done",
+      "count": 5,
+      "city": "Canonmills",
+      "at": "2026-09-14T23:21:06.781511+00:00"
+    },
+    "name:city-of-edinburgh:corstorphine-inn": {
+      "status": "done",
+      "count": 5,
+      "city": "Corstorphine",
+      "at": "2026-09-14T23:21:37.301741+00:00"
+    },
+    "name:city-of-edinburgh:the-tarbet": {
+      "status": "done",
+      "count": 5,
+      "city": "Corstorphine",
+      "at": "2026-09-14T23:22:03.284434+00:00"
+    },
+    "name:city-of-edinburgh:the-white-lady": {
+      "status": "done",
+      "count": 5,
+      "city": "Corstorphine",
+      "at": "2026-09-14T23:24:26.057700+00:00"
+    },
+    "name:city-of-edinburgh:winstons": {
+      "status": "done",
+      "count": 5,
+      "city": "Corstorphine",
+      "at": "2026-09-14T23:24:50.134886+00:00"
+    },
+    "name:city-of-edinburgh:the-terrace": {
+      "status": "done",
+      "count": 5,
+      "city": "Corstorphine",
+      "at": "2026-09-14T23:25:20.154908+00:00"
+    },
+    "name:city-of-edinburgh:the-torfin": {
+      "status": "done",
+      "count": 5,
+      "city": "Corstorphine",
+      "at": "2026-09-14T23:25:39.129387+00:00"
+    },
+    "name:city-of-edinburgh:little-rascal": {
+      "status": "done",
+      "count": 5,
+      "city": "Corstorphine",
+      "at": "2026-09-14T23:26:00.398779+00:00"
+    },
+    "name:city-of-edinburgh:toby-carvery-corstorphine": {
+      "status": "done",
+      "count": 5,
+      "city": "Corstorphine",
+      "at": "2026-09-14T23:26:26.251490+00:00"
+    },
+    "name:city-of-edinburgh:the-village-cafe-corstorphine": {
+      "status": "done",
+      "count": 5,
+      "city": "Corstorphine",
+      "at": "2026-09-14T23:26:44.776242+00:00"
+    },
+    "name:city-of-edinburgh:mimi-s-bakehouse-corstorphine": {
+      "status": "done",
+      "count": 5,
+      "city": "Corstorphine",
+      "at": "2026-09-14T23:27:13.163277+00:00"
+    },
+    "name:city-of-edinburgh:cafe-vigo-corstorphine": {
+      "status": "done",
+      "count": 5,
+      "city": "Corstorphine",
+      "at": "2026-09-14T23:29:49.092183+00:00"
+    },
+    "name:city-of-edinburgh:bennitos-cafe": {
+      "status": "done",
+      "count": 5,
+      "city": "Corstorphine",
+      "at": "2026-09-14T23:30:10.810045+00:00"
+    }
+  },
+  "instagram": {
+    "name:city-of-edinburgh:edinburgh:the-scotch-whisky-experience": {
+      "status": "done",
+      "count": 0,
+      "city": "Edinburgh",
+      "at": "2026-09-14T23:22:44.310319+00:00"
+    },
+    "name:city-of-edinburgh:edinburgh:port-of-leith-distillery": {
+      "status": "done",
+      "count": 0,
+      "city": "Edinburgh",
+      "at": "2026-09-14T23:23:24.733194+00:00"
+    },
+    "name:city-of-edinburgh:edinburgh:holyrood-distillery": {
+      "status": "done",
+      "count": 0,
+      "city": "Edinburgh",
+      "at": "2026-09-14T23:24:04.501375+00:00"
+    }
+  }
+}

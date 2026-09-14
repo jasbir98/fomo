@@ -66,6 +66,8 @@ skips places already "done" and retries anything "blocked" or "error".
 from __future__ import annotations
 
 import argparse
+import contextlib
+import fcntl
 import json
 import os
 import random
@@ -94,6 +96,14 @@ DEFAULT_BACKUP_DIR = SCRAPER_DIR / "data"
 # Files in the consolidated dir that aren't per-city record lists.
 CONSOLIDATED_SKIP_FILES = {"_report.json", "kanto_places.json"}
 
+# Edinburgh local hashtags for --topics mode
+EDINBURGH_TOPICS = [
+    "edinburghfood", "edinburghcafe", "edinburgheats", "edinburghbars",
+    "edinburghevents", "thingstodoinedinburgh", "edinburghdeals",
+    "edinburghstudents", "leith", "stockbridgeedinburgh", "portobellobeach",
+    "edinburghfringe", "edinburghbrunch", "edinburghcoffee",
+]
+
 PLATFORM_CONFIG = {
     "tiktok": {
         "search_and_extract": scrape_tiktok.search_and_extract,
@@ -106,6 +116,20 @@ PLATFORM_CONFIG = {
         "default_query": "{name}",
     },
 }
+
+
+def _normalize_name(name: str) -> str:
+    """Normalize place name for dedup: lowercase, strip punctuation, strip leading 'the '."""
+    normalized = name.lower().strip()
+    # Strip leading "the " (case-insensitive)
+    if normalized.startswith("the "):
+        normalized = normalized[4:]
+    # Remove all non-alphanumerics except spaces
+    import re
+    normalized = re.sub(r"[^a-z0-9 ]", "", normalized)
+    # Collapse multiple spaces
+    normalized = " ".join(normalized.split())
+    return normalized
 
 
 @dataclass
@@ -137,14 +161,21 @@ class RunStats:
     errors: int = 0
     blocked: int = 0
     skipped: int = 0
+    skipped_claimed: int = 0
     started_at: float = field(default_factory=time.monotonic)
 
     def summary(self, platform: str) -> str:
         mins = (time.monotonic() - self.started_at) / 60
+        claimed_part = (
+            f", {self.skipped_claimed} skipped (claimed by other platform)"
+            if self.skipped_claimed
+            else ""
+        )
         return (
             f"[batch:{platform}] finished in {mins:.1f} min — "
             f"{self.scraped} place(s) scraped, {self.reels} reel(s), "
             f"{self.empty} empty, {self.errors} error(s), {self.blocked} blocked"
+            f"{claimed_part}"
         )
 
 
@@ -209,11 +240,13 @@ def build_place_list(args: argparse.Namespace) -> list[Place]:
         print(f"[batch] no place files found in {args.consolidated_dir}", file=sys.stderr)
         sys.exit(1)
 
+    # Handle --city edinburgh preset: selects by prefecture/city match
     only = {c.lower() for c in (args.only_city or [])}
     skip = {c.lower() for c in (args.skip_city or [])}
 
     places: list[Place] = []
-    seen_keys: set[str] = set()
+    seen_normalized: dict[str, Place] = {}  # normalized name -> Place (prefer edi-local)
+
     for city_file in city_files:
         stem = city_file.stem.lower()
         if only and stem not in only:
@@ -221,15 +254,41 @@ def build_place_list(args: argparse.Namespace) -> list[Place]:
         if stem in skip:
             continue
         for place in load_places(city_file):
-            # The same place can appear in two city files; scrape it once.
-            if place.dedupe_key in seen_keys:
-                continue
-            seen_keys.add(place.dedupe_key)
-            places.append(place)
+            # When --city edinburgh is set, filter by prefecture/city match
+            if "edinburgh" in only:
+                is_edinburgh = (
+                    place.prefecture.lower() in {"city of edinburgh", "edinburgh"}
+                    or place.city.lower() in {"edinburgh", "leith", "dean village"}
+                    or any(
+                        place.city.lower() in {"stockbridge", "bruntsfield", "morningside",
+                                               "canonmills", "newington", "portobello",
+                                               "haymarket", "dalry", "corstorphine"}
+                    )
+                )
+                if not is_edinburgh:
+                    continue
+
+            # Dedup by normalized name when using --city, else by dedupe_key
+            if "edinburgh" in only:
+                norm_key = _normalize_name(place.name)
+                if norm_key in seen_normalized:
+                    # Prefer edi-local records (more specific)
+                    existing = seen_normalized[norm_key]
+                    if "edi-local" in place.source_file.lower() and "edi-local" not in existing.source_file.lower():
+                        seen_normalized[norm_key] = place
+                    continue
+                seen_normalized[norm_key] = place
+                places.append(place)
+            else:
+                # Original dedupe_key-based dedup for non-Edinburgh
+                if place.dedupe_key in seen_normalized:
+                    continue
+                seen_normalized[place.dedupe_key] = place
+                places.append(place)
 
     if only:
         missing = only - {p.source_file.lower() for p in places}
-        if missing:
+        if missing and "edinburgh" not in only:
             print(f"[batch] warning: no consolidated file matched: {', '.join(sorted(missing))}", file=sys.stderr)
     return places
 
@@ -256,6 +315,26 @@ def save_progress(progress_file: Path, progress: dict) -> None:
     os.replace(tmp, progress_file)
 
 
+@contextlib.contextmanager
+def _progress_lock(progress_file: Path):
+    """Exclusive, cross-process lock over one progress file.
+
+    Held around every read-modify-write cycle so two `scrape_places_batch.py`
+    processes (e.g. --platform tiktok and --platform instagram run side by
+    side) never clobber each other's entries. macOS/Linux only (fcntl) — fine
+    for this project.
+    """
+    progress_file.parent.mkdir(parents=True, exist_ok=True)
+    lock_path = progress_file.with_suffix(progress_file.suffix + ".lock")
+    fd = os.open(lock_path, os.O_CREAT | os.O_RDWR)
+    try:
+        fcntl.flock(fd, fcntl.LOCK_EX)
+        yield
+    finally:
+        fcntl.flock(fd, fcntl.LOCK_UN)
+        os.close(fd)
+
+
 def is_done(platform_progress: dict, place: Place) -> bool:
     """Done under the current dedupe_key, or under a legacy plain-name key.
 
@@ -269,6 +348,27 @@ def is_done(platform_progress: dict, place: Place) -> bool:
     return False
 
 
+def is_in_progress(entry: dict | None) -> bool:
+    return isinstance(entry, dict) and entry.get("status") == "in_progress"
+
+
+def _is_stale_claim(entry: dict, claim_ttl_minutes: float) -> bool:
+    """True if an in_progress claim's timestamp is older than the TTL (or
+    unparsable), meaning it's abandoned — most likely a crashed process —
+    and safe to reclaim."""
+    at = entry.get("at")
+    if not at:
+        return True
+    try:
+        claimed_at = datetime.fromisoformat(at)
+    except ValueError:
+        return True
+    if claimed_at.tzinfo is None:
+        claimed_at = claimed_at.replace(tzinfo=timezone.utc)
+    age_minutes = (datetime.now(timezone.utc) - claimed_at).total_seconds() / 60
+    return age_minutes > claim_ttl_minutes
+
+
 def record_result(
     progress: dict,
     progress_file: Path,
@@ -278,6 +378,14 @@ def record_result(
     count: int = 0,
     detail: str | None = None,
 ) -> None:
+    """Record one place's result for one platform.
+
+    Locked read-modify-write: re-reads the file from disk, sets just this
+    platform+place entry (never touching what the other platform's process
+    wrote in the meantime), writes atomically, releases. `progress` is
+    refreshed in place afterwards so the caller's later checks (is_done,
+    exclusive claims) see the other process's progress too.
+    """
     entry = {
         "status": status,
         "count": count,
@@ -286,8 +394,80 @@ def record_result(
     }
     if detail:
         entry["detail"] = detail[:300]
-    progress.setdefault(platform, {})[place.dedupe_key] = entry
-    save_progress(progress_file, progress)
+    with _progress_lock(progress_file):
+        on_disk = load_progress(progress_file)
+        on_disk.setdefault(platform, {})[place.dedupe_key] = entry
+        save_progress(progress_file, on_disk)
+        progress.clear()
+        progress.update(on_disk)
+
+
+def check_exclusive_claim(
+    progress: dict,
+    progress_file: Path,
+    platform: str,
+    place: Place,
+    claim_ttl_minutes: float,
+) -> bool:
+    """Atomically check-and-claim `place` for `platform` under --exclusive.
+
+    Re-reads progress from disk under the lock — the other platform's
+    process may well have advanced since we last looked — and checks whether
+    any OTHER platform already has this place "done", or holds an unexpired
+    "in_progress" claim on it. If it's free, immediately writes this
+    platform's own "in_progress" claim before releasing the lock, so two
+    processes can never both pass this check for the same place. A place
+    THIS platform previously marked empty/error/blocked stays eligible
+    (retry behaviour unchanged) — only other platforms' entries gate it.
+
+    Refreshes `progress` in place either way. Returns True if claimed (go
+    ahead and scrape), False if another platform holds it (skip).
+    """
+    with _progress_lock(progress_file):
+        on_disk = load_progress(progress_file)
+        for other_platform, other_progress in on_disk.items():
+            if other_platform == platform:
+                continue
+            for key in (place.dedupe_key, place.name):
+                entry = other_progress.get(key)
+                if not isinstance(entry, dict):
+                    continue
+                status = entry.get("status")
+                if status == "done" or (
+                    status == "in_progress" and not _is_stale_claim(entry, claim_ttl_minutes)
+                ):
+                    progress.clear()
+                    progress.update(on_disk)
+                    return False
+
+        on_disk.setdefault(platform, {})[place.dedupe_key] = {
+            "status": "in_progress",
+            "count": 0,
+            "city": place.city,
+            "at": datetime.now(timezone.utc).isoformat(),
+        }
+        save_progress(progress_file, on_disk)
+        progress.clear()
+        progress.update(on_disk)
+        return True
+
+
+def _release_claim(progress: dict, progress_file: Path, platform: str, place: Place) -> None:
+    """Best-effort release of an in_progress claim on Ctrl-C/crash, so it
+    doesn't hold the place hostage for the full --claim-ttl-minutes when we
+    can just let it go immediately. Never raises."""
+    try:
+        with _progress_lock(progress_file):
+            on_disk = load_progress(progress_file)
+            platform_entries = on_disk.get(platform, {})
+            entry = platform_entries.get(place.dedupe_key)
+            if is_in_progress(entry):
+                del platform_entries[place.dedupe_key]
+                save_progress(progress_file, on_disk)
+                progress.clear()
+                progress.update(on_disk)
+    except Exception as exc:
+        print(f"[batch:{platform}] warning: couldn't release claim on {place.name}: {exc}", file=sys.stderr)
 
 
 # ---------------------------------------------------------------------- output
@@ -337,6 +517,10 @@ def run_platform(platform: str, places: list[Place], args: argparse.Namespace, p
     stats = RunStats()
 
     pending = [p for p in places if args.force or not is_done(platform_progress, p)]
+    # --reverse: work last -> first. Applied before --max-places so a cap
+    # takes places from the END of the list, not the start.
+    if args.reverse:
+        pending = list(reversed(pending))
     stats.skipped = len(places) - len(pending)
     if args.max_places:
         pending = pending[: args.max_places]
@@ -351,12 +535,50 @@ def run_platform(platform: str, places: list[Place], args: argparse.Namespace, p
     print(
         f"[batch:{platform}] {len(pending)} place(s) to scrape "
         f"({stats.skipped} already done), query template: {template!r}"
+        + (" [reverse order]" if args.reverse else "")
     )
     if args.dry_run:
-        for place in pending[:20]:
+        preview = pending
+        note = ""
+        if args.exclusive:
+            # Dry-run only applies the exclusions already on disk right now —
+            # it writes no claims, so it can't reflect the other process's
+            # moment-to-moment progress the way a real --exclusive run does.
+            on_disk = load_progress(args.progress_file)
+            eligible: list[Place] = []
+            excluded = 0
+            for place in preview:
+                blocked = False
+                for other_platform, other_progress in on_disk.items():
+                    if other_platform == platform:
+                        continue
+                    for key in (place.dedupe_key, place.name):
+                        entry = other_progress.get(key)
+                        if isinstance(entry, dict) and (
+                            entry.get("status") == "done"
+                            or (
+                                entry.get("status") == "in_progress"
+                                and not _is_stale_claim(entry, args.claim_ttl_minutes)
+                            )
+                        ):
+                            blocked = True
+                            break
+                    if blocked:
+                        break
+                if blocked:
+                    excluded += 1
+                else:
+                    eligible.append(place)
+            preview = eligible
+            note = (
+                f" — {excluded} excluded by current on-disk --exclusive claims/done "
+                f"(no claims written by --dry-run)"
+            )
+        print(f"[batch:{platform}] dry-run preview{note}:")
+        for place in preview[:20]:
             print(f"  [dry-run] {place.source_file}: {place.query(template)}")
-        if len(pending) > 20:
-            print(f"  [dry-run] ... and {len(pending) - 20} more")
+        if len(preview) > 20:
+            print(f"  [dry-run] ... and {len(preview) - 20} more")
         return stats
 
     with sync_playwright() as pw:
@@ -378,8 +600,24 @@ def run_platform(platform: str, places: list[Place], args: argparse.Namespace, p
 
             consecutive_empty = 0
             cooldowns_used = 0
+            current_claim: Place | None = None
 
             for i, place in enumerate(pending, start=1):
+                if args.exclusive:
+                    claimed = check_exclusive_claim(
+                        progress, args.progress_file, platform, place, args.claim_ttl_minutes
+                    )
+                    if not claimed:
+                        stats.skipped_claimed += 1
+                        print(
+                            f"[batch:{platform}] ({i}/{len(pending)}) '{place.name}' -> "
+                            f"skipped (claimed by other platform)"
+                        )
+                        if i == len(pending):
+                            break
+                        continue
+                    current_claim = place
+
                 query = place.query(template)
                 human_idle(page, 1.0, 2.5)
 
@@ -393,10 +631,11 @@ def run_platform(platform: str, places: list[Place], args: argparse.Namespace, p
                     record_result(progress, args.progress_file, platform, place, "error", detail=error)
                 elif reels:
                     consecutive_empty = 0
-                    destination = args.destination or place.prefecture or place.city or "Japan"
+                    destination = args.destination or place.prefecture or place.city or ""
                     for reel in reels:
                         reel["destination"] = destination
-                        reel["location"] = place.name
+                        # For topics, location is the topic; for places, location is the place name
+                        reel["location"] = place.name if "topic:" not in place.dedupe_key else place.name
 
                     append_backup(backup_file, reels)
 
@@ -439,6 +678,10 @@ def run_platform(platform: str, places: list[Place], args: argparse.Namespace, p
                         + (f" ({block_reason})" if block_reason else "")
                     )
 
+                # record_result above already replaced the in_progress claim
+                # with a real status, so there's nothing left to release.
+                current_claim = None
+
                 # A run of empties usually means the session dropped or we're
                 # being soft-throttled. Check login, then cool off, rather than
                 # grinding through the rest of the list against a wall.
@@ -478,10 +721,20 @@ def run_platform(platform: str, places: list[Place], args: argparse.Namespace, p
                     time.sleep(random.uniform(args.place_delay_min, args.place_delay_max))
 
         except KeyboardInterrupt:
+            if current_claim is not None:
+                _release_claim(progress, args.progress_file, platform, current_claim)
             print(f"\n[batch:{platform}] interrupted — progress saved, re-run the same command to resume.")
             raise
+        except Exception:
+            if current_claim is not None:
+                _release_claim(progress, args.progress_file, platform, current_claim)
+            raise
         finally:
-            save_progress(args.progress_file, progress)
+            # No blanket save_progress here on purpose: every mutation above
+            # (record_result / check_exclusive_claim / _release_claim) already
+            # persists itself under the progress lock. A raw whole-dict write
+            # here would race the other platform's process and could clobber
+            # entries it wrote in the meantime.
             session.close(keep_browser=not args.close_browser)
 
     print(stats.summary(platform))
@@ -502,15 +755,36 @@ def main() -> None:
     )
     parser.add_argument("--limit-per-place", type=int, default=5)
 
+    parser.add_argument("--city", choices=["edinburgh"], help="City preset (e.g. 'edinburgh' for Edinburgh-only, normalized-name dedup, preset progress file).")
     parser.add_argument("--only-city", action="append", help="Only this consolidated file stem (repeatable), e.g. chiyoda.")
     parser.add_argument("--skip-city", action="append", help="Skip this consolidated file stem (repeatable).")
     parser.add_argument("--max-places", type=int, default=0, help="Cap places per platform this run (0 = no cap).")
+    parser.add_argument("--topics", action="store_true", help="(Edinburgh only) Scrape Edinburgh local hashtags instead of places.")
     parser.add_argument("--dry-run", action="store_true", help="Print the queries that would run, then exit.")
+    parser.add_argument(
+        "--reverse", action="store_true",
+        help="Work the place list last -> first (applied before --max-places). "
+             "Run one platform forward and another with --reverse so two parallel "
+             "runs start at opposite ends and meet in the middle.",
+    )
+    parser.add_argument(
+        "--exclusive", action="store_true",
+        help="Skip a place if another platform already finished it, or holds a "
+             "fresh in-progress claim on it (see --claim-ttl-minutes). Lets "
+             "--platform tiktok and --platform instagram run at the same time "
+             "against the same progress file without covering the same ground.",
+    )
+    parser.add_argument(
+        "--claim-ttl-minutes", type=float, default=45.0,
+        help="With --exclusive: how long another platform's in-progress claim on "
+             "a place blocks this one before it's treated as abandoned (e.g. a "
+             "crashed process) and can be reclaimed.",
+    )
 
-    parser.add_argument("--tiktok-query", default=PLATFORM_CONFIG["tiktok"]["default_query"],
-                        help="Query template. Fields: {name} {city} {prefecture}.")
-    parser.add_argument("--instagram-query", default=PLATFORM_CONFIG["instagram"]["default_query"],
-                        help="Query template (squashed to a hashtag, so keep it short).")
+    parser.add_argument("--tiktok-query", default=None,
+                        help="Query template. Fields: {name} {city} {prefecture}. Default: '{name} {city}' or '{name} Edinburgh' for --city edinburgh.")
+    parser.add_argument("--instagram-query", default=None,
+                        help="Query template (squashed to a hashtag, so keep it short). Default: '{name}'.")
 
     parser.add_argument("--batch-size", type=int, default=8, help="Places per batch before a longer rest.")
     parser.add_argument("--batch-rest-min", type=float, default=90.0)
@@ -525,7 +799,7 @@ def main() -> None:
     parser.add_argument("--login-timeout", type=float, default=0,
                         help="Seconds to wait for manual login (0 = wait indefinitely).")
 
-    parser.add_argument("--progress-file", type=Path, default=DEFAULT_PROGRESS_FILE)
+    parser.add_argument("--progress-file", type=Path, help="Progress file (default: per-city, e.g. batch_progress_edinburgh.json for --city edinburgh).")
     parser.add_argument("--backup-dir", type=Path, default=DEFAULT_BACKUP_DIR,
                         help="Where scraped_<platform>.jsonl backups are appended.")
     parser.add_argument("--no-upsert", action="store_true", help="Skip Supabase; keep the JSONL backup only.")
@@ -534,17 +808,57 @@ def main() -> None:
     add_browser_args(parser)
     args = parser.parse_args()
 
-    places = build_place_list(args)
-    if not places:
-        print("[batch] no places matched the current filters.", file=sys.stderr)
-        sys.exit(1)
+    # Apply --city preset and set defaults
+    if args.city == "edinburgh":
+        args.only_city = ["edinburgh"]
+        if not args.progress_file:
+            args.progress_file = SCRAPER_DIR / "data" / "batch_progress_edinburgh.json"
+        if not args.destination:
+            args.destination = "Edinburgh"
+        if args.tiktok_query is None:
+            args.tiktok_query = "{name} Edinburgh"
+        if args.instagram_query is None:
+            args.instagram_query = "{name}"
+    else:
+        if not args.progress_file:
+            args.progress_file = DEFAULT_PROGRESS_FILE
+        if args.tiktok_query is None:
+            args.tiktok_query = PLATFORM_CONFIG["tiktok"]["default_query"]
+        if args.instagram_query is None:
+            args.instagram_query = PLATFORM_CONFIG["instagram"]["default_query"]
+
+    if args.topics:
+        if args.city != "edinburgh":
+            print("[batch] --topics is only supported with --city edinburgh", file=sys.stderr)
+            sys.exit(1)
+        # Topics mode: scrape Edinburgh hashtags instead of places
+        # Override templates to just use the topic name (no suffix)
+        if args.tiktok_query == "{name} Edinburgh":
+            args.tiktok_query = "{name}"
+        places = []
+        for topic in EDINBURGH_TOPICS:
+            places.append(
+                Place(
+                    name=topic,
+                    dedupe_key=f"topic:{topic}",
+                    city="Edinburgh",
+                    prefecture="Edinburgh",
+                    source_file="topics",
+                )
+            )
+    else:
+        places = build_place_list(args)
+        if not places:
+            print("[batch] no places matched the current filters.", file=sys.stderr)
+            sys.exit(1)
 
     progress = load_progress(args.progress_file)
     platforms = ["tiktok", "instagram"] if args.platform == "both" else [args.platform]
 
+    mode = "Edinburgh topics" if args.topics else "places"
     cities = sorted({p.source_file for p in places})
     print(
-        f"[batch] {len(places)} place(s) across {len(cities)} city file(s): {', '.join(cities)}\n"
+        f"[batch] {len(places)} {mode} across {len(cities)} source(s): {', '.join(cities)}\n"
         f"[batch] platform(s): {', '.join(platforms)} | browser mode: {args.browser_mode} | "
         f"destination tag: {args.destination or 'per-place prefecture'}"
     )

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { cityBadge, SUPPORTED_CITIES } from "@/lib/city";
 import { supabaseBrowserAuth } from "@/lib/supabase/client";
@@ -10,13 +10,11 @@ import { rememberUserLocation, forgetUserLocation } from "@/lib/now/location";
 import type { CardKind, NowResponse } from "@/lib/now/types";
 import type { FeedCardData, FeedResponse, FeedWindow } from "@/lib/happenings/feed-types";
 import { NOTIFY_ME_ENABLED } from "@/lib/happenings/book-early";
-import { localDayDate } from "@/lib/happenings/occurrence";
-import { monthShort, weekendDates } from "@/lib/happenings/format";
 import type { WeatherCondition } from "@/lib/weather";
 import { WEATHER_THEME } from "@/lib/weatherUi";
-import { Chip, CityPicker, Icon, SegmentedControl } from "@/components/ui";
+import { CityPicker, Icon, SegmentedControl } from "@/components/ui";
 import { FomoCard } from "@/components/fomo/Card";
-import { HappeningHero, FeedListCard, FreeAnyTimeList, BookEarlyCard } from "@/components/happenings";
+import { FeedHero, FeedListCard, FreeAnyTimeList, BookEarlyCard } from "@/components/happenings";
 
 interface HomeWeather {
   condition: WeatherCondition;
@@ -25,16 +23,20 @@ interface HomeWeather {
 
 /**
  * Three tabs, not a window plus a bolted-on list. "This month" used to be a
- * tab here, then a range filter chip inside Coming up; both are gone now —
- * Coming up's own date-filter row (an "All dates"/"This weekend" chip plus a
- * pill per date, see `ComingUpDateFilterRow` below) replaced it with
- * something that narrows the list the caller can actually see instead of a
- * blind lookahead cutoff. Now/Coming up are disjoint by construction
- * server-side (see occurrenceWindowRange in app/api/feed/route.ts).
- * `book_early` is the third tab, added because Book Early competed for
- * attention as a section wedged under Coming up — it's not a date window at
- * all (the route returns an empty `whatsOn` for it), it swaps out What's on
- * entirely for the ranked Book Early list.
+ * tab here, then a range filter chip inside Coming up; both are gone now.
+ * Now/Coming up are disjoint by construction server-side (see
+ * occurrenceWindowRange in app/api/feed/route.ts). `book_early` is the third
+ * tab, added because Book Early competed for attention as a section wedged
+ * under Coming up — it's not a date window at all (the route returns an
+ * empty `whatsOn` for it), it swaps out What's on entirely for the ranked
+ * Book Early list.
+ *
+ * Neither Now nor Coming up has any per-day/category filtering here anymore
+ * — that used to be an in-place "Show all N" expander plus (Coming up only)
+ * a sticky date-pill row bolted onto this page. Both moved to their own
+ * destination, app/(shell)/whats-on/page.tsx, reached via each list's
+ * "See all N" link below — the filters live where the full list does, not
+ * wedged into Home.
  */
 const WINDOW_OPTIONS: { value: FeedWindow; label: string }[] = [
   { value: "now", label: "Now" },
@@ -95,98 +97,27 @@ function bookEarlyCardKey(card: FeedResponse["bookEarly"][number]): string {
   return card.kind === "happening" ? `happening-${card.happening.id}` : `event-${card.event.id}`;
 }
 
-/** A What's on card's local calendar day — `occurrence.dayDate` for a
- *  happening/series card, else derived from an event's `starts_at` the same
- *  way app/api/feed/route.ts's own `dayDateOf` does. Used only by Coming
- *  up's client-side date filter (the route already sorts/groups server-side;
- *  this re-derives the same day string purely for filtering the list the
- *  caller already has, not for re-bucketing it). */
-function cardDayDate(card: FeedCardData): string {
-  return card.kind === "event" ? localDayDate(new Date(card.event.starts_at)) : card.occurrence.dayDate;
-}
-
-/** Every list section shares one cap+expand convention: show the first
- *  SECTION_CAP cards, reveal the rest with a "Show all N" tap that expands
- *  in place (no navigation, no second request — the route already returns
- *  the full list), and collapse back with "Show less". Rendered only when
- *  there's actually more than SECTION_CAP to show. */
+/** Every list section shares one cap+link convention: show the first
+ *  SECTION_CAP cards, and — only when there's actually more than that to
+ *  show — a "See all N" link out to that section's own dedicated page
+ *  (What's on → /whats-on, Book early → /book-early), which shows the full
+ *  list plus that page's own filters. Replaces the old in-place "Show all N"
+ *  expander (task: "it needs to open a new kind of window... rather than
+ *  showing them in the same place"), matching the convention
+ *  components/happenings/FreeAnyTimeList.tsx already established for Free
+ *  any time's own "See all" link to /free. */
 const SECTION_CAP = 5;
 
-function SectionToggle({ total, expanded, onToggle }: { total: number; expanded: boolean; onToggle: () => void }) {
+function SeeAllLink({ href, total }: { href: string; total: number }) {
   if (total <= SECTION_CAP) return null;
   return (
-    <button
-      type="button"
-      onClick={onToggle}
-      aria-expanded={expanded}
+    <Link
+      href={href}
       className="flex shrink-0 items-center gap-0.5 rounded-full bg-surface-container-lowest/80 px-2.5 py-1 text-label-sm font-semibold text-primary backdrop-blur-sm transition-opacity hover:opacity-80"
     >
-      {expanded ? "Show less" : `Show all ${total}`}
-      <Icon name={expanded ? "expand_less" : "expand_more"} size={16} />
-    </button>
-  );
-}
-
-/** "Sep" / "26" / "Sat" for one Coming up date pill — `monthShort` (not
- *  `Intl.DateTimeFormat(…, {month:"short"})`) sidesteps the en-GB "Sept" ICU
- *  quirk lib/happenings/format.ts's own module doc calls out; weekday
- *  abbreviation is safe straight from `Intl` (no such quirk there), same as
- *  that file's own date-label helpers. */
-function dayPillParts(dayDate: string): { weekday: string; day: number; month: string } {
-  const [y, m, d] = dayDate.split("-").map(Number);
-  const date = new Date(Date.UTC(y, m - 1, d));
-  const weekday = new Intl.DateTimeFormat("en-GB", { weekday: "short", timeZone: "UTC" }).format(date);
-  return { weekday, day: d, month: monthShort(dayDate) };
-}
-
-/**
- * Coming up's date filter — "All dates" / "This weekend" chips plus one
- * compact calendar pill per date that has at least one card, replacing the
- * old "This weekend" / "Later on" bucket split (see app/api/feed/route.ts's
- * doc comment on `whatsOn`) with something the caller can actually narrow.
- * Single-select, horizontally scrollable, no wrapping — same convention as
- * every other filter-chip row in the app (app/(shell)/events/page.tsx and
- * siblings). Purely a display of `dates`, which the page derives from the
- * already-fetched card list — no fetch of its own.
- */
-function ComingUpDateFilterRow({
-  dates,
-  selected,
-  onSelect,
-}: {
-  dates: string[];
-  selected: string;
-  onSelect: (value: string) => void;
-}) {
-  return (
-    <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1 [&::-webkit-scrollbar]:hidden">
-      <Chip label="All dates" selected={selected === "all"} onClick={() => onSelect("all")} />
-      <Chip label="This weekend" selected={selected === "weekend"} onClick={() => onSelect("weekend")} />
-      {dates.map((dayDate, i) => {
-        const { weekday, day, month } = dayPillParts(dayDate);
-        const showMonth = i === 0 || dayPillParts(dates[i - 1]).month !== month;
-        const active = selected === dayDate;
-        return (
-          <button
-            key={dayDate}
-            type="button"
-            aria-pressed={active}
-            onClick={() => onSelect(dayDate)}
-            className={`flex min-w-[44px] shrink-0 flex-col items-center gap-0.5 rounded-2xl px-2.5 py-1.5 text-center transition-colors ${
-              active
-                ? "bg-primary text-on-primary border border-primary shadow-sm"
-                : "bg-surface-container text-on-surface-variant border border-transparent hover:bg-surface-container-high"
-            }`}
-          >
-            <span className="h-3 text-[9px] font-bold uppercase leading-none tracking-wide opacity-70">
-              {showMonth ? month : ""}
-            </span>
-            <span className="text-[10px] font-semibold uppercase leading-none">{weekday}</span>
-            <span className="text-label-md font-extrabold leading-none">{day}</span>
-          </button>
-        );
-      })}
-    </div>
+      See all {total}
+      <Icon name="chevron_right" size={16} />
+    </Link>
   );
 }
 
@@ -195,11 +126,12 @@ function ComingUpDateFilterRow({
  * window control, either What's on (Now/Coming up) or the Book early list
  * (its own tab, not a section wedged under Coming up) → Free any time, shown
  * only on Now so it doesn't repeat itself under every tab. Every list here
- * (What's on, Book early) shows its first SECTION_CAP cards with a "Show all
- * N" control that expands in place — no per-section chip filters left on
- * Home; Coming up's own date-filter row is the one exception, since it
- * narrows a list the caller is already looking at rather than gating the
- * fetch. Deals & Offers moved out to its own page (app/(shell)/deals/page.tsx)
+ * (What's on, Book early) shows only its first SECTION_CAP cards, followed —
+ * only when there's more than that — by a "See all N" link out to that
+ * section's own dedicated page (/whats-on, /book-early), which owns the full
+ * list AND that list's filters (date/category for What's on; timing/category/
+ * month for Book early). No filtering of any kind happens on Home itself
+ * anymore. Deals & Offers moved out to its own page (app/(shell)/deals/page.tsx)
  * in the Home decluttering pass — user feedback was "the homepage is messy,
  * all blue, too much text", and Deals' own WHAT/WHO filter chips plus a
  * fourth card list were the single biggest chunk of that. Deals lives ONLY in
@@ -210,11 +142,12 @@ function ComingUpDateFilterRow({
  * reads the same route) — Home just never touches that field.
  *
  * The merged read lives behind GET /api/feed (app/api/feed/route.ts) — this
- * page is presentation + the client state the route can't own (the window,
- * Coming up's date filter).
+ * page is presentation + the one bit of client state the route can't own
+ * (the window).
  *
- * HERO: GET /api/feed's `hero` is ordinarily the top-ranked live happening
- * across every section, rendered via HappeningHero; null falls back to the
+ * HERO: GET /api/feed's `hero` is ordinarily the best recommendation across
+ * dated happenings and free/cheap provider events (lib/happenings/hero.ts),
+ * rendered via FeedHero with its "why this" reason; null falls back to the
  * pre-existing /api/now hero via FomoCard, so the page is never blank while
  * the happenings pipeline catches up. On the Book early tab this is
  * different — `heroKind === "book_early"` means `hero` is that tab's own top
@@ -229,11 +162,6 @@ export default function HomePage() {
   const [feed, setFeed] = useState<FeedResponse | null>(null);
   const [weather, setWeather] = useState<HomeWeather | null>(null);
   const [feedWindow, setWindow] = useState<FeedWindow>("now");
-  // Coming up's date filter — "all", "weekend", or a specific "YYYY-MM-DD"
-  // day pill. Purely client-side over the already-fetched `whatsOn` list (no
-  // refetch), so — unlike `feedWindow` — changing it never triggers the
-  // fetch effect or the scroll-into-view below.
-  const [comingUpDateFilter, setComingUpDateFilter] = useState<string>("all");
   // Window-switch feedback (task: "no animation or changes properly when I
   // select This month / Coming up"). `feedLoading` dims the still-visible
   // previous What's on content the instant a segment is tapped;
@@ -245,24 +173,6 @@ export default function HomePage() {
   const [whatsOnRenderKey, setWhatsOnRenderKey] = useState(0);
   const whatsOnSectionRef = useRef<HTMLDivElement>(null);
   const prevFeedWindowRef = useRef<FeedWindow>(feedWindow);
-  // Coming up's date-filter row sticks directly beneath the header — its
-  // `top` offset is the header's own real rendered height (which already
-  // bakes in `pt-safe`'s env(safe-area-inset-top), so this never guesses a
-  // pixel number that'd be wrong on a notched device). Measured the same way
-  // SegmentedControl measures its sliding indicator: synchronously after
-  // paint, then re-measured on resize/orientation change, since the safe
-  // area inset itself can change then.
-  const headerRef = useRef<HTMLElement>(null);
-  const [headerHeight, setHeaderHeight] = useState(0);
-  useEffect(() => {
-    function measureHeader() {
-      const el = headerRef.current;
-      if (el) setHeaderHeight(el.getBoundingClientRect().height);
-    }
-    measureHeader();
-    window.addEventListener("resize", measureHeader);
-    return () => window.removeEventListener("resize", measureHeader);
-  }, []);
   // Book Early "Notify me" state — the caller's full on-sale-alert
   // happening-id set, loaded once so each BookEarlyCard renders correctly
   // subscribed instead of resetting to "Notify me" on every load. Only
@@ -389,61 +299,11 @@ export default function HomePage() {
   const bookEarlyAll = feed?.bookEarly ?? [];
   const freeAnyTime = feed?.freeAnyTime ?? [];
 
-  // Coming up's date filter operates over this one already-fetched list —
-  // see app/api/feed/route.ts's doc comment on `whatsOn` for why it's a
-  // single chronological bucket now, not a weekend/later split. Memoized in
-  // its own right (not just inlined into the two useMemos below) so THEIR
-  // deps are a stable reference across renders that don't actually change
-  // window/bucket, not a fresh `[]`/slice every time.
-  const comingUpAllCards = useMemo(
-    () => (feedWindow === "coming_up" ? (whatsOnBucket?.cards ?? []) : []),
-    [feedWindow, whatsOnBucket]
-  );
-  const comingUpDates = useMemo(() => {
-    const set = new Set<string>();
-    for (const card of comingUpAllCards) set.add(cardDayDate(card));
-    return Array.from(set).sort();
-  }, [comingUpAllCards]);
-  const { saturday: weekendSaturday, sunday: weekendSunday } = weekendDates();
-  const comingUpFilteredCards = useMemo(() => {
-    if (comingUpDateFilter === "all") return comingUpAllCards;
-    if (comingUpDateFilter === "weekend") {
-      return comingUpAllCards.filter((c) => {
-        const d = cardDayDate(c);
-        return d === weekendSaturday || d === weekendSunday;
-      });
-    }
-    return comingUpAllCards.filter((c) => cardDayDate(c) === comingUpDateFilter);
-  }, [comingUpAllCards, comingUpDateFilter, weekendSaturday, weekendSunday]);
-
-  // What's on's currently-relevant list — Coming up's date-filtered cards, or
-  // the window's one bucket as-is for Now (which has no filter row).
-  const whatsOnCards = feedWindow === "coming_up" ? comingUpFilteredCards : (whatsOnBucket?.cards ?? []);
-
-  // Cap+expand state for What's on and Book early — each tab shows only ONE
-  // of these at a time, so one boolean per section (not keyed by bucket, now
-  // that a window is ever at most one bucket) is enough. Reset whenever the
-  // caller changes what they're looking at, so a stale "expanded" never
-  // carries over onto a different tab or date — React's own "adjusting state
-  // when a prop changes" pattern (react.dev/learn/you-might-not-need-an-effect):
-  // track the last-seen `feedWindow`/`comingUpDateFilter` in state and
-  // setState immediately during render when either has moved, rather than in
-  // a `useEffect`, which would commit one stale frame first and cost an
-  // avoidable extra render.
-  const [expandedWhatsOn, setExpandedWhatsOn] = useState(false);
-  const [expandedBookEarly, setExpandedBookEarly] = useState(false);
-  const [prevFeedWindowForReset, setPrevFeedWindowForReset] = useState(feedWindow);
-  const [prevDateFilterForReset, setPrevDateFilterForReset] = useState(comingUpDateFilter);
-  if (feedWindow !== prevFeedWindowForReset) {
-    setPrevFeedWindowForReset(feedWindow);
-    setPrevDateFilterForReset("all");
-    setExpandedWhatsOn(false);
-    setExpandedBookEarly(false);
-    if (comingUpDateFilter !== "all") setComingUpDateFilter("all");
-  } else if (comingUpDateFilter !== prevDateFilterForReset) {
-    setPrevDateFilterForReset(comingUpDateFilter);
-    setExpandedWhatsOn(false);
-  }
+  // What's on's currently-relevant list — the window's one bucket, uncapped
+  // (the render below slices its first SECTION_CAP); no per-day/category
+  // filtering left on Home at all — that lives on /whats-on now (reached via
+  // the "See all N" link below), which fetches this same window itself.
+  const whatsOnCards = whatsOnBucket?.cards ?? [];
 
   function cardKey(card: FeedCardData): string {
     if (card.kind === "happening") return `happening-${card.happening.id}`;
@@ -452,9 +312,6 @@ export default function HomePage() {
   }
 
   function whatsOnEmptyMessage(): string {
-    if (feedWindow === "coming_up" && comingUpDateFilter !== "all" && comingUpAllCards.length > 0) {
-      return "Nothing on that day — try another date.";
-    }
     return `Nothing lined up for ${WHATS_ON_WINDOW_LABEL[feedWindow].toLowerCase()} yet — try another tab.`;
   }
 
@@ -467,10 +324,8 @@ export default function HomePage() {
           that translucency reads as intentional, not a bug, so this stays a
           local override rather than changing the utility itself out from
           under its other callers. */}
-      <header
-        ref={headerRef}
-        className="sticky top-0 z-40 flex items-center justify-between gap-2 border-b border-hairline bg-surface-container-lowest/95 px-4 pt-safe min-h-[64px] backdrop-blur-xl"
-      >
+      <header className="sticky top-0 z-40 flex items-center justify-between gap-2 border-b border-hairline bg-surface-container-lowest/95 px-4 pt-safe min-h-[64px] backdrop-blur-xl">
+
         <div className="flex min-w-0 items-center gap-2.5">
           <div className="flex flex-col">
             <span className="text-headline-sm font-extrabold leading-none tracking-tight text-on-surface">
@@ -563,7 +418,7 @@ export default function HomePage() {
         <SegmentedControl value={feedWindow} options={WINDOW_OPTIONS} onChange={setWindow} />
 
         {showHappeningHero && feed?.hero ? (
-          <HappeningHero happening={feed.hero.happening} occurrence={feed.hero.occurrence} variant={heroKind} />
+          <FeedHero card={feed.hero} variant={heroKind} />
         ) : heroKind === "book_early" ? null : now?.hero ? (
           <FomoCard candidate={now.hero} variant="hero" onDismiss={() => void refreshNow()} onPrimary={handlePrimary} />
         ) : (
@@ -595,42 +450,15 @@ export default function HomePage() {
                     · {WHATS_ON_WINDOW_LABEL[feedWindow]}
                   </span>
                 </h2>
-                {/* Count badge and the "Show all N" toggle share this
-                    right-aligned row — user feedback asked for the expand
-                    control "on the side", next to the section's own count,
-                    same slot on every tab (What's on here, Book early
-                    below). */}
+                {/* Count badge and the "See all N" link share this
+                    right-aligned row — same slot on every tab (What's on
+                    here, Book early below). */}
                 <div className="flex items-center gap-2">
                   <span className="rounded-full border border-hairline-strong bg-surface-container px-2.5 py-0.5 text-label-sm font-extrabold text-primary">
                     {whatsOnCards.length}
                   </span>
-                  <SectionToggle
-                    total={whatsOnCards.length}
-                    expanded={expandedWhatsOn}
-                    onToggle={() => setExpandedWhatsOn((v) => !v)}
-                  />
+                  <SeeAllLink href={`/whats-on?window=${feedWindow}`} total={whatsOnCards.length} />
                 </div>
-              </div>
-            ) : null}
-
-            {feedWindow === "coming_up" && feed !== null && comingUpDates.length > 0 ? (
-              // Sticks directly beneath the app header (`top: headerHeight`,
-              // measured above — never a guessed pixel value) as the list
-              // scrolls past it, same reasoning as the header's own comment
-              // on why it isn't the translucent `glass-surface` utility: a
-              // sticky bar has to actually occlude what scrolls under it.
-              // `z-30` keeps it below the header's own `z-40` when both are
-              // stuck at once. Only this row sticks — the SegmentedControl
-              // tabs above scroll away normally.
-              <div
-                className="sticky z-30 -mx-4 border-b border-hairline bg-surface-container-lowest/95 px-4 py-2 backdrop-blur-xl"
-                style={{ top: headerHeight }}
-              >
-                <ComingUpDateFilterRow
-                  dates={comingUpDates}
-                  selected={comingUpDateFilter}
-                  onSelect={setComingUpDateFilter}
-                />
               </div>
             ) : null}
 
@@ -650,9 +478,7 @@ export default function HomePage() {
                 {whatsOnCards.length === 0 ? (
                   <p className="px-1 text-body-sm text-on-surface-variant">{whatsOnEmptyMessage()}</p>
                 ) : (
-                  (expandedWhatsOn ? whatsOnCards : whatsOnCards.slice(0, SECTION_CAP)).map((card) => (
-                    <FeedListCard key={cardKey(card)} card={card} />
-                  ))
+                  whatsOnCards.slice(0, SECTION_CAP).map((card) => <FeedListCard key={cardKey(card)} card={card} />)
                 )}
               </div>
             )}
@@ -665,13 +491,10 @@ export default function HomePage() {
             itself stays window-independent — it's unconditionally returned
             by GET /api/feed because /book-early, /deals and /free all fetch
             window=now and depend on the full list — Home is just choosier
-            about when it renders it. Same cap+expand convention as What's on
-            now (was the full ranked list up front, with a "See all" link out
-            to /book-early) — the toggle sits in this section's own header
-            row, same right-aligned slot as What's on's. /book-early still
-            exists for its own timing/category/month filters and Ask Fomo
-            button (see that page's own doc comment); it's just no longer the
-            only way to see past the first few from Home. */}
+            about when it renders it. Same cap+"See all N" link convention as
+            What's on above, out to /book-early — its own page, with its own
+            timing/category/month filters and Ask Fomo button (see that
+            page's own doc comment). */}
         {feedWindow === "book_early" ? (
           <section className="flex flex-col gap-3">
             <div className="flex items-start justify-between gap-2 px-1">
@@ -684,11 +507,7 @@ export default function HomePage() {
                   Things that sell out fast the moment tickets go on sale
                 </p>
               </div>
-              <SectionToggle
-                total={bookEarlyAll.length}
-                expanded={expandedBookEarly}
-                onToggle={() => setExpandedBookEarly((v) => !v)}
-              />
+              <SeeAllLink href="/book-early" total={bookEarlyAll.length} />
             </div>
             {bookEarlyAll.length === 0 ? (
               <p className="px-1 text-body-sm text-on-surface-variant">
@@ -696,7 +515,7 @@ export default function HomePage() {
               </p>
             ) : (
               <div className="flex flex-col gap-3">
-                {(expandedBookEarly ? bookEarlyAll : bookEarlyAll.slice(0, SECTION_CAP)).map((card) => (
+                {bookEarlyAll.slice(0, SECTION_CAP).map((card) => (
                   <BookEarlyCard
                     key={bookEarlyCardKey(card)}
                     card={card}

@@ -1,0 +1,123 @@
+"use client";
+
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { Icon, NavCard, SmartImage } from "@/components/ui";
+import { formatEventDate, formatEventPrice, formatEventTimeSpan } from "@/lib/events/format";
+import { categoryDefaultImage } from "@/lib/happenings/category-style";
+import { HappeningHero } from "./HappeningHero";
+import type { FeedHeroCard } from "@/lib/happenings/feed-types";
+import type { EventItem } from "@/lib/types";
+
+export interface FeedHeroProps {
+  card: FeedHeroCard;
+  /** Same meaning as HappeningHeroProps' own `variant` — only ever
+   *  "book_early" on the Book Early tab, which only ever hands this a
+   *  happening card (see app/api/feed/route.ts's `heroKind`), never an
+   *  event one. */
+  variant?: "fomo_pick" | "book_early";
+}
+
+/**
+ * The Home hero slot — a happening (delegates straight to HappeningHero,
+ * unchanged presentation) or a free/cheap provider event (Skiddle/
+ * Ticketmaster), which gets an equivalent hero treatment here since
+ * HappeningHero's fields (promo code, redemption note, eligibility) don't
+ * exist on an `EventItem`. Both variants carry the same `reason` eyebrow
+ * pill from the recommendation score (lib/happenings/hero.ts).
+ */
+export function FeedHero({ card, variant = "fomo_pick" }: FeedHeroProps) {
+  if (card.kind === "happening") {
+    return <HappeningHero happening={card.happening} occurrence={card.occurrence} variant={variant} reason={card.reason} />;
+  }
+  return <EventHero event={card.event} reason={card.reason} />;
+}
+
+function EventHero({ event, reason }: { event: EventItem; reason: string | null }) {
+  const [imgError, setImgError] = useState(false);
+  const router = useRouter();
+
+  const price = formatEventPrice(event);
+  const eventDate = formatEventDate(event.starts_at);
+  const eventTime = formatEventTimeSpan(event.starts_at, event.ends_at);
+  const heroImage = event.image_url && !imgError ? event.image_url : categoryDefaultImage(null);
+
+  function goToEvent(e: React.MouseEvent | React.KeyboardEvent) {
+    e.stopPropagation();
+    router.push(`/event/${event.id}`);
+  }
+
+  return (
+    <NavCard
+      href={`/event/${event.id}`}
+      ariaLabel={event.name}
+      className="relative flex flex-col overflow-hidden rounded-3xl bg-surface-container-lowest shadow-level-3 cursor-pointer"
+    >
+      <div className="relative h-40 w-full shrink-0 overflow-hidden bg-surface-container">
+        <SmartImage
+          src={heroImage}
+          alt=""
+          width={480}
+          height={160}
+          sizes="(max-width: 480px) 100vw, 480px"
+          priority
+          className="h-full w-full object-cover"
+          onError={() => setImgError(true)}
+        />
+        <div className="absolute inset-0 bg-gradient-to-t from-surface-container-lowest via-surface-container-lowest/15 to-transparent" />
+
+        <div className="absolute inset-x-3 top-3 flex items-start justify-between gap-2">
+          <div className="flex min-w-0 flex-col items-start gap-1">
+            <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-primary-container/90 px-3 py-1 text-label-sm font-bold text-on-primary-container backdrop-blur-md">
+              <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-secondary-fixed-dim animate-pulse" />
+              Fomo Pick · {eventDate}
+            </span>
+            {reason ? (
+              <span className="inline-flex max-w-full shrink-0 items-center truncate rounded-full bg-surface-container-lowest/85 px-2.5 py-0.5 text-label-sm font-semibold text-on-surface backdrop-blur-md">
+                {reason}
+              </span>
+            ) : null}
+          </div>
+          {price ? (
+            <span className="shrink-0 rounded-full border border-on-primary/20 bg-primary-container px-3 py-1 text-label-md font-bold text-on-primary-container shadow-md backdrop-blur-md">
+              {price}
+            </span>
+          ) : null}
+        </div>
+
+        {event.venue_name ? (
+          <div className="absolute bottom-2.5 left-3.5 flex items-center gap-1 text-primary">
+            <Icon name="pin_drop" size={16} />
+            <span className="text-label-sm font-extrabold uppercase tracking-wider">{event.venue_name}</span>
+          </div>
+        ) : null}
+      </div>
+
+      <div className="flex flex-col gap-3 p-4 pt-2.5">
+        <div className="flex flex-col gap-1">
+          <h2 className="line-clamp-2 text-headline-md font-extrabold leading-snug text-on-surface">{event.name}</h2>
+          {event.description ? (
+            <p className="line-clamp-1 text-body-sm text-on-surface-variant">{event.description}</p>
+          ) : null}
+        </div>
+
+        <div className="flex items-center gap-2.5 border-t border-hairline pt-2.5">
+          <span className="flex items-center gap-1 text-label-sm font-medium text-on-surface-variant">
+            <Icon name="schedule" size={15} className="text-secondary" />
+            {eventTime}
+          </span>
+          <button
+            type="button"
+            onClick={goToEvent}
+            className="flex flex-1 items-center justify-center gap-1 rounded-lg bg-primary px-4 py-2.5 text-label-md font-bold text-on-primary shadow-sm transition-opacity hover:opacity-90 active:scale-95"
+          >
+            View Event
+            <Icon name="arrow_forward" size={16} />
+          </button>
+        </div>
+      </div>
+    </NavCard>
+  );
+}
+
+export default FeedHero;

@@ -79,7 +79,11 @@ def polite_delay(a: float = 2.0, b: float = 5.0) -> None:
 
 
 def to_hashtag(query: str) -> str:
-    """Turn a free-text query into an Instagram-safe hashtag (alnum only)."""
+    """Turn a free-text query into an Instagram-safe hashtag (alnum only).
+
+    For Edinburgh --city mode: the query is already a place name, and we
+    search by the bare name as a hashtag (e.g. #thegolftavern).
+    """
     return re.sub(r"[^0-9A-Za-z]", "", query).lower()
 
 
@@ -99,15 +103,41 @@ def detect_block(page: Page) -> str | None:
             return "Instagram is showing a 'log in to see content' wall."
         if page.locator("text=/Sorry, this page isn.?t available/i").count() > 0:
             return "Instagram returned a 'page not available' error (possibly rate-limited)."
+        if page.locator("text=/Page isn.?t available/i").count() > 0:
+            return "Instagram returned a 'page isn't available' error (possibly rate-limited)."
+        if page.locator("text=/content isn.?t available/i").count() > 0:
+            return "Instagram returned a 'content isn't available' error (possibly rate-limited)."
     except Exception:
         pass
     return None
 
 
+# Matches /p/<code>/, /reel/<code>/, /reels/<code>/, /tv/<code>/, optionally
+# prefixed with a username segment (e.g. /someuser/reel/<code>/) and/or the
+# full https://www.instagram.com origin. Query strings (e.g. ?img_index=1)
+# are ignored since the regex only anchors on the path.
+POST_LINK_RE = re.compile(
+    r"^(?:https://www\.instagram\.com)?/(?:[\w.]+/)?(?:p|reels?|tv)/([\w-]+)"
+)
+
+
 def collect_reel_links(page: Page, hashtag: str, limit: int) -> list[str]:
-    """Scroll the hashtag explore grid and collect up to `limit` unique reel shortcodes."""
+    """Scroll the hashtag explore grid and collect up to `limit * 3` unique
+    post shortcodes (candidates — photos are filtered out later once each
+    post page is visited, so we over-collect a bit up front)."""
     url = f"https://www.instagram.com/explore/tags/{hashtag}/"
     page.goto(url, wait_until="domcontentloaded")
+
+    try:
+        page.wait_for_selector('a[href*="/p/"], a[href*="/reel/"]', timeout=15000)
+    except Exception:
+        block_reason = detect_block(page)
+        if block_reason:
+            print(f"[instagram] BLOCKED on explore page: {block_reason}")
+            return []
+        print(f"[instagram] no post links found on explore page (final url: {page.url})")
+        return []
+
     polite_delay()
 
     block_reason = detect_block(page)
@@ -115,22 +145,23 @@ def collect_reel_links(page: Page, hashtag: str, limit: int) -> list[str]:
         print(f"[instagram] BLOCKED on explore page: {block_reason}")
         return []
 
+    candidate_limit = limit * 3
     shortcodes: list[str] = []
     seen: set[str] = set()
     max_stall_attempts = 6
     stalls = 0
 
-    while len(shortcodes) < limit and stalls < max_stall_attempts:
-        anchors = page.locator('a[href^="/reel/"]')
+    while len(shortcodes) < candidate_limit and stalls < max_stall_attempts:
+        anchors = page.locator('a[href*="/p/"], a[href*="/reel/"], a[href*="/reels/"]')
         count = anchors.count()
         added = 0
         for i in range(count):
-            if len(shortcodes) >= limit:
+            if len(shortcodes) >= candidate_limit:
                 break
             href = anchors.nth(i).get_attribute("href")
             if not href:
                 continue
-            match = re.match(r"^/reel/([\w-]+)/?", href)
+            match = POST_LINK_RE.match(href)
             if not match:
                 continue
             code = match.group(1)
@@ -139,7 +170,7 @@ def collect_reel_links(page: Page, hashtag: str, limit: int) -> list[str]:
                 shortcodes.append(code)
                 added += 1
 
-        if len(shortcodes) >= limit:
+        if len(shortcodes) >= candidate_limit:
             break
 
         stalls = stalls + 1 if added == 0 else 0
@@ -155,14 +186,80 @@ def collect_reel_links(page: Page, hashtag: str, limit: int) -> list[str]:
 
 
 def extract_from_post_page(page: Page, shortcode: str) -> dict | None:
-    """Visit a single reel permalink and extract fields, mainly from meta tags."""
-    video_url = f"https://www.instagram.com/reel/{shortcode}/"
-    page.goto(video_url, wait_until="domcontentloaded")
+    """Visit a single post permalink (works for photos and reels/videos alike)
+    and extract fields, mainly from meta tags.
+
+    Returns a dict with `video_url: None` when the post is not a video (the
+    caller filters those out) — NOT `None`, since `None` from this function
+    means "blocked" to the caller (`search_and_extract` stops visiting
+    further posts when it sees `None`, to avoid hammering a block).
+    """
+    post_url = f"https://www.instagram.com/p/{shortcode}/"
+    page.goto(post_url, wait_until="domcontentloaded")
+
+    try:
+        page.wait_for_selector('meta[property="og:type"], video', timeout=5000)
+    except Exception:
+        pass
 
     block_reason = detect_block(page)
     if block_reason:
-        print(f"[instagram] BLOCKED on {video_url}: {block_reason}")
+        print(f"[instagram] BLOCKED on {post_url}: {block_reason}")
         return None
+
+    is_video = False
+    try:
+        og_type = page.locator('meta[property="og:type"]')
+        if og_type.count() > 0:
+            type_content = (og_type.first.get_attribute("content") or "").lower()
+            if "video" in type_content:
+                is_video = True
+    except Exception:
+        pass
+
+    if not is_video:
+        try:
+            if (
+                page.locator('meta[property="og:video"]').count() > 0
+                or page.locator('meta[property="og:video:secure_url"]').count() > 0
+            ):
+                is_video = True
+        except Exception:
+            pass
+
+    if not is_video:
+        try:
+            if page.locator("video").count() > 0:
+                is_video = True
+        except Exception:
+            pass
+
+    if not is_video:
+        try:
+            if "/reel/" in page.url:
+                is_video = True
+            else:
+                canonical = page.locator('link[rel="canonical"]')
+                if canonical.count() > 0:
+                    canonical_href = canonical.first.get_attribute("href") or ""
+                    if "/reel/" in canonical_href:
+                        is_video = True
+        except Exception:
+            pass
+
+    if not is_video:
+        return {
+            "platform": "instagram",
+            "video_url": None,
+            "thumbnail_url": None,
+            "author_handle": None,
+            "caption": None,
+            "likes": 0,
+        }
+
+    # Keep this exact canonical form — the DB dedupes on video_url and
+    # existing rows use it.
+    video_url = f"https://www.instagram.com/reel/{shortcode}/"
 
     thumbnail_url = None
     try:
@@ -178,20 +275,30 @@ def extract_from_post_page(page: Page, shortcode: str) -> dict | None:
 
     # Instagram's og:description historically looks like:
     #   "1,234 likes, 56 comments - some_user on January 1, 2026: "caption text""
-    # This is best-effort — if IG changes the format, this regex will simply
-    # fail to match and we fall back to DOM selectors below.
+    # ...but variants exist too: singular "1 like"/"1 comment", counts
+    # omitted entirely, or the leading "likes, comments -" clause missing
+    # altogether. Try each pattern in order (most-specific first) and fall
+    # back to DOM selectors below if none match — best-effort throughout.
+    OG_DESC_PATTERNS = [
+        # "1,234 likes, 56 comments - user on <date>: "caption""
+        r'^([\d,.]+[KMB]?)\s+[Ll]ikes?,\s*[\d,.]+[KMB]?\s+[Cc]omments?\s*-\s*([\w.\-]+)\s+on\s+.*?:\s*"?(.*?)"?$',
+        # "1,234 likes - user on <date>: "caption"" (no comment count)
+        r'^([\d,.]+[KMB]?)\s+[Ll]ikes?\s*-\s*([\w.\-]+)\s+on\s+.*?:\s*"?(.*?)"?$',
+        # "user on <date>: "caption"" (no like/comment counts at all)
+        r'^()([\w.\-]+)\s+on\s+.*?:\s*"?(.*?)"?$',
+    ]
     try:
         og_desc = page.locator('meta[property="og:description"]')
         if og_desc.count() > 0:
             desc_text = og_desc.first.get_attribute("content") or ""
-            match = re.match(
-                r'^([\d,.]+[KMB]?)\s+likes?,\s*[\d,.]+[KMB]?\s+comments?\s*-\s*([\w.\-]+)\s+on\s+.*?:\s*"?(.*?)"?$',
-                desc_text,
-            )
-            if match:
-                likes = parse_count(match.group(1))
-                author_handle = match.group(2)
-                caption = match.group(3).strip() or None
+            for pattern in OG_DESC_PATTERNS:
+                match = re.match(pattern, desc_text)
+                if match:
+                    likes_group, author_group, caption_group = match.groups()
+                    likes = parse_count(likes_group) if likes_group else 0
+                    author_handle = author_group
+                    caption = caption_group.strip() or None
+                    break
     except Exception:
         pass
 
@@ -236,25 +343,32 @@ def search_and_extract(page: Page, query: str, limit: int) -> list[dict]:
     print(f"[instagram] searching #{hashtag} (from query '{query}', limit={limit})")
 
     shortcodes = collect_reel_links(page, hashtag, limit)
-    print(f"[instagram] found {len(shortcodes)} candidate reel(s), visiting each for details")
+    print(f"[instagram] found {len(shortcodes)} candidate post(s), visiting each for details")
 
     collected: list[dict] = []
+    skipped_non_video = 0
     for shortcode in shortcodes:
+        if len(collected) >= limit:
+            break
         polite_delay()
         try:
             reel = extract_from_post_page(page, shortcode)
         except Exception as exc:
-            print(f"  [warn] failed to extract reel/{shortcode}: {exc}", file=sys.stderr)
+            print(f"  [warn] failed to extract post/{shortcode}: {exc}", file=sys.stderr)
             continue
         if reel is None:
             # extract_from_post_page already printed a block reason —
             # stop visiting further posts rather than hammering a block.
             break
         if not reel.get("video_url"):
+            skipped_non_video += 1
             continue
         collected.append(reel)
 
-    print(f"[instagram] collected {len(collected)} reel(s) for '{query}'")
+    print(
+        f"[instagram] collected {len(collected)} reel(s) "
+        f"(skipped {skipped_non_video} non-video post(s)) for '{query}'"
+    )
     return collected
 
 

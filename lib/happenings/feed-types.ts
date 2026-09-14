@@ -98,6 +98,17 @@ export interface SeriesCardData {
 
 export type FeedCardData = HappeningCardData | EventCardData | SeriesCardData;
 
+/**
+ * The hero slot's card — a happening or a provider event, decorated with a
+ * short, human `reason` string built from its own top-scoring factors
+ * (lib/happenings/hero.ts's `happeningRecommendationScore`/
+ * `eventRecommendationScore`) — "Free · last chance tomorrow", "2-for-1 ·
+ * this weekend", "£4 tickets · sells out fast". Null when no factor was
+ * distinctive enough to explain the pick, or (Book Early tab only, see
+ * `heroKind`) when the tab's own top candidate carries no comparable score.
+ */
+export type FeedHeroCard = (HappeningCardData | EventCardData) & { reason: string | null };
+
 export interface FeedBucket {
   key: FeedBucketKey;
   title: string;
@@ -161,8 +172,8 @@ export interface DealsSection {
 }
 
 export interface FeedResponse {
-  /** The hero card, or null when none qualify — the page falls back to rendering the existing /api/now hero via FomoCard EXCEPT when `heroKind === "book_early"`, where null means show no hero at all (never the Fomo Pick/FomoCard fallback). Ordinarily (`heroKind` absent) this is the top-ranked live happening across every section — What's on, Book early, or a deal, not just a dated happening. On `window=book_early` it's instead the top-ranked Book Early `kind: "happening"` card (see `heroKind`). */
-  hero: HappeningCardData | null;
+  /** The hero card, or null when none qualify — the page falls back to rendering the existing /api/now hero via FomoCard EXCEPT when `heroKind === "book_early"`, where null means show no hero at all (never the Fomo Pick/FomoCard fallback). Ordinarily (`heroKind` absent) this is the top-recommended candidate across every section — What's on, Book early, or a deal, AND free/cheap provider events (lib/happenings/hero.ts) — not just a dated happening. On `window=book_early` it's instead the top-ranked Book Early `kind: "happening"` card, with `reason: null` (see `heroKind`). */
+  hero: FeedHeroCard | null;
   /** Which presentation `hero` should render with. Absent (the ordinary case) means the ranked-across-everything "Fomo Pick" card; `"book_early"` means `hero` is a Book Early candidate and the client should render HappeningHero's Book Early copy/CTA instead — only ever set on `window=book_early`. */
   heroKind?: "book_early";
   /** Window-driven date-bucketed section: one chronologically sorted bucket for `now` (today + tomorrow) or `coming_up` (everything after, no weekend/later split — Home applies its own client-side date filter over this single list) — activities, tours, events, festivals, dated free_access, cheap Skiddle/Ticketmaster events, and sports events/happenings regardless of price (lib/now/price.ts's WHATS_ON_PRICE_EXEMPT_CATEGORIES). Excludes every `kind: "deal"` happening — those live in `deals` now, never duplicated here. */
