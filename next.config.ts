@@ -10,6 +10,14 @@ import { REMOTE_IMAGE_HOSTNAMES } from "./lib/image/cdn";
 // Plus Jakarta Sans), and remote event/place photos — no CSP violations in
 // the console and every surface still renders. Re-check this list whenever a
 // new external host is added anywhere in the app.
+// On Vercel preview deployments with Deployment Protection/SSO enabled,
+// same-origin requests (e.g. /manifest.json) get redirected through
+// https://vercel.com/sso-api?... before the visitor has an SSO session
+// cookie. That makes an otherwise same-origin manifest fetch cross-origin,
+// so it needs an explicit allowance — but only outside production, where no
+// such interception ever happens and the CSP should stay maximally strict.
+const isProductionDeploy = process.env.VERCEL_ENV === "production";
+
 const CSP_DIRECTIVES = [
   "default-src 'self'",
   // No nonce infra yet — Next emits inline bootstrap scripts, so
@@ -23,6 +31,11 @@ const CSP_DIRECTIVES = [
   // whatever CDN the source data points at (or proxied same-origin via
   // /api/media-proxy) — no fixed allowlist of image hosts is possible here.
   "img-src 'self' https: data: blob:",
+  // Explicit rather than relying on the default-src fallback. On preview
+  // deployments, Vercel's Deployment Protection SSO redirect turns the
+  // same-origin /manifest.json fetch into a request to vercel.com — allow
+  // that origin only for non-production deploys (see isProductionDeploy).
+  `manifest-src 'self'${isProductionDeploy ? "" : " https://vercel.com"}`,
   "font-src 'self' https://fonts.gstatic.com data:",
   // Supabase (DB + realtime), Mapbox (geocoding/directions + telemetry +
   // tiles). DeepSeek/Anthropic calls happen server-side only (app/api/chat,
