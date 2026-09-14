@@ -134,6 +134,30 @@ function clampDpr(dpr: number): number {
 }
 
 /**
+ * The only thumbnail widths upload.wikimedia.org will serve. Wikimedia stores
+ * thumbnails indefinitely, so they restricted generation to these steps
+ * ($wgThumbnailSteps, phab:T414805): requests that go through PHP get rounded
+ * up to the nearest one, but **direct hotlinks like ours are rejected with an
+ * HTTP 400** ("Use thumbnail sizes listed on https://w.wiki/GHai") for any
+ * other width. Verified live: 120/250/330/500/960/1280/1920/3840 all 200,
+ * while 128px and 160px — widths this module used to emit straight from
+ * next.config.ts's `imageSizes` — both 400.
+ */
+const WIKIMEDIA_THUMB_STEPS = [20, 40, 60, 120, 250, 330, 500, 960, 1280, 1920, 3840];
+// Cap at 1920 rather than 3840. `clampWidth` already limits any request to
+// MAX_WIDTH (2048), and 2048 is only ~6% wider than 1920 — rounding it up to
+// 3840 instead would roughly quadruple the bytes for an imperceptible gain.
+const WIKIMEDIA_MAX_STEP = 1920;
+
+/** Snaps `width` up to the smallest Wikimedia-allowed thumbnail step. */
+function wikimediaThumbWidth(width: number): number {
+  return (
+    WIKIMEDIA_THUMB_STEPS.find((step) => step >= width && step <= WIKIMEDIA_MAX_STEP) ??
+    WIKIMEDIA_MAX_STEP
+  );
+}
+
+/**
  * Rewrites `src` into a resized variant using the upstream host's own
  * transform API, or returns `null` when the host isn't recognised (the
  * caller — SmartImage — then falls back to next/image, or renders the URL
@@ -224,6 +248,10 @@ export function cdnResize(src: string, t: ImageTransform): string | null {
   // "/{width}px-{filename}" (scraper/photos_wikimedia.py stores the API's
   // own ~1000px `thumburl`, so this is the common case, not an edge case).
   if (host === "upload.wikimedia.org") {
+    // Wikimedia only generates thumbnails at fixed steps and 400s on anything
+    // else (see WIKIMEDIA_THUMB_STEPS) — snap before building either path.
+    const thumbWidth = wikimediaThumbWidth(width);
+
     // Already a thumb URL — swap the existing width prefix for ours. Works
     // unchanged for SVG sources too: their thumb filename already carries
     // Wikimedia's own added ".png" suffix in this exact segment (e.g.
@@ -232,7 +260,7 @@ export function cdnResize(src: string, t: ImageTransform): string | null {
       /^(\/wikipedia\/[^/]+\/thumb\/[0-9a-f]\/[0-9a-f]{2}\/[^/]+\/)\d+px-(.+)$/i
     );
     if (thumbMatch) {
-      url.pathname = `${thumbMatch[1]}${width}px-${thumbMatch[2]}`;
+      url.pathname = `${thumbMatch[1]}${thumbWidth}px-${thumbMatch[2]}`;
       return url.toString();
     }
 
@@ -244,7 +272,7 @@ export function cdnResize(src: string, t: ImageTransform): string | null {
     if (originalMatch) {
       const [, wiki, h1, h2, filename] = originalMatch;
       const thumbName = /\.svg$/i.test(filename) ? `${filename}.png` : filename;
-      url.pathname = `/wikipedia/${wiki}/thumb/${h1}/${h2}/${filename}/${width}px-${thumbName}`;
+      url.pathname = `/wikipedia/${wiki}/thumb/${h1}/${h2}/${filename}/${thumbWidth}px-${thumbName}`;
       return url.toString();
     }
 
