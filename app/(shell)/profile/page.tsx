@@ -4,14 +4,8 @@ import { useEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
 import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { supabaseBrowserAuth } from "@/lib/supabase/client";
-import {
-  getProfile,
-  upsertProfile,
-  uploadAvatar,
-  DEFAULT_NOTIFICATION_SETTINGS,
-  DEFAULT_PRIVACY_SETTINGS,
-} from "@/lib/db";
-import type { NotificationSettings, PrivacySettings, Profile } from "@/lib/types";
+import { getProfile, upsertProfile, uploadAvatar } from "@/lib/db";
+import type { Profile } from "@/lib/types";
 import type { Candidate } from "@/lib/now/types";
 import { useInfiniteList } from "@/lib/useInfiniteList";
 import { Button, BottomSheet, Card, Chip, Icon, PageHeader, SectionHeader, SmartImage, Toggle } from "@/components/ui";
@@ -49,16 +43,9 @@ export default function ProfilePage() {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [resetOpen, setResetOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
-  const [privacyOpen, setPrivacyOpen] = useState(false);
   const [securityOpen, setSecurityOpen] = useState(false);
   const { who, setWho } = useDealProfile();
   const [whoError, setWhoError] = useState<string | null>(null);
-  const [notifSettings, setNotifSettings] = useState<NotificationSettings>(
-    DEFAULT_NOTIFICATION_SETTINGS
-  );
-  const [privacySettings, setPrivacySettings] = useState<PrivacySettings>(
-    DEFAULT_PRIVACY_SETTINGS
-  );
   // "Big on-sale alerts" (supabase/add_push_alerts.sql) — a top-level
   // profiles column, not part of notification_settings (see that
   // migration's own doc comment for why). Toggling it on ensures a push
@@ -121,11 +108,6 @@ export default function ProfilePage() {
     })).filter((g) => g.items.length > 0);
   }, [savedCandidates]);
 
-  // Set true the moment the user touches a notification toggle. Guards
-  // against the initial profile-load fetch resolving late and clobbering a
-  // just-saved local change with stale/default data (see updateNotifSetting).
-  const notifTouchedRef = useRef(false);
-
   function pickAvatarFile() {
     setAvatarOpen(false);
     avatarInputRef.current?.click();
@@ -176,23 +158,6 @@ export default function ProfilePage() {
       console.error("[profile] remove avatar failed", err);
       setAvatarError("Couldn't remove photo — try again.");
     }
-  }
-
-  function updateNotifSetting(key: keyof NotificationSettings, value: boolean) {
-    notifTouchedRef.current = true;
-    const next = { ...notifSettings, [key]: value };
-    setNotifSettings(next);
-    upsertProfile(db, { notification_settings: next }).catch((err) => {
-      console.error("[profile] save notification_settings failed", err);
-    });
-  }
-
-  function updatePrivacySetting(key: keyof PrivacySettings, value: boolean) {
-    const next = { ...privacySettings, [key]: value };
-    setPrivacySettings(next);
-    upsertProfile(db, { privacy_settings: next }).catch((err) => {
-      console.error("[profile] save privacy_settings failed", err);
-    });
   }
 
   /**
@@ -250,21 +215,6 @@ export default function ProfilePage() {
         setProfile(profileRow);
         setAccountEmail(userData.user?.email ?? null);
         setAccountId(userData.user?.id ?? null);
-        // Merge fetched settings over the defaults (not the other way round)
-        // so an older profile row that predates a settings migration and is
-        // missing keys still gets every key populated — otherwise a
-        // Toggle's `checked` prop could end up `undefined` for a missing key
-        // like `trip_reminders`.
-        if (!notifTouchedRef.current) {
-          setNotifSettings({
-            ...DEFAULT_NOTIFICATION_SETTINGS,
-            ...(profileRow?.notification_settings ?? {}),
-          });
-        }
-        setPrivacySettings({
-          ...DEFAULT_PRIVACY_SETTINGS,
-          ...(profileRow?.privacy_settings ?? {}),
-        });
         setBigOnsaleAlerts(profileRow?.big_onsale_alerts ?? false);
       })
       .catch((err) => {
@@ -465,19 +415,6 @@ export default function ProfilePage() {
               </button>
               <button
                 type="button"
-                onClick={() => setPrivacyOpen(true)}
-                className="flex w-full items-center justify-between p-4 text-left"
-              >
-                <span className="flex items-center gap-4">
-                  <span className="flex h-10 w-10 items-center justify-center rounded-full bg-primary-container/10 text-primary">
-                    <Icon name="lock" />
-                  </span>
-                  <span className="text-body-lg text-primary">Privacy &amp; Visibility</span>
-                </span>
-                <Icon name="chevron_right" className="text-on-surface-variant" />
-              </button>
-              <button
-                type="button"
                 onClick={() => setSecurityOpen(true)}
                 className="flex w-full items-center justify-between p-4 text-left"
               >
@@ -550,40 +487,8 @@ export default function ProfilePage() {
 
       <BottomSheet open={notifOpen} onClose={() => setNotifOpen(false)} title="Notifications">
         <div className="flex flex-col gap-5">
-          {(
-            [
-              {
-                key: "trip_reminders",
-                label: "Event reminders",
-                desc: "Before things you've saved start",
-              },
-              {
-                key: "ai_suggestions",
-                label: "New AI suggestions",
-                desc: "When Fomo finds a place matching your preferences",
-              },
-              {
-                key: "weekly_digest",
-                label: "Weekly digest",
-                desc: "A weekly summary of new recommendations",
-              },
-            ] as { key: keyof NotificationSettings; label: string; desc: string }[]
-          ).map(({ key, label, desc }) => (
-            <div key={key} className="flex items-center justify-between gap-4">
-              <span className="flex flex-col">
-                <span className="text-body-lg text-on-surface">{label}</span>
-                <span className="text-label-sm text-on-surface-variant">{desc}</span>
-              </span>
-              <Toggle
-                checked={notifSettings[key]}
-                onChange={(value) => updateNotifSetting(key, value)}
-                id={`notif-${key}`}
-              />
-            </div>
-          ))}
-
           {NOTIFY_ME_ENABLED ? (
-            <div className="flex flex-col gap-2 border-t border-outline-variant/40 pt-5">
+            <div className="flex flex-col gap-2">
               <div className="flex items-center justify-between gap-4">
                 <span className="flex flex-col">
                   <span className="text-body-lg text-on-surface">Big on-sale alerts</span>
@@ -614,47 +519,11 @@ export default function ProfilePage() {
                 </p>
               )}
             </div>
-          ) : null}
-        </div>
-      </BottomSheet>
-
-      <BottomSheet
-        open={privacyOpen}
-        onClose={() => setPrivacyOpen(false)}
-        title="Privacy & Visibility"
-      >
-        <div className="flex flex-col gap-5">
-          {(
-            [
-              {
-                key: "personalized_recommendations",
-                label: "Personalized recommendations",
-                desc: "Use your deals profile to tailor suggestions",
-              },
-              {
-                key: "precise_location",
-                label: "Precise location",
-                desc: "Use exact GPS instead of city-level location",
-              },
-              {
-                key: "share_usage_data",
-                label: "Share anonymous usage data",
-                desc: "Help improve Fomo with anonymized usage analytics",
-              },
-            ] as { key: keyof PrivacySettings; label: string; desc: string }[]
-          ).map(({ key, label, desc }) => (
-            <div key={key} className="flex items-center justify-between gap-4">
-              <span className="flex flex-col">
-                <span className="text-body-lg text-on-surface">{label}</span>
-                <span className="text-label-sm text-on-surface-variant">{desc}</span>
-              </span>
-              <Toggle
-                checked={privacySettings[key]}
-                onChange={(value) => updatePrivacySetting(key, value)}
-                id={`privacy-${key}`}
-              />
-            </div>
-          ))}
+          ) : (
+            <p className="text-body-md text-on-surface-variant">
+              Push alerts for big on-sale dates are coming soon.
+            </p>
+          )}
         </div>
       </BottomSheet>
 

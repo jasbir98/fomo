@@ -79,6 +79,22 @@ export function BookEarlyCard({ card, initialSubscribed = false }: BookEarlyCard
     }
   }
 
+  async function handleUnnotify(happeningId: string) {
+    setNotifyError(null);
+    try {
+      const res = await fetch("/api/alerts", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ happeningId }),
+      });
+      if (!res.ok) throw new Error(`DELETE /api/alerts ${res.status}`);
+      setSubscribed(false);
+    } catch (err) {
+      console.error("[book-early] remove alert failed", err);
+      setNotifyError("Couldn't turn off the alert — try again.");
+    }
+  }
+
   if (card.kind === "event") {
     const { event } = card;
     const price = formatEventPrice(event);
@@ -107,7 +123,7 @@ export function BookEarlyCard({ card, initialSubscribed = false }: BookEarlyCard
             onClick={(e) => e.stopPropagation()}
             className="mt-1 flex items-center justify-center gap-1 rounded-lg bg-primary py-2.5 text-label-md font-bold text-on-primary transition-opacity hover:opacity-90 active:scale-[0.98]"
           >
-            Book now
+            Get tickets
             <Icon name="north_east" size={16} />
           </a>
         </div>
@@ -162,11 +178,15 @@ export function BookEarlyCard({ card, initialSubscribed = false }: BookEarlyCard
             onClick={(e) => e.stopPropagation()}
             className="flex flex-1 items-center justify-center gap-1 rounded-lg bg-primary py-2.5 text-label-md font-bold text-on-primary transition-opacity hover:opacity-90 active:scale-[0.98]"
           >
-            Book now
+            Get tickets
             <Icon name="north_east" size={16} />
           </a>
           {NOTIFY_ME_ENABLED && bookingNotOpenYet ? (
-            <NotifyMeButton subscribed={subscribed} onNotify={() => void handleNotify(happening.id)} />
+            <NotifyMeButton
+              subscribed={subscribed}
+              onNotify={() => void handleNotify(happening.id)}
+              onUnnotify={() => void handleUnnotify(happening.id)}
+            />
           ) : null}
         </div>
         {notifyError ? <p className="text-label-sm text-error">{notifyError}</p> : null}

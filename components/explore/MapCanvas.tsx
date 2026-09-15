@@ -19,8 +19,8 @@ const CATEGORY_COLOR: Record<string, string> = {
 };
 const DEFAULT_MARKER_COLOR = "#031632";
 
-/** Fallback center (Tokyo) when geocoding is unavailable. */
-const DEFAULT_CENTER: [number, number] = [139.767, 35.681];
+/** Fallback center (Edinburgh, [lng, lat]) when nothing else sets the view. */
+const DEFAULT_CENTER: [number, number] = [-3.1883, 55.9533];
 
 const MAPBOX_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_TOKEN ?? "";
 
@@ -239,9 +239,7 @@ export const MapCanvas = forwardRef<MapCanvasHandle, MapCanvasProps>(function Ma
       >
         <Icon name="map" size={40} className="text-outline-variant" />
         <p className="max-w-[240px] text-label-md text-on-surface-variant">
-          Add <span className="font-semibold">NEXT_PUBLIC_MAPBOX_TOKEN</span> to
-          your <span className="font-semibold">.env.local</span> to enable the
-          live map.
+          The map isn&apos;t available right now — the list below still works.
         </p>
       </div>
     );

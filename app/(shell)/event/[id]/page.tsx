@@ -147,7 +147,7 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
   // App isn't deployed yet — window.location.origin is the correct base for
   // a shareable link until there's a real production host.
   const shareUrl = typeof window !== "undefined" ? `${window.location.origin}${pathname}` : "";
-  const shareText = `${[event.name, formatEventWhen(event.starts_at, event.ends_at), price || "Free"]
+  const shareText = `${[event.name, formatEventWhen(event.starts_at, event.ends_at), price]
     .filter(Boolean)
     .join(" · ")} — found on Fomo`;
 
@@ -244,7 +244,7 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
       </div>
 
       {/* Sticky bottom actions */}
-      <div className="sticky bottom-[64px] z-30 flex flex-col gap-2 border-t border-outline-variant/40 bg-surface-container-lowest/95 px-5 py-4 backdrop-blur-md shadow-[0_-4px_16px_rgba(3,22,50,0.08)]">
+      <div className="sticky bottom-[calc(64px+env(safe-area-inset-bottom))] z-30 flex flex-col gap-2 border-t border-outline-variant/40 bg-surface-container-lowest/95 px-5 py-4 backdrop-blur-md shadow-[0_-4px_16px_rgba(3,22,50,0.08)]">
         <div className="flex gap-3">
           {event.ticket_url ? (
             <a

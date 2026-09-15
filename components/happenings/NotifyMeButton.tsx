@@ -8,6 +8,8 @@ export interface NotifyMeButtonProps {
   subscribed: boolean;
   /** Called on tap when not yet subscribed. The caller owns what "notify" actually means once a delivery mechanism exists — this component only reports the intent. */
   onNotify: () => void;
+  /** Called on tap when already subscribed — turns the alert back off. */
+  onUnnotify: () => void;
 }
 
 /**
@@ -25,15 +27,16 @@ export interface NotifyMeButtonProps {
  * set) — hidden entirely while unset, not just disabled, since a
  * visible-but-inert button implies a feature that doesn't exist yet.
  */
-export function NotifyMeButton({ subscribed, onNotify }: NotifyMeButtonProps) {
+export function NotifyMeButton({ subscribed, onNotify, onUnnotify }: NotifyMeButtonProps) {
   const [pending, setPending] = useState(false);
 
   function handleClick(e: MouseEvent) {
     e.stopPropagation();
-    if (pending || subscribed) return;
+    if (pending) return;
     setPending(true);
     try {
-      onNotify();
+      if (subscribed) onUnnotify();
+      else onNotify();
     } finally {
       setPending(false);
     }
@@ -43,12 +46,13 @@ export function NotifyMeButton({ subscribed, onNotify }: NotifyMeButtonProps) {
     <button
       type="button"
       onClick={handleClick}
-      disabled={pending || subscribed}
+      disabled={pending}
       aria-pressed={subscribed}
-      className="flex shrink-0 items-center gap-1.5 rounded-lg border border-hairline-strong px-3 py-2 text-label-sm font-bold text-secondary transition-colors hover:bg-surface-container disabled:opacity-70"
+      aria-label={subscribed ? "Alert on — tap to turn off" : "Notify me when tickets open"}
+      className="flex min-h-11 shrink-0 items-center gap-1.5 rounded-lg border border-hairline-strong px-3 py-2 text-label-sm font-bold text-secondary transition-colors hover:bg-surface-container disabled:opacity-70"
     >
       <Icon name={subscribed ? "notifications_active" : "notifications"} size={16} filled={subscribed} />
-      {subscribed ? "We'll notify you" : "Notify me"}
+      {subscribed ? "Alert on" : "Notify me"}
     </button>
   );
 }

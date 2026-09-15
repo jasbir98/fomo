@@ -78,7 +78,7 @@ function parseReviews(raw: unknown): ParsedReview[] {
       const obj = entry as Record<string, unknown>;
       const text = typeof obj.text === "string" ? obj.text : null;
       if (!text) return null;
-      const author = typeof obj.author === "string" ? obj.author : "Traveler";
+      const author = typeof obj.author === "string" ? obj.author : "Visitor";
       const rating = typeof obj.rating === "number" ? obj.rating : 5;
       return { author, rating, text };
     })
@@ -182,7 +182,8 @@ export default function PlaceDetailPage({ params }: { params: Promise<{ id: stri
   const tips = parseTips(place.tips);
   const reviews = parseReviews(place.reviews);
   const isQuiet = place.badges.includes("Quiet now");
-  const primaryBadge = place.badges[0] ?? "Open now";
+  // No badge, no pill — never claim "Open now" without data behind it.
+  const primaryBadge = place.badges[0] ?? null;
   const directionsUrl = buildDirectionsUrl(place);
   // place_photos when the pipeline found more than one citable image;
   // otherwise fall back to the single Place.image_url; otherwise none
@@ -215,13 +216,15 @@ export default function PlaceDetailPage({ params }: { params: Promise<{ id: stri
       <section className="relative h-64 w-full overflow-hidden">
         <PhotoCarousel key={place.id} photos={heroPhotos} />
         <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 h-20 bg-gradient-to-t from-background/90 to-transparent" />
-        <div className="absolute bottom-4 left-5 z-20">
-          <StatusPill
-            label={primaryBadge}
-            tone={isQuiet ? "success" : "info"}
-            icon={isQuiet ? "check_circle" : "schedule"}
-          />
-        </div>
+        {primaryBadge ? (
+          <div className="absolute bottom-4 left-5 z-20">
+            <StatusPill
+              label={primaryBadge}
+              tone={isQuiet ? "success" : "info"}
+              icon={isQuiet ? "check_circle" : "schedule"}
+            />
+          </div>
+        ) : null}
       </section>
 
       <div className="flex flex-col gap-6 px-5">
@@ -247,12 +250,11 @@ export default function PlaceDetailPage({ params }: { params: Promise<{ id: stri
           </div>
           {place.city ? (
             <p className="mb-1 text-label-md font-medium text-secondary">
-              {[place.city, place.prefecture].filter(Boolean).join(", ")}
+              {place.city}
             </p>
           ) : null}
           <p className="mb-4 text-body-md text-on-surface-variant">
-            {place.description ??
-              `${place.category ?? "Spot"} near ${place.station ?? "your route"} — a Fomo pick worth the detour.`}
+            {place.description ?? `${place.category ?? "A spot"} in ${place.city ?? "Edinburgh"}.`}
           </p>
           <div className="grid grid-cols-2 gap-4 border-t border-outline-variant/30 pt-4">
             <div className="flex items-center gap-3">
@@ -262,13 +264,15 @@ export default function PlaceDetailPage({ params }: { params: Promise<{ id: stri
                 <p className="text-label-md text-on-surface">{place.hours ?? "—"}</p>
               </div>
             </div>
-            <div className="flex items-center gap-3">
-              <Icon name="train" className="text-primary" />
-              <div>
-                <p className="text-label-sm text-on-surface-variant">Station</p>
-                <p className="text-label-md text-on-surface">{place.station ?? "—"}</p>
-              </div>
-            </div>
+            {directionsUrl ? (
+              <button type="button" onClick={openDirections} className="flex items-center gap-3 text-left">
+                <Icon name="near_me" className="text-primary" />
+                <div>
+                  <p className="text-label-sm text-on-surface-variant">Getting there</p>
+                  <p className="text-label-md text-on-surface">Directions</p>
+                </div>
+              </button>
+            ) : null}
           </div>
         </section>
 
@@ -400,7 +404,7 @@ export default function PlaceDetailPage({ params }: { params: Promise<{ id: stri
       </div>
 
       {/* Sticky bottom actions */}
-      <div className="sticky bottom-[64px] z-30 flex flex-col gap-2 border-t border-outline-variant/40 bg-surface-container-lowest/95 px-5 py-4 backdrop-blur-md shadow-[0_-4px_16px_rgba(3,22,50,0.08)]">
+      <div className="sticky bottom-[calc(64px+env(safe-area-inset-bottom))] z-30 flex flex-col gap-2 border-t border-outline-variant/40 bg-surface-container-lowest/95 px-5 py-4 backdrop-blur-md shadow-[0_-4px_16px_rgba(3,22,50,0.08)]">
         <div className="flex gap-3">
           <Button
             variant="orange"

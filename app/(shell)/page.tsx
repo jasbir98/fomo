@@ -588,7 +588,7 @@ export default function HomePage() {
                   <h3 className="text-headline-sm font-extrabold tracking-tight text-on-surface">Book Early</h3>
                 </div>
                 <p className="text-label-sm text-on-surface-variant">
-                  Things that sell out fast the moment tickets go on sale
+                  Big dates worth booking before they sell out
                 </p>
               </div>
               <SeeAllLink href="/book-early" total={bookEarlyAll.length} />

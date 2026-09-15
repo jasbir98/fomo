@@ -42,6 +42,37 @@ function happeningDirectionsUrl(h: Happening): string | null {
 // returns 401/500 for those — see that route's own doc comment) so the
 // caller can tell "the request failed" apart from a genuine 404, which the
 // route signals differently: 200 with `happening: null`.
+/**
+ * Google Calendar "add event" link for the next occurrence. Timed rows get
+ * their real start (and end, or +2h); date-only rows (stored at 00:00 UTC)
+ * become all-day entries.
+ */
+function googleCalendarUrl(h: Happening, occ: Occurrence): string {
+  const compactDay = (dayDate: string) => dayDate.replace(/-/g, "");
+  const nextDay = (dayDate: string) => {
+    const [y, m, d] = dayDate.split("-").map(Number);
+    return new Date(Date.UTC(y, m - 1, d + 1)).toISOString().slice(0, 10);
+  };
+  const start = occ.startsAt ? new Date(occ.startsAt) : null;
+  const timed = start != null && occ.exact && (start.getUTCHours() !== 0 || start.getUTCMinutes() !== 0);
+  let dates: string;
+  if (timed && start) {
+    const end = occ.endsAt ? new Date(occ.endsAt) : new Date(start.getTime() + 2 * 3_600_000);
+    const stamp = (d: Date) => d.toISOString().replace(/[-:]/g, "").replace(/\.\d{3}/, "");
+    dates = `${stamp(start)}/${stamp(end)}`;
+  } else {
+    dates = `${compactDay(occ.dayDate)}/${compactDay(nextDay(occ.lastDayDate))}`;
+  }
+  const params = new URLSearchParams({
+    action: "TEMPLATE",
+    text: h.title,
+    dates,
+    details: [h.summary, h.booking_url ?? h.source_url].filter(Boolean).join("\n\n"),
+    location: [h.venue_name, h.address].filter(Boolean).join(", ") || "Edinburgh",
+  });
+  return `https://calendar.google.com/calendar/render?${params.toString()}`;
+}
+
 async function fetchHappening(id: string): Promise<{ happening: Happening | null; siblings: Happening[] }> {
   const res = await fetch(`/api/happenings/${id}`);
   if (!res.ok) throw new Error(`GET /api/happenings/${id} ${res.status}`);
@@ -74,6 +105,7 @@ export default function HappeningDetailPage({ params }: { params: Promise<{ id: 
   const [error, setError] = useState(false);
   const [reloadTick, setReloadTick] = useState(0);
   const [copied, setCopied] = useState(false);
+  const [copyFailed, setCopyFailed] = useState(false);
   const [imgError, setImgError] = useState(false);
   const [notifySubscribed, setNotifySubscribed] = useState(false);
   const [notifyError, setNotifyError] = useState<string | null>(null);
@@ -139,6 +171,22 @@ export default function HappeningDetailPage({ params }: { params: Promise<{ id: 
     }
   }
 
+  async function handleUnnotify() {
+    setNotifyError(null);
+    try {
+      const res = await fetch("/api/alerts", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ happeningId: id }),
+      });
+      if (!res.ok) throw new Error(`DELETE /api/alerts ${res.status}`);
+      setNotifySubscribed(false);
+    } catch (err) {
+      console.error("[happening] remove alert failed", err);
+      setNotifyError("Couldn't turn off the alert — try again.");
+    }
+  }
+
   async function handleCopyCode() {
     if (!happening?.promo_code) return;
     try {
@@ -146,8 +194,8 @@ export default function HappeningDetailPage({ params }: { params: Promise<{ id: 
       setCopied(true);
       setTimeout(() => setCopied(false), 2200);
     } catch {
-      // Clipboard API unsupported/denied — the code is still visible for a
-      // manual copy, same silent no-op as the hero card's own copy button.
+      // Clipboard API unsupported/denied — say so, the code is selectable.
+      setCopyFailed(true);
     }
   }
 
@@ -208,7 +256,26 @@ export default function HappeningDetailPage({ params }: { params: Promise<{ id: 
   const eligibilityLabel = ELIGIBILITY_FALLBACK[happening.eligibility];
   const directionsUrl = happeningDirectionsUrl(happening);
   const ctaHref = happening.booking_url ?? happening.source_url;
-  const ctaLabel = happening.cta_label ?? "Claim Offer";
+  // Say what the button actually does — "Claim Offer" on a free museum was wrong.
+  const ctaLabel =
+    happening.cta_label ??
+    (happening.is_free
+      ? "Plan your visit"
+      : happening.promo_code || happening.kind === "deal"
+        ? "Get the deal"
+        : happening.booking_url || happening.kind === "festival" || happening.kind === "event"
+          ? "Get tickets"
+          : "Official info");
+  const ended = happening.status !== "live";
+  // Only for things that happen on a day or a few — a months-long exhibition
+  // as one calendar block helps nobody.
+  const spanDays = primaryOccurrence
+    ? (Date.parse(primaryOccurrence.lastDayDate) - Date.parse(primaryOccurrence.dayDate)) / 86_400_000
+    : Infinity;
+  const calendarUrl =
+    primaryOccurrence && !isAlways && !isSeries && !ended && spanDays <= 3
+      ? googleCalendarUrl(happening, primaryOccurrence)
+      : null;
   const bookingNotOpenYet =
     happening.booking_opens_at != null && new Date(happening.booking_opens_at).getTime() > now.getTime();
   // App isn't deployed yet — window.location.origin is the correct base for
@@ -294,6 +361,16 @@ export default function HappeningDetailPage({ params }: { params: Promise<{ id: 
       </section>
 
       <div className="flex flex-col gap-6 px-5">
+        {ended ? (
+          <div role="status" className="flex items-start gap-2.5 rounded-2xl bg-error-container/40 p-4 text-on-surface">
+            <Icon name="event_busy" size={20} className="mt-0.5 shrink-0 text-error" />
+            <p className="text-body-md">
+              <span className="font-bold">This has ended.</span> It&apos;s no longer running — check the official
+              page before you go.
+            </p>
+          </div>
+        ) : null}
+
         {/* Title & tags */}
         <section className="rounded-2xl bg-surface-container-lowest p-5 shadow-level-1">
           <div className="mb-2 flex flex-wrap items-center gap-2">
@@ -332,26 +409,31 @@ export default function HappeningDetailPage({ params }: { params: Promise<{ id: 
           <section className="rounded-2xl bg-surface-container-lowest p-5 shadow-level-1">
             <div className="mb-2.5 flex items-center gap-2 text-primary">
               <Icon name="confirmation_number" size={19} />
-              <h2 className="text-headline-sm text-primary">Claim Voucher Code</h2>
+              <h2 className="text-headline-sm text-primary">Promo code</h2>
             </div>
             <div className="flex items-center justify-between gap-2 rounded-xl bg-surface-container-low p-3">
               <div className="flex min-w-0 flex-col">
-                <span className="text-[10px] font-semibold uppercase tracking-wider text-on-surface-variant">
-                  Promo Code
+                <span className="text-label-sm font-semibold uppercase tracking-wider text-on-surface-variant">
+                  Code
                 </span>
-                <span className="truncate text-body-lg font-extrabold tracking-wider text-on-surface">
+                <span className="select-all truncate text-body-lg font-extrabold tracking-wider text-on-surface">
                   {happening.promo_code}
                 </span>
               </div>
               <button
                 type="button"
                 onClick={handleCopyCode}
-                className="flex shrink-0 items-center gap-1.5 rounded-lg bg-primary px-3.5 py-2 text-label-sm font-bold text-on-primary transition-opacity hover:opacity-90 active:scale-95"
+                className="flex min-h-11 shrink-0 items-center gap-1.5 rounded-lg bg-primary px-3.5 py-2 text-label-sm font-bold text-on-primary transition-opacity hover:opacity-90 active:scale-95"
               >
                 <Icon name={copied ? "check" : "content_copy"} size={16} />
-                {copied ? "Copied!" : "Copy Code"}
+                {copied ? "Copied" : "Copy"}
               </button>
             </div>
+            {copyFailed ? (
+              <p className="mt-2 text-label-sm text-on-surface-variant">
+                Couldn&apos;t copy automatically — press and hold the code to copy it.
+              </p>
+            ) : null}
             {happening.redemption_note ? (
               <p className="mt-2.5 flex items-start gap-1.5 text-body-sm leading-relaxed text-on-surface-variant">
                 <Icon name="info" size={16} className="mt-0.5 shrink-0 text-secondary" />
@@ -426,10 +508,23 @@ export default function HappeningDetailPage({ params }: { params: Promise<{ id: 
 
         {/* When */}
         <section className="rounded-2xl bg-surface-container-lowest p-5 shadow-level-1">
-          <h2 className="mb-3 flex items-center gap-2 text-headline-sm text-primary">
-            <Icon name="calendar_month" size={19} />
-            When
-          </h2>
+          <div className="mb-3 flex items-center justify-between gap-2">
+            <h2 className="flex items-center gap-2 text-headline-sm text-primary">
+              <Icon name="calendar_month" size={19} />
+              When
+            </h2>
+            {calendarUrl ? (
+              <a
+                href={calendarUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex min-h-10 items-center gap-1 rounded-full border border-hairline-strong px-3 text-label-sm font-bold text-primary hover:bg-surface-container"
+              >
+                <Icon name="event_available" size={16} />
+                Add to calendar
+              </a>
+            ) : null}
+          </div>
           {isSeries ? (
             // A plain template literal, not "Runs at {n} locations…" JSX text
             // — the mixed text/expression/text form silently lost the space
@@ -622,20 +717,18 @@ export default function HappeningDetailPage({ params }: { params: Promise<{ id: 
             <button
               type="button"
               onClick={openDirections}
-              className="relative h-36 w-full overflow-hidden rounded-2xl bg-surface-container text-left shadow-level-1"
+              className="flex w-full items-center gap-3 rounded-2xl bg-surface-container-lowest p-4 text-left shadow-level-1"
             >
-              <div className="absolute inset-0 flex items-center justify-center">
-                <Icon name="map" size={56} className="text-outline-variant" />
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary-fixed text-primary">
+                <Icon name="near_me" size={20} />
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-label-md font-bold text-on-surface">
+                  {happening.venue_name ?? happening.address ?? district ?? "Edinburgh"}
+                </p>
+                <p className="text-label-sm text-on-surface-variant">Get directions</p>
               </div>
-              <div className="absolute bottom-3 left-3 right-3 flex items-center justify-between rounded-lg bg-white/90 px-3 py-2 backdrop-blur-md">
-                <div className="min-w-0">
-                  <p className="truncate text-label-md text-primary">
-                    {happening.venue_name ?? happening.address ?? district ?? "Edinburgh"}
-                  </p>
-                  <p className="text-label-sm text-on-surface-variant">Tap to open directions</p>
-                </div>
-                <Icon name="open_in_new" className="shrink-0 text-primary" />
-              </div>
+              <Icon name="open_in_new" className="shrink-0 text-primary" />
             </button>
           </section>
         ) : null}
@@ -665,7 +758,7 @@ export default function HappeningDetailPage({ params }: { params: Promise<{ id: 
       </div>
 
       {/* Sticky bottom CTA */}
-      <div className="sticky bottom-[64px] z-30 flex flex-col gap-2 border-t border-outline-variant/40 bg-surface-container-lowest/95 px-5 py-4 backdrop-blur-md shadow-[0_-4px_16px_rgba(3,22,50,0.08)]">
+      <div className="sticky bottom-[calc(64px+env(safe-area-inset-bottom))] z-30 flex flex-col gap-2 border-t border-outline-variant/40 bg-surface-container-lowest/95 px-5 py-4 backdrop-blur-md shadow-[0_-4px_16px_rgba(3,22,50,0.08)]">
         <div className="flex items-center gap-2">
           <Button
             variant="orange"
@@ -676,7 +769,11 @@ export default function HappeningDetailPage({ params }: { params: Promise<{ id: 
             {ctaLabel}
           </Button>
           {NOTIFY_ME_ENABLED && bookingNotOpenYet ? (
-            <NotifyMeButton subscribed={notifySubscribed} onNotify={() => void handleNotify()} />
+            <NotifyMeButton
+              subscribed={notifySubscribed}
+              onNotify={() => void handleNotify()}
+              onUnnotify={() => void handleUnnotify()}
+            />
           ) : null}
         </div>
         {notifyError ? <p className="text-label-sm text-error">{notifyError}</p> : null}

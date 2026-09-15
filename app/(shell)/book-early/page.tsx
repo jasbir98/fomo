@@ -128,7 +128,7 @@ export default function BookEarlyPage() {
 
       <div className="flex flex-col gap-4 px-4">
         <p className="text-body-sm text-on-surface-variant">
-          Things that sell out fast the moment tickets go on sale
+          Big dates worth booking before they sell out
         </p>
 
         <StickyFilterBar className="-mx-4 px-4">
