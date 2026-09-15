@@ -23,6 +23,7 @@ import json
 import os
 import re
 import sys
+import time
 import unicodedata
 from datetime import datetime, timezone
 from pathlib import Path
@@ -119,6 +120,84 @@ def _rest_patch(supabase_url: str, supabase_key: str, path: str, params: dict[st
     if resp.status_code >= 300:
         print(f"[classify] PATCH failed ({resp.status_code}): {resp.text}", file=sys.stderr)
         resp.raise_for_status()
+
+
+def _rest_delete(supabase_url: str, supabase_key: str, path: str, params: dict[str, Any]) -> None:
+    headers = {"apikey": supabase_key, "Authorization": f"Bearer {supabase_key}", "Prefer": "return=minimal"}
+    resp = requests.delete(f"{supabase_url}/rest/v1/{path}", headers=headers, params=params, timeout=30)
+    if resp.status_code >= 300:
+        print(f"[classify] DELETE failed ({resp.status_code}): {resp.text}", file=sys.stderr)
+        resp.raise_for_status()
+
+
+# ---------------------------------------------------------------------------
+# Instagram embed playability
+#
+# Instagram decides per reel whether its embed can play inline: roughly half
+# of scraped reels (54 of 112 on 2026-09-15, typically licensed audio) embed
+# as a still image with a "Watch on Instagram" link-out and no video at all,
+# for every visitor. Unlike TikTok's consent gate this is a fixed property of
+# the reel, visible in the public embed HTML, so it can be checked once at
+# promotion instead of shipping a reel that only ever looks like a picture.
+# ---------------------------------------------------------------------------
+
+INSTAGRAM_EMBED_UA = (
+    "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 "
+    "(KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1"
+)
+UNPLAYABLE_INSTAGRAM_REASON = "Instagram embed is 'Watch on Instagram' only — can't play inside Fomo."
+
+
+def instagram_embed_plays_inline(video_url: str | None) -> bool | None:
+    """True when the reel's public embed carries an inline video, False for a
+    "Watch on Instagram" link-out, None when the check itself couldn't run
+    (callers keep the reel then — a network blip must not unpublish it)."""
+    match = re.search(r"instagram\.com/(?:[\w.]+/)?(?:reels?|p|tv)/([\w-]+)", video_url or "")
+    if not match:
+        return None
+    try:
+        resp = requests.get(
+            f"https://www.instagram.com/reel/{match.group(1)}/embed/",
+            headers={"User-Agent": INSTAGRAM_EMBED_UA},
+            timeout=20,
+        )
+    except requests.RequestException:
+        return None
+    if resp.status_code != 200:
+        return None
+    return "Watch on Instagram" not in resp.text
+
+
+def drop_unplayable_instagram(supabase_url: str, supabase_key: str, approved: list[dict]) -> list[dict]:
+    """Filter link-out-only Instagram reels out of the approved set before
+    promotion. Each one is marked not-approved in `scraped_reels` (so later
+    runs don't re-promote it) and removed from `social_posts` if it was
+    already live."""
+    kept: list[dict] = []
+    dropped = 0
+    for reel in approved:
+        if (reel.get("platform") or "").lower() != "instagram":
+            kept.append(reel)
+            continue
+        plays = instagram_embed_plays_inline(reel.get("video_url"))
+        time.sleep(0.3)
+        if plays is not False:
+            kept.append(reel)
+            continue
+        dropped += 1
+        where = {"video_url": f"eq.{reel['video_url']}"}
+        _rest_patch(
+            supabase_url,
+            supabase_key,
+            "scraped_reels",
+            where,
+            {"is_tourist_reel": False, "classification_reason": UNPLAYABLE_INSTAGRAM_REASON},
+        )
+        _rest_delete(supabase_url, supabase_key, "social_posts", where)
+        print(f"  [unplayable] {reel['video_url']} -- Instagram link-out only; not promoted")
+    if dropped:
+        print(f"[classify] {dropped} Instagram reel(s) can't play inline -- left out of social_posts.")
+    return kept
 
 
 def fetch_unclassified(supabase_url: str, supabase_key: str, limit: int, destination: str | None = None) -> list[dict]:
@@ -601,7 +680,7 @@ def main() -> None:
     # social_posts, e.g. from a prior crash) self-healing on the next run.
     promoted_count = 0
     if not args.dry_run:
-        approved = fetch_approved(supabase_url, supabase_key)
+        approved = drop_unplayable_instagram(supabase_url, supabase_key, fetch_approved(supabase_url, supabase_key))
         if approved:
             # Fetch every place once, then narrow per reel: the approved set
             # mixes Edinburgh and older Scotland/Japan reels, so one shared

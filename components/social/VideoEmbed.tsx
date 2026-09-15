@@ -99,6 +99,7 @@ export function VideoEmbed({
   const embed = videoUrl ? buildEmbedUrl(platform, videoUrl) : null;
   const embedUrl = embed?.src ?? null;
   const isTikTok = embed?.kind === "tiktok";
+  const isInstagram = embed?.kind === "instagram";
   const posterUrl = proxiedThumbnailUrl({ platform, videoUrl, thumbnailUrl });
 
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
@@ -198,6 +199,19 @@ export function VideoEmbed({
 
   const showBlockedHint = isTikTok && unmuteBlocked && muted && soundWanted;
 
+  // Instagram embeds never autoplay (no player API), so say how to start one.
+  // Playback state is cross-origin and invisible to us, so the hint simply
+  // fades a few seconds after the embed appears instead of waiting for
+  // "playing". The clock starts on load, not on mount — a slow embed would
+  // otherwise use up the whole window while still invisible.
+  const [tapHintDoneFor, setTapHintDoneFor] = useState<string | null>(null);
+  useEffect(() => {
+    if (!isInstagram || !embedUrl || !loaded) return;
+    const timer = window.setTimeout(() => setTapHintDoneFor(embedUrl), 6000);
+    return () => window.clearTimeout(timer);
+  }, [isInstagram, embedUrl, loaded]);
+  const showTapHint = isInstagram && loaded && tapHintDoneFor !== embedUrl;
+
   return (
     <div className={`relative h-full w-full overflow-hidden bg-black ${className}`}>
       {posterUrl ? (
@@ -278,6 +292,12 @@ export function VideoEmbed({
             <p className="pointer-events-none absolute inset-x-8 top-20 z-20 rounded-xl bg-black/70 px-3 py-2 text-center text-[11px] font-medium leading-snug text-white backdrop-blur-sm">
               Your browser blocked sound from outside the player — tap the
               speaker icon on the video itself.
+            </p>
+          ) : null}
+
+          {showTapHint ? (
+            <p className="pointer-events-none absolute left-1/2 top-14 z-20 -translate-x-1/2 whitespace-nowrap rounded-full bg-black/70 px-3 py-1.5 text-label-sm font-semibold text-white backdrop-blur-sm">
+              Tap the video to play
             </p>
           ) : null}
         </>

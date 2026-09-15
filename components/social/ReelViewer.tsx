@@ -355,7 +355,18 @@ export function ReelViewer({ reels, startIndex, places }: ReelViewerProps) {
               where users naturally grab the card — without ever sitting on
               top of that bottom-half native chrome. z-10 so it stays under
               the explicit z-20 sound/open buttons above. */}
-          <div className="absolute inset-x-0 top-0 z-10 h-1/2" />
+          {current.platform === "instagram" ? (
+            // Instagram embeds can't autoplay, and their tap-to-play control
+            // covers the whole video — a top-half swipe layer stole exactly
+            // the tap that starts playback. Swipe from the edges instead (or
+            // with the Skip/Like buttons in the action strip below).
+            <>
+              <div className="absolute inset-y-0 left-0 z-10 w-8" />
+              <div className="absolute inset-y-0 right-0 z-10 w-8" />
+            </>
+          ) : (
+            <div className="absolute inset-x-0 top-0 z-10 h-1/2" />
+          )}
 
           {badge ? (
             <span className="pointer-events-none absolute left-4 top-4 flex items-center gap-1 rounded-full bg-black/60 px-3 py-1 text-label-sm font-semibold text-white backdrop-blur-sm">
