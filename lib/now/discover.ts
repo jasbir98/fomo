@@ -13,6 +13,7 @@ import {
   walkMinutes,
 } from "@/lib/now/generators";
 import { resolvePersona, type Persona } from "@/lib/now/persona";
+import { eventHasEnded } from "@/lib/events/format";
 import { CITY } from "@/lib/city";
 import type { EventItem, Experience, Place } from "@/lib/types";
 import type { Coordinates } from "@/lib/geo";
@@ -160,6 +161,7 @@ export async function buildDiscoverResponse(input: BuildDiscoverInput): Promise<
         return [];
       });
     items = events
+      .filter((e) => !eventHasEnded(e)) // final "no ended items" guard, belt-and-braces on top of getEventsForDestination's own
       .sort((a, b) => new Date(a.starts_at).getTime() - new Date(b.starts_at).getTime())
       .map((e) => eventToCandidate(e, coords, persona));
     if (items.length < 4) {

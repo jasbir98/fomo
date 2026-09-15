@@ -8,11 +8,12 @@ import { getProfile, upsertProfile, uploadAvatar } from "@/lib/db";
 import type { Profile } from "@/lib/types";
 import type { Candidate } from "@/lib/now/types";
 import { useInfiniteList } from "@/lib/useInfiniteList";
+import { invalidate } from "@/lib/http/clientCache";
 import { Button, BottomSheet, Card, Chip, Icon, PageHeader, SectionHeader, SmartImage, Toggle } from "@/components/ui";
 import { FomoCard } from "@/components/fomo/Card";
 import { FomoSpot } from "@/components/fomo/FomoSpot";
 import { WHO_GROUP_LABEL, WHO_GROUP_ORDER, type DealWhoGroup } from "@/lib/happenings/groups";
-import { useDealProfile } from "@/lib/useSaved";
+import { useDealProfile, subscribeSavedChanges } from "@/lib/useSaved";
 import { NOTIFY_ME_ENABLED } from "@/lib/happenings/book-early";
 import { ensurePushSubscribed, pushReasonMessage, pushSupportReason } from "@/lib/push/client";
 
@@ -25,6 +26,11 @@ const AvatarCropModal = dynamic(() => import("@/components/fomo/AvatarCropModal"
 // "Saved" section moved onto Profile (app/(shell)/saved/page.tsx now just
 // redirects to /profile#saved).
 const SAVED_PAGE_SIZE = 24;
+
+// lib/http/clientCache.ts key for the Saved section's first page — a fixed
+// key (not per-user) is fine: the cache is wiped entirely on SIGNED_OUT (see
+// clientCache.ts), so it never survives across accounts on a shared device.
+const SAVED_CACHE_KEY = "saved:page0";
 
 interface SavedApiResponse {
   items: Candidate[];
@@ -98,9 +104,22 @@ export default function ProfilePage() {
         const data = (await res.json()) as SavedApiResponse;
         return data.items ?? [];
       },
+      // Seeds page 1 from lib/http/clientCache.ts so a repeat visit to
+      // Profile shows the caller's saved items instantly instead of the
+      // hourglass spinner below — see lib/useInfiniteList.ts's `cacheKey`.
+      cacheKey: SAVED_CACHE_KEY,
     },
     [db]
   );
+
+  // A save/unsave anywhere in the app (this page's grid, a card on Home, a
+  // reel, …) goes through the one shared lib/useSaved.ts store — invalidate
+  // this page's cached page 1 whenever that set changes so it revalidates
+  // instead of showing a stale saved/unsaved state on the next visit here.
+  useEffect(() => {
+    return subscribeSavedChanges(() => invalidate(SAVED_CACHE_KEY));
+  }, []);
+
   const savedGroups = useMemo(() => {
     return SAVED_GROUP_LABELS.map(({ type, label }) => ({
       type,

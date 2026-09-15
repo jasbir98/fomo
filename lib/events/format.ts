@@ -19,8 +19,12 @@ import type { EventItem } from "@/lib/types";
 
 /** An event with no `ends_at` is assumed to run this long — mirrors the
  *  identical default for a dateless happening occurrence (lib/happenings/
- *  occurrence.ts's `DEFAULT_OCCURRENCE_DURATION_MS`). */
-const DEFAULT_EVENT_DURATION_MS = 2 * 60 * 60 * 1000;
+ *  occurrence.ts's `DEFAULT_OCCURRENCE_DURATION_MS`). Exported so
+ *  lib/db/events.ts's query-layer "is this still running" filter uses this
+ *  exact same number rather than a second, independently-tuned one — the
+ *  SQL filter and `eventEffectiveEndMs` below must never disagree about
+ *  what "still running" means. */
+export const DEFAULT_EVENT_DURATION_MS = 2 * 60 * 60 * 1000;
 
 /** Events at/after this local hour read as "Tonight"; earlier same-day ones
  *  read as "Today". Previously ANY same-day event said "Tonight" — a 12:30
@@ -56,6 +60,19 @@ export function eventEffectiveEndMs(e: Pick<EventItem, "starts_at" | "ends_at">)
  *  "live". */
 export function eventIsLive(e: Pick<EventItem, "starts_at" | "ends_at">, at: Date = new Date()): boolean {
   return eventEffectiveEndMs(e) > at.getTime();
+}
+
+/**
+ * THE "has this event ended as of `at`" predicate — the events-table half of
+ * the "no ended items ever leave an API" guard (see lib/happenings/
+ * occurrence.ts's `happeningHasEnded` for the happenings half). Plain
+ * negation of `eventIsLive`, named for symmetry at guard call sites that
+ * read more naturally as "drop it if eventHasEnded" than "drop it if
+ * !eventIsLive" — e.g. every list route's final in-memory filter right
+ * before serialising a response.
+ */
+export function eventHasEnded(e: Pick<EventItem, "starts_at" | "ends_at">, at: Date = new Date()): boolean {
+  return !eventIsLive(e, at);
 }
 
 /**

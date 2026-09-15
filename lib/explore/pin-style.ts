@@ -24,6 +24,7 @@
  */
 import type { ExploreLayer, ExplorePin, ExplorePinType } from "@/lib/explore/types";
 import type { CardSubjectType } from "@/lib/types";
+import { directionsUrlFor } from "@/lib/maps/links";
 
 export interface PinTypeStyle {
   label: string;
@@ -62,13 +63,9 @@ export function subjectTypeForPin(pin: Pick<ExplorePin, "href">): CardSubjectTyp
 /**
  * Google Maps directions link built straight off a pin's own lat/lng —
  * every `ExplorePin` has coordinates (that's the whole point of a map pin),
- * so unlike `subjectTypeForPin` this works for all four types, including the
- * `/happening/<id>` pins Save/Ask Fomo can't touch. Deliberately not
- * `lib/maps/links.ts`'s `buildDirectionsUrl` — that helper takes a full
- * `Place` (for its `google_place_id` disambiguation and address/name
- * fallback), which a pin doesn't have; same URL shape, just fed straight
- * from the pin's coordinates.
+ * so this always returns a valid URL (pins always have coordinates). Delegates
+ * to the shared directionsUrlFor helper.
  */
 export function directionsUrlForPin(pin: Pick<ExplorePin, "lat" | "lng">): string {
-  return `https://www.google.com/maps/dir/?api=1&destination=${pin.lat},${pin.lng}`;
+  return directionsUrlFor({ lat: pin.lat, lng: pin.lng })!;
 }

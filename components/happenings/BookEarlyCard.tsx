@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Icon, NavCard, SmartImage } from "@/components/ui";
+import { Icon, NavCard, SaveButton, SmartImage } from "@/components/ui";
 import { formatEventPrice } from "@/lib/events/format";
 import { savingBadgeLabel } from "@/lib/happenings/format";
 import { categoryDefaultImage } from "@/lib/happenings/category-style";
@@ -109,7 +109,10 @@ export function BookEarlyCard({ card, initialSubscribed = false }: BookEarlyCard
         <div className="flex min-w-0 flex-1 flex-col gap-2">
           <div className="flex items-center justify-between gap-2">
             <TierPill label={card.label} />
-            {price ? <span className="shrink-0 text-label-sm font-extrabold text-primary">{price}</span> : null}
+            <div className="flex items-center gap-2">
+              {price ? <span className="shrink-0 text-label-sm font-extrabold text-primary">{price}</span> : null}
+              <SaveButton subjectType="event" subjectId={event.id} className="-my-2 -mr-2" />
+            </div>
           </div>
           <h4 className="line-clamp-2 text-headline-sm font-bold leading-snug text-on-surface">{event.name}</h4>
           <span className="text-label-sm font-medium text-on-surface-variant">
@@ -162,7 +165,10 @@ export function BookEarlyCard({ card, initialSubscribed = false }: BookEarlyCard
               </span>
             ) : null}
           </div>
-          {priceBadge ? <span className="shrink-0 text-label-sm font-extrabold text-primary">{priceBadge}</span> : null}
+          <div className="flex items-center gap-2">
+            {priceBadge ? <span className="shrink-0 text-label-sm font-extrabold text-primary">{priceBadge}</span> : null}
+            <SaveButton subjectType="happening" subjectId={happening.id} className="-my-2 -mr-2" />
+          </div>
         </div>
         <h4 className="line-clamp-2 text-headline-sm font-bold leading-snug text-on-surface">{happening.title}</h4>
         <span className="text-label-sm font-medium text-on-surface-variant">

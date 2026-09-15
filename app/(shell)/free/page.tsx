@@ -1,12 +1,17 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import type { FeedResponse, FreeAnyTimeItem } from "@/lib/happenings/feed-types";
 import { distinctTypeBuckets, distinctDistricts, matchesFreeAnyTimeFilters } from "@/lib/happenings/free-any-time-filters";
+import { useCachedJson } from "@/lib/http/clientCache";
+import { useProgressiveReveal } from "@/lib/useProgressiveReveal";
 import { ErrorState, Icon, PageHeader, StickyFilterBar } from "@/components/ui";
 import { FreeAnyTimeFilters, FreeAnyTimeRow } from "@/components/happenings";
 import { FomoSpot } from "@/components/fomo/FomoSpot";
+
+/** Matches Home's feed staleness (app/(shell)/page.tsx's `FEED_STALE_MS`) — duplicated as a plain number rather than imported across route boundaries. */
+const FREE_ANY_TIME_STALE_MS = 60_000;
 
 /** GET /api/feed's `freeAnyTime` is already the FULL list (Home only ever
  *  slices its first few) — reused here rather than a parallel /api/free
@@ -15,10 +20,10 @@ import { FomoSpot } from "@/components/fomo/FomoSpot";
  *  app/(shell)/book-early/page.tsx's `fetchBookEarly`.
  *
  *  Throws (rather than swallowing to `null`) on a network error or non-2xx
- *  status — same "let the caller tell failure from empty" contract as those
- *  two. */
-async function fetchFreeAnyTime(): Promise<FreeAnyTimeItem[]> {
-  const res = await fetch("/api/feed?window=now");
+ *  status — same "let the caller (now `useCachedJson`) tell failure from
+ *  empty" contract as those two. */
+async function fetchFreeAnyTime(signal?: AbortSignal): Promise<FreeAnyTimeItem[]> {
+  const res = await fetch("/api/feed?window=now", { signal });
   if (!res.ok) throw new Error(`GET /api/feed ${res.status}`);
   const json = (await res.json()) as FeedResponse;
   return json.freeAnyTime;
@@ -39,30 +44,16 @@ const ASK_FOMO_HREF = `/fomo?q=${encodeURIComponent("What free things can I do i
  * identical full list.
  */
 export default function FreeAnyTimePage() {
-  const [items, setItems] = useState<FreeAnyTimeItem[] | null>(null);
-  const [error, setError] = useState(false);
-  const [reloadTick, setReloadTick] = useState(0);
+  // Cached under a fixed key — a return visit paints instantly from
+  // whatever's already there; `error` only means "nothing cached and the
+  // last attempt failed" (see fetchFreeAnyTime's throw contract).
+  const itemsResult = useCachedJson<FreeAnyTimeItem[]>("free-any-time", fetchFreeAnyTime, {
+    staleMs: FREE_ANY_TIME_STALE_MS,
+  });
+  const items = itemsResult.data ?? null;
+  const error = itemsResult.error != null && items === null;
   const [typeBucket, setTypeBucket] = useState<string | null>(null);
   const [district, setDistrict] = useState<string | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const json = await fetchFreeAnyTime();
-        if (!cancelled) {
-          setItems(json);
-          setError(false);
-        }
-      } catch (err) {
-        console.error("[free] /api/feed fetch failed", err);
-        if (!cancelled) setError(true);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [reloadTick]);
 
   const typeOptions = useMemo(() => (items ? distinctTypeBuckets(items) : []), [items]);
   const districtOptions = useMemo(() => (items ? distinctDistricts(items) : []), [items]);
@@ -71,6 +62,16 @@ export default function FreeAnyTimePage() {
     if (!items) return [];
     return items.filter((i) => matchesFreeAnyTimeFilters(i, typeBucket, district));
   }, [items, typeBucket, district]);
+
+  // Renders in chunks of 20 rather than mounting the whole (potentially
+  // 100+ row) list at once — no pagination on this endpoint (see the
+  // pagination audit in the caller's report), so this is where the actual
+  // render cost gets capped instead.
+  const revealSentinelRef = useRef<HTMLDivElement>(null);
+  const visibleCount = useProgressiveReveal(filteredItems.length, null, revealSentinelRef, {
+    vertical: true,
+    step: 20,
+  });
 
   return (
     <div className="flex flex-col gap-5 pb-8">
@@ -101,7 +102,7 @@ export default function FreeAnyTimePage() {
         </StickyFilterBar>
 
         {error ? (
-          <ErrorState title="Couldn't load Free any time" onRetry={() => setReloadTick((t) => t + 1)} />
+          <ErrorState title="Couldn't load Free any time" onRetry={() => itemsResult.revalidate()} />
         ) : items === null ? (
           <div className="flex flex-col gap-3 pt-2" role="status" aria-live="polite">
             <span className="sr-only">Loading Free any time…</span>
@@ -121,9 +122,10 @@ export default function FreeAnyTimePage() {
           </div>
         ) : (
           <div className="flex flex-col gap-2.5 pt-1">
-            {filteredItems.map((item) => (
+            {filteredItems.slice(0, visibleCount).map((item) => (
               <FreeAnyTimeRow key={`${item.kind}-${item.id}`} item={item} />
             ))}
+            {visibleCount < filteredItems.length ? <div ref={revealSentinelRef} className="h-1" /> : null}
           </div>
         )}
       </div>

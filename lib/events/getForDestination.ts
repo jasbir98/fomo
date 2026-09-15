@@ -18,6 +18,7 @@ import { geocodeDestination, type Center } from "@/lib/places/geocode";
 import type { EventCategory } from "@/lib/events/categories";
 import { searchEvents, type MappedEvent } from "@/lib/events";
 import { dedupeEvents } from "@/lib/events/dedupe";
+import { eventIsLive } from "@/lib/events/format";
 import type { Db } from "@/lib/supabase/types";
 
 export const EVENTS_CACHE_TTL_MS = 6 * 60 * 60 * 1000; // 6 hours
@@ -185,6 +186,14 @@ export async function getEventsForDestination(
   const error = results[0].error ?? results[1].error;
   const data = error ? null : [...(results[0].data ?? []), ...(results[1].data ?? [])];
 
+  // Final in-memory guard on both live-fetch branches below (belt-and-braces,
+  // matching lib/db/events.ts's own end-of-function filter): a provider can
+  // in principle hand back a row that's already over by the time it lands
+  // here, and the synthetic-fallback path below never passes through
+  // lib/db/events.ts's own `eventIsLive` filter at all, since it's built
+  // straight from the live provider payload rather than a query result.
+  const nowAt = new Date();
+
   if (error || !data) {
     // Migration not run yet (missing table / unique index) — still render
     // the live results via synthetic rows.
@@ -197,11 +206,14 @@ export async function getEventsForDestination(
     );
     return {
       center,
-      events: deduped.map(syntheticEvent).sort((a, b) => a.starts_at.localeCompare(b.starts_at)),
+      events: deduped
+        .map(syntheticEvent)
+        .filter((e) => eventIsLive(e, nowAt))
+        .sort((a, b) => a.starts_at.localeCompare(b.starts_at)),
       degraded: "cache-unavailable",
     };
   }
 
-  const sorted = (data as EventItem[]).sort((a, b) => a.starts_at.localeCompare(b.starts_at));
+  const sorted = (data as EventItem[]).filter((e) => eventIsLive(e, nowAt)).sort((a, b) => a.starts_at.localeCompare(b.starts_at));
   return { center, events: sorted };
 }

@@ -48,11 +48,12 @@ import { listUpcomingEvents } from "@/lib/db/events";
 import {
   nextOccurrence,
   normalizeRecurrence,
+  happeningHasEnded,
 } from "@/lib/happenings/occurrence";
 import { isGenuineDeal } from "@/lib/happenings/groups";
 import { categoryStyle } from "@/lib/happenings/category-style";
 import { savingBadgeLabel, happeningTimeLabel, formatPlaceCategoryLabel } from "@/lib/happenings/format";
-import { formatEventPrice } from "@/lib/events/format";
+import { formatEventPrice, eventHasEnded } from "@/lib/events/format";
 import {
   matchesPlaceCategory,
   matchesHappeningCategory,
@@ -62,7 +63,6 @@ import {
 import type { ExploreLayer, ExplorePin, ExploreResponse } from "@/lib/explore/types";
 import type { Place, EventItem } from "@/lib/types";
 import type { Happening } from "@/lib/happenings/types";
-import { localDayDate } from "@/lib/happenings/occurrence";
 import { cachedJson, CACHE_MEDIUM, CACHE_PRIVATE_NO_STORE } from "@/lib/http/cache";
 
 export const runtime = "nodejs";
@@ -248,6 +248,7 @@ export async function GET(request: Request) {
         const dated = normalizeRecurrence(h.recurrence).type !== "always";
         const occurrence = dated ? nextOccurrence(h, now, dealTo, timeZone) : nextOccurrence(h, now, now, timeZone);
         if (!occurrence) continue;
+        if (happeningHasEnded(h, now, timeZone)) continue; // final "no ended items" guard
         const coords = resolveCoords(h, placesById);
         if (!coords) continue;
         if (!withinBbox(coords.lat, coords.lng, bbox)) continue;
@@ -278,6 +279,7 @@ export async function GET(request: Request) {
       const happeningCandidates: { h: Happening; coords: { lat: number; lng: number } }[] = [];
       for (const h of happenings) {
         if (normalizeRecurrence(h.recurrence).type !== "always" || h.is_free !== true) continue;
+        if (happeningHasEnded(h, now, timeZone)) continue; // final "no ended items" guard
         const coords = resolveCoords(h, placesById);
         if (!coords) continue;
         if (!withinBbox(coords.lat, coords.lng, bbox)) continue;
@@ -320,18 +322,31 @@ export async function GET(request: Request) {
     if (wantsEvents) {
       const eventsTo = new Date(now.getTime() + EVENTS_LOOKAHEAD_DAYS * 86_400_000);
       const DATE_SHAPED_KINDS: Happening["kind"][] = ["event", "festival", "activity", "tour"];
-      const happeningCandidates: { h: Happening; coords: { lat: number; lng: number }; startsAt: string | null }[] = [];
+      const happeningCandidates: {
+        h: Happening;
+        coords: { lat: number; lng: number };
+        startsAt: string | null;
+        dayDate: string;
+        lastDayDate: string;
+      }[] = [];
       for (const h of happenings) {
         if (!DATE_SHAPED_KINDS.includes(h.kind)) continue;
         if (normalizeRecurrence(h.recurrence).type === "always") continue; // dated only — "always" rows live in Free
         const occurrence = nextOccurrence(h, now, eventsTo, timeZone);
         if (!occurrence) continue;
+        if (happeningHasEnded(h, now, timeZone)) continue; // final "no ended items" guard
         const coords = resolveCoords(h, placesById);
         if (!coords) continue;
         if (!withinBbox(coords.lat, coords.lng, bbox)) continue;
         if (!matchesQuery(h.title, q)) continue;
         if (!matchesAnyCategory(categories, (c) => matchesHappeningCategory(h.category, c))) continue;
-        happeningCandidates.push({ h, coords, startsAt: occurrence.startsAt });
+        happeningCandidates.push({
+          h,
+          coords,
+          startsAt: occurrence.startsAt,
+          dayDate: occurrence.dayDate,
+          lastDayDate: occurrence.lastDayDate,
+        });
       }
 
       let providerEvents: EventItem[] = [];
@@ -348,7 +363,8 @@ export async function GET(request: Request) {
       const providerCandidates = providerEvents
         .filter((e) => e.lat != null && e.lng != null)
         .filter((e) => withinBbox(e.lat as number, e.lng as number, bbox))
-        .filter((e) => matchesQuery(e.name, q));
+        .filter((e) => matchesQuery(e.name, q))
+        .filter((e) => !eventHasEnded(e, now)); // final "no ended items" guard
       // Category chips don't narrow provider events — see this file's header.
 
       type EventCandidate =
@@ -368,9 +384,16 @@ export async function GET(request: Request) {
               lng: c.coords.lng,
               image: c.h.image_url,
               category: categoryStyle(c.h.category).label,
+              // Real dayDate/lastDayDate from the occurrence (not
+              // reconstructed from startsAt alone) — an in-progress span
+              // (a months-long exhibition whose starts_at predates today)
+              // otherwise badged by its original start day, which
+              // happeningTimeLabel would print as a bare, dateless weekday
+              // ("Sat") on a pin opened months later. See that function's
+              // own "IN-PROGRESS SPANS" doc comment.
               badge:
                 happeningTimeLabel(
-                  { exact: true, startsAt: c.startsAt, dayDate: localDayDate(new Date(c.startsAt as string), timeZone) },
+                  { exact: true, startsAt: c.startsAt, dayDate: c.dayDate, lastDayDate: c.lastDayDate },
                   now,
                   timeZone
                 ) ?? savingBadgeLabel(c.h),

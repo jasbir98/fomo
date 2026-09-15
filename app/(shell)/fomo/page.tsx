@@ -9,7 +9,7 @@ import { FomoSpot } from "@/components/fomo/FomoSpot";
 import { supabaseBrowserAuth } from "@/lib/supabase/client";
 import { addMessage, clearMessages, listMessages } from "@/lib/db";
 import { ASK_FOMO_PROMPTS, type AiReplyBlock, type ChatItem } from "@/lib/fomo-ai";
-import { readChatSeed, suggestedQuestionsFor, type ChatSeed } from "@/lib/chat-seed";
+import { hrefForSeed, readChatSeed, suggestedQuestionsFor, type ChatSeed } from "@/lib/chat-seed";
 import type { ChatMessage } from "@/lib/types";
 
 /**
@@ -51,12 +51,36 @@ function ThinkingDots() {
 }
 
 /**
+ * What a user turn carries about the card it was asked from, once attached
+ * to a message (as opposed to `ChatSeed`, which is the page's own URL-driven
+ * "what was I opened for" state — see the seed-lifecycle comment above
+ * `pendingSeed` below). Deliberately a subset of `ChatSeed`: no `returnTo`,
+ * which is a navigation detail of the page visit, not a fact about the item.
+ */
+interface SeedAttachment {
+  type: ChatSeed["type"];
+  id: string;
+  name: string;
+  city?: string;
+  lat?: number;
+  lng?: number;
+}
+
+function isSeedAttachment(v: unknown): v is SeedAttachment {
+  if (!v || typeof v !== "object") return false;
+  const s = v as Record<string, unknown>;
+  return typeof s.type === "string" && typeof s.id === "string" && typeof s.name === "string";
+}
+
+/**
  * UI-side message model. Parsed from `chat_messages.content` (jsonb):
- *   user turn      → content = { text: string }
+ *   user turn      → content = { text: string, seed?: SeedAttachment }
  *   assistant turn → content = { blocks: AiReplyBlock[] }
+ * `seed` is only ever present on the first user turn of a seeded visit (see
+ * `pendingSeed`); older rows simply don't have it and render unchanged.
  */
 type UiMessage =
-  | { id: string; role: "user"; text: string }
+  | { id: string; role: "user"; text: string; seed?: SeedAttachment }
   | { id: string; role: "assistant"; blocks: AiReplyBlock[] };
 
 /** Only the most recent turns are sent as API history — keeps each request's token cost bounded. */
@@ -81,11 +105,21 @@ function blocksToText(blocks: AiReplyBlock[]): string {
 
 function parseMessage(m: ChatMessage): UiMessage {
   if (m.role === "user") {
-    const c = (m.content ?? {}) as { text?: string };
-    return { id: m.id, role: "user", text: c.text ?? "" };
+    const c = (m.content ?? {}) as { text?: string; seed?: unknown };
+    const seed = isSeedAttachment(c.seed) ? c.seed : undefined;
+    return { id: m.id, role: "user", text: c.text ?? "", seed };
   }
   const c = (m.content ?? {}) as { blocks?: AiReplyBlock[] };
   return { id: m.id, role: "assistant", blocks: c.blocks ?? [] };
+}
+
+/** The seed carried by the most recent user turn, if any — used to decide whether a seeded visit's context card is still "pending" (see `pendingSeed`). */
+function lastUserSeed(messages: UiMessage[]): SeedAttachment | undefined {
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const m = messages[i];
+    if (m.role === "user") return m.seed;
+  }
+  return undefined;
 }
 
 function createPendingId(): string {
@@ -115,8 +149,9 @@ function FomoChatPageInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
   // Ask Fomo seed — set when this page was opened from a card's "Ask Fomo"
-  // action rather than the plain FAB. Drives the pinned context card, the
-  // suggested-question chips, and the system prompt's context.
+  // action rather than the plain FAB. Drives the inline seed context card
+  // (see `pendingSeed`), the suggested-question chips, and the system
+  // prompt's context.
   const seed: ChatSeed | null = useMemo(() => readChatSeed(searchParams), [searchParams]);
   const [messages, setMessages] = useState<UiMessage[]>([]);
   // Plain-text prefill (`?q=` from Book Early / Free Any Time's own "Ask
@@ -128,6 +163,11 @@ function FomoChatPageInner() {
   const [clearDialogOpen, setClearDialogOpen] = useState(false);
   const [clearing, setClearing] = useState(false);
   const endRef = useRef<HTMLDivElement | null>(null);
+  // First scroll after history loads jumps straight to bottom (no visible
+  // scroll animation) so a seeded visit opens on the seed card + composer,
+  // not mid-animation from wherever the top of a long history sits. Every
+  // scroll after that (sends, quick replies) is the usual smooth one.
+  const didInitialScroll = useRef(false);
 
   // On mount: load this user's chat history (user-scoped, see lib/db/chat.ts).
   useEffect(() => {
@@ -149,8 +189,31 @@ function FomoChatPageInner() {
   }, [db]);
 
   useEffect(() => {
-    endRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
-  }, [messages.length]);
+    if (!ready) return;
+    const behavior: ScrollBehavior = didInitialScroll.current ? "smooth" : "auto";
+    endRef.current?.scrollIntoView({ behavior, block: "end" });
+    didInitialScroll.current = true;
+  }, [messages.length, ready]);
+
+  // Seed lifecycle for this visit: `seed` (from the URL) is "pending" — shown
+  // as an inline context card at the end of the message list — until the
+  // user's first send during this visit attaches it to that user message
+  // (see `send`, below). Once attached it lives in history on that message
+  // instead, so this recomputes to null the moment `messages` gains that
+  // user turn — including on reload of the same seeded URL, where the seed
+  // is already attached to the last user message and no duplicate shows.
+  const pendingSeed: SeedAttachment | null = useMemo(() => {
+    if (!seed) return null;
+    const last = lastUserSeed(messages);
+    if (last && last.type === seed.type && last.id === seed.id) return null;
+    return {
+      type: seed.type,
+      id: seed.id,
+      name: seed.name,
+      ...(seed.city ? { city: seed.city } : {}),
+      ...(seed.coords ? { lat: seed.coords.lat, lng: seed.coords.lng } : {}),
+    };
+  }, [seed, messages]);
 
   async function send(text: string) {
     const trimmed = text.trim();
@@ -158,11 +221,19 @@ function FomoChatPageInner() {
     setSending(true);
     setInput("");
 
+    // A seeded user turn is sent to the model as `[About: <name>] <text>` so
+    // later turns in the same history keep the context once the pending/
+    // attached seed card is no longer literally in front of it.
     const history = messages.slice(-MAX_HISTORY_MESSAGES).map((m) =>
       m.role === "user"
-        ? { role: "user" as const, text: m.text }
+        ? { role: "user" as const, text: m.seed ? `[About: ${m.seed.name}] ${m.text}` : m.text }
         : { role: "assistant" as const, text: blocksToText(m.blocks) }
     );
+
+    // Attach the seed to this send only if it's still pending (first send of
+    // the visit) — later sends in the same visit already have it on an
+    // earlier message, so don't repeat it.
+    const attachSeed = pendingSeed;
 
     const provisionalId = createPendingId();
 
@@ -175,10 +246,13 @@ function FomoChatPageInner() {
     try {
       // Persist + append the user turn, with a provisional assistant turn
       // that grows as text streams in.
-      const userRow = await addMessage(db, { role: "user", mode: CHAT_MODE, content: { text: trimmed } });
+      const userContent: { text: string; seed?: SeedAttachment } = attachSeed
+        ? { text: trimmed, seed: attachSeed }
+        : { text: trimmed };
+      const userRow = await addMessage(db, { role: "user", mode: CHAT_MODE, content: userContent });
       setMessages((prev) => [
         ...prev,
-        { id: userRow.id, role: "user", text: trimmed },
+        { id: userRow.id, role: "user", text: trimmed, seed: attachSeed ?? undefined },
         { id: provisionalId, role: "assistant", blocks: [{ kind: "text", text: "" }] },
       ]);
 
@@ -314,19 +388,6 @@ function FomoChatPageInner() {
         ) : null}
       </header>
 
-      {/* Seed context card — pinned so it's obvious what Fomo is talking about when opened from a card. */}
-      {seed ? (
-        <div className="mx-5 mt-3 flex items-center gap-2.5 rounded-xl border border-outline-variant/60 bg-surface-container-lowest p-2.5">
-          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary-fixed text-primary">
-            <Icon name={SEED_ICON[seed.type] ?? "location_on"} size={18} />
-          </div>
-          <div className="min-w-0 flex-1">
-            <p className="truncate text-label-md font-bold text-primary">{seed.name}</p>
-            {seed.city ? <p className="text-label-sm text-on-surface-variant">{seed.city}</p> : null}
-          </div>
-        </div>
-      ) : null}
-
       <main className="flex flex-1 flex-col gap-6 px-5 pt-4 pb-[220px]">
         {loadFailed ? (
           <p className="rounded-lg bg-surface-container px-3 py-2 text-label-sm text-on-surface-variant">
@@ -349,7 +410,7 @@ function FomoChatPageInner() {
         ) : null}
 
         {messages.map((m, mi) => {
-          if (m.role === "user") return <UserBubble key={m.id} text={m.text} />;
+          if (m.role === "user") return <UserBubble key={m.id} text={m.text} seed={m.seed} />;
           const isProvisional =
             sending &&
             mi === messages.length - 1 &&
@@ -368,6 +429,16 @@ function FomoChatPageInner() {
             <AssistantTurn key={m.id} messageId={m.id} blocks={m.blocks} onQuickReply={(option) => void send(option)} />
           );
         })}
+
+        {/* Seed context card — shown inline at the end of the conversation (not pinned above it) until the
+            first send of this visit attaches it to that user message; see `pendingSeed`. */}
+        {pendingSeed ? (
+          <div className="mx-auto flex w-full max-w-[320px] flex-col items-center gap-1.5">
+            <p className="text-label-sm font-medium text-on-surface-variant">Asking about</p>
+            <SeedCard seed={pendingSeed} className="w-full" />
+          </div>
+        ) : null}
+
         <div ref={endRef} />
       </main>
 
@@ -436,11 +507,55 @@ function FomoAvatar({ mood = "grin" }: { mood?: FomoMood }) {
   return <FomoFace mood={mood} className="mb-1 h-8 w-8 shrink-0 drop-shadow-sm" />;
 }
 
-function UserBubble({ text }: { text: string }) {
+function UserBubble({ text, seed }: { text: string; seed?: SeedAttachment }) {
   return (
-    <div className="max-w-[85%] self-end rounded-xl rounded-tr-sm bg-primary px-5 py-3 text-on-primary shadow-sm">
-      <p className="whitespace-pre-wrap text-body-md">{renderInlineMarkdown(text)}</p>
+    <div className="flex max-w-[85%] flex-col items-end gap-1.5 self-end">
+      {/* Compact attachment chip for the item this turn was asked about — only on the turn that carries it (see `pendingSeed`/`send`). */}
+      {seed ? <SeedCard seed={seed} compact className="w-full max-w-[220px]" /> : null}
+      <div className="rounded-xl rounded-tr-sm bg-primary px-5 py-3 text-on-primary shadow-sm">
+        <p className="whitespace-pre-wrap text-body-md">{renderInlineMarkdown(text)}</p>
+      </div>
     </div>
+  );
+}
+
+/**
+ * The "what is this conversation about" card — used both as the pending
+ * context divider (full size, centered) and as the compact chip attached
+ * above a user bubble once the seed has been sent (see `UserBubble`). Tap
+ * target is the item's own detail page when `hrefForSeed` can derive one
+ * reliably for this type; otherwise it's inert (no href to guess at).
+ */
+function SeedCard({
+  seed,
+  compact = false,
+  className = "",
+}: {
+  seed: SeedAttachment;
+  compact?: boolean;
+  className?: string;
+}) {
+  const href = hrefForSeed(seed);
+  const content = (
+    <div
+      className={`flex items-center gap-2.5 rounded-xl border border-outline-variant/60 bg-surface-container-lowest ${compact ? "p-2" : "p-2.5"} ${className}`}
+    >
+      <div
+        className={`flex shrink-0 items-center justify-center rounded-lg bg-primary-fixed text-primary ${compact ? "h-7 w-7" : "h-9 w-9"}`}
+      >
+        <Icon name={SEED_ICON[seed.type] ?? "location_on"} size={compact ? 15 : 18} />
+      </div>
+      <div className="min-w-0 flex-1">
+        <p className="truncate text-label-md font-bold text-primary">{seed.name}</p>
+        {seed.city ? <p className="truncate text-label-sm text-on-surface-variant">{seed.city}</p> : null}
+      </div>
+    </div>
+  );
+  if (!href) return content;
+  return (
+    <Link href={href} className="block transition-opacity hover:opacity-80">
+      {content}
+    </Link>
   );
 }
 

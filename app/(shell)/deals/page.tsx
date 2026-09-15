@@ -1,8 +1,10 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import type { DealCardData, FeedResponse, VenueDealGroup } from "@/lib/happenings/feed-types";
 import { matchesDealFilters, type DealWhatGroup, type DealWhoGroup } from "@/lib/happenings/groups";
+import { useCachedJson } from "@/lib/http/clientCache";
+import { useProgressiveReveal } from "@/lib/useProgressiveReveal";
 import { ErrorState, PageHeader, StickyFilterBar } from "@/components/ui";
 import { FeedListCard, VenueDealCard, DealFilters } from "@/components/happenings";
 import { FomoSpot } from "@/components/fomo/FomoSpot";
@@ -10,6 +12,9 @@ import { FomoSpot } from "@/components/fomo/FomoSpot";
 type DealListItem =
   | { kind: "venue"; group: VenueDealGroup }
   | { kind: "single"; card: DealCardData };
+
+/** Matches Home's own feed staleness (app/(shell)/page.tsx's `FEED_STALE_MS`) — can't import that constant across route boundaries without pulling in Home's other module state, so it's duplicated here as a plain number. */
+const DEALS_STALE_MS = 60_000;
 
 /** GET /api/feed already computes the whole `deals` section (venue-grouped +
  *  singles, WHAT/WHO facets precomputed) for Home's old Deals & Offers
@@ -20,11 +25,11 @@ type DealListItem =
  *
  *  Throws (rather than swallowing to `null`) on a network error or a
  *  non-2xx status — GET /api/feed's catch block now returns 401/500, not a
- *  silent 200 with empty sections — so the caller can tell "the request
- *  failed" apart from "the response was genuinely empty" instead of both
- *  looking like the same `null`. */
-async function fetchDeals(): Promise<FeedResponse["deals"]> {
-  const res = await fetch("/api/feed?window=now");
+ *  silent 200 with empty sections — so `useCachedJson` below can tell "the
+ *  request failed" apart from "the response was genuinely empty" instead of
+ *  both looking like the same `null`. */
+async function fetchDeals(signal?: AbortSignal): Promise<FeedResponse["deals"]> {
+  const res = await fetch("/api/feed?window=now", { signal });
   if (!res.ok) throw new Error(`GET /api/feed ${res.status}`);
   const json = (await res.json()) as FeedResponse;
   return json.deals;
@@ -37,30 +42,15 @@ async function fetchDeals(): Promise<FeedResponse["deals"]> {
  * just with room to breathe and no competing sections above/below it.
  */
 export default function DealsPage() {
-  const [deals, setDeals] = useState<FeedResponse["deals"] | null>(null);
-  const [error, setError] = useState(false);
-  const [reloadTick, setReloadTick] = useState(0);
+  // Cached under a fixed key — a return visit (e.g. via the bottom nav)
+  // paints instantly from what's already there instead of the hourglass
+  // skeleton below; a real fetch failure with nothing cached still surfaces
+  // as `error` (see fetchDeals's own doc comment on the throw contract).
+  const dealsResult = useCachedJson<FeedResponse["deals"]>("deals", fetchDeals, { staleMs: DEALS_STALE_MS });
+  const deals = dealsResult.data ?? null;
+  const error = dealsResult.error != null && deals === null;
   const [dealWhat, setDealWhat] = useState<DealWhatGroup | null>(null);
   const [dealWho, setDealWho] = useState<DealWhoGroup | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const json = await fetchDeals();
-        if (!cancelled) {
-          setDeals(json);
-          setError(false);
-        }
-      } catch (err) {
-        console.error("[deals] /api/feed fetch failed", err);
-        if (!cancelled) setError(true);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [reloadTick]);
 
   const filteredVenueGroups = useMemo(() => {
     if (!deals) return [];
@@ -84,6 +74,15 @@ export default function DealsPage() {
 
   const totalBeforeFilters = (deals?.venueGroups.length ?? 0) + (deals?.singles.length ?? 0);
 
+  // Renders in chunks of 20 rather than mounting the whole list at once — no
+  // pagination on this endpoint (see the pagination audit in the caller's
+  // report), so this is where the actual render cost gets capped instead.
+  const revealSentinelRef = useRef<HTMLDivElement>(null);
+  const visibleCount = useProgressiveReveal(dealItems.length, null, revealSentinelRef, {
+    vertical: true,
+    step: 20,
+  });
+
   return (
     <div className="flex flex-col gap-5 pb-8">
       <PageHeader title="Deals & Offers" showBack />
@@ -106,7 +105,7 @@ export default function DealsPage() {
         </StickyFilterBar>
 
         {error ? (
-          <ErrorState title="Couldn't load deals" onRetry={() => setReloadTick((t) => t + 1)} />
+          <ErrorState title="Couldn't load deals" onRetry={() => dealsResult.revalidate()} />
         ) : deals === null ? (
           <div className="flex flex-col gap-3 pt-2" role="status" aria-live="polite">
             <span className="sr-only">Loading deals…</span>
@@ -126,7 +125,7 @@ export default function DealsPage() {
           </div>
         ) : (
           <div className="flex flex-col gap-3 pt-1">
-            {dealItems.map((item) =>
+            {dealItems.slice(0, visibleCount).map((item) =>
               item.kind === "venue" ? (
                 <VenueDealCard
                   key={`venue-${item.group.placeId}`}
@@ -143,6 +142,7 @@ export default function DealsPage() {
                 />
               )
             )}
+            {visibleCount < dealItems.length ? <div ref={revealSentinelRef} className="h-1" /> : null}
           </div>
         )}
       </div>

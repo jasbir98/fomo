@@ -45,6 +45,20 @@ export async function getSocialPost(db: Db, id: string): Promise<SocialPost | nu
 }
 
 /**
+ * Batch-fetch social posts (reels) by id — mirrors listPlacesByIds
+ * (lib/db/places.ts), listEventsByIds (lib/db/events.ts) and
+ * listExperiencesByIds (lib/db/experiences.ts). Used by GET /api/saved to
+ * resolve saved_items rows with subject_type "reel" back into full rows
+ * (bug 12 — that subject_type used to be silently dropped there).
+ */
+export async function listSocialPostsByIds(db: Db, ids: string[]): Promise<SocialPost[]> {
+  if (ids.length === 0) return [];
+  const { data, error } = await db.from("social_posts").select("*").in("id", ids);
+  if (error) throw error;
+  return data ?? [];
+}
+
+/**
  * A reel plus its linked place's coordinates (if any) -- lets callers sort
  * reels by distance from the caller's live location without a second query.
  * Structurally a superset of `SocialPost`, so it's a drop-in wherever a

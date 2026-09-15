@@ -1,24 +1,29 @@
 import type { Db } from "@/lib/supabase/types";
 import type { EventItem } from "@/lib/types";
 import { distanceKm, sortByDistance, type Coordinates } from "@/lib/geo";
-import { eventIsLive } from "@/lib/events/format";
+import { eventIsLive, DEFAULT_EVENT_DURATION_MS } from "@/lib/events/format";
 
 /**
- * How far back of `from` to still query — a plain `.gte("starts_at", from)`
- * (the old behaviour) drops an event the instant its `starts_at` passes,
- * even though it may run for hours yet (a gig that started 20 minutes ago)
- * or for days (a multi-day exhibition whose `starts_at` was last week). The
- * DB can only prune on `starts_at`, so this widens the query back by a day
- * and `eventIsLive` does the real "is it still running" check in JS below,
- * against each row's actual `ends_at` (or a sensible default duration).
+ * The query-layer half of "is this event still running as of `at`" — kept
+ * consistent with `eventEffectiveEndMs`'s own definition (an `ends_at` when
+ * the row has one, else `starts_at` + `DEFAULT_EVENT_DURATION_MS`) by
+ * importing that same constant rather than re-deriving it: either `ends_at`
+ * hasn't passed yet, or there's no `ends_at` at all and `starts_at` is
+ * recent enough that the default duration hasn't elapsed.
+ *
+ * Replaces the old fixed 24h "lookback" window (`.gte("starts_at", from -
+ * 24h)`), which silently dropped any event whose `starts_at` was more than a
+ * day in the past even when it was still genuinely running — a multi-day
+ * festival or exhibition never reached the JS `eventIsLive` filter below at
+ * all, because the DB-level filter excluded the row first. This filter is a
+ * superset of nothing: every row it returns is already live, so `limit`
+ * needs no extra padding for rows that will just be filtered back out.
  */
-const EVENT_LOOKBACK_MS = 24 * 60 * 60 * 1000;
-
-/** Extra rows to ask the DB for beyond `limit`, to make room for the
- *  lookback window's rows that `eventIsLive` will filter back out — without
- *  this, `.order(starts_at).limit(limit)` could fill the whole page with
- *  now-ended lookback rows before a genuinely-live one is ever fetched. */
-const LOOKBACK_LIMIT_PAD = 50;
+function stillRunningFilter(at: Date): string {
+  const nowIso = at.toISOString();
+  const defaultDurationCutoff = new Date(at.getTime() - DEFAULT_EVENT_DURATION_MS).toISOString();
+  return `ends_at.gte.${nowIso},and(ends_at.is.null,starts_at.gte.${defaultDurationCutoff})`;
+}
 
 export interface ListUpcomingEventsOpts {
   destination?: string;
@@ -45,12 +50,11 @@ export async function listUpcomingEvents(
   const { destination, category, from, to, limit } = opts;
 
   const fromDate = from ? new Date(from) : new Date();
-  const queryFrom = new Date(fromDate.getTime() - EVENT_LOOKBACK_MS).toISOString();
 
   let query = db
     .from("events")
     .select("*")
-    .gte("starts_at", queryFrom)
+    .or(stillRunningFilter(fromDate))
     .order("starts_at", { ascending: true });
 
   if (to) query = query.lte("starts_at", to);
@@ -65,15 +69,16 @@ export async function listUpcomingEvents(
     }
   }
 
-  if (limit) query = query.limit(limit + LOOKBACK_LIMIT_PAD);
+  if (limit) query = query.limit(limit);
 
   const { data, error } = await query;
   if (error) throw error;
-  // The lookback above deliberately over-fetches into the past — this is the
-  // real "still live" gate (an already-started-but-running event, or a
-  // multi-day one whose `starts_at` precedes `from`, is kept; one that's
-  // fully finished by `from` is dropped even though its `starts_at` alone
-  // would have passed the DB filter).
+  // Final in-memory guard, belt-and-braces: re-checks each row against its
+  // own actual effective end (`eventEffectiveEndMs`), not just the SQL
+  // approximation above — catches a clock-skew edge case or any future
+  // query change that loosens the DB-level filter. Every list route reading
+  // this function (feed/now/explore/discover/chat) inherits this guard for
+  // free rather than re-implementing it per caller.
   const live = (data ?? []).filter((row) => eventIsLive(row, fromDate));
   return limit ? live.slice(0, limit) : live;
 }
@@ -95,7 +100,6 @@ export async function listEventsNearby(
   const { category, from, to, limit } = opts;
 
   const fromDate = from ? new Date(from) : new Date();
-  const queryFrom = new Date(fromDate.getTime() - EVENT_LOOKBACK_MS).toISOString();
 
   const dLat = radiusKm / 111;
   // Guard against center.lat === ±90 (cos → 0, division blows up); a polar
@@ -106,7 +110,7 @@ export async function listEventsNearby(
   let query = db
     .from("events")
     .select("*")
-    .gte("starts_at", queryFrom) // widened; `eventIsLive` below does the real cutoff
+    .or(stillRunningFilter(fromDate))
     .gte("lat", center.lat - dLat)
     .lte("lat", center.lat + dLat)
     .gte("lng", center.lng - dLng)

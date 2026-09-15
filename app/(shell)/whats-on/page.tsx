@@ -1,10 +1,12 @@
 "use client";
 
-import { Suspense, useEffect, useMemo, useState } from "react";
+import { Suspense, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { FeedCardData, FeedResponse, FeedWindow } from "@/lib/happenings/feed-types";
 import { weekendDates } from "@/lib/happenings/format";
 import { distinctCategoryFacets, matchesCategoryFilter, type CategoryFacetKey } from "@/lib/happenings/whats-on-filters";
+import { useCachedJson } from "@/lib/http/clientCache";
+import { useProgressiveReveal } from "@/lib/useProgressiveReveal";
 import { Chip, ErrorState, PageHeader, SegmentedControl, StickyFilterBar } from "@/components/ui";
 import { DateFilterRow, FeedListCard } from "@/components/happenings";
 import { FomoSpot } from "@/components/fomo/FomoSpot";
@@ -18,6 +20,9 @@ const WHATS_ON_WINDOWS: { value: Exclude<FeedWindow, "book_early">; label: strin
   { value: "coming_up", label: "Coming up" },
 ];
 
+/** Matches Home's own `FEED_STALE_MS` (app/(shell)/page.tsx) — duplicated as a plain number rather than imported across route boundaries. */
+const FEED_STALE_MS = 60_000;
+
 function isWhatsOnWindow(value: string | null): value is Exclude<FeedWindow, "book_early"> {
   return value === "now" || value === "coming_up";
 }
@@ -28,18 +33,18 @@ function cardKey(card: FeedCardData): string {
   return `event-${card.event.id}`;
 }
 
-// Throws on abort (the caller distinguishes that — a superseded request, not
-// a failure) or a non-2xx status, rather than swallowing every failure to
-// the same `null` a genuinely-empty bucket would also produce.
-async function fetchWhatsOn(
-  window: Exclude<FeedWindow, "book_early">,
-  signal?: AbortSignal
-): Promise<FeedCardData[]> {
+// Throws on a non-2xx status, rather than swallowing every failure to the
+// same `null` a genuinely-empty bucket would also produce. Fetches the FULL
+// GET /api/feed response — not just `whatsOn` — and caches it under
+// `feed:${window}`, the exact key app/(shell)/page.tsx's Home page uses for
+// the same window: arriving here via Home's "See all N" link (which is the
+// only way in) means this page's first paint is very often an instant cache
+// hit off whatever Home already loaded, not a fresh fetch.
+async function fetchFeed(window: Exclude<FeedWindow, "book_early">, signal?: AbortSignal): Promise<FeedResponse> {
   const params = new URLSearchParams({ window });
   const res = await fetch(`/api/feed?${params.toString()}`, { signal });
   if (!res.ok) throw new Error(`GET /api/feed ${res.status}`);
-  const json = (await res.json()) as FeedResponse;
-  return json.whatsOn[0]?.cards ?? [];
+  return (await res.json()) as FeedResponse;
 }
 
 /**
@@ -64,11 +69,21 @@ function WhatsOnPageInner() {
   const windowParam = searchParams.get("window");
   const initialWindow: Exclude<FeedWindow, "book_early"> = isWhatsOnWindow(windowParam) ? windowParam : "now";
   const [feedWindow, setFeedWindowState] = useState<Exclude<FeedWindow, "book_early">>(initialWindow);
-  const [cards, setCards] = useState<FeedCardData[] | null>(null);
-  const [error, setError] = useState(false);
-  const [reloadTick, setReloadTick] = useState(0);
   const [dateFilter, setDateFilter] = useState<string>("all");
   const [categoryFilter, setCategoryFilter] = useState<CategoryFacetKey | null>(null);
+
+  // Cached (and shared with Home, see fetchFeed's doc comment) per window —
+  // `error` only means "nothing cached for this window and the last attempt
+  // failed", never a background revalidation hiccup with a cached window
+  // still showing.
+  const feedResult = useCachedJson<FeedResponse>(`feed:${feedWindow}`, (signal) => fetchFeed(feedWindow, signal), {
+    staleMs: FEED_STALE_MS,
+  });
+  const cards = useMemo(
+    () => (feedResult.data ? (feedResult.data.whatsOn[0]?.cards ?? []) : null),
+    [feedResult.data]
+  );
+  const error = feedResult.error != null && feedResult.data === undefined;
 
   function setFeedWindow(next: Exclude<FeedWindow, "book_early">) {
     setFeedWindowState(next);
@@ -76,23 +91,6 @@ function WhatsOnPageInner() {
     setCategoryFilter(null);
     router.replace(`/whats-on?window=${next}`, { scroll: false });
   }
-
-  useEffect(() => {
-    const controller = new AbortController();
-    (async () => {
-      setCards(null);
-      setError(false);
-      try {
-        const json = await fetchWhatsOn(feedWindow, controller.signal);
-        if (!controller.signal.aborted) setCards(json);
-      } catch (err) {
-        if (controller.signal.aborted || (err instanceof DOMException && err.name === "AbortError")) return;
-        console.error("[whats-on] /api/feed fetch failed", err);
-        setError(true);
-      }
-    })();
-    return () => controller.abort();
-  }, [feedWindow, reloadTick]);
 
   const dates = useMemo(() => {
     if (!cards) return [];
@@ -121,6 +119,15 @@ function WhatsOnPageInner() {
     () => dateFilteredCards.filter((c) => matchesCategoryFilter(c, categoryFilter)),
     [dateFilteredCards, categoryFilter]
   );
+
+  // Renders in chunks of 20 rather than mounting the whole (potentially
+  // large, uncapped — see the pagination audit in the caller's report) list
+  // at once.
+  const revealSentinelRef = useRef<HTMLDivElement>(null);
+  const revealCount = useProgressiveReveal(visibleCards.length, null, revealSentinelRef, {
+    vertical: true,
+    step: 20,
+  });
 
   function emptyMessage(): string {
     if (cards && cards.length > 0 && visibleCards.length === 0) {
@@ -175,7 +182,7 @@ function WhatsOnPageInner() {
         </div>
 
         {error ? (
-          <ErrorState title="Couldn't load what's on" onRetry={() => setReloadTick((t) => t + 1)} />
+          <ErrorState title="Couldn't load what's on" onRetry={() => feedResult.revalidate()} />
         ) : cards === null ? (
           <div className="flex flex-col gap-3 pt-2" role="status" aria-live="polite">
             <span className="sr-only">Loading what&rsquo;s on…</span>
@@ -190,9 +197,10 @@ function WhatsOnPageInner() {
           </div>
         ) : (
           <div className="flex flex-col gap-3 pt-1">
-            {visibleCards.map((card) => (
+            {visibleCards.slice(0, revealCount).map((card) => (
               <FeedListCard key={cardKey(card)} card={card} />
             ))}
+            {revealCount < visibleCards.length ? <div ref={revealSentinelRef} className="h-1" /> : null}
           </div>
         )}
       </div>

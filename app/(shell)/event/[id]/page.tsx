@@ -5,24 +5,13 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { supabaseBrowserAuth } from "@/lib/supabase/client";
 import { buildAskFomoHref } from "@/lib/chat-seed";
+import { directionsUrlFor } from "@/lib/maps/links";
 import { getEvent } from "@/lib/db";
 import { isSaved, saveItem, unsaveItem } from "@/lib/db/saved";
 import { formatEventPrice, formatEventWhen } from "@/lib/events/format";
 import type { EventItem } from "@/lib/types";
 import { Button, ErrorState, Icon, PageHeader, PhotoCarousel, ShareButton, StatusPill } from "@/components/ui";
 import type { CarouselPhoto } from "@/components/ui";
-
-/** Same lat/lng-first, address-fallback shape as lib/maps/links.ts's
- * buildDirectionsUrl for Place — Event has no google_place_id, so no
- * disambiguation param. */
-function eventDirectionsUrl(event: EventItem): string | null {
-  if (event.lat != null && event.lng != null) {
-    return `https://www.google.com/maps/dir/?api=1&destination=${event.lat},${event.lng}`;
-  }
-  const fallback = event.address ?? event.venue_name ?? event.name;
-  if (!fallback) return null;
-  return `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(fallback)}`;
-}
 
 /**
  * Event's own detail page (v1.1 W3) — mirrors app/(shell)/place/[id]/page.tsx's
@@ -138,7 +127,7 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
     );
   }
 
-  const directionsUrl = eventDirectionsUrl(event);
+  const directionsUrl = directionsUrlFor({ lat: event.lat, lng: event.lng, query: event.address ?? event.venue_name ?? event.name });
   const price = formatEventPrice(event);
   // Event has a single image_url, no place_photos-style gallery — one-item
   // array reuses PhotoCarousel's existing placeholder-when-empty behavior
@@ -150,10 +139,6 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
   const shareText = `${[event.name, formatEventWhen(event.starts_at, event.ends_at), price]
     .filter(Boolean)
     .join(" · ")} — found on Fomo`;
-
-  function openDirections() {
-    if (directionsUrl) window.open(directionsUrl, "_blank", "noopener");
-  }
 
   return (
     <div className="flex flex-col gap-6 pb-6">
@@ -219,27 +204,45 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
         {/* Mini map */}
         <section>
           <h2 className="mb-4 text-headline-sm text-primary">Location</h2>
-          <button
-            type="button"
-            onClick={openDirections}
-            disabled={!directionsUrl}
-            className="relative h-40 w-full overflow-hidden rounded-xl border border-outline-variant/40 bg-surface-container text-left disabled:pointer-events-none disabled:opacity-60"
-          >
-            <div className="absolute inset-0 flex items-center justify-center">
-              <Icon name="map" size={64} className="text-outline-variant" />
-            </div>
-            <div className="absolute bottom-3 left-3 right-3 flex items-center justify-between rounded-lg bg-white/90 px-3 py-2 backdrop-blur-md">
-              <div>
-                <p className="text-label-md text-primary">
-                  {event.venue_name ?? event.address ?? event.name}
-                </p>
-                <p className="text-label-sm text-on-surface-variant">
-                  {directionsUrl ? "Tap to open directions" : "Location unavailable"}
-                </p>
+          {directionsUrl ? (
+            <a
+              href={directionsUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="relative flex h-40 w-full overflow-hidden rounded-xl border border-outline-variant/40 bg-surface-container text-left"
+            >
+              <div className="absolute inset-0 flex items-center justify-center">
+                <Icon name="map" size={64} className="text-outline-variant" />
               </div>
-              <Icon name="open_in_new" className="text-primary" />
-            </div>
-          </button>
+              <div className="absolute bottom-3 left-3 right-3 flex items-center justify-between rounded-lg bg-white/90 px-3 py-2 backdrop-blur-md">
+                <div>
+                  <p className="text-label-md text-primary">
+                    {event.venue_name ?? event.address ?? event.name}
+                  </p>
+                  <p className="text-label-sm text-on-surface-variant">Tap to open directions</p>
+                </div>
+                <Icon name="open_in_new" className="text-primary" />
+              </div>
+            </a>
+          ) : (
+            <button
+              type="button"
+              disabled
+              className="relative h-40 w-full overflow-hidden rounded-xl border border-outline-variant/40 bg-surface-container text-left disabled:pointer-events-none disabled:opacity-60"
+            >
+              <div className="absolute inset-0 flex items-center justify-center">
+                <Icon name="map" size={64} className="text-outline-variant" />
+              </div>
+              <div className="absolute bottom-3 left-3 right-3 flex items-center justify-between rounded-lg bg-white/90 px-3 py-2 backdrop-blur-md">
+                <div>
+                  <p className="text-label-md text-primary">
+                    {event.venue_name ?? event.address ?? event.name}
+                  </p>
+                  <p className="text-label-sm text-on-surface-variant">Location unavailable</p>
+                </div>
+              </div>
+            </button>
+          )}
         </section>
       </div>
 
@@ -256,13 +259,22 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
               <Icon name="confirmation_number" size={18} />
               Get tickets
             </a>
+          ) : directionsUrl ? (
+            <a
+              href={directionsUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex min-h-[48px] w-full items-center justify-center gap-2 rounded-xl bg-secondary-container px-6 text-label-md font-medium text-on-secondary-container shadow-sm transition-all hover:opacity-90 active:opacity-80"
+            >
+              <Icon name="directions" size={18} />
+              Get Directions
+            </a>
           ) : (
             <Button
               variant="orange"
               fullWidth
               leadingIcon="directions"
-              onClick={openDirections}
-              disabled={!directionsUrl}
+              disabled
             >
               Get Directions
             </Button>

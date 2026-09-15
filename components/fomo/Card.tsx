@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { Icon, SmartImage } from "@/components/ui";
 import { buildAskFomoHref } from "@/lib/chat-seed";
+import { directionsUrlFor } from "@/lib/maps/links";
 import { recordCardSignal } from "@/lib/db/signals";
 import { saveItem, unsaveItem } from "@/lib/db/saved";
 import { describeSupabaseError } from "@/lib/db/errors";
@@ -44,10 +45,6 @@ const CATEGORY_GLYPH: Record<CardSubjectType, string> = {
   practicality: "info",
   happening: "sell",
 };
-
-function directionsUrl(coords: { lat: number; lng: number }): string {
-  return `https://www.google.com/maps/dir/?api=1&destination=${coords.lat},${coords.lng}`;
-}
 
 /**
  * One card, rendered identically everywhere — Home rail, Plan gaps, chip
@@ -182,7 +179,8 @@ export function FomoCard({
     }
     if (kind === "add") void handleSave();
     else if (kind === "directions" && candidate.coords) {
-      window.open(directionsUrl(candidate.coords), "_blank", "noopener");
+      const url = directionsUrlFor({ lat: candidate.coords.lat, lng: candidate.coords.lng });
+      if (url) window.open(url, "_blank", "noopener");
     }
     // "swap"/"location"/"book"/"tell"/"watch" without an override render as
     // navigable links below (book) or fall through to Ask Fomo (tell) —
@@ -353,15 +351,17 @@ export function FomoCard({
               </Link>
             ) : null}
 
-            {showDirections ? (
-              <button
-                type="button"
-                onClick={() => candidate.coords && window.open(directionsUrl(candidate.coords), "_blank", "noopener")}
+            {showDirections && candidate.coords ? (
+              <a
+                href={directionsUrlFor(candidate.coords) ?? undefined}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={(e) => e.stopPropagation()}
                 className={`flex shrink-0 items-center gap-1 rounded-full border px-3 py-1.5 text-label-sm font-semibold transition-colors ${ghostButton}`}
               >
                 Directions
                 <Icon name="directions" size={16} />
-              </button>
+              </a>
             ) : null}
 
             <button

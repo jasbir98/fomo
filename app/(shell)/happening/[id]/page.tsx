@@ -3,7 +3,8 @@
 import { use, useEffect, useState } from "react";
 import Link from "next/link";
 import { districtFromAddress } from "@/lib/city";
-import { nextOccurrences, normalizeRecurrence } from "@/lib/happenings/occurrence";
+import { directionsUrlFor } from "@/lib/maps/links";
+import { happeningHasEnded, nextOccurrences, normalizeRecurrence } from "@/lib/happenings/occurrence";
 import {
   ELIGIBILITY_FALLBACK,
   ELIGIBILITY_ICON,
@@ -23,20 +24,6 @@ import type { CarouselPhoto } from "@/components/ui";
 import { NOTIFY_ME_ENABLED } from "@/lib/happenings/book-early";
 import { NotifyMeButton } from "@/components/happenings";
 import { ensurePushSubscribed, pushReasonMessage } from "@/lib/push/client";
-
-/** Same lat/lng-first, address-fallback shape as app/(shell)/event/[id]'s
- *  eventDirectionsUrl / lib/maps/links.ts's buildDirectionsUrl for Place —
- *  a Happening has neither a Place's google_place_id nor an Event's shape,
- *  so it gets its own tiny copy rather than forcing a shared helper's type
- *  to widen for one more caller. */
-function happeningDirectionsUrl(h: Happening): string | null {
-  if (h.lat != null && h.lng != null) {
-    return `https://www.google.com/maps/dir/?api=1&destination=${h.lat},${h.lng}`;
-  }
-  const fallback = h.address ?? h.venue_name;
-  if (!fallback) return null;
-  return `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(fallback)}`;
-}
 
 // Throws on a network error or non-2xx status (GET /api/happenings/[id]
 // returns 401/500 for those — see that route's own doc comment) so the
@@ -254,7 +241,7 @@ export default function HappeningDetailPage({ params }: { params: Promise<{ id: 
   const badge = savingBadgeLabel(happening);
   const district = happening.district ?? districtFromAddress(happening.address);
   const eligibilityLabel = ELIGIBILITY_FALLBACK[happening.eligibility];
-  const directionsUrl = happeningDirectionsUrl(happening);
+  const directionsUrl = directionsUrlFor({ lat: happening.lat, lng: happening.lng, query: happening.address ?? happening.venue_name });
   const ctaHref = happening.booking_url ?? happening.source_url;
   // Say what the button actually does — "Claim Offer" on a free museum was wrong.
   const ctaLabel =
@@ -266,7 +253,9 @@ export default function HappeningDetailPage({ params }: { params: Promise<{ id: 
         : happening.booking_url || happening.kind === "festival" || happening.kind === "event"
           ? "Get tickets"
           : "Official info");
-  const ended = happening.status !== "live";
+  // Date-aware, not just status: a row still marked "live" whose window has
+  // passed (e.g. a one-off weekend that's over) must show the ended banner too.
+  const ended = happening.status !== "live" || happeningHasEnded(happening, new Date());
   // Only for things that happen on a day or a few — a months-long exhibition
   // as one calendar block helps nobody.
   const spanDays = primaryOccurrence
@@ -301,10 +290,6 @@ export default function HappeningDetailPage({ params }: { params: Promise<{ id: 
   const heroImageUrl =
     happening.image_url && !imgError ? happening.image_url : categoryDefaultImage(happening.category);
   const heroPhotos: CarouselPhoto[] = [{ url: heroImageUrl, alt: happening.title }];
-
-  function openDirections() {
-    if (directionsUrl) window.open(directionsUrl, "_blank", "noopener");
-  }
 
   function openSource() {
     // Re-guarded even though the component already returned its
@@ -652,7 +637,7 @@ export default function HappeningDetailPage({ params }: { params: Promise<{ id: 
                   // detail page (the "When" section above handles it there,
                   // including its own pattern-echo dedupe).
                   const memberStartTime = shortStartTimeFromNote(member.time_note);
-                  const memberDirections = happeningDirectionsUrl(member);
+                  const memberDirections = directionsUrlFor({ lat: member.lat, lng: member.lng, query: member.address ?? member.venue_name });
                   const isCurrent = member.id === happening.id;
                   return (
                     <div
@@ -714,9 +699,10 @@ export default function HappeningDetailPage({ params }: { params: Promise<{ id: 
             <div className="mb-2.5 flex items-center justify-between">
               <span className="text-headline-sm text-primary">Where</span>
             </div>
-            <button
-              type="button"
-              onClick={openDirections}
+            <a
+              href={directionsUrl}
+              target="_blank"
+              rel="noopener noreferrer"
               className="flex w-full items-center gap-3 rounded-2xl bg-surface-container-lowest p-4 text-left shadow-level-1"
             >
               <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary-fixed text-primary">
@@ -729,7 +715,7 @@ export default function HappeningDetailPage({ params }: { params: Promise<{ id: 
                 <p className="text-label-sm text-on-surface-variant">Get directions</p>
               </div>
               <Icon name="open_in_new" className="shrink-0 text-primary" />
-            </button>
+            </a>
           </section>
         ) : null}
 

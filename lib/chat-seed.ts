@@ -61,3 +61,28 @@ const QUESTIONS_BY_TYPE: Record<CardSubjectType, string[]> = {
 export function suggestedQuestionsFor(type: CardSubjectType): string[] {
   return QUESTIONS_BY_TYPE[type] ?? QUESTIONS_BY_TYPE.place;
 }
+
+/**
+ * Which detail route (if any) a seed's own item resolves to, for the chat
+ * page's seed card (pending divider or attached-to-message chip) to link to.
+ * Only wired for types with a real, reliably-shaped `/type/<id>` detail
+ * route today (a reel's is `/social/<id>`) — `itinerary_item` (trip era,
+ * route removed) and `practicality` (no standalone detail page) fall
+ * through to null and the chat page renders those non-interactively.
+ */
+export function hrefForSeed(seed: Pick<ChatSeed, "type" | "id">): string | null {
+  switch (seed.type) {
+    case "place":
+      return `/place/${seed.id}`;
+    case "reel":
+      return `/social/${seed.id}`;
+    case "event":
+      return `/event/${seed.id}`;
+    case "happening":
+      return `/happening/${seed.id}`;
+    case "experience":
+      return `/experience/${seed.id}`;
+    default:
+      return null;
+  }
+}

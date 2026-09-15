@@ -368,6 +368,48 @@ export function nextOccurrence(
   return nextOccurrences(h, from, to, timeZone)[0] ?? null;
 }
 
+/**
+ * How far ahead `happeningHasEnded` looks before concluding a happening will
+ * never produce another occurrence — long enough that any open-ended
+ * recurring row (a weekly/annual rule with no `until`) always finds at
+ * least one and is correctly judged "not ended", short enough to stay cheap
+ * as a per-row guard. Same order of magnitude as the lookahead used
+ * elsewhere for "how far into the future could this still matter"
+ * (app/api/feed/route.ts's BOOK_EARLY_LOOKAHEAD_DAYS).
+ */
+const ENDED_CHECK_LOOKAHEAD_DAYS = 366;
+
+/**
+ * THE "has this happening ended as of `at`" predicate — the happenings half
+ * of the "no ended items ever leave an API" guard (see lib/events/format.ts's
+ * `eventHasEnded` for the events-table half). Every list route's query-time
+ * `nextOccurrence`/`nextOccurrences` call already excludes a fully-passed
+ * happening from ITS OWN window; this is the belt-and-braces check a route
+ * runs once more, right before serialising, against a row that may have
+ * reached it some other way (a merge/dedupe step, a future code path that
+ * forgets to call nextOccurrence at all).
+ *
+ * A recurring happening is "ended" only once its whole SERIES has finished —
+ * its `until`/`ends_at` validity bound has passed, or it's `status:
+ * "retired"` — never merely because today isn't one of its occurrence days
+ * (a weekly Monday deal isn't "ended" on a Tuesday; an annual one isn't
+ * "ended" for the eleven months between instances). Implemented as "does
+ * this produce zero occurrences anywhere in the next year" rather than a
+ * second, independently-maintained definition of "ended" — that would drift
+ * from what `nextOccurrences` itself decides the moment either one changed
+ * without the other. `season_valid_until` is NOT re-checked here — it's
+ * filtered at the query layer (lib/db/happenings.ts's `isPastSeason`) before
+ * a row ever reaches this guard, same as `status !== "live"` more generally.
+ */
+export function happeningHasEnded(
+  h: Pick<Happening, "id" | "starts_at" | "ends_at" | "recurrence" | "status">,
+  at: Date,
+  timeZone: string = CITY.timezone
+): boolean {
+  const to = new Date(at.getTime() + ENDED_CHECK_LOOKAHEAD_DAYS * 86_400_000);
+  return nextOccurrence(h, at, to, timeZone) === null;
+}
+
 /** True when `at` falls inside an occurrence's span. `always` rows are always
  *  active; that is the point of them. */
 export function isActiveNow(

@@ -22,6 +22,7 @@ import type { EventItem } from "@/lib/types";
 import { geocodeDestination, type Center } from "@/lib/places/geocode";
 import { normalizeCategory } from "@/lib/events/categories";
 import { getEventsForDestination } from "@/lib/events/getForDestination";
+import { eventHasEnded } from "@/lib/events/format";
 import { cachedJson, CACHE_MEDIUM } from "@/lib/http/cache";
 
 export const runtime = "nodejs";
@@ -67,7 +68,7 @@ export async function GET(request: Request) {
   // Geocode → map center (null-safe; providers require it for geo search).
   const center = await geocodeDestination(destination);
 
-  const { events, degraded } = await getEventsForDestination(db, {
+  const { events: rawEvents, degraded } = await getEventsForDestination(db, {
     destination,
     center,
     category,
@@ -77,6 +78,12 @@ export async function GET(request: Request) {
     limit,
     radiusKm,
   });
+  // Final "no ended items ever leave an API" guard, belt-and-braces on top
+  // of getEventsForDestination's own (lib/events/getForDestination.ts) —
+  // this route is a direct passthrough of its result, so this line is
+  // provably redundant today, but it keeps the guard explicit at the one
+  // place this app promises "no ended items" to an external caller.
+  const events = rawEvents.filter((e) => !eventHasEnded(e, new Date()));
 
   // Not gated on auth.getUser() — `db` here is only used for the shared
   // events cache, so this response is identical for every caller with the

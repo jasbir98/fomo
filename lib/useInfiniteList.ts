@@ -1,6 +1,10 @@
 "use client";
 
-import { useEffect, useRef, useState, type RefObject } from "react";
+import { useEffect, useMemo, useRef, useState, type RefObject } from "react";
+import { useCachedJson } from "@/lib/http/clientCache";
+
+/** Staleness window for a `cacheKey`-seeded page 1 — matches `CACHE_SHORT` in lib/http/cache.ts's rationale (browser/server already treat this class of data as fresh for ~60s). */
+const CACHE_SEEDED_PAGE_STALE_MS = 60_000;
 
 /**
  * Shared infinite-scroll list state, extracted from the one correct
@@ -55,6 +59,19 @@ export interface UseInfiniteListOptions<T> {
   debounceMs?: number;
   /** Called (best-effort) when a page fetch throws — for `console.error`-style logging by the caller. */
   onError?: (err: unknown, phase: "initial" | "more") => void;
+  /**
+   * Seeds page 1 from lib/http/clientCache.ts under this key instead of
+   * always starting from an empty, `loading: true` list — e.g. Profile's
+   * Saved section (`cacheKey: "saved:page0"`) shows the caller's
+   * last-known saved items immediately on mount (no spinner on a repeat
+   * visit), then quietly revalidates page 1 in the background and swaps in
+   * anything that changed. Only page 1 is ever cached — "load more" (page
+   * 2+) always goes straight through `fetchPage`, same as without
+   * `cacheKey`. A cache-seeded list ignores `deps`/`debounceMs` for its
+   * page-1 fetch (the cache key IS the identity — there's nothing to
+   * debounce), though `enabled` still gates it.
+   */
+  cacheKey?: string;
 }
 
 export interface UseInfiniteListResult<T> {
@@ -85,13 +102,59 @@ export interface UseInfiniteListResult<T> {
  * to `useCallback` the fetcher just to avoid an extra reset loop.
  */
 export function useInfiniteList<T>(
-  { fetchPage, pageSize, getId, enabled = true, debounceMs = 0, onError }: UseInfiniteListOptions<T>,
+  { fetchPage, pageSize, getId, enabled = true, debounceMs = 0, onError, cacheKey }: UseInfiniteListOptions<T>,
   deps: unknown[]
 ): UseInfiniteListResult<T> {
+  // Cache-seeded page 1 (see `cacheKey`'s own doc comment). Called
+  // unconditionally — `key: null` disables it internally — because hooks
+  // can't be conditional; a caller that never passes `cacheKey` pays for one
+  // inert subscription. `useCachedJson` itself already keeps its fetcher
+  // closure fresh across renders (see its own `fetcherRef`), so passing a
+  // plain inline closure here is enough — no ref needed on this side.
+  const cachedFirstPage = useCachedJson<T[]>(
+    cacheKey ?? null,
+    () => fetchPage({ limit: pageSize, offset: 0 }),
+    { staleMs: CACHE_SEEDED_PAGE_STALE_MS }
+  );
+
   const [items, setItems] = useState<T[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(true);
+  // "Load more" rows appended on top of a cache-seeded page 1 — kept apart
+  // from `items` (which cache mode mirrors straight from
+  // `cachedFirstPage.data`, below) so a background page-1 revalidation can
+  // reset just the appended tail, without touching rows already on screen
+  // from the cache.
+  const [cacheExtraItems, setCacheExtraItems] = useState<T[]>([]);
+
+  // Mirrors `cachedFirstPage` into the same `items`/`loading`/`hasMore`
+  // state the non-cached path below populates, so everything past this
+  // point (the sentinel observer, the returned result) reads one consistent
+  // shape either way. Adjusted during render — React's documented pattern
+  // for resetting state when a dependency changes (same as
+  // lib/useProgressiveReveal.ts's `prevTotal`) — rather than in a
+  // `useEffect`: an effect only runs after the commit/paint, which would
+  // mean one visible frame of the *old* loading/empty state even on a
+  // render where the cache already had data ready.
+  const [prevPage1Data, setPrevPage1Data] = useState<T[] | undefined>(undefined);
+  if (cacheKey && cachedFirstPage.data !== prevPage1Data) {
+    setPrevPage1Data(cachedFirstPage.data);
+    const page1 = cachedFirstPage.data ?? [];
+    setItems(page1);
+    setLoading(cachedFirstPage.data === undefined);
+    setHasMore(page1.length >= pageSize);
+    setCacheExtraItems([]); // a fresh/updated page 1 invalidates the previously-appended tail (its offsets were relative to the old one)
+  }
+
+  // The one list every reader below sees — page 1 (cached or not) plus
+  // anything "load more" has appended since. In non-cache mode
+  // `cacheExtraItems` never leaves `[]`, so this is just `items` (same
+  // reference every render, preserving callers' own memoization).
+  const displayItems = useMemo(
+    () => (cacheKey ? [...items, ...cacheExtraItems] : items),
+    [cacheKey, items, cacheExtraItems]
+  );
 
   const sentinelRef = useRef<HTMLDivElement>(null);
   const rootRef = useRef<HTMLDivElement>(null);
@@ -99,19 +162,24 @@ export function useInfiniteList<T>(
   // Mutable mirror read by the IntersectionObserver callback so the observer
   // only needs to be attached once per filter set, not torn down/recreated
   // on every page fetch.
-  const liveRef = useRef({ enabled, hasMore, loadingMore, items });
+  const liveRef = useRef({ enabled, hasMore, loadingMore, items: displayItems });
   useEffect(() => {
-    liveRef.current = { enabled, hasMore, loadingMore, items };
+    liveRef.current = { enabled, hasMore, loadingMore, items: displayItems };
   });
 
   // Bumped whenever `deps` change so a "load more" response that resolves
   // after the caller's filters already moved on gets discarded instead of
-  // appending stale rows to the new list.
+  // appending stale rows to the new list. Not used in cache mode — there are
+  // no `deps` to move on (see `cacheKey`'s doc comment); a page-1
+  // revalidation there resets `cacheExtraItems` directly, above.
   const requestIdRef = useRef(0);
 
   // Page 1 — refetches and resets whenever a caller-supplied dep changes.
+  // Skipped entirely in cache mode: `cachedFirstPage` above owns page 1's
+  // fetch/cache lifecycle instead (revalidated by `useCachedJson` itself on
+  // mount/focus/staleness, not by this effect's `deps`).
   useEffect(() => {
-    if (!enabled) return;
+    if (!enabled || cacheKey) return;
     let cancelled = false;
     const myRequestId = ++requestIdRef.current;
     const timer = setTimeout(() => {
@@ -134,7 +202,7 @@ export function useInfiniteList<T>(
       clearTimeout(timer);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [enabled, debounceMs, ...deps]);
+  }, [enabled, debounceMs, cacheKey, ...deps]);
 
   // Infinite scroll — loads the next page when the trailing sentinel scrolls
   // into view. Needs `loading` in its deps: the sentinel only mounts once
@@ -155,12 +223,25 @@ export function useInfiniteList<T>(
         setLoadingMore(true);
         fetchPage({ limit: pageSize, offset: current.length })
           .then((rows) => {
-            if (requestIdRef.current !== myRequestId) return; // filters changed mid-fetch
-            setItems((prev) => {
-              const seen = new Set(prev.map(getId));
-              const fresh = rows.filter((r) => !seen.has(getId(r)));
-              return fresh.length > 0 ? [...prev, ...fresh] : prev;
-            });
+            if (!cacheKey && requestIdRef.current !== myRequestId) return; // filters changed mid-fetch
+            if (cacheKey) {
+              // Dedupe against page 1 (rarely changes mid-"load more") plus
+              // whatever's already been appended — a page-1 revalidation
+              // racing a "load more" is a rare, low-stakes interleaving
+              // (worst case a duplicate row `getId` already filters out);
+              // not worth a second generation-tracking ref for.
+              setCacheExtraItems((prev) => {
+                const seen = new Set([...items, ...prev].map(getId));
+                const fresh = rows.filter((r) => !seen.has(getId(r)));
+                return fresh.length > 0 ? [...prev, ...fresh] : prev;
+              });
+            } else {
+              setItems((prev) => {
+                const seen = new Set(prev.map(getId));
+                const fresh = rows.filter((r) => !seen.has(getId(r)));
+                return fresh.length > 0 ? [...prev, ...fresh] : prev;
+              });
+            }
             setHasMore(rows.length >= pageSize);
           })
           .catch((err) => onError?.(err, "more"))
@@ -173,7 +254,7 @@ export function useInfiniteList<T>(
     observer.observe(node);
     return () => observer.disconnect();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [enabled, loading]);
+  }, [enabled, loading, cacheKey]);
 
-  return { items, loading, loadingMore, hasMore, sentinelRef, rootRef };
+  return { items: displayItems, loading, loadingMore, hasMore, sentinelRef, rootRef };
 }

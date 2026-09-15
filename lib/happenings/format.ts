@@ -324,15 +324,33 @@ function localHour(iso: string, timeZone: string): number {
  * mockup. Same-day only reads "Tonight" from `EVENING_HOUR` on — previously
  * ANY same-day occurrence said "Tonight", so a 12:30pm talk read the same as
  * an 8pm gig.
+ *
+ * IN-PROGRESS SPANS: a one-off occurrence whose own start day (`dayDate`)
+ * has already passed but whose span is still running (`lastDayDate` is
+ * today or later — e.g. a months-long exhibition whose `starts_at` was back
+ * in June) must never fall through to the plain weekday branch below, which
+ * would print that original start day ("Sat") with no year/month context —
+ * on a card opened months later that reads as a stale, already-over event,
+ * not the "still on" thing it actually is. `lastDayDate` (always present,
+ * equal to `dayDate` for a genuinely single-day occurrence, so this branch
+ * is a no-op for the ordinary case) is what makes the distinction: caller
+ * contract is `nextOccurrence`/`nextOccurrences` already excluded anything
+ * whose `lastDayDate` is before today, so `dayDate < today` here can only
+ * mean "started, still running" — not "ended".
  */
 export function happeningTimeLabel(
-  occurrence: Pick<Occurrence, "exact" | "startsAt" | "dayDate">,
+  occurrence: Pick<Occurrence, "exact" | "startsAt" | "dayDate" | "lastDayDate">,
   now: Date = new Date(),
   timeZone: string = CITY.timezone
 ): string | null {
   if (!occurrence.exact || !occurrence.startsAt) return null;
   const today = localDayDate(now, timeZone);
   const tomorrow = addDays(today, 1);
+
+  if (occurrence.lastDayDate != null && occurrence.dayDate < today) {
+    return `On now · until ${shortDateLabel(occurrence.lastDayDate)}`;
+  }
+
   // A date-only row is stored at 00:00 UTC, which would read "1am" in BST —
   // show just the day for those.
   const dateOnly = isMidnightUtc(occurrence.startsAt);
@@ -527,6 +545,15 @@ export function monthShort(dayDate: string): string {
 
 function dayOfMonth(dayDate: string): number {
   return Number(dayDate.slice(8, 10));
+}
+
+/** "16 May 2027" — no weekday, unlike `occurrenceDateLabel` — for the
+ *  "On now · until …" card label above, which is already fighting for space
+ *  in a fixed-width pill (see `savingBadgeLabel`'s doc comment on the same
+ *  constraint) and has no room for a weekday nobody's asking "what day of
+ *  the week does it end" about. */
+function shortDateLabel(dayDate: string): string {
+  return `${dayOfMonth(dayDate)} ${monthShort(dayDate)} ${dayDate.slice(0, 4)}`;
 }
 
 /** "This Weekend (26–27 Sep)" — a shared month is printed once, at the end. */

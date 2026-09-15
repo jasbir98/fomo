@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import type { FeedResponse } from "@/lib/happenings/feed-types";
 import { NOTIFY_ME_ENABLED, type BookEarlyCardData } from "@/lib/happenings/book-early";
@@ -12,6 +12,8 @@ import {
 } from "@/lib/happenings/book-early-filters";
 import { CATEGORY_ORDER } from "@/lib/happenings/category-style";
 import type { HappeningCategory } from "@/lib/happenings/types";
+import { useCachedJson } from "@/lib/http/clientCache";
+import { useProgressiveReveal } from "@/lib/useProgressiveReveal";
 import { ErrorState, Icon, PageHeader, StickyFilterBar } from "@/components/ui";
 import { BookEarlyCard, BookEarlyFilters } from "@/components/happenings";
 import { FomoSpot } from "@/components/fomo/FomoSpot";
@@ -26,22 +28,36 @@ function bookEarlyCardKey(card: BookEarlyCardData): string {
  *  none of. */
 const ASK_FOMO_HREF = `/fomo?q=${encodeURIComponent("What's worth booking early in Edinburgh?")}`;
 
+/** Matches Home's feed/alerts staleness (app/(shell)/page.tsx) — duplicated as plain numbers rather than imported across route boundaries. Same key names as Home's own `useCachedJson` calls ("book-early" mirrors Home's `feed:book_early`'s *data*, not its cache slot — see the doc comment below — but "alerts" is the literal same key, so the two pages share one warm cache entry for it.) */
+const BOOK_EARLY_STALE_MS = 60_000;
+const ALERTS_STALE_MS = 5 * 60_000;
+
 /** GET /api/feed's `bookEarly` is already the FULL ranked list (Home only
  *  ever slices its first few) — this page reuses the same response rather
  *  than standing up a parallel /api/book-early route that would duplicate
  *  app/api/feed/route.ts's `buildBookEarly`. Same principle as
  *  app/(shell)/deals/page.tsx's `fetchDeals`. `window` doesn't affect
  *  `bookEarly` (it's independent of the request's window — see that route's
- *  own doc comment), so it's fixed here.
+ *  own doc comment), so it's fixed here. Cached under its own "book-early"
+ *  key rather than reusing Home's `feed:now`/`feed:book_early` keys — this
+ *  page's cached value is just the `bookEarly` array, not a full
+ *  `FeedResponse`, so mixing them would mean two different shapes fighting
+ *  over one cache slot.
  *
  *  Throws (rather than swallowing to `null`) on a network error or non-2xx
- *  status — same "let the caller tell failure from empty" contract as
- *  fetchDeals. */
-async function fetchBookEarly(): Promise<BookEarlyCardData[]> {
-  const res = await fetch("/api/feed?window=now");
+ *  status — same "let the caller (now `useCachedJson`) tell failure from
+ *  empty" contract as fetchDeals. */
+async function fetchBookEarly(signal?: AbortSignal): Promise<BookEarlyCardData[]> {
+  const res = await fetch("/api/feed?window=now", { signal });
   if (!res.ok) throw new Error(`GET /api/feed ${res.status}`);
   const json = (await res.json()) as FeedResponse;
   return json.bookEarly;
+}
+
+async function fetchAlertIds(signal?: AbortSignal): Promise<string[]> {
+  const res = await fetch("/api/alerts", { signal });
+  const json = (await res.json()) as { happeningIds?: string[] };
+  return json.happeningIds ?? [];
 }
 
 /**
@@ -54,50 +70,27 @@ async function fetchBookEarly(): Promise<BookEarlyCardData[]> {
  * lib/happenings/book-early-filters.ts) over the identical full list.
  */
 export default function BookEarlyPage() {
-  const [cards, setCards] = useState<BookEarlyCardData[] | null>(null);
-  const [error, setError] = useState(false);
-  const [reloadTick, setReloadTick] = useState(0);
-  const [alertHappeningIds, setAlertHappeningIds] = useState<Set<string>>(new Set());
+  // Cached under its own key (see fetchBookEarly's doc comment); `error`
+  // only means "nothing cached and the last attempt failed".
+  const cardsResult = useCachedJson<BookEarlyCardData[]>("book-early", fetchBookEarly, {
+    staleMs: BOOK_EARLY_STALE_MS,
+  });
+  const cards = cardsResult.data ?? null;
+  const error = cardsResult.error != null && cards === null;
+
+  // Same "Notify me" membership read as Home (app/(shell)/page.tsx), and the
+  // same "alerts" cache key — landing here after Home already warmed it (or
+  // vice versa) means no second network round trip. A BookEarlyCard needs
+  // this up front or the button flashes "Notify me" before resetting to
+  // "Notified" a moment later.
+  const alertsResult = useCachedJson<string[]>(NOTIFY_ME_ENABLED ? "alerts" : null, fetchAlertIds, {
+    staleMs: ALERTS_STALE_MS,
+  });
+  const alertHappeningIds = useMemo(() => new Set(alertsResult.data ?? []), [alertsResult.data]);
+
   const [timing, setTiming] = useState<BookEarlyTiming | null>(null);
   const [category, setCategory] = useState<HappeningCategory | null>(null);
   const [month, setMonth] = useState<string | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const json = await fetchBookEarly();
-        if (!cancelled) {
-          setCards(json);
-          setError(false);
-        }
-      } catch (err) {
-        console.error("[book-early] /api/feed fetch failed", err);
-        if (!cancelled) setError(true);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [reloadTick]);
-
-  // Same "Notify me" membership fetch as Home (app/(shell)/page.tsx) — a
-  // BookEarlyCard needs to know up front whether the caller already has an
-  // on-sale alert for it, or the button flashes "Notify me" before resetting
-  // to "Notified" a moment later.
-  useEffect(() => {
-    if (!NOTIFY_ME_ENABLED) return;
-    let cancelled = false;
-    fetch("/api/alerts")
-      .then((res) => res.json())
-      .then((json: { happeningIds?: string[] }) => {
-        if (!cancelled) setAlertHappeningIds(new Set(json.happeningIds ?? []));
-      })
-      .catch((err) => console.error("[book-early] /api/alerts fetch failed", err));
-    return () => {
-      cancelled = true;
-    };
-  }, []);
 
   const categoryOptions = useMemo(() => {
     if (!cards) return [];
@@ -122,6 +115,16 @@ export default function BookEarlyPage() {
     if (!cards) return [];
     return cards.filter((c) => matchesBookEarlyFilters(c, timing, category, month));
   }, [cards, timing, category, month]);
+
+  // Renders in chunks of 20 rather than mounting the whole (potentially
+  // large) ranked list at once — no pagination on this endpoint (see the
+  // pagination audit in the caller's report), so this is where the actual
+  // render cost gets capped instead.
+  const revealSentinelRef = useRef<HTMLDivElement>(null);
+  const visibleCount = useProgressiveReveal(filteredCards.length, null, revealSentinelRef, {
+    vertical: true,
+    step: 20,
+  });
 
   return (
     <div className="flex flex-col gap-5 pb-8">
@@ -156,7 +159,7 @@ export default function BookEarlyPage() {
         </StickyFilterBar>
 
         {error ? (
-          <ErrorState title="Couldn't load Book early" onRetry={() => setReloadTick((t) => t + 1)} />
+          <ErrorState title="Couldn't load Book early" onRetry={() => cardsResult.revalidate()} />
         ) : cards === null ? (
           <div className="flex flex-col gap-3 pt-2" role="status" aria-live="polite">
             <span className="sr-only">Loading Book early…</span>
@@ -176,13 +179,14 @@ export default function BookEarlyPage() {
           </div>
         ) : (
           <div className="flex flex-col gap-3 pt-1">
-            {filteredCards.map((card) => (
+            {filteredCards.slice(0, visibleCount).map((card) => (
               <BookEarlyCard
                 key={bookEarlyCardKey(card)}
                 card={card}
                 initialSubscribed={card.kind === "happening" && alertHappeningIds.has(card.happening.id)}
               />
             ))}
+            {visibleCount < filteredCards.length ? <div ref={revealSentinelRef} className="h-1" /> : null}
           </div>
         )}
       </div>

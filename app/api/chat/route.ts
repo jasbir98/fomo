@@ -24,10 +24,10 @@ import { consumeRateLimit, rateLimitedResponse } from "@/lib/rate-limit";
 import { CITY } from "@/lib/city";
 import { listLiveHappenings } from "@/lib/db/happenings";
 import { listUpcomingEvents } from "@/lib/db/events";
-import { nextOccurrence, normalizeRecurrence } from "@/lib/happenings/occurrence";
+import { nextOccurrence, normalizeRecurrence, happeningHasEnded } from "@/lib/happenings/occurrence";
 import { eligibilityLine, happeningTimeLabel, recurrencePatternLabel, savingBadgeLabel } from "@/lib/happenings/format";
 import { parseWhoGroups, WHO_GROUP_LABEL, type DealWhoGroup } from "@/lib/happenings/groups";
-import { formatEventPrice, formatEventWhen } from "@/lib/events/format";
+import { formatEventPrice, formatEventWhen, eventHasEnded } from "@/lib/events/format";
 import type { AiReplyBlock, ChatItem } from "@/lib/fomo-ai";
 import type { CardSubjectType } from "@/lib/types";
 import type { Db } from "@/lib/supabase/types";
@@ -102,6 +102,7 @@ async function buildCatalogue(db: Db, now: Date): Promise<Catalogue> {
   for (const h of happenings) {
     const occurrence = nextOccurrence(h, now, to, CITY.timezone);
     if (!occurrence) continue;
+    if (happeningHasEnded(h, now, CITY.timezone)) continue; // final "no ended items ever leave an API" guard
     const when =
       happeningTimeLabel(occurrence) ?? recurrencePatternLabel(normalizeRecurrence(h.recurrence)) ?? "any time";
     const where = h.venue_name ?? h.district ?? null;
@@ -131,6 +132,7 @@ async function buildCatalogue(db: Db, now: Date): Promise<Catalogue> {
   }
 
   for (const e of events) {
+    if (eventHasEnded(e, now)) continue; // final "no ended items ever leave an API" guard
     const key = `E:${e.id}`;
     const when = formatEventWhen(e.starts_at);
     const price = formatEventPrice(e) || null;

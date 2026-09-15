@@ -95,37 +95,81 @@ function sendToSignIn(): void {
   window.location.assign(`/signin?next=${encodeURIComponent(next)}`);
 }
 
-/** Optimistic save/unsave; reverts on failure. Signed out → sign-in, then back here. */
-export async function toggleSaved(subjectType: CardSubjectType, subjectId: string): Promise<void> {
+/**
+ * Shared optimistic save/unsave core: moves (subjectType, subjectId) to
+ * `desired` (true = saved, false = unsaved). No-ops if already in that
+ * state — this is what makes `ensureSaved` idempotent (a like never
+ * un-saves) without a separate code path from `toggleSaved`. Signed out →
+ * sign-in, then back here.
+ */
+async function setSavedState(
+  subjectType: CardSubjectType,
+  subjectId: string,
+  desired: boolean
+): Promise<void> {
   if (state.signedIn === false) {
     sendToSignIn();
     return;
   }
   const key = keyOf(subjectType, subjectId);
   if (inFlight.has(key)) return;
+  const wasSaved = state.keys.has(key);
+  if (wasSaved === desired) return;
   inFlight.add(key);
 
-  const wasSaved = state.keys.has(key);
   const optimistic = new Set(state.keys);
-  if (wasSaved) optimistic.delete(key);
-  else optimistic.add(key);
+  if (desired) optimistic.add(key);
+  else optimistic.delete(key);
   setState({ ...state, keys: optimistic });
 
   const db = supabaseBrowserAuth();
   try {
-    if (wasSaved) await unsaveItem(db, subjectType, subjectId);
-    else await saveItem(db, { subject_type: subjectType, subject_id: subjectId, note: null });
+    if (desired) await saveItem(db, { subject_type: subjectType, subject_id: subjectId, note: null });
+    else await unsaveItem(db, subjectType, subjectId);
   } catch (err) {
-    console.error(`[saved] toggle failed ${describeSupabaseError(err)}`);
+    console.error(`[saved] ${desired ? "save" : "unsave"} failed ${describeSupabaseError(err)}`);
     const reverted = new Set(state.keys);
-    if (wasSaved) reverted.add(key);
-    else reverted.delete(key);
+    if (desired) reverted.delete(key);
+    else reverted.add(key);
     setState({ ...state, keys: reverted });
     // Tapped before the session check finished, and there was no session.
     if (state.signedIn !== true) sendToSignIn();
   } finally {
     inFlight.delete(key);
   }
+}
+
+/** Optimistic save/unsave toggle; reverts on failure. Signed out → sign-in, then back here. */
+export async function toggleSaved(subjectType: CardSubjectType, subjectId: string): Promise<void> {
+  const wasSaved = state.keys.has(keyOf(subjectType, subjectId));
+  await setSavedState(subjectType, subjectId, !wasSaved);
+}
+
+/**
+ * Save (subjectType, subjectId) if it isn't already saved — a no-op
+ * otherwise. For gestures that should only ever add to Saved, never remove
+ * from it (ReelViewer's like-swipe/heart: a like is one-directional).
+ */
+export async function ensureSaved(subjectType: CardSubjectType, subjectId: string): Promise<void> {
+  await setSavedState(subjectType, subjectId, true);
+}
+
+/**
+ * Subscribe to the saved-*keys* set specifically, ignoring `signedIn`/`who`
+ * changes that don't affect what's saved. Used by
+ * app/(shell)/profile/page.tsx to invalidate its cached Saved list (see
+ * lib/http/clientCache.ts) whenever a save/unsave happens anywhere in the
+ * app — including on a different page, since this is the one shared store
+ * every bookmark tap goes through. Returns an unsubscribe function.
+ */
+export function subscribeSavedChanges(listener: (keys: ReadonlySet<string>) => void): () => void {
+  let lastKeys = state.keys;
+  return subscribe(() => {
+    if (state.keys !== lastKeys) {
+      lastKeys = state.keys;
+      listener(state.keys);
+    }
+  });
 }
 
 export function useSaved() {

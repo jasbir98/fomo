@@ -200,10 +200,6 @@ export default function PlaceDetailPage({ params }: { params: Promise<{ id: stri
   const shareUrl = typeof window !== "undefined" ? `${window.location.origin}${pathname}` : "";
   const shareText = `${[placeName, primaryBadge].filter(Boolean).join(" · ")} — found on Fomo`;
 
-  function openDirections() {
-    if (directionsUrl) window.open(directionsUrl, "_blank", "noopener");
-  }
-
   return (
     <div className="flex flex-col gap-6 pb-6">
       <PageHeader
@@ -265,13 +261,13 @@ export default function PlaceDetailPage({ params }: { params: Promise<{ id: stri
               </div>
             </div>
             {directionsUrl ? (
-              <button type="button" onClick={openDirections} className="flex items-center gap-3 text-left">
+              <a href={directionsUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 text-left">
                 <Icon name="near_me" className="text-primary" />
                 <div>
                   <p className="text-label-sm text-on-surface-variant">Getting there</p>
                   <p className="text-label-md text-on-surface">Directions</p>
                 </div>
-              </button>
+              </a>
             ) : null}
           </div>
         </section>
@@ -381,40 +377,67 @@ export default function PlaceDetailPage({ params }: { params: Promise<{ id: stri
         {/* Mini map */}
         <section>
           <h2 className="mb-4 text-headline-sm text-primary">Location</h2>
-          <button
-            type="button"
-            onClick={openDirections}
-            disabled={!directionsUrl}
-            className="relative h-40 w-full overflow-hidden rounded-2xl bg-surface-container text-left shadow-level-1 disabled:pointer-events-none disabled:opacity-60"
-          >
-            <div className="absolute inset-0 flex items-center justify-center">
-              <Icon name="map" size={64} className="text-outline-variant" />
-            </div>
-            <div className="absolute bottom-3 left-3 right-3 flex items-center justify-between rounded-lg bg-white/90 px-3 py-2 backdrop-blur-md">
-              <div>
-                <p className="text-label-md text-primary">{place.station ?? place.name}</p>
-                <p className="text-label-sm text-on-surface-variant">
-                  {directionsUrl ? "Tap to open directions" : "Location unavailable"}
-                </p>
+          {directionsUrl ? (
+            <a
+              href={directionsUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="relative flex h-40 w-full overflow-hidden rounded-2xl bg-surface-container text-left shadow-level-1"
+            >
+              <div className="absolute inset-0 flex items-center justify-center">
+                <Icon name="map" size={64} className="text-outline-variant" />
               </div>
-              <Icon name="open_in_new" className="text-primary" />
-            </div>
-          </button>
+              <div className="absolute bottom-3 left-3 right-3 flex items-center justify-between rounded-lg bg-white/90 px-3 py-2 backdrop-blur-md">
+                <div>
+                  <p className="text-label-md text-primary">{place.station ?? place.name}</p>
+                  <p className="text-label-sm text-on-surface-variant">Tap to open directions</p>
+                </div>
+                <Icon name="open_in_new" className="text-primary" />
+              </div>
+            </a>
+          ) : (
+            <button
+              type="button"
+              disabled
+              className="relative h-40 w-full overflow-hidden rounded-2xl bg-surface-container text-left shadow-level-1 disabled:pointer-events-none disabled:opacity-60"
+            >
+              <div className="absolute inset-0 flex items-center justify-center">
+                <Icon name="map" size={64} className="text-outline-variant" />
+              </div>
+              <div className="absolute bottom-3 left-3 right-3 flex items-center justify-between rounded-lg bg-white/90 px-3 py-2 backdrop-blur-md">
+                <div>
+                  <p className="text-label-md text-primary">{place.station ?? place.name}</p>
+                  <p className="text-label-sm text-on-surface-variant">Location unavailable</p>
+                </div>
+              </div>
+            </button>
+          )}
         </section>
       </div>
 
       {/* Sticky bottom actions */}
       <div className="sticky bottom-[calc(64px+env(safe-area-inset-bottom))] z-30 flex flex-col gap-2 border-t border-outline-variant/40 bg-surface-container-lowest/95 px-5 py-4 backdrop-blur-md shadow-[0_-4px_16px_rgba(3,22,50,0.08)]">
         <div className="flex gap-3">
-          <Button
-            variant="orange"
-            fullWidth
-            leadingIcon="directions"
-            onClick={openDirections}
-            disabled={!directionsUrl}
-          >
-            Get Directions
-          </Button>
+          {directionsUrl ? (
+            <a
+              href={directionsUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex min-h-[48px] w-full items-center justify-center gap-2 rounded-xl bg-secondary-container px-6 text-label-md font-medium text-on-secondary-container shadow-sm transition-all hover:opacity-90 active:opacity-80"
+            >
+              <Icon name="directions" size={18} />
+              Get Directions
+            </a>
+          ) : (
+            <Button
+              variant="orange"
+              fullWidth
+              leadingIcon="directions"
+              disabled
+            >
+              Get Directions
+            </Button>
+          )}
           <Link
             href={buildAskFomoHref({
               type: "place",

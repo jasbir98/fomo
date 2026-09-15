@@ -239,6 +239,690 @@
       "count": 5,
       "city": "Corstorphine",
       "at": "2026-09-14T23:30:10.810045+00:00"
+    },
+    "name:city-of-edinburgh:cafe-cor-stone": {
+      "status": "done",
+      "count": 5,
+      "city": "Corstorphine",
+      "at": "2026-09-14T23:30:43.236533+00:00"
+    },
+    "name:city-of-edinburgh:corstorphine-hill": {
+      "status": "done",
+      "count": 5,
+      "city": "Corstorphine",
+      "at": "2026-09-14T23:31:12.532018+00:00"
+    },
+    "name:city-of-edinburgh:corstorphine-hill-tower-clermiston-tower-scott-tower": {
+      "status": "done",
+      "count": 5,
+      "city": "Corstorphine",
+      "at": "2026-09-14T23:31:45.689422+00:00"
+    },
+    "name:city-of-edinburgh:corstorphine-old-parish-church": {
+      "status": "done",
+      "count": 5,
+      "city": "Corstorphine",
+      "at": "2026-09-14T23:32:17.396145+00:00"
+    },
+    "name:city-of-edinburgh:corstorphine-public-library": {
+      "status": "done",
+      "count": 5,
+      "city": "Corstorphine",
+      "at": "2026-09-14T23:32:40.110708+00:00"
+    },
+    "name:city-of-edinburgh:corstorphine-doocot": {
+      "status": "done",
+      "count": 5,
+      "city": "Corstorphine",
+      "at": "2026-09-14T23:33:06.969180+00:00"
+    },
+    "name:city-of-edinburgh:corstorphine-heritage-centre-the-dower-house": {
+      "status": "done",
+      "count": 5,
+      "city": "Corstorphine",
+      "at": "2026-09-14T23:35:45.681227+00:00"
+    },
+    "name:city-of-edinburgh:the-gannet-fish-bar": {
+      "status": "done",
+      "count": 5,
+      "city": "Corstorphine",
+      "at": "2026-09-14T23:36:19.526755+00:00"
+    },
+    "name:city-of-edinburgh:roberto-s-takeaway": {
+      "status": "done",
+      "count": 5,
+      "city": "Corstorphine",
+      "at": "2026-09-14T23:36:43.094549+00:00"
+    },
+    "name:city-of-edinburgh:bannerman-s-bar": {
+      "status": "done",
+      "count": 5,
+      "city": "Cowgate",
+      "at": "2026-09-14T23:37:11.695788+00:00"
+    },
+    "name:city-of-edinburgh:stramash": {
+      "status": "done",
+      "count": 5,
+      "city": "Old Town",
+      "at": "2026-09-14T23:37:29.403750+00:00"
+    },
+    "name:city-of-edinburgh:ox184": {
+      "status": "done",
+      "count": 5,
+      "city": "Cowgate",
+      "at": "2026-09-14T23:37:55.537436+00:00"
+    },
+    "name:city-of-edinburgh:three-sisters": {
+      "status": "done",
+      "count": 5,
+      "city": "Grassmarket",
+      "at": "2026-09-14T23:38:16.869152+00:00"
+    },
+    "name:city-of-edinburgh:the-mash-house": {
+      "status": "done",
+      "count": 5,
+      "city": "Old Town",
+      "at": "2026-09-14T23:38:44.561724+00:00"
+    },
+    "name:city-of-edinburgh:cabaret-voltaire": {
+      "status": "done",
+      "count": 5,
+      "city": "Cowgate",
+      "at": "2026-09-14T23:41:22.181999+00:00"
+    },
+    "name:city-of-edinburgh:sneaky-pete-s": {
+      "status": "done",
+      "count": 5,
+      "city": "Cowgate",
+      "at": "2026-09-14T23:41:47.455465+00:00"
+    },
+    "name:city-of-edinburgh:legends": {
+      "status": "done",
+      "count": 5,
+      "city": "Cowgate",
+      "at": "2026-09-14T23:42:15.303077+00:00"
+    },
+    "name:city-of-edinburgh:subway-cowgate": {
+      "status": "done",
+      "count": 5,
+      "city": "Cowgate",
+      "at": "2026-09-14T23:42:48.717254+00:00"
+    },
+    "name:city-of-edinburgh:the-caves": {
+      "status": "done",
+      "count": 5,
+      "city": "Cowgate",
+      "at": "2026-09-14T23:43:16.673939+00:00"
+    },
+    "name:city-of-edinburgh:just-the-tonic-at-the-caves": {
+      "status": "done",
+      "count": 5,
+      "city": "Cowgate",
+      "at": "2026-09-14T23:43:44.385020+00:00"
+    },
+    "name:city-of-edinburgh:pilgrim": {
+      "status": "done",
+      "count": 5,
+      "city": "Cowgate",
+      "at": "2026-09-14T23:44:03.841737+00:00"
+    },
+    "name:city-of-edinburgh:the-bongo-club": {
+      "status": "done",
+      "count": 5,
+      "city": "Old Town",
+      "at": "2026-09-14T23:44:38.462682+00:00"
+    },
+    "name:city-of-edinburgh:magdalen-chapel": {
+      "status": "done",
+      "count": 5,
+      "city": "Cowgate",
+      "at": "2026-09-14T23:46:54.104318+00:00"
+    },
+    "name:city-of-edinburgh:st-cecilia-s-hall": {
+      "status": "done",
+      "count": 5,
+      "city": "Cowgate",
+      "at": "2026-09-14T23:47:26.327664+00:00"
+    },
+    "name:city-of-edinburgh:st-patrick-s-roman-catholic-church": {
+      "status": "done",
+      "count": 5,
+      "city": "Cowgate",
+      "at": "2026-09-14T23:47:47.118624+00:00"
+    },
+    "name:city-of-edinburgh:national-library-of-scotland": {
+      "status": "done",
+      "count": 5,
+      "city": "Cowgate",
+      "at": "2026-09-14T23:48:10.673754+00:00"
+    },
+    "name:city-of-edinburgh:edinburgh-central-library": {
+      "status": "done",
+      "count": 5,
+      "city": "Cowgate",
+      "at": "2026-09-14T23:48:30.087338+00:00"
+    },
+    "name:city-of-edinburgh:james-connolly-plaque-cowgate": {
+      "status": "done",
+      "count": 5,
+      "city": "Cowgate",
+      "at": "2026-09-14T23:48:58.599861+00:00"
+    },
+    "name:city-of-edinburgh:the-royal-oak": {
+      "status": "done",
+      "count": 5,
+      "city": "Cowgate",
+      "at": "2026-09-14T23:49:34.671142+00:00"
+    },
+    "name:city-of-edinburgh:the-banshee-labyrinth": {
+      "status": "done",
+      "count": 5,
+      "city": "Grassmarket",
+      "at": "2026-09-14T23:50:05.362769+00:00"
+    },
+    "name:city-of-edinburgh:grassmarket": {
+      "status": "done",
+      "count": 5,
+      "city": "Old Town",
+      "at": "2026-09-14T23:51:56.451316+00:00"
+    },
+    "name:city-of-edinburgh:cowgate-street": {
+      "status": "done",
+      "count": 5,
+      "city": "Cowgate",
+      "at": "2026-09-14T23:52:18.351444+00:00"
+    },
+    "name:city-of-edinburgh:the-athletic-arms-diggers": {
+      "status": "done",
+      "count": 5,
+      "city": "Dalry",
+      "at": "2026-09-14T23:52:50.642489+00:00"
+    },
+    "name:city-of-edinburgh:thomson-s-bar": {
+      "status": "done",
+      "count": 5,
+      "city": "Dalry",
+      "at": "2026-09-14T23:53:15.493090+00:00"
+    },
+    "name:city-of-edinburgh:ryrie-s-bar": {
+      "status": "done",
+      "count": 5,
+      "city": "Haymarket",
+      "at": "2026-09-14T23:53:40.150172+00:00"
+    },
+    "name:city-of-edinburgh:caley-sample-room": {
+      "status": "done",
+      "count": 5,
+      "city": "Dalry",
+      "at": "2026-09-14T23:54:01.182802+00:00"
+    },
+    "name:city-of-edinburgh:the-golden-rule": {
+      "status": "done",
+      "count": 5,
+      "city": "Haymarket",
+      "at": "2026-09-14T23:54:28.364583+00:00"
+    },
+    "name:city-of-edinburgh:the-fountain": {
+      "status": "done",
+      "count": 5,
+      "city": "Dalry",
+      "at": "2026-09-14T23:54:52.665660+00:00"
+    },
+    "name:city-of-edinburgh:polwarth-tavern": {
+      "status": "done",
+      "count": 5,
+      "city": "Dalry",
+      "at": "2026-09-14T23:57:32.970920+00:00"
+    },
+    "name:city-of-edinburgh:brass-monkey-gorgie": {
+      "status": "done",
+      "count": 5,
+      "city": "Dalry",
+      "at": "2026-09-14T23:57:52.560420+00:00"
+    },
+    "name:city-of-edinburgh:stratfords": {
+      "status": "done",
+      "count": 5,
+      "city": "Dalry",
+      "at": "2026-09-14T23:58:21.709409+00:00"
+    },
+    "name:city-of-edinburgh:dalry-cemetery-dalry-necropolis": {
+      "status": "done",
+      "count": 5,
+      "city": "Dalry",
+      "at": "2026-09-14T23:58:48.783263+00:00"
+    },
+    "name:city-of-edinburgh:gorgie-dalry-community-park": {
+      "status": "done",
+      "count": 5,
+      "city": "Dalry",
+      "at": "2026-09-14T23:59:13.791527+00:00"
+    },
+    "name:city-of-edinburgh:dalry-house-orwell-place": {
+      "status": "done",
+      "count": 5,
+      "city": "Dalry",
+      "at": "2026-09-14T23:59:35.972534+00:00"
+    },
+    "name:city-of-edinburgh:harrison-park": {
+      "status": "done",
+      "count": 5,
+      "city": "Dalry",
+      "at": "2026-09-15T00:00:10.618632+00:00"
+    },
+    "name:city-of-edinburgh:union-canal-towpath": {
+      "status": "done",
+      "count": 5,
+      "city": "Dalry",
+      "at": "2026-09-15T00:00:30.848742+00:00"
+    },
+    "name:city-of-edinburgh:first-coast-restaurant": {
+      "status": "done",
+      "count": 5,
+      "city": "Dalry",
+      "at": "2026-09-15T00:02:11.259790+00:00"
+    },
+    "name:city-of-edinburgh:locanda-de-gusti": {
+      "status": "done",
+      "count": 5,
+      "city": "Dalry",
+      "at": "2026-09-15T00:02:39.621925+00:00"
+    },
+    "name:city-of-edinburgh:mia-italian-kitchen-dalry": {
+      "status": "done",
+      "count": 5,
+      "city": "Dalry",
+      "at": "2026-09-15T00:03:02.718447+00:00"
+    },
+    "name:city-of-edinburgh:shebeen-dalry": {
+      "status": "done",
+      "count": 5,
+      "city": "Dalry",
+      "at": "2026-09-15T00:03:27.286623+00:00"
+    },
+    "name:city-of-edinburgh:b-d-s-kitchen": {
+      "status": "done",
+      "count": 5,
+      "city": "Dalry",
+      "at": "2026-09-15T00:03:48.414426+00:00"
+    },
+    "name:city-of-edinburgh:piatto-verde": {
+      "status": "done",
+      "count": 5,
+      "city": "Dalry",
+      "at": "2026-09-15T00:04:10.703662+00:00"
+    },
+    "name:city-of-edinburgh:saint-martin-of-tours-episcopal-church": {
+      "status": "done",
+      "count": 5,
+      "city": "Dalry",
+      "at": "2026-09-15T00:04:32.743821+00:00"
+    },
+    "name:city-of-edinburgh:tynecastle-park": {
+      "status": "done",
+      "count": 5,
+      "city": "Dalry",
+      "at": "2026-09-15T00:04:53.252336+00:00"
+    },
+    "name:city-of-edinburgh:dean-village": {
+      "status": "done",
+      "count": 5,
+      "city": "Dean Village",
+      "at": "2026-09-15T00:07:26.361385+00:00"
+    },
+    "name:city-of-edinburgh:water-of-leith-walkway:eh141tq": {
+      "status": "done",
+      "count": 5,
+      "city": "Dean Village",
+      "at": "2026-09-15T00:07:53.970684+00:00"
+    },
+    "name:city-of-edinburgh:dean-cemetery": {
+      "status": "done",
+      "count": 5,
+      "city": "Dean Village",
+      "at": "2026-09-15T00:08:27.093210+00:00"
+    },
+    "name:city-of-edinburgh:dean-bridge": {
+      "status": "done",
+      "count": 5,
+      "city": "Dean Village",
+      "at": "2026-09-15T00:08:49.418768+00:00"
+    },
+    "name:city-of-edinburgh:st-bernard-s-well": {
+      "status": "done",
+      "count": 5,
+      "city": "Stockbridge",
+      "at": "2026-09-15T00:09:20.941842+00:00"
+    },
+    "name:city-of-edinburgh:stockbridge-market": {
+      "status": "done",
+      "count": 5,
+      "city": "Dean Village",
+      "at": "2026-09-15T00:09:41.106481+00:00"
+    },
+    "name:city-of-edinburgh:scottish-national-gallery-of-modern-art-modern-one": {
+      "status": "done",
+      "count": 5,
+      "city": "Dean Village",
+      "at": "2026-09-15T00:10:01.650352+00:00"
+    },
+    "name:city-of-edinburgh:hectors": {
+      "status": "done",
+      "count": 5,
+      "city": "Stockbridge",
+      "at": "2026-09-15T00:10:30.607165+00:00"
+    },
+    "name:city-of-edinburgh:st-vincent-bar": {
+      "status": "done",
+      "count": 5,
+      "city": "Stockbridge",
+      "at": "2026-09-15T00:12:34.928415+00:00"
+    },
+    "name:city-of-edinburgh:the-raeburn": {
+      "status": "done",
+      "count": 5,
+      "city": "Stockbridge",
+      "at": "2026-09-15T00:13:00.699878+00:00"
+    },
+    "name:city-of-edinburgh:the-antiquary-bar": {
+      "status": "done",
+      "count": 0,
+      "city": "Stockbridge",
+      "at": "2026-09-15T07:42:37.642160+00:00"
+    },
+    "name:city-of-edinburgh:the-bailie-bar": {
+      "status": "done",
+      "count": 5,
+      "city": "Stockbridge",
+      "at": "2026-09-15T07:42:51.224223+00:00"
+    },
+    "name:city-of-edinburgh:the-pantry": {
+      "status": "done",
+      "count": 5,
+      "city": "Dean Village",
+      "at": "2026-09-15T07:43:20.061291+00:00"
+    },
+    "name:city-of-edinburgh:s-derberg": {
+      "status": "done",
+      "count": 5,
+      "city": "Dean Village",
+      "at": "2026-09-15T07:43:38.585915+00:00"
+    },
+    "name:city-of-edinburgh:i-j-mellis-cheesemonger": {
+      "status": "done",
+      "count": 5,
+      "city": "Dean Village",
+      "at": "2026-09-15T07:43:57.347786+00:00"
+    },
+    "name:city-of-edinburgh:purslane": {
+      "status": "done",
+      "count": 5,
+      "city": "Dean Village",
+      "at": "2026-09-15T07:44:17.797029+00:00"
+    },
+    "name:city-of-edinburgh:the-last-word-saloon": {
+      "status": "done",
+      "count": 5,
+      "city": "Stockbridge",
+      "at": "2026-09-15T07:44:44.486437+00:00"
+    },
+    "name:city-of-edinburgh:st-bernard-s-bar": {
+      "status": "done",
+      "count": 5,
+      "city": "Stockbridge",
+      "at": "2026-09-15T07:45:08.050965+00:00"
+    },
+    "name:city-of-edinburgh:circus-lane": {
+      "status": "done",
+      "count": 5,
+      "city": "Dean Village",
+      "at": "2026-09-15T07:45:36.271048+00:00"
+    },
+    "name:city-of-edinburgh:royal-botanic-garden-edinburgh": {
+      "status": "done",
+      "count": 5,
+      "city": "Dean Village",
+      "at": "2026-09-15T07:47:19.778809+00:00"
+    },
+    "name:city-of-edinburgh:inverleith-park": {
+      "status": "done",
+      "count": 5,
+      "city": "Dean Village",
+      "at": "2026-09-15T07:47:40.458645+00:00"
+    },
+    "name:city-of-edinburgh:white-hart-inn": {
+      "status": "done",
+      "count": 5,
+      "city": "Grassmarket",
+      "at": "2026-09-15T07:48:05.366143+00:00"
+    },
+    "name:city-of-edinburgh:the-last-drop": {
+      "status": "done",
+      "count": 0,
+      "city": "Grassmarket",
+      "at": "2026-09-15T07:48:45.736390+00:00"
+    },
+    "name:city-of-edinburgh:maggie-dickson-s": {
+      "status": "done",
+      "count": 5,
+      "city": "Grassmarket",
+      "at": "2026-09-15T07:49:07.677115+00:00"
+    },
+    "name:city-of-edinburgh:beehive-inn": {
+      "status": "done",
+      "count": 5,
+      "city": "Grassmarket",
+      "at": "2026-09-15T07:49:34.327548+00:00"
+    },
+    "name:city-of-edinburgh:fiddlers-arms": {
+      "status": "done",
+      "count": 5,
+      "city": "Grassmarket",
+      "at": "2026-09-15T07:50:00.899141+00:00"
+    },
+    "name:city-of-edinburgh:black-bull": {
+      "status": "done",
+      "count": 5,
+      "city": "Grassmarket",
+      "at": "2026-09-15T07:50:28.877795+00:00"
+    },
+    "name:city-of-edinburgh:biddy-mulligans": {
+      "status": "done",
+      "count": 5,
+      "city": "Grassmarket",
+      "at": "2026-09-15T07:52:29.608068+00:00"
+    },
+    "name:city-of-edinburgh:sandy-bell-s": {
+      "status": "done",
+      "count": 5,
+      "city": "Grassmarket",
+      "at": "2026-09-15T07:52:49.703021+00:00"
+    },
+    "name:city-of-edinburgh:pirlous": {
+      "status": "done",
+      "count": 5,
+      "city": "Grassmarket",
+      "at": "2026-09-15T07:53:16.247601+00:00"
+    },
+    "name:city-of-edinburgh:castlegate-cafe": {
+      "status": "done",
+      "count": 5,
+      "city": "Grassmarket",
+      "at": "2026-09-15T07:53:40.721387+00:00"
+    },
+    "name:city-of-edinburgh:coffee-saints-grassmarket": {
+      "status": "done",
+      "count": 5,
+      "city": "Grassmarket",
+      "at": "2026-09-15T07:54:13.743952+00:00"
+    },
+    "name:city-of-edinburgh:cafe-jacques": {
+      "status": "done",
+      "count": 5,
+      "city": "Grassmarket",
+      "at": "2026-09-15T07:54:32.514184+00:00"
+    },
+    "name:city-of-edinburgh:grassmarket-saturday-market": {
+      "status": "done",
+      "count": 5,
+      "city": "Grassmarket",
+      "at": "2026-09-15T07:55:01.790922+00:00"
+    },
+    "name:city-of-edinburgh:grassmarket-square-and-covenanters-monument": {
+      "status": "done",
+      "count": 5,
+      "city": "Grassmarket",
+      "at": "2026-09-15T07:55:21.262637+00:00"
+    },
+    "name:city-of-edinburgh:grassmarket-historic-trail": {
+      "status": "done",
+      "count": 5,
+      "city": "Grassmarket",
+      "at": "2026-09-15T07:57:39.418298+00:00"
+    },
+    "name:city-of-edinburgh:armstrongs-vintage-emporium": {
+      "status": "done",
+      "count": 5,
+      "city": "Grassmarket",
+      "at": "2026-09-15T07:58:10.977327+00:00"
+    },
+    "name:city-of-edinburgh:fabhatrix": {
+      "status": "done",
+      "count": 5,
+      "city": "Grassmarket",
+      "at": "2026-09-15T07:58:36.045607+00:00"
+    },
+    "name:city-of-edinburgh:the-bow-bar": {
+      "status": "done",
+      "count": 5,
+      "city": "Grassmarket",
+      "at": "2026-09-15T07:59:02.023804+00:00"
+    },
+    "name:city-of-edinburgh:whistlebinkies": {
+      "status": "done",
+      "count": 5,
+      "city": "Grassmarket",
+      "at": "2026-09-15T07:59:30.074714+00:00"
+    },
+    "name:city-of-edinburgh:cold-town-house": {
+      "status": "done",
+      "count": 5,
+      "city": "Grassmarket",
+      "at": "2026-09-15T08:00:03.179190+00:00"
+    },
+    "name:city-of-edinburgh:the-three-quarters-bar": {
+      "status": "done",
+      "count": 5,
+      "city": "Grassmarket",
+      "at": "2026-09-15T08:00:30.510296+00:00"
+    },
+    "name:city-of-edinburgh:bannermans-rock-whisky-bar": {
+      "status": "done",
+      "count": 5,
+      "city": "Grassmarket",
+      "at": "2026-09-15T08:01:02.426086+00:00"
+    },
+    "name:city-of-edinburgh:the-voodoo-rooms": {
+      "status": "done",
+      "count": 5,
+      "city": "New Town",
+      "at": "2026-09-15T08:02:48.678880+00:00"
+    },
+    "name:city-of-edinburgh:greyfriars-bobby-s-bar": {
+      "status": "done",
+      "count": 5,
+      "city": "Grassmarket",
+      "at": "2026-09-15T08:03:08.629176+00:00"
+    },
+    "name:city-of-edinburgh:the-wee-vault-vault-city-haymarket-taproom-bottleshop": {
+      "status": "done",
+      "count": 5,
+      "city": "Haymarket",
+      "at": "2026-09-15T08:03:30.097181+00:00"
+    },
+    "name:city-of-edinburgh:haymarket-bar": {
+      "status": "done",
+      "count": 5,
+      "city": "Haymarket",
+      "at": "2026-09-15T08:04:00.392928+00:00"
+    },
+    "name:city-of-edinburgh:malones-edinburgh": {
+      "status": "done",
+      "count": 5,
+      "city": "Haymarket",
+      "at": "2026-09-15T08:04:31.913745+00:00"
+    },
+    "name:city-of-edinburgh:the-athletic-arms-the-diggers": {
+      "status": "done",
+      "count": 5,
+      "city": "Haymarket",
+      "at": "2026-09-15T08:05:00.136600+00:00"
+    },
+    "name:city-of-edinburgh:the-jolly-botanist": {
+      "status": "done",
+      "count": 5,
+      "city": "Haymarket",
+      "at": "2026-09-15T08:05:20.567558+00:00"
+    },
+    "name:city-of-edinburgh:clock-cafe": {
+      "status": "done",
+      "count": 5,
+      "city": "Haymarket",
+      "at": "2026-09-15T08:05:48.225156+00:00"
+    },
+    "name:city-of-edinburgh:cucina-lc": {
+      "status": "done",
+      "count": 5,
+      "city": "Haymarket",
+      "at": "2026-09-15T08:08:15.936925+00:00"
+    },
+    "name:city-of-edinburgh:the-marmaris": {
+      "status": "done",
+      "count": 5,
+      "city": "Haymarket",
+      "at": "2026-09-15T08:08:46.765630+00:00"
+    },
+    "name:city-of-edinburgh:wing-sing-inn": {
+      "status": "done",
+      "count": 5,
+      "city": "Haymarket",
+      "at": "2026-09-15T08:09:12.612237+00:00"
+    },
+    "name:city-of-edinburgh:marco-s-pool-hall-and-pizza-bar": {
+      "status": "done",
+      "count": 5,
+      "city": "Haymarket",
+      "at": "2026-09-15T08:09:44.873241+00:00"
+    },
+    "name:city-of-edinburgh:cineworld-fountainbridge": {
+      "status": "done",
+      "count": 5,
+      "city": "Haymarket",
+      "at": "2026-09-15T08:10:09.804809+00:00"
+    },
+    "name:city-of-edinburgh:tenpin-edinburgh-fountainpark": {
+      "status": "done",
+      "count": 5,
+      "city": "Haymarket",
+      "at": "2026-09-15T08:11:21.225609+00:00"
+    },
+    "name:city-of-edinburgh:dimitri-s": {
+      "status": "done",
+      "count": 5,
+      "city": "Haymarket",
+      "at": "2026-09-15T08:11:44.765088+00:00"
+    },
+    "name:city-of-edinburgh:voodoo-bar": {
+      "status": "done",
+      "count": 0,
+      "city": "Haymarket",
+      "at": "2026-09-15T09:30:51.625286+00:00"
+    },
+    "name:city-of-edinburgh:the-mad-hatter": {
+      "status": "done",
+      "count": 5,
+      "city": "Haymarket",
+      "at": "2026-09-15T09:31:17.472245+00:00"
     }
   },
   "instagram": {
@@ -259,6 +943,204 @@
       "count": 0,
       "city": "Edinburgh",
       "at": "2026-09-14T23:24:04.501375+00:00"
+    },
+    "name:city-of-edinburgh:edinburgh:glenkinchie-distillery": {
+      "status": "done",
+      "count": 2,
+      "city": "Edinburgh",
+      "at": "2026-09-14T23:34:30.815380+00:00"
+    },
+    "name:city-of-edinburgh:edinburgh:edinburgh-zoo": {
+      "status": "done",
+      "count": 2,
+      "city": "Edinburgh",
+      "at": "2026-09-14T23:37:21.193715+00:00"
+    },
+    "name:city-of-edinburgh:edinburgh:royal-yacht-britannia": {
+      "status": "done",
+      "count": 0,
+      "city": "Edinburgh",
+      "at": "2026-09-14T23:40:11.531962+00:00"
+    },
+    "name:city-of-edinburgh:edinburgh:the-real-mary-king-s-close": {
+      "status": "done",
+      "count": 0,
+      "city": "Edinburgh",
+      "at": "2026-09-14T23:42:59.694219+00:00"
+    },
+    "name:city-of-edinburgh:edinburgh:scottish-parliament-building": {
+      "status": "done",
+      "count": 0,
+      "city": "Edinburgh",
+      "at": "2026-09-14T23:45:57.420164+00:00"
+    },
+    "name:city-of-edinburgh:edinburgh:scott-monument": {
+      "status": "done",
+      "count": 0,
+      "city": "Edinburgh",
+      "at": "2026-09-14T23:53:58.506714+00:00"
+    },
+    "name:city-of-edinburgh:edinburgh:calton-hill": {
+      "status": "done",
+      "count": 5,
+      "city": "Edinburgh",
+      "at": "2026-09-15T00:07:50.853368+00:00"
+    },
+    "name:city-of-edinburgh:edinburgh:arthur-s-seat": {
+      "status": "done",
+      "count": 5,
+      "city": "Edinburgh",
+      "at": "2026-09-15T00:09:04.824311+00:00"
+    },
+    "name:city-of-edinburgh:edinburgh:holyrood-park": {
+      "status": "done",
+      "count": 5,
+      "city": "Edinburgh",
+      "at": "2026-09-15T00:10:18.484336+00:00"
+    },
+    "name:city-of-edinburgh:edinburgh:princes-street-gardens": {
+      "status": "done",
+      "count": 5,
+      "city": "Edinburgh",
+      "at": "2026-09-15T00:11:32.770361+00:00"
+    },
+    "name:city-of-edinburgh:edinburgh:dynamic-earth": {
+      "status": "done",
+      "count": 5,
+      "city": "Edinburgh",
+      "at": "2026-09-15T00:13:02.762512+00:00"
+    },
+    "name:city-of-edinburgh:edinburgh:camera-obscura-world-of-illusions": {
+      "status": "done",
+      "count": 5,
+      "city": "Edinburgh",
+      "at": "2026-09-15T07:43:55.535967+00:00"
+    },
+    "name:city-of-edinburgh:edinburgh:surgeons-hall-museums": {
+      "status": "done",
+      "count": 5,
+      "city": "Edinburgh",
+      "at": "2026-09-15T07:45:10.513014+00:00"
+    },
+    "name:city-of-edinburgh:edinburgh:scottish-national-portrait-gallery": {
+      "status": "done",
+      "count": 5,
+      "city": "Edinburgh",
+      "at": "2026-09-15T07:46:22.984347+00:00"
+    },
+    "name:city-of-edinburgh:edinburgh:scottish-national-gallery-of-modern-art": {
+      "status": "done",
+      "count": 5,
+      "city": "Edinburgh",
+      "at": "2026-09-15T07:47:45.040682+00:00"
+    },
+    "name:city-of-edinburgh:edinburgh:scottish-national-gallery-the-national": {
+      "status": "done",
+      "count": 0,
+      "city": "Edinburgh",
+      "at": "2026-09-15T07:48:17.101158+00:00"
+    },
+    "name:city-of-edinburgh:edinburgh:canongate-kirk": {
+      "status": "done",
+      "count": 4,
+      "city": "Edinburgh",
+      "at": "2026-09-15T07:49:34.872145+00:00"
+    },
+    "name:city-of-edinburgh:edinburgh:greyfriars-kirk-and-kirkyard": {
+      "status": "done",
+      "count": 5,
+      "city": "Edinburgh",
+      "at": "2026-09-15T07:50:54.562485+00:00"
+    },
+    "name:city-of-edinburgh:edinburgh:st-giles-cathedral": {
+      "status": "done",
+      "count": 5,
+      "city": "Edinburgh",
+      "at": "2026-09-15T07:52:11.984145+00:00"
+    },
+    "name:city-of-edinburgh:edinburgh:holyrood-abbey": {
+      "status": "done",
+      "count": 5,
+      "city": "Edinburgh",
+      "at": "2026-09-15T07:54:55.239350+00:00"
+    },
+    "name:city-of-edinburgh:edinburgh:palace-of-holyroodhouse": {
+      "status": "done",
+      "count": 5,
+      "city": "Edinburgh",
+      "at": "2026-09-15T07:56:16.764383+00:00"
+    },
+    "name:city-of-edinburgh:edinburgh:edinburgh-castle": {
+      "status": "done",
+      "count": 5,
+      "city": "Edinburgh",
+      "at": "2026-09-15T07:57:23.316103+00:00"
+    },
+    "name:city-of-edinburgh:fopp": {
+      "status": "done",
+      "count": 5,
+      "city": "West End",
+      "at": "2026-09-15T07:58:47.197504+00:00"
+    },
+    "name:city-of-edinburgh:west-end-stories-walking-tour": {
+      "status": "done",
+      "count": 0,
+      "city": "West End",
+      "at": "2026-09-15T07:59:29.068199+00:00"
+    },
+    "name:city-of-edinburgh:fountain-park": {
+      "status": "done",
+      "count": 5,
+      "city": "West End",
+      "at": "2026-09-15T08:00:45.731202+00:00"
+    },
+    "name:city-of-edinburgh:royal-lyceum-theatre": {
+      "status": "done",
+      "count": 2,
+      "city": "West End",
+      "at": "2026-09-15T08:01:38.443356+00:00"
+    },
+    "name:city-of-edinburgh:traverse-theatre": {
+      "status": "done",
+      "count": 5,
+      "city": "West End",
+      "at": "2026-09-15T08:02:53.112550+00:00"
+    },
+    "name:city-of-edinburgh:the-georgian-house": {
+      "status": "done",
+      "count": 5,
+      "city": "West End",
+      "at": "2026-09-15T08:06:15.010092+00:00"
+    },
+    "name:city-of-edinburgh:st-mary-s-episcopal-cathedral": {
+      "status": "done",
+      "count": 5,
+      "city": "West End",
+      "at": "2026-09-15T08:07:31.238694+00:00"
+    },
+    "name:city-of-edinburgh:dean-village-water-of-leith-walkway": {
+      "status": "done",
+      "count": 0,
+      "city": "West End",
+      "at": "2026-09-15T08:08:05.029989+00:00"
+    },
+    "name:city-of-edinburgh:charlotte-square": {
+      "status": "done",
+      "count": 5,
+      "city": "West End",
+      "at": "2026-09-15T08:09:18.510874+00:00"
+    },
+    "name:city-of-edinburgh:west-end-village-william-stafford-streets": {
+      "status": "done",
+      "count": 0,
+      "city": "West End",
+      "at": "2026-09-15T08:10:01.024909+00:00"
+    },
+    "name:city-of-edinburgh:kam-lo": {
+      "status": "done",
+      "count": 5,
+      "city": "West End",
+      "at": "2026-09-15T08:11:09.434478+00:00"
     }
   }
 }

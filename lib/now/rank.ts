@@ -1,6 +1,7 @@
 import "server-only";
 import type { Candidate, FeedContext, NowResponse } from "@/lib/now/types";
 import { generateCandidates } from "@/lib/now/generators";
+import { eventHasEnded } from "@/lib/events/format";
 import type { WalkTolerance } from "@/lib/now/persona";
 import { learnedInterests } from "@/lib/now/persona";
 import { effectiveWalkTolerance } from "@/lib/now/reach";
@@ -296,9 +297,26 @@ function selectHero(ranked: Candidate[]): Candidate | null {
   return deduped[pickHeroIndex(deduped)];
 }
 
+/**
+ * Final "no ended items ever leave an API" guard for an event-subject
+ * candidate — belt-and-braces alongside `ctx.candidateEvents`'s own upstream
+ * source (lib/events/getForDestination.ts, which already filters on
+ * `eventIsLive`): a `Candidate` carries no `ends_at` of its own, so this
+ * resolves back to the source `EventItem` via `ctx.candidateEvents` (already
+ * loaded for this request — no extra query) rather than re-deriving a second
+ * definition of "ended". A candidate whose subject can't be resolved (should
+ * not happen — every event candidate is built FROM this same pool) is left
+ * alone rather than dropped on a lookup miss.
+ */
+function eventCandidateHasEnded(ctx: FeedContext, c: Candidate): boolean {
+  if (c.subject.type !== "event") return false;
+  const event = ctx.candidateEvents.find((e) => e.id === c.subject.id);
+  return event ? eventHasEnded(event, ctx.at) : false;
+}
+
 export async function buildNowResponse(ctx: FeedContext): Promise<NowResponse> {
   const raw = await generateCandidates(ctx);
-  const filtered = raw.filter((c) => passesHardFilters(ctx, c));
+  const filtered = raw.filter((c) => !eventCandidateHasEnded(ctx, c) && passesHardFilters(ctx, c));
   const scored = filtered
     .map((c) => ({ ...c, score: scoreCandidate(ctx, c) }))
     .filter((c) => c.score > 0)

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { cityBadge, SUPPORTED_CITIES } from "@/lib/city";
 import { supabaseBrowserAuth } from "@/lib/supabase/client";
@@ -8,6 +8,7 @@ import { refreshGeolocation, useGeolocation } from "@/lib/geo";
 import { useSignedIn } from "@/lib/useSaved";
 import { chooseCity, dismissCityPrompt, useSelectedCity } from "@/lib/useSelectedCity";
 import { rememberUserLocation, forgetUserLocation } from "@/lib/now/location";
+import { prefetchJson, useCachedJson } from "@/lib/http/clientCache";
 import type { CardKind, NowResponse } from "@/lib/now/types";
 import type { FeedCardData, FeedResponse, FeedWindow } from "@/lib/happenings/feed-types";
 import { NOTIFY_ME_ENABLED } from "@/lib/happenings/book-early";
@@ -21,6 +22,33 @@ import { FeedHero, FeedListCard, FreeAnyTimeList, BookEarlyCard } from "@/compon
 interface HomeWeather {
   condition: WeatherCondition;
   tempC: number | null;
+}
+
+// Staleness windows for lib/http/clientCache.ts's `useCachedJson` — chosen to
+// mirror the server's own browser-cache promises in lib/http/cache.ts (can't
+// import that file directly, it's `import "server-only"`) rather than
+// inventing new numbers: `now`/`feed` track CACHE_SHORT's 60s, weather tracks
+// CACHE_LONG's 10min, alerts (a caller-scoped membership set, not a catalogue
+// that drifts minute to minute) gets a middle-ground 5min.
+const NOW_STALE_MS = 60_000;
+const FEED_STALE_MS = 60_000;
+const WEATHER_STALE_MS = 10 * 60_000;
+const ALERTS_STALE_MS = 5 * 60_000;
+
+/** `requestIdleCallback` with a `setTimeout` fallback for Safari — used to prefetch the two windows the visitor isn't currently on without competing with the current window's own fetch/render. Returns a canceller for effect cleanup. */
+function scheduleIdle(cb: () => void): () => void {
+  if (typeof window === "undefined") return () => {};
+  if (typeof window.requestIdleCallback === "function") {
+    const id = window.requestIdleCallback(cb);
+    return () => window.cancelIdleCallback(id);
+  }
+  const id = window.setTimeout(cb, 200);
+  return () => window.clearTimeout(id);
+}
+
+/** Cache key for `/api/now` — folded into the key (not just passed as a fetch param) so a coords change is, from the cache's point of view, simply "a different key with no data yet," which `useCachedJson` already knows how to fetch and show a skeleton for. Rounded to ~11m so GPS jitter doesn't mint a fresh key on every read. */
+function nowCacheKey(coords: { lat: number; lng: number } | null): string {
+  return coords ? `now:${coords.lat.toFixed(4)},${coords.lng.toFixed(4)}` : "now:default";
 }
 
 /**
@@ -60,10 +88,11 @@ const WHATS_ON_WINDOW_LABEL: Record<FeedWindow, string> = {
 
 // Throws on abort (caller distinguishes that from a real failure) or a
 // non-2xx status — unlike the old version, which swallowed every failure to
-// `null`, indistinguishable from "genuinely nothing to show". See the
-// [coords] effect below and `refreshNow` for how callers turn a thrown error
-// into `nowError` state instead of leaving the permanent "Finding something
-// worth your while…" fallback on screen.
+// `null`, indistinguishable from "genuinely nothing to show". Passed to
+// `useCachedJson` below, which turns a throw into `error` state without
+// discarding whatever was cached, so `nowError` only ever means "no /api/now
+// data at all, and the last attempt failed" — never "a background refresh
+// hiccuped".
 async function fetchNowResponse(
   coords: { lat: number; lng: number } | null,
   signal?: AbortSignal
@@ -86,16 +115,33 @@ async function fetchNowResponse(
  *  sent. */
 // Same "throw, don't swallow" contract as fetchNowResponse above — a
 // non-2xx status (GET /api/feed's catch block now returns 401/500, not a
-// silent 200 with empty sections) becomes a thrown error here so the
-// window-fetch effect below can set `feedError` instead of leaving What's
-// on/Book early stuck on their loading skeleton, or — worse — rendering
-// their genuinely-empty copy ("Nothing lined up... try another tab") for
-// what's actually a failed request.
+// silent 200 with empty sections) becomes a thrown error here so `feedError`
+// below only fires for "nothing to show and the last attempt failed", not a
+// background revalidation hiccup with good data still on screen.
 async function fetchFeed(window: FeedWindow, signal?: AbortSignal): Promise<FeedResponse> {
   const params = new URLSearchParams({ window });
   const res = await fetch(`/api/feed?${params.toString()}`, { signal });
   if (!res.ok) throw new Error(`GET /api/feed ${res.status}`);
   return (await res.json()) as FeedResponse;
+}
+
+/** `/api/weather` doesn't error-throw on a bad/empty day (matches the original
+ *  effect's behaviour: a missing `day` just leaves the chip showing
+ *  "unavailable" rather than an error state — weather is decor, not a thing
+ *  worth a Retry button over). */
+async function fetchWeather(cityName: string, signal?: AbortSignal): Promise<HomeWeather | null> {
+  const res = await fetch(`/api/weather?destination=${encodeURIComponent(cityName)}`, { signal });
+  const json = (await res.json()) as { day?: { condition: WeatherCondition; tempMaxC: number | null } | null };
+  return json.day ? { condition: json.day.condition, tempC: json.day.tempMaxC } : null;
+}
+
+/** Returns the raw id list, not a `Set` — a `Set` doesn't round-trip through
+ *  `JSON.stringify` (what `clientCache`'s sessionStorage mirror needs), so
+ *  the `Set` is built once at the render site from this array instead. */
+async function fetchAlertIds(signal?: AbortSignal): Promise<string[]> {
+  const res = await fetch("/api/alerts", { signal });
+  const json = (await res.json()) as { happeningIds?: string[] };
+  return json.happeningIds ?? [];
 }
 
 function bookEarlyCardKey(card: FeedResponse["bookEarly"][number]): string {
@@ -163,38 +209,24 @@ function SeeAllLink({ href, total }: { href: string; total: number }) {
  */
 export default function HomePage() {
   const db = supabaseBrowserAuth();
-  const [now, setNow] = useState<NowResponse | null>(null);
-  // True only after a real /api/now failure (network error or non-2xx) —
-  // distinct from "no now data yet" so the hero fallback can tell "still
-  // loading / genuinely nothing" apart from "the request failed" instead of
-  // showing the same "Finding something worth your while…" text forever.
-  const [nowError, setNowError] = useState(false);
-  const [feed, setFeed] = useState<FeedResponse | null>(null);
-  // Same idea as `nowError`, for GET /api/feed — see the [feedWindow,
-  // feedReloadTick] effect below. `feedReloadTick` exists purely so the
-  // What's on / Book early ErrorState's Retry button can re-trigger that
-  // effect without duplicating its fetch logic.
-  const [feedError, setFeedError] = useState(false);
-  const [feedReloadTick, setFeedReloadTick] = useState(0);
-  const [weather, setWeather] = useState<HomeWeather | null>(null);
   const [feedWindow, setWindow] = useState<FeedWindow>("now");
-  // Window-switch feedback (task: "no animation or changes properly when I
-  // select This month / Coming up"). `feedLoading` dims the still-visible
-  // previous What's on content the instant a segment is tapped;
-  // `whatsOnRenderKey` only bumps once the new window's data has actually
-  // landed, which remounts the bucket list under a fresh key so the
-  // `feed-fade-in` CSS animation (app/globals.css) plays for the arriving
-  // content — two distinct signals for "loading" vs. "here's what changed".
-  const [feedLoading, setFeedLoading] = useState(false);
-  const [whatsOnRenderKey, setWhatsOnRenderKey] = useState(0);
   const whatsOnSectionRef = useRef<HTMLDivElement>(null);
+  // Content height of the last successfully-rendered What's on list, kept as
+  // a plain ref (not state — writing it must never itself trigger a render)
+  // so an uncached window switch can hold the section at that height while
+  // its 4-card skeleton shows, instead of the page jumping as the skeleton's
+  // own (different) height briefly applies.
+  const whatsOnContentRef = useRef<HTMLDivElement>(null);
+  // State, not a ref: it's read during render (the skeleton's `minHeight`),
+  // and reading a ref's `.current` during render trips the
+  // react-hooks/refs lint rule (and is unsafe under concurrent rendering).
+  const [lastWhatsOnHeight, setLastWhatsOnHeight] = useState<number | undefined>(undefined);
+  // Set once per actual window switch (never on a background revalidation of
+  // the window already on screen), consumed by the scroll-into-view effect
+  // below the instant that window's data — cached or freshly fetched — is
+  // actually ready to show.
+  const pendingScrollRef = useRef(false);
   const prevFeedWindowRef = useRef<FeedWindow>(feedWindow);
-  // Book early "Notify me" state — the caller's full on-sale-alert
-  // happening-id set, loaded once so each BookEarlyCard renders correctly
-  // subscribed instead of resetting to "Notify me" on every load. Only
-  // fetched when the feature is actually on (NEXT_PUBLIC_VAPID_PUBLIC_KEY
-  // set) — no reason to hit /api/alerts on every Home load otherwise.
-  const [alertHappeningIds, setAlertHappeningIds] = useState<Set<string>>(new Set());
   const { coords, status: geoStatus } = useGeolocation();
   const signedIn = useSignedIn();
   const { city, source: citySource, shouldPrompt: shouldPromptCity } = useSelectedCity();
@@ -209,136 +241,114 @@ export default function HomePage() {
     else if (geoStatus === "denied") void forgetUserLocation(db);
   }, [db, geoStatus, coords, signedIn]);
 
-  useEffect(() => {
-    const controller = new AbortController();
-    (async () => {
-      try {
-        const json = await fetchNowResponse(coords, controller.signal);
-        if (controller.signal.aborted) return;
-        setNow(json);
-        setNowError(false);
-      } catch (err) {
-        if (controller.signal.aborted || (err instanceof DOMException && err.name === "AbortError")) return;
-        console.error("[home] /api/now fetch failed", err);
-        setNowError(true);
-      }
-    })();
-    return () => controller.abort();
-  }, [coords]);
+  // Today's pick — cached per (rounded) coordinate pair, see `nowCacheKey`.
+  // `nowError` only means "no data at all, and the last attempt failed" (see
+  // fetchNowResponse's doc comment) — a background revalidation failure
+  // keeps whatever pick was already showing.
+  const nowResult = useCachedJson<NowResponse>(nowCacheKey(coords), (signal) => fetchNowResponse(coords, signal), {
+    staleMs: NOW_STALE_MS,
+  });
+  const now = nowResult.data ?? null;
+  const nowError = nowResult.error != null && now === null;
 
-  // Switching the window keeps the previous feed on screen
-  // (stale-while-revalidate) rather than unmounting it, but it's now dimmed
-  // (`feedLoading`) for immediate feedback, and cross-fades in once the new
-  // window's data lands (see `whatsOnRenderKey`). Only the very first load,
-  // before `feed` has ever been set, shows the plain skeleton below instead.
-  useEffect(() => {
-    const controller = new AbortController();
-    const isWindowSwitch = prevFeedWindowRef.current !== feedWindow;
-    prevFeedWindowRef.current = feedWindow;
-    (async () => {
-      setFeedLoading(true);
-      try {
-        const json = await fetchFeed(feedWindow, controller.signal);
-        if (controller.signal.aborted) return;
-        setFeed(json);
-        setFeedError(false);
-        setFeedLoading(false);
-        setWhatsOnRenderKey((k) => k + 1);
-        // Make the change unmissable when What's on isn't currently in view —
-        // only scrolls when its top is below the fold (never yanks the page
-        // for a section already on screen, and never scrolls upward).
-        if (isWindowSwitch) {
-          requestAnimationFrame(() => {
-            const el = whatsOnSectionRef.current;
-            if (!el || typeof window === "undefined") return;
-            const top = el.getBoundingClientRect().top;
-            if (top > window.innerHeight) {
-              const reduceMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
-              el.scrollIntoView({ behavior: reduceMotion ? "auto" : "smooth", block: "start" });
-            }
-          });
-        }
-      } catch (err) {
-        if (controller.signal.aborted || (err instanceof DOMException && err.name === "AbortError")) return;
-        console.error("[home] /api/feed fetch failed", err);
-        setFeedError(true);
-        setFeedLoading(false);
-      }
-    })();
-    return () => controller.abort();
-  }, [feedWindow, feedReloadTick]);
+  // What's on / Book early — one cache key per window, which is what makes
+  // Now → Coming up feel instant: switching `feedWindow` just points
+  // `useCachedJson` at a different (often already-warm, see the prefetch
+  // effect below) key, so cached data reappears synchronously in the same
+  // render as the switch, no dim/skeleton needed. `feedError` again only
+  // means "nothing to show, and it failed" — a stale-but-present feed keeps
+  // rendering through a failed background revalidation (see
+  // `feedResult.isValidating`'s progress-bar treatment below instead).
+  const feedResult = useCachedJson<FeedResponse>(`feed:${feedWindow}`, (signal) => fetchFeed(feedWindow, signal), {
+    staleMs: FEED_STALE_MS,
+  });
+  const feed = feedResult.data ?? null;
+  const feedError = feedResult.error != null && feed === null;
 
-  // Weather is keyed on the resolved city (not a mount-once read) so
-  // picking a different city — or geolocation resolving after the picker
-  // hasn't been touched — re-fetches for it; the AbortController cleanup
-  // cancels the previous city's in-flight request so a slow response for it
-  // can never land after the new city's and show the wrong forecast.
-  useEffect(() => {
-    const weatherController = new AbortController();
-    (async () => {
-      try {
-        const res = await fetch(`/api/weather?destination=${encodeURIComponent(city.name)}`, {
-          signal: weatherController.signal,
-        });
-        const json = (await res.json()) as {
-          day?: { condition: WeatherCondition; tempMaxC: number | null } | null;
-        };
-        if (!weatherController.signal.aborted && json.day) {
-          setWeather({ condition: json.day.condition, tempC: json.day.tempMaxC });
-        }
-      } catch (err) {
-        if (err instanceof DOMException && err.name === "AbortError") return;
-        console.error("[home] weather fetch failed", err);
-      }
-    })();
-    return () => weatherController.abort();
-  }, [city.slug, city.name]);
+  // Weather — keyed on the resolved city so switching city (or geolocation
+  // resolving after the picker hasn't been touched) fetches its own cache
+  // slot rather than clobbering another city's reading.
+  const weatherResult = useCachedJson<HomeWeather | null>(
+    `weather:${city.slug}`,
+    (signal) => fetchWeather(city.name, signal),
+    { staleMs: WEATHER_STALE_MS }
+  );
+  const weather = weatherResult.data ?? null;
 
-  // "Notify me" alert-state is an independent, mount-once read (empty dep
-  // array) with no relationship to weather/coords/feedWindow — its own
-  // effect (and AbortController) so unmount/re-run actually cancels the
-  // in-flight network request, not just the state update.
-  useEffect(() => {
-    if (!NOTIFY_ME_ENABLED) return;
-    const alertsController = new AbortController();
-    fetch("/api/alerts", { signal: alertsController.signal })
-      .then((res) => res.json())
-      .then((json: { happeningIds?: string[] }) => {
-        if (!alertsController.signal.aborted) setAlertHappeningIds(new Set(json.happeningIds ?? []));
-      })
-      .catch((err) => {
-        if (err instanceof DOMException && err.name === "AbortError") return;
-        console.error("[home] /api/alerts fetch failed", err);
-      });
-    return () => alertsController.abort();
-  }, []);
+  // Book early "Notify me" membership — the caller's full on-sale-alert
+  // happening-id set, so each BookEarlyCard renders correctly subscribed
+  // instead of resetting to "Notify me" on every load. `key: null` when the
+  // feature's off (NEXT_PUBLIC_VAPID_PUBLIC_KEY unset) disables the fetch
+  // entirely — same as the old `if (!NOTIFY_ME_ENABLED) return` guard.
+  const alertsResult = useCachedJson<string[]>(NOTIFY_ME_ENABLED ? "alerts" : null, fetchAlertIds, {
+    staleMs: ALERTS_STALE_MS,
+  });
+  const alertHappeningIds = useMemo(() => new Set(alertsResult.data ?? []), [alertsResult.data]);
 
-  async function refreshNow() {
-    try {
-      const json = await fetchNowResponse(coords);
-      setNow(json);
-      setNowError(false);
-    } catch (err) {
-      console.error("[home] /api/now refresh failed", err);
-      setNowError(true);
+  // Mark a scroll-into-view as owed the instant the window actually changes
+  // (not on a same-window revalidation) — the second effect below fires it
+  // once `feed` for the new window is actually populated, whether that's
+  // this tick (cache hit) or several ticks later (cold fetch).
+  useEffect(() => {
+    if (prevFeedWindowRef.current !== feedWindow) {
+      pendingScrollRef.current = feedWindow !== "book_early";
+      prevFeedWindowRef.current = feedWindow;
     }
-  }
+  }, [feedWindow]);
 
-  /** Retry action for both the What's on and Book early ErrorStates — both
-   *  read the same GET /api/feed response, so one retry re-runs the one
-   *  effect that fetches it. */
+  useEffect(() => {
+    if (!pendingScrollRef.current || feed === null) return;
+    pendingScrollRef.current = false;
+    // Make the change unmissable when What's on isn't currently in view —
+    // only scrolls when its top is below the fold (never yanks the page for
+    // a section already on screen, and never scrolls upward).
+    requestAnimationFrame(() => {
+      const el = whatsOnSectionRef.current;
+      if (!el || typeof window === "undefined") return;
+      const top = el.getBoundingClientRect().top;
+      if (top > window.innerHeight) {
+        const reduceMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+        el.scrollIntoView({ behavior: reduceMotion ? "auto" : "smooth", block: "start" });
+      }
+    });
+  }, [feed, feedWindow]);
+
+  // Remember the rendered height of a loaded What's on list so a later
+  // uncached window switch can hold the section at that height under its
+  // skeleton instead of the page jumping.
+  useEffect(() => {
+    if (feed !== null && whatsOnContentRef.current) {
+      setLastWhatsOnHeight(whatsOnContentRef.current.offsetHeight);
+    }
+  }, [feed]);
+
+  // Once the current window has data, warm the other two windows' cache
+  // entries in the background (idle time, so it never competes with the
+  // window actually on screen) — this is what makes a *later* switch to
+  // either of them instant too, not just a switch back to one already
+  // visited this session.
+  useEffect(() => {
+    if (feed === null) return;
+    return scheduleIdle(() => {
+      for (const { value } of WINDOW_OPTIONS) {
+        if (value === feedWindow) continue;
+        prefetchJson(`feed:${value}`, (signal) => fetchFeed(value, signal), FEED_STALE_MS);
+      }
+    });
+  }, [feedWindow, feed]);
+
   function retryFeed() {
-    setFeedError(false);
-    setFeedReloadTick((t) => t + 1);
+    feedResult.revalidate();
   }
 
   function handlePrimary(kind: CardKind) {
     // Goes through the shared store (lib/geo.ts) rather than calling
     // getCurrentPosition directly, so the result is cached/deduped like any
-    // other refresh, and the [coords] effect above re-fetches /api/now once
-    // the shared `coords` actually updates (fixes a stale-closure bug where
-    // this used to call refreshNow() with the *old* coords immediately
-    // after asking for a new position).
+    // other refresh; once the shared `coords` actually updates, `nowResult`
+    // above is already pointed at the new `nowCacheKey(coords)` and fetches
+    // it on its own (fixes a stale-closure bug where this used to call
+    // refreshNow() with the *old* coords immediately after asking for a new
+    // position).
     if (kind === "location") void refreshGeolocation();
   }
 
@@ -488,7 +498,7 @@ export default function HomePage() {
         {showHappeningHero && feed?.hero ? (
           <FeedHero card={feed.hero} variant={heroKind} />
         ) : heroKind === "book_early" ? null : now?.hero ? (
-          <FomoCard candidate={now.hero} variant="hero" onDismiss={() => void refreshNow()} onPrimary={handlePrimary} />
+          <FomoCard candidate={now.hero} variant="hero" onDismiss={() => nowResult.revalidate()} onPrimary={handlePrimary} />
         ) : nowError ? (
           // A real /api/now failure — as opposed to "still loading" or "no
           // pick to show" below, neither of which are errors — so this is
@@ -497,7 +507,7 @@ export default function HomePage() {
           <ErrorState
             title="Couldn't load today's pick"
             message="Check your connection and try again."
-            onRetry={() => void refreshNow()}
+            onRetry={() => nowResult.revalidate()}
             className="p-6"
           />
         ) : (
@@ -524,7 +534,19 @@ export default function HomePage() {
             keeps the sticky header from covering the section top when a
             window switch scrolls it into view (see the fetch effect above). */}
         {feedWindow !== "book_early" ? (
-          <div ref={whatsOnSectionRef} className="flex scroll-mt-20 flex-col gap-3">
+          <div ref={whatsOnSectionRef} className="relative flex scroll-mt-20 flex-col gap-3">
+            {/* Thin indeterminate progress bar — cached (possibly stale)
+                content is already on screen below, so a background
+                revalidation gets this instead of dimming/replacing what's
+                already showing. */}
+            {feed !== null && feedResult.isValidating ? (
+              <div
+                role="status"
+                aria-label="Refreshing what's on"
+                className="absolute -top-1 right-0 left-0 h-0.5 animate-pulse rounded-full bg-primary/60 motion-reduce:animate-none"
+              />
+            ) : null}
+
             {feed !== null && !feedError ? (
               <div className="flex items-center justify-between px-1">
                 <h2 className="text-headline-sm font-extrabold tracking-tight text-on-surface">
@@ -546,25 +568,34 @@ export default function HomePage() {
             ) : null}
 
             {feedError ? (
-              // A real GET /api/feed failure — never rendered as the
-              // "Nothing lined up... try another tab" empty copy below,
-              // which is reserved for a genuinely empty (but successful)
-              // response.
+              // A real GET /api/feed failure with nothing cached to fall
+              // back on — never rendered as the "Nothing lined up... try
+              // another tab" empty copy below, which is reserved for a
+              // genuinely empty (but successful) response.
               <ErrorState title="Couldn't load what's on" onRetry={retryFeed} />
             ) : feed === null ? (
-              <div className="flex flex-col gap-3" role="status" aria-live="polite">
+              // Uncached window, first load ever for this session — 4 card
+              // placeholders (not the full list's worth) held at the
+              // previous window's rendered height so the segmented control
+              // and the page below don't jump while this settles.
+              <div
+                className="flex flex-col gap-3"
+                style={{ minHeight: lastWhatsOnHeight }}
+                role="status"
+                aria-live="polite"
+              >
                 <span className="sr-only">Loading what&rsquo;s on…</span>
-                {[0, 1].map((i) => (
+                {[0, 1, 2, 3].map((i) => (
                   <div key={i} className="h-24 animate-pulse rounded-lg bg-surface-container motion-reduce:animate-none" />
                 ))}
               </div>
             ) : (
-              <div
-                key={whatsOnRenderKey}
-                className={`feed-fade-in flex flex-col gap-3 transition-opacity duration-200 ${
-                  feedLoading ? "pointer-events-none opacity-40" : "opacity-100"
-                }`}
-              >
+              // Cached or freshly-loaded data — rendered as soon as it's
+              // available, which for a cache hit is the very same tick the
+              // segmented control changes (no dim needed). `key={feedWindow}`
+              // only remounts (and replays `feed-fade-in`) on an actual
+              // window switch, not on a same-window background revalidation.
+              <div key={feedWindow} ref={whatsOnContentRef} className="feed-fade-in flex flex-col gap-3">
                 {whatsOnCards.length === 0 ? (
                   <div className="flex flex-col items-center gap-2 px-1 text-center">
                     <FomoSpot mood="meh" pose="shrug" className="h-16 w-16" />

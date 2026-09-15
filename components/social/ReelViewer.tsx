@@ -4,7 +4,7 @@ import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } f
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { recordCardSignal } from "@/lib/db/signals";
-import { isSaved, saveItem, unsaveItem } from "@/lib/db/saved";
+import { ensureSaved, useSaved } from "@/lib/useSaved";
 import { buildAskFomoHref } from "@/lib/chat-seed";
 import { buildSearchMapUrl } from "@/lib/maps/links";
 import { supabaseBrowserAuth } from "@/lib/supabase/client";
@@ -90,6 +90,13 @@ export type ReelViewerProps = {
   places: Place[];
   /** Active trip id, for card_signals/saved_items rows — null when there's
    * no active trip (the "every reel, no destination filter" fallback). */
+  /**
+   * Fired whenever the displayed reel changes (swipe, button, or "Start
+   * over") so the caller (reels/page.tsx) can persist resume position. Not
+   * fired once the stack is exhausted (index >= reels.length) — there's no
+   * reel to remember at that point.
+   */
+  onIndexChange?: (reel: SocialPost, index: number) => void;
 };
 
 /**
@@ -102,9 +109,10 @@ export type ReelViewerProps = {
  * place's own /place/[id] page (v1.1 W3: content always opens a page, never
  * a sheet), or to a maps search when no place resolved for this reel.
  */
-export function ReelViewer({ reels, startIndex, places }: ReelViewerProps) {
+export function ReelViewer({ reels, startIndex, places, onIndexChange }: ReelViewerProps) {
   const router = useRouter();
   const db = supabaseBrowserAuth();
+  const { isSaved: isSubjectSaved } = useSaved();
   const [index, setIndex] = useState(Math.max(startIndex, 0));
   const [likedIds, setLikedIds] = useState<Set<string>>(() => new Set(loadLikedIds()));
   const [phase, setPhase] = useState<"idle" | "dragging" | "exiting">("idle");
@@ -115,6 +123,33 @@ export function ReelViewer({ reels, startIndex, places }: ReelViewerProps) {
   const [barDragY, setBarDragY] = useState(0);
   const barPointerId = useRef<number | null>(null);
   const barStartY = useRef(0);
+
+  // Brief "Saved to your list" pill shown over the viewer on a like-save.
+  const [showSavedToast, setShowSavedToast] = useState(false);
+  const savedToastTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  function flashSavedToast() {
+    setShowSavedToast(true);
+    if (savedToastTimeout.current) clearTimeout(savedToastTimeout.current);
+    savedToastTimeout.current = setTimeout(() => setShowSavedToast(false), 1500);
+  }
+
+  useEffect(() => {
+    return () => {
+      if (savedToastTimeout.current) clearTimeout(savedToastTimeout.current);
+    };
+  }, []);
+
+  // Persist resume position (task 13) whenever the displayed reel changes —
+  // covers swipes, the Like/Skip buttons, and "Start over"'s setIndex(0)
+  // below alike, since they all funnel through this same `index` state.
+  // Deliberately omits `onIndexChange`/`reels` identity churn from causing
+  // extra fires beyond what `index` itself changing already triggers.
+  useEffect(() => {
+    const reel = reels[index];
+    if (reel) onIndexChange?.(reel, index);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [index, reels]);
 
   function commitSwipe(action: "like" | "skip") {
     if (phase === "exiting") return;
@@ -135,12 +170,20 @@ export function ReelViewer({ reels, startIndex, places }: ReelViewerProps) {
       // errors), so an unauthenticated visitor's write just no-ops loudly
       // in the console rather than needing a guard here.
       const likedPlace = resolvePlaceForReel(current, places);
+      const subjectType: CardSubjectType = likedPlace ? "place" : "reel";
+      const subjectId = likedPlace ? likedPlace.id : current.id;
       void recordCardSignal(db, {
-          card_type: REEL_LIKE_CARD_TYPE,
-        subject_type: likedPlace ? "place" : "reel",
-        subject_id: likedPlace ? likedPlace.id : current.id,
+        card_type: REEL_LIKE_CARD_TYPE,
+        subject_type: subjectType,
+        subject_id: subjectId,
         action: "saved",
       });
+      // A like always saves, never un-saves — ensureSaved no-ops if it's
+      // already saved (bug 12: swipe/heart previously only wrote a
+      // card_signals row and localStorage, never saved_items, so nothing
+      // showed up under Saved).
+      void ensureSaved(subjectType, subjectId);
+      flashSavedToast();
     }
     setPhase("exiting");
     setDragX(action === "like" ? EXIT_DISTANCE : -EXIT_DISTANCE);
@@ -257,9 +300,21 @@ export function ReelViewer({ reels, startIndex, places }: ReelViewerProps) {
         <FomoSpot mood="grin" pose="cheer" className="h-20 w-20" />
         <p className="text-body-md">You&rsquo;re all caught up.</p>
         <p className="text-label-sm">{likedIds.size} liked this session</p>
-        <Link href="/" className="text-label-md font-medium text-secondary">
-          Back to Home
-        </Link>
+        <div className="flex items-center gap-4">
+          {/* Resets resume position for this scope back to the top (task 13)
+              — setIndex(0) alone is enough: the onIndexChange effect above
+              fires right after and overwrites the stored entry with reel 0. */}
+          <button
+            type="button"
+            onClick={() => setIndex(0)}
+            className="text-label-md font-medium text-secondary"
+          >
+            Start over
+          </button>
+          <Link href="/" className="text-label-md font-medium text-secondary">
+            Back to Home
+          </Link>
+        </div>
       </div>
     );
   }
@@ -272,6 +327,12 @@ export function ReelViewer({ reels, startIndex, places }: ReelViewerProps) {
   const skipOpacity = Math.min(Math.max(-dragX / SWIPE_THRESHOLD, 0), 1);
 
   const place = resolvePlaceForReel(current, places);
+  // Same place-or-reel subject choice commitSwipe uses — lets the heart
+  // button (and ReelActionRow's Save button below) reflect real saved
+  // state for the current reel, not just "liked this session".
+  const currentSubjectType: CardSubjectType = place ? "place" : "reel";
+  const currentSubjectId = place ? place.id : current.id;
+  const currentSaved = isSubjectSaved(currentSubjectType, currentSubjectId);
   const placeName = place?.name ?? current.location ?? current.author_handle ?? "This spot";
   const subtitleParts = place
     ? [place.category, place.rating != null ? `★${place.rating}` : null].filter(
@@ -441,13 +502,23 @@ export function ReelViewer({ reels, startIndex, places }: ReelViewerProps) {
         </button>
         <button
           type="button"
-          aria-label="Like"
+          aria-label={currentSaved ? "Liked and saved" : "Like"}
           onClick={() => commitSwipe("like")}
           className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-secondary-container text-on-secondary-container shadow-md transition-transform active:scale-90"
         >
-          <Icon name="favorite" filled size={26} />
+          <Icon name="favorite" filled={currentSaved} size={26} />
         </button>
       </div>
+
+      {/* Non-blocking confirmation on like-save (task 12) — fades on its own
+          via flashSavedToast's timeout, no dismiss control needed. */}
+      {showSavedToast ? (
+        <div className="pointer-events-none absolute inset-x-0 top-6 z-30 flex justify-center">
+          <span className="rounded-full bg-black/75 px-4 py-2 text-label-md font-semibold text-white shadow-lg">
+            Saved to your list
+          </span>
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -472,30 +543,23 @@ type ReelActionRowProps = {
  * can act on, so both are hidden — only Save is offered, falling back to
  * `subject_type: "reel"` (a valid CardSubjectType) so even a placeless like
  * still has somewhere to go.
+ *
+ * Save state comes from the app-wide lib/useSaved.ts store (same one
+ * FomoCard uses), not a local fetch — this is what keeps the heart-swipe,
+ * this row's bookmark, and the rest of the app (e.g. Profile's Saved tab)
+ * showing the same state for the same subject instead of three disconnected
+ * copies of it (bug 12).
  */
 function ReelActionRow({ reel, place }: ReelActionRowProps) {
   const pathname = usePathname();
-  const [saved, setSaved] = useState(false);
-  const [busy, setBusy] = useState(false);
+  const { isSaved: isSubjectSaved, toggle } = useSaved();
   const db = supabaseBrowserAuth();
 
   const subjectType: CardSubjectType = place ? "place" : "reel";
   const subjectId = place ? place.id : reel.id;
   const subjectName = place?.name ?? reel.location ?? reel.author_handle ?? "This spot";
   const coords = place && place.lat != null && place.lng != null ? { lat: place.lat, lng: place.lng } : null;
-
-  // Seed the Save toggle's current state for this reel/place.
-  useEffect(() => {
-    let cancelled = false;
-    isSaved(db, subjectType, subjectId)
-      .then((v) => {
-        if (!cancelled) setSaved(v);
-      })
-      .catch((err) => console.error("[reels] saved lookup failed", err));
-    return () => {
-      cancelled = true;
-    };
-  }, [db, subjectType, subjectId]);
+  const saved = isSubjectSaved(subjectType, subjectId);
 
   function signal(action: "opened" | "saved") {
     void recordCardSignal(db, {
@@ -507,26 +571,9 @@ function ReelActionRow({ reel, place }: ReelActionRowProps) {
   }
 
   async function handleToggleSave() {
-    if (busy) return;
-    setBusy(true);
-    try {
-      if (saved) {
-        await unsaveItem(db, subjectType, subjectId);
-        setSaved(false);
-      } else {
-        await saveItem(db, {
-              subject_type: subjectType,
-          subject_id: subjectId,
-          note: null,
-        });
-        setSaved(true);
-        signal("saved");
-      }
-    } catch (err) {
-      console.error("[reels] save toggle failed", err);
-    } finally {
-      setBusy(false);
-    }
+    const wasSaved = saved;
+    await toggle(subjectType, subjectId);
+    if (!wasSaved) signal("saved");
   }
 
   // handleAddToday lived here. Fomo has no itinerary; the reel action row's
@@ -553,8 +600,7 @@ function ReelActionRow({ reel, place }: ReelActionRowProps) {
         type="button"
         aria-label={saved ? "Remove from saved" : "Save"}
         onClick={() => void handleToggleSave()}
-        disabled={busy}
-        className="ml-auto flex shrink-0 items-center justify-center rounded-full border border-outline-variant/60 p-1.5 text-primary transition-colors hover:bg-surface-container disabled:opacity-60"
+        className="ml-auto flex shrink-0 items-center justify-center rounded-full border border-outline-variant/60 p-1.5 text-primary transition-colors hover:bg-surface-container"
       >
         <Icon name={saved ? "bookmark" : "bookmark_add"} filled={saved} size={16} />
       </button>

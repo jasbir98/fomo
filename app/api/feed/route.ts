@@ -79,7 +79,9 @@ import {
   endOfLocalDay,
   nextOccurrence,
   normalizeRecurrence,
+  happeningHasEnded,
 } from "@/lib/happenings/occurrence";
+import { eventHasEnded } from "@/lib/events/format";
 import {
   bucketForDayDate,
   formatPlaceCategoryLabel,
@@ -208,6 +210,24 @@ function occurrenceWindowRange(
  */
 function isDated(h: Pick<Happening, "recurrence">): boolean {
   return normalizeRecurrence(h.recurrence).type !== "always";
+}
+
+/**
+ * Final in-memory "has this already ended" guard for a What's on card —
+ * belt-and-braces, run right before every section is serialised (see the
+ * GET handler below). Every card here already exists only because
+ * `nextOccurrence`/`nextOccurrences` found a live occurrence for it, so this
+ * is redundant in the ordinary case; it exists to catch a bug in a future
+ * change to this route (a merge/dedupe step, a new code path) rather than
+ * because today's construction is known to leak. A series card is checked
+ * via its `lead` — an approximation (another member could theoretically
+ * still be running after the lead itself ended), acceptable for a guard
+ * whose job is catching gross bugs, not re-deciding series membership.
+ */
+function cardHasEnded(card: FeedCardData, now: Date, timeZone: string): boolean {
+  if (card.kind === "event") return eventHasEnded(card.event, now);
+  const happening = card.kind === "series" ? card.lead : card.happening;
+  return happeningHasEnded(happening, now, timeZone);
 }
 
 /**
@@ -400,9 +420,16 @@ async function buildFreeAnyTime(
   happenings: Happening[],
   seriesByMemberId: Map<string, HappeningSeriesGroup>,
   seriesLeads: Map<string, Happening>,
-  placesById: Map<string, Place>
+  placesById: Map<string, Place>,
+  now: Date,
+  timeZone: string
 ): Promise<FreeAnyTimeItem[]> {
-  const alwaysFree = happenings.filter((h) => !isDated(h) && h.is_free);
+  // `!isDated` (recurrence "always") rows don't "end" on a normal calendar
+  // day, but a row's own validity bound (`ends_at`) can still have passed —
+  // final guard, belt-and-braces (query-layer already drops a past
+  // `season_valid_until` row — see lib/db/happenings.ts's `isPastSeason` —
+  // this catches the `ends_at`-bounded case the same way).
+  const alwaysFree = happenings.filter((h) => !isDated(h) && h.is_free && !happeningHasEnded(h, now, timeZone));
 
   const happeningItems: FreeAnyTimeItem[] = [];
   const seenSeries = new Set<string>();
@@ -807,8 +834,17 @@ export async function GET(request: Request) {
 
       const allCards: FeedCardData[] = [...mergedHappeningCards, ...eventCards];
 
-      const dayDateOf = (c: FeedCardData): string =>
-        c.kind === "event" ? localDayDate(new Date(c.event.starts_at), timeZone) : c.occurrence.dayDate;
+      const todayStr = localDayDate(now, timeZone);
+      // Floored to `today` when the raw day is already behind it — an
+      // in-progress span (a months-long exhibition whose `starts_at` was
+      // back in June, still running now) must sort/bucket as "available
+      // today", not by the original start day that's since scrolled off the
+      // calendar. Only ever moves a card FORWARD to today, never further
+      // back or into the future — a genuinely future day is returned as-is.
+      const dayDateOf = (c: FeedCardData): string => {
+        const raw = c.kind === "event" ? localDayDate(new Date(c.event.starts_at), timeZone) : c.occurrence.dayDate;
+        return raw < todayStr ? todayStr : raw;
+      };
       const startAtOf = (c: FeedCardData): string =>
         c.kind === "event" ? c.event.starts_at : c.occurrence.startsAt ?? "";
 
@@ -824,6 +860,7 @@ export async function GET(request: Request) {
       // itself already excludes days outside it via `occurrenceWindowRange`).
       const bucketKey: FeedBucketKey = window === "now" ? "today_tomorrow" : "coming_up";
       const cards = allCards
+        .filter((card) => !cardHasEnded(card, now, timeZone)) // final "no ended items ever leave an API" guard
         .filter((card) => {
           const key = bucketForDayDate(dayDateOf(card), now, timeZone);
           return window === "now" ? key === "today_tomorrow" : key !== "today_tomorrow";
@@ -851,7 +888,7 @@ export async function GET(request: Request) {
     // the original behaviour unchanged, since /book-early, /deals and /free
     // all read this same route with `window=now` and depend on the full,
     // hero-excluded list.
-    const bookEarlyAll = buildBookEarly(
+    const bookEarlyAllRaw = buildBookEarly(
       happenings,
       bookEarlyEvents,
       window === "book_early" ? null : heroHappeningId,
@@ -859,8 +896,18 @@ export async function GET(request: Request) {
       timeZone,
       seriesByMemberId
     );
+    // Final "no ended items ever leave an API" guard — every candidate here
+    // already passed `nextOccurrence`/an explicit future-events filter
+    // inside `buildBookEarly`, so this is belt-and-braces, same reasoning as
+    // `cardHasEnded` above.
+    const bookEarlyAll = bookEarlyAllRaw.filter((c) =>
+      c.kind === "happening" ? !happeningHasEnded(c.happening, now, timeZone) : !eventHasEnded(c.event, now)
+    );
 
-    let responseHero: FeedHeroCard | null = hero;
+    let responseHero: FeedHeroCard | null =
+      hero && !(hero.kind === "happening" ? happeningHasEnded(hero.happening, now, timeZone) : eventHasEnded(hero.event, now))
+        ? hero
+        : null;
     let bookEarly = bookEarlyAll;
     let heroKind: FeedResponse["heroKind"];
     if (window === "book_early") {
@@ -883,10 +930,12 @@ export async function GET(request: Request) {
       }
     }
 
-    const dealCards = buildDealCards(happenings, now, timeZone);
+    const dealCards = buildDealCards(happenings, now, timeZone).filter(
+      (c) => !happeningHasEnded(c.happening, now, timeZone) // final guard
+    );
     const deals = await buildDealsSection(db, dealCards);
 
-    const freeAnyTime = await buildFreeAnyTime(db, happenings, seriesByMemberId, seriesLeads, placesById);
+    const freeAnyTime = await buildFreeAnyTime(db, happenings, seriesByMemberId, seriesLeads, placesById, now, timeZone);
 
     return cachedJson<FeedResponse>(
       { hero: responseHero, heroKind, whatsOn, bookEarly, deals, freeAnyTime },
