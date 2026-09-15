@@ -30,6 +30,7 @@ import { localDayDate, daysUntilLastChance } from "@/lib/happenings/occurrence";
 import { bucketForDayDate, isStale, moneyLabel, savingBadgeLabel } from "@/lib/happenings/format";
 import { isGenuineDeal } from "@/lib/happenings/groups";
 import { priceSignalForEvent } from "@/lib/now/price";
+import { eventDayLabel } from "@/lib/events/format";
 import type { Happening, HappeningEligibility, Occurrence } from "@/lib/happenings/types";
 import type { EventItem } from "@/lib/types";
 
@@ -201,10 +202,11 @@ export function eventRecommendationScore(
   // --- Actionability ---------------------------------------------------
   const dayDate = localDayDate(new Date(e.starts_at), timeZone);
   const bucket = bucketForDayDate(dayDate, now, timeZone);
-  const today = localDayDate(now, timeZone);
   if (bucket === "today_tomorrow") {
     score += 12;
-    factors.push({ label: dayDate === today ? "tonight" : "tomorrow", weight: 14 });
+    // "today"/"tonight" (5pm cutoff) rather than always "tonight" — a 12:30
+    // lunch event isn't "tonight" just because it's today.
+    factors.push({ label: (eventDayLabel(e.starts_at, now, timeZone) ?? "today").toLowerCase(), weight: 14 });
   } else if (bucket === "this_weekend") {
     factors.push({ label: "this weekend", weight: 8 });
   }

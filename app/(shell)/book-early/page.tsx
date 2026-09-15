@@ -12,7 +12,7 @@ import {
 } from "@/lib/happenings/book-early-filters";
 import { CATEGORY_ORDER } from "@/lib/happenings/category-style";
 import type { HappeningCategory } from "@/lib/happenings/types";
-import { Icon, PageHeader, StickyFilterBar } from "@/components/ui";
+import { ErrorState, Icon, PageHeader, StickyFilterBar } from "@/components/ui";
 import { BookEarlyCard, BookEarlyFilters } from "@/components/happenings";
 
 function bookEarlyCardKey(card: BookEarlyCardData): string {
@@ -31,16 +31,16 @@ const ASK_FOMO_HREF = `/fomo?q=${encodeURIComponent("What's worth booking early 
  *  app/api/feed/route.ts's `buildBookEarly`. Same principle as
  *  app/(shell)/deals/page.tsx's `fetchDeals`. `window` doesn't affect
  *  `bookEarly` (it's independent of the request's window — see that route's
- *  own doc comment), so it's fixed here. */
-async function fetchBookEarly(): Promise<BookEarlyCardData[] | null> {
-  try {
-    const res = await fetch("/api/feed?window=now");
-    const json = (await res.json()) as FeedResponse;
-    return json.bookEarly;
-  } catch (err) {
-    console.error("[book-early] /api/feed fetch failed", err);
-    return null;
-  }
+ *  own doc comment), so it's fixed here.
+ *
+ *  Throws (rather than swallowing to `null`) on a network error or non-2xx
+ *  status — same "let the caller tell failure from empty" contract as
+ *  fetchDeals. */
+async function fetchBookEarly(): Promise<BookEarlyCardData[]> {
+  const res = await fetch("/api/feed?window=now");
+  if (!res.ok) throw new Error(`GET /api/feed ${res.status}`);
+  const json = (await res.json()) as FeedResponse;
+  return json.bookEarly;
 }
 
 /**
@@ -54,6 +54,8 @@ async function fetchBookEarly(): Promise<BookEarlyCardData[] | null> {
  */
 export default function BookEarlyPage() {
   const [cards, setCards] = useState<BookEarlyCardData[] | null>(null);
+  const [error, setError] = useState(false);
+  const [reloadTick, setReloadTick] = useState(0);
   const [alertHappeningIds, setAlertHappeningIds] = useState<Set<string>>(new Set());
   const [timing, setTiming] = useState<BookEarlyTiming | null>(null);
   const [category, setCategory] = useState<HappeningCategory | null>(null);
@@ -62,13 +64,21 @@ export default function BookEarlyPage() {
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const json = await fetchBookEarly();
-      if (!cancelled) setCards(json);
+      try {
+        const json = await fetchBookEarly();
+        if (!cancelled) {
+          setCards(json);
+          setError(false);
+        }
+      } catch (err) {
+        console.error("[book-early] /api/feed fetch failed", err);
+        if (!cancelled) setError(true);
+      }
     })();
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [reloadTick]);
 
   // Same "Notify me" membership fetch as Home (app/(shell)/page.tsx) — a
   // BookEarlyCard needs to know up front whether the caller already has an
@@ -144,8 +154,11 @@ export default function BookEarlyPage() {
           </div>
         </StickyFilterBar>
 
-        {cards === null ? (
-          <div className="flex flex-col gap-3 pt-2">
+        {error ? (
+          <ErrorState title="Couldn't load Book Early" onRetry={() => setReloadTick((t) => t + 1)} />
+        ) : cards === null ? (
+          <div className="flex flex-col gap-3 pt-2" role="status" aria-live="polite">
+            <span className="sr-only">Loading Book Early…</span>
             {[0, 1, 2].map((i) => (
               <div key={i} className="h-24 animate-pulse rounded-lg bg-surface-container" />
             ))}

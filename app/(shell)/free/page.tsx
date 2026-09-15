@@ -4,23 +4,23 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import type { FeedResponse, FreeAnyTimeItem } from "@/lib/happenings/feed-types";
 import { distinctTypeBuckets, distinctDistricts, matchesFreeAnyTimeFilters } from "@/lib/happenings/free-any-time-filters";
-import { Icon, PageHeader, StickyFilterBar } from "@/components/ui";
+import { ErrorState, Icon, PageHeader, StickyFilterBar } from "@/components/ui";
 import { FreeAnyTimeFilters, FreeAnyTimeRow } from "@/components/happenings";
 
 /** GET /api/feed's `freeAnyTime` is already the FULL list (Home only ever
  *  slices its first few) — reused here rather than a parallel /api/free
  *  route that would duplicate app/api/feed/route.ts's `buildFreeAnyTime`.
  *  Same principle as app/(shell)/deals/page.tsx's `fetchDeals` and
- *  app/(shell)/book-early/page.tsx's `fetchBookEarly`. */
-async function fetchFreeAnyTime(): Promise<FreeAnyTimeItem[] | null> {
-  try {
-    const res = await fetch("/api/feed?window=now");
-    const json = (await res.json()) as FeedResponse;
-    return json.freeAnyTime;
-  } catch (err) {
-    console.error("[free] /api/feed fetch failed", err);
-    return null;
-  }
+ *  app/(shell)/book-early/page.tsx's `fetchBookEarly`.
+ *
+ *  Throws (rather than swallowing to `null`) on a network error or non-2xx
+ *  status — same "let the caller tell failure from empty" contract as those
+ *  two. */
+async function fetchFreeAnyTime(): Promise<FreeAnyTimeItem[]> {
+  const res = await fetch("/api/feed?window=now");
+  if (!res.ok) throw new Error(`GET /api/feed ${res.status}`);
+  const json = (await res.json()) as FeedResponse;
+  return json.freeAnyTime;
 }
 
 /** Ask Fomo deep-link — plain `?q=` prefill (see app/(shell)/fomo/page.tsx's
@@ -39,19 +39,29 @@ const ASK_FOMO_HREF = `/fomo?q=${encodeURIComponent("What free things can I do i
  */
 export default function FreeAnyTimePage() {
   const [items, setItems] = useState<FreeAnyTimeItem[] | null>(null);
+  const [error, setError] = useState(false);
+  const [reloadTick, setReloadTick] = useState(0);
   const [typeBucket, setTypeBucket] = useState<string | null>(null);
   const [district, setDistrict] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const json = await fetchFreeAnyTime();
-      if (!cancelled) setItems(json);
+      try {
+        const json = await fetchFreeAnyTime();
+        if (!cancelled) {
+          setItems(json);
+          setError(false);
+        }
+      } catch (err) {
+        console.error("[free] /api/feed fetch failed", err);
+        if (!cancelled) setError(true);
+      }
     })();
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [reloadTick]);
 
   const typeOptions = useMemo(() => (items ? distinctTypeBuckets(items) : []), [items]);
   const districtOptions = useMemo(() => (items ? distinctDistricts(items) : []), [items]);
@@ -89,8 +99,11 @@ export default function FreeAnyTimePage() {
           </div>
         </StickyFilterBar>
 
-        {items === null ? (
-          <div className="flex flex-col gap-3 pt-2">
+        {error ? (
+          <ErrorState title="Couldn't load Free Any Time" onRetry={() => setReloadTick((t) => t + 1)} />
+        ) : items === null ? (
+          <div className="flex flex-col gap-3 pt-2" role="status" aria-live="polite">
+            <span className="sr-only">Loading Free Any Time…</span>
             {[0, 1, 2, 3].map((i) => (
               <div key={i} className="h-16 animate-pulse rounded-lg bg-surface-container" />
             ))}

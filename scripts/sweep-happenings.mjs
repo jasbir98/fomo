@@ -124,6 +124,22 @@ async function findExpiredOnceRows() {
   );
 }
 
+// Season-bound rows (festival concessions etc.) are usually "always" rows
+// with no ends_at, so the one-off rule above never sees them. Returns null
+// when supabase/add_season_valid_until.sql hasn't been run yet, so the sweep
+// keeps working without the column.
+async function findPastSeasonRows() {
+  const today = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/London" }).format(new Date());
+  try {
+    return await fetchAllPages(
+      `happenings?status=eq.live&season_valid_until=lt.${today}&select=id,slug,title,season_valid_until,status`
+    );
+  } catch (err) {
+    if (/season_valid_until/.test(err.message)) return null;
+    throw err;
+  }
+}
+
 async function flipToDormant(rows) {
   let ok = 0;
   let failed = 0;
@@ -146,6 +162,16 @@ async function flipToDormant(rows) {
 
 async function runRetireJob() {
   const expired = await findExpiredOnceRows();
+  const pastSeason = await findPastSeasonRows();
+  if (pastSeason === null) {
+    console.log("[sweep-happenings] season_valid_until column missing — skipping season check.");
+  } else {
+    const seen = new Set(expired.map((row) => row.id));
+    for (const row of pastSeason) {
+      if (seen.has(row.id)) continue;
+      expired.push({ ...row, ends_at: `season ${row.season_valid_until}` });
+    }
+  }
 
   if (expired.length === 0) {
     console.log("[sweep-happenings] no expired one-off happenings to retire.");

@@ -6,6 +6,9 @@ import { useSelectedCity } from "@/lib/useSelectedCity";
 import type { EventItem } from "@/lib/types";
 import { distanceKm, sortByDistance, useGeolocation, type Coordinates } from "@/lib/geo";
 import { useInfiniteList } from "@/lib/useInfiniteList";
+import { CITY } from "@/lib/city";
+import { endOfLocalDay, localDayDate, startOfLocalDay } from "@/lib/happenings/occurrence";
+import { weekendDates } from "@/lib/happenings/format";
 import { Chip, Icon, PageHeader, SegmentedControl } from "@/components/ui";
 import { EventCard } from "@/components/events";
 
@@ -40,26 +43,30 @@ const CATEGORY_FILTERS: { label: string; icon: string; slug: string }[] = [
   { label: "Family", icon: "family_restroom", slug: "family" },
 ];
 
-function startOfDay(d: Date): Date {
-  return new Date(d.getFullYear(), d.getMonth(), d.getDate(), 0, 0, 0, 0);
-}
-
-function endOfDay(d: Date): Date {
-  return new Date(d.getFullYear(), d.getMonth(), d.getDate(), 23, 59, 59, 999);
-}
-
-/** Computes the `from`/`to` ISO window for a DateWindow, anchored to "now". */
+/**
+ * Computes the `from`/`to` ISO window for a DateWindow, anchored to "now" —
+ * entirely in CITY.timezone (Europe/London), never the device's own zone.
+ * The old version used `Date#getFullYear()`/`getMonth()`/`getDate()`, which
+ * read the DEVICE's calendar day — a visitor whose phone is set to a
+ * different timezone (or just past midnight UTC while it's still evening in
+ * Edinburgh) got a "Tonight"/"This weekend" window shifted by a day from
+ * what the curated happenings feed (lib/happenings/occurrence.ts) shows for
+ * the exact same moment. `weekendDates` (lib/happenings/format.ts) is the
+ * same "current-or-next weekend" day-math this page always meant to share.
+ */
 function windowRange(window: DateWindow, now: Date): { from: string; to: string } {
+  const timeZone = CITY.timezone;
+  const today = localDayDate(now, timeZone);
+
   if (window === "tonight") {
-    return { from: now.toISOString(), to: endOfDay(now).toISOString() };
+    return { from: now.toISOString(), to: endOfLocalDay(today, timeZone).toISOString() };
   }
   if (window === "weekend") {
-    const day = now.getDay(); // 0 = Sun, 6 = Sat
-    const daysUntilSat = day === 6 ? 0 : day === 0 ? -1 : 6 - day;
-    const saturday = new Date(now.getFullYear(), now.getMonth(), now.getDate() + daysUntilSat);
-    const sunday = new Date(saturday.getFullYear(), saturday.getMonth(), saturday.getDate() + 1);
-    const from = daysUntilSat < 0 ? now : startOfDay(saturday);
-    return { from: from.toISOString(), to: endOfDay(sunday).toISOString() };
+    const { saturday, sunday } = weekendDates(now, timeZone);
+    // Weekend has already started (today IS Sat/Sun) — open the window now
+    // rather than back at Saturday midnight, never asking for events already past.
+    const from = saturday < today ? now : startOfLocalDay(saturday, timeZone);
+    return { from: from.toISOString(), to: endOfLocalDay(sunday, timeZone).toISOString() };
   }
   // "week" — next 7 days from now.
   const weekOut = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);

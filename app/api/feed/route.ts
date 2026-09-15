@@ -303,9 +303,14 @@ function pickHero(happenings: Happening[], events: EventItem[], now: Date, timeZ
     const occurrence = nextOccurrence(h, now, happeningTo, timeZone);
     if (!occurrence) continue;
     const { score, reason } = happeningRecommendationScore(h, occurrence, now, timeZone);
+    // London midnight, not UTC midnight — a dateless occurrence's tie-break
+    // instant must sort against real `starts_at` instants (both happenings'
+    // and events') the same way `bucketForDayDate`/`localDayDate` already
+    // treat that calendar day, or a summer-BST evening event could sort as
+    // "later" than a dateless occurrence that's actually earlier in the day.
     const startMs = occurrence.startsAt
       ? new Date(occurrence.startsAt).getTime()
-      : new Date(`${occurrence.dayDate}T00:00:00Z`).getTime();
+      : startOfLocalDay(occurrence.dayDate, timeZone).getTime();
     candidates.push({ card: { kind: "happening", happening: h, occurrence, reason }, score, startMs });
   }
 
@@ -888,6 +893,15 @@ export async function GET(request: Request) {
     );
   } catch (err) {
     console.error("[api/feed] failed", err);
+    // A non-2xx status (rather than a 200 with empty sections) is the signal
+    // every client page now checks (`res.ok`) to tell "the feed request
+    // actually failed" apart from "the feed is genuinely empty" — a 200 here
+    // used to render as "Nothing lined up... try another tab" on every page
+    // reading this route, which reads as no content rather than a failure.
+    // Unauthorized still gets its own distinct status (401) rather than the
+    // generic 500 below, since that's a real "sign in again" case, not a
+    // transient failure a Retry button should paper over.
+    const unauthorized = isUnauthorizedError(err);
     return cachedJson<FeedResponse>(
       {
         hero: null,
@@ -895,9 +909,10 @@ export async function GET(request: Request) {
         bookEarly: [],
         deals: { venueGroups: [], singles: [] },
         freeAnyTime: [],
-        degraded: isUnauthorizedError(err) ? "unauthorized" : undefined,
+        degraded: unauthorized ? "unauthorized" : undefined,
       },
-      CACHE_PRIVATE_NO_STORE
+      CACHE_PRIVATE_NO_STORE,
+      { status: unauthorized ? 401 : 500 }
     );
   }
 }

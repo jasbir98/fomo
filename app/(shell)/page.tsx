@@ -12,7 +12,7 @@ import type { FeedCardData, FeedResponse, FeedWindow } from "@/lib/happenings/fe
 import { NOTIFY_ME_ENABLED } from "@/lib/happenings/book-early";
 import type { WeatherCondition } from "@/lib/weather";
 import { WEATHER_THEME } from "@/lib/weatherUi";
-import { CityPicker, Icon, SegmentedControl } from "@/components/ui";
+import { CityPicker, ErrorState, Icon, SegmentedControl } from "@/components/ui";
 import { FomoCard } from "@/components/fomo/Card";
 import { FeedHero, FeedListCard, FreeAnyTimeList, BookEarlyCard } from "@/components/happenings";
 
@@ -56,23 +56,24 @@ const WHATS_ON_WINDOW_LABEL: Record<FeedWindow, string> = {
   book_early: "Book early",
 };
 
+// Throws on abort (caller distinguishes that from a real failure) or a
+// non-2xx status — unlike the old version, which swallowed every failure to
+// `null`, indistinguishable from "genuinely nothing to show". See the
+// [coords] effect below and `refreshNow` for how callers turn a thrown error
+// into `nowError` state instead of leaving the permanent "Finding something
+// worth your while…" fallback on screen.
 async function fetchNowResponse(
   coords: { lat: number; lng: number } | null,
   signal?: AbortSignal
-): Promise<NowResponse | null> {
-  try {
-    const params = new URLSearchParams();
-    if (coords) {
-      params.set("lat", String(coords.lat));
-      params.set("lng", String(coords.lng));
-    }
-    const res = await fetch(`/api/now?${params.toString()}`, { signal });
-    return (await res.json()) as NowResponse;
-  } catch (err) {
-    if (err instanceof DOMException && err.name === "AbortError") return null;
-    console.error("[home] /api/now fetch failed", err);
-    return null;
+): Promise<NowResponse> {
+  const params = new URLSearchParams();
+  if (coords) {
+    params.set("lat", String(coords.lat));
+    params.set("lng", String(coords.lng));
   }
+  const res = await fetch(`/api/now?${params.toString()}`, { signal });
+  if (!res.ok) throw new Error(`GET /api/now ${res.status}`);
+  return (await res.json()) as NowResponse;
 }
 
 /** `window` drives What's on (and, for `book_early`, swaps it out entirely
@@ -81,16 +82,18 @@ async function fetchNowResponse(
  *  `price` params (defaulting to "all" for both), but Home no longer has UI
  *  for either — see the removed Range/Price filter chips — so they're never
  *  sent. */
-async function fetchFeed(window: FeedWindow, signal?: AbortSignal): Promise<FeedResponse | null> {
-  try {
-    const params = new URLSearchParams({ window });
-    const res = await fetch(`/api/feed?${params.toString()}`, { signal });
-    return (await res.json()) as FeedResponse;
-  } catch (err) {
-    if (err instanceof DOMException && err.name === "AbortError") return null;
-    console.error("[home] /api/feed fetch failed", err);
-    return null;
-  }
+// Same "throw, don't swallow" contract as fetchNowResponse above — a
+// non-2xx status (GET /api/feed's catch block now returns 401/500, not a
+// silent 200 with empty sections) becomes a thrown error here so the
+// window-fetch effect below can set `feedError` instead of leaving What's
+// on/Book early stuck on their loading skeleton, or — worse — rendering
+// their genuinely-empty copy ("Nothing lined up... try another tab") for
+// what's actually a failed request.
+async function fetchFeed(window: FeedWindow, signal?: AbortSignal): Promise<FeedResponse> {
+  const params = new URLSearchParams({ window });
+  const res = await fetch(`/api/feed?${params.toString()}`, { signal });
+  if (!res.ok) throw new Error(`GET /api/feed ${res.status}`);
+  return (await res.json()) as FeedResponse;
 }
 
 function bookEarlyCardKey(card: FeedResponse["bookEarly"][number]): string {
@@ -159,7 +162,18 @@ function SeeAllLink({ href, total }: { href: string; total: number }) {
 export default function HomePage() {
   const db = supabaseBrowserAuth();
   const [now, setNow] = useState<NowResponse | null>(null);
+  // True only after a real /api/now failure (network error or non-2xx) —
+  // distinct from "no now data yet" so the hero fallback can tell "still
+  // loading / genuinely nothing" apart from "the request failed" instead of
+  // showing the same "Finding something worth your while…" text forever.
+  const [nowError, setNowError] = useState(false);
   const [feed, setFeed] = useState<FeedResponse | null>(null);
+  // Same idea as `nowError`, for GET /api/feed — see the [feedWindow,
+  // feedReloadTick] effect below. `feedReloadTick` exists purely so the
+  // What's on / Book early ErrorState's Retry button can re-trigger that
+  // effect without duplicating its fetch logic.
+  const [feedError, setFeedError] = useState(false);
+  const [feedReloadTick, setFeedReloadTick] = useState(0);
   const [weather, setWeather] = useState<HomeWeather | null>(null);
   const [feedWindow, setWindow] = useState<FeedWindow>("now");
   // Window-switch feedback (task: "no animation or changes properly when I
@@ -193,8 +207,16 @@ export default function HomePage() {
   useEffect(() => {
     const controller = new AbortController();
     (async () => {
-      const json = await fetchNowResponse(coords, controller.signal);
-      if (!controller.signal.aborted && json) setNow(json);
+      try {
+        const json = await fetchNowResponse(coords, controller.signal);
+        if (controller.signal.aborted) return;
+        setNow(json);
+        setNowError(false);
+      } catch (err) {
+        if (controller.signal.aborted || (err instanceof DOMException && err.name === "AbortError")) return;
+        console.error("[home] /api/now fetch failed", err);
+        setNowError(true);
+      }
     })();
     return () => controller.abort();
   }, [coords]);
@@ -210,28 +232,36 @@ export default function HomePage() {
     prevFeedWindowRef.current = feedWindow;
     (async () => {
       setFeedLoading(true);
-      const json = await fetchFeed(feedWindow, controller.signal);
-      if (controller.signal.aborted) return;
-      setFeed(json);
-      setFeedLoading(false);
-      setWhatsOnRenderKey((k) => k + 1);
-      // Make the change unmissable when What's on isn't currently in view —
-      // only scrolls when its top is below the fold (never yanks the page
-      // for a section already on screen, and never scrolls upward).
-      if (isWindowSwitch) {
-        requestAnimationFrame(() => {
-          const el = whatsOnSectionRef.current;
-          if (!el || typeof window === "undefined") return;
-          const top = el.getBoundingClientRect().top;
-          if (top > window.innerHeight) {
-            const reduceMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
-            el.scrollIntoView({ behavior: reduceMotion ? "auto" : "smooth", block: "start" });
-          }
-        });
+      try {
+        const json = await fetchFeed(feedWindow, controller.signal);
+        if (controller.signal.aborted) return;
+        setFeed(json);
+        setFeedError(false);
+        setFeedLoading(false);
+        setWhatsOnRenderKey((k) => k + 1);
+        // Make the change unmissable when What's on isn't currently in view —
+        // only scrolls when its top is below the fold (never yanks the page
+        // for a section already on screen, and never scrolls upward).
+        if (isWindowSwitch) {
+          requestAnimationFrame(() => {
+            const el = whatsOnSectionRef.current;
+            if (!el || typeof window === "undefined") return;
+            const top = el.getBoundingClientRect().top;
+            if (top > window.innerHeight) {
+              const reduceMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+              el.scrollIntoView({ behavior: reduceMotion ? "auto" : "smooth", block: "start" });
+            }
+          });
+        }
+      } catch (err) {
+        if (controller.signal.aborted || (err instanceof DOMException && err.name === "AbortError")) return;
+        console.error("[home] /api/feed fetch failed", err);
+        setFeedError(true);
+        setFeedLoading(false);
       }
     })();
     return () => controller.abort();
-  }, [feedWindow]);
+  }, [feedWindow, feedReloadTick]);
 
   // Weather is keyed on the resolved city (not a mount-once read) so
   // picking a different city — or geolocation resolving after the picker
@@ -279,8 +309,22 @@ export default function HomePage() {
   }, []);
 
   async function refreshNow() {
-    const json = await fetchNowResponse(coords);
-    if (json) setNow(json);
+    try {
+      const json = await fetchNowResponse(coords);
+      setNow(json);
+      setNowError(false);
+    } catch (err) {
+      console.error("[home] /api/now refresh failed", err);
+      setNowError(true);
+    }
+  }
+
+  /** Retry action for both the What's on and Book early ErrorStates — both
+   *  read the same GET /api/feed response, so one retry re-runs the one
+   *  effect that fetches it. */
+  function retryFeed() {
+    setFeedError(false);
+    setFeedReloadTick((t) => t + 1);
   }
 
   function handlePrimary(kind: CardKind) {
@@ -421,8 +465,23 @@ export default function HomePage() {
           <FeedHero card={feed.hero} variant={heroKind} />
         ) : heroKind === "book_early" ? null : now?.hero ? (
           <FomoCard candidate={now.hero} variant="hero" onDismiss={() => void refreshNow()} onPrimary={handlePrimary} />
+        ) : nowError ? (
+          // A real /api/now failure — as opposed to "still loading" or "no
+          // pick to show" below, neither of which are errors — so this is
+          // the one case that gets a Retry instead of leaving "Finding
+          // something worth your while…" on screen forever.
+          <ErrorState
+            title="Couldn't load today's pick"
+            message="Check your connection and try again."
+            onRetry={() => void refreshNow()}
+            className="p-6"
+          />
         ) : (
-          <div className="flex flex-col items-center gap-2 rounded-lg border border-dashed border-hairline-strong p-6 text-center">
+          <div
+            className="flex flex-col items-center gap-2 rounded-lg border border-dashed border-hairline-strong p-6 text-center"
+            role={now === null ? "status" : undefined}
+            aria-live={now === null ? "polite" : undefined}
+          >
             <Icon name="explore" size={28} className="text-outline" />
             <p className="text-body-md text-on-surface-variant">
               {now?.degraded === "no-coverage"
@@ -442,7 +501,7 @@ export default function HomePage() {
             window switch scrolls it into view (see the fetch effect above). */}
         {feedWindow !== "book_early" ? (
           <div ref={whatsOnSectionRef} className="flex scroll-mt-20 flex-col gap-3">
-            {feed !== null ? (
+            {feed !== null && !feedError ? (
               <div className="flex items-center justify-between px-1">
                 <h2 className="text-headline-sm font-extrabold tracking-tight text-on-surface">
                   What&apos;s on
@@ -462,8 +521,15 @@ export default function HomePage() {
               </div>
             ) : null}
 
-            {feed === null ? (
-              <div className="flex flex-col gap-3">
+            {feedError ? (
+              // A real GET /api/feed failure — never rendered as the
+              // "Nothing lined up... try another tab" empty copy below,
+              // which is reserved for a genuinely empty (but successful)
+              // response.
+              <ErrorState title="Couldn't load what's on" onRetry={retryFeed} />
+            ) : feed === null ? (
+              <div className="flex flex-col gap-3" role="status" aria-live="polite">
+                <span className="sr-only">Loading what&rsquo;s on…</span>
                 {[0, 1].map((i) => (
                   <div key={i} className="h-24 animate-pulse rounded-lg bg-surface-container motion-reduce:animate-none" />
                 ))}
@@ -509,7 +575,16 @@ export default function HomePage() {
               </div>
               <SeeAllLink href="/book-early" total={bookEarlyAll.length} />
             </div>
-            {bookEarlyAll.length === 0 ? (
+            {feedError ? (
+              <ErrorState title="Couldn't load Book Early" onRetry={retryFeed} />
+            ) : feed === null ? (
+              <div className="flex flex-col gap-3" role="status" aria-live="polite">
+                <span className="sr-only">Loading Book Early…</span>
+                {[0, 1].map((i) => (
+                  <div key={i} className="h-20 animate-pulse rounded-lg bg-surface-container motion-reduce:animate-none" />
+                ))}
+              </div>
+            ) : bookEarlyAll.length === 0 ? (
               <p className="px-1 text-body-sm text-on-surface-variant">
                 Nothing worth booking early right now — check back soon.
               </p>

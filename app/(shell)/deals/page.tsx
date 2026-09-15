@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import type { DealCardData, FeedResponse, VenueDealGroup } from "@/lib/happenings/feed-types";
 import { matchesDealFilters, type DealWhatGroup, type DealWhoGroup } from "@/lib/happenings/groups";
-import { Icon, PageHeader, StickyFilterBar } from "@/components/ui";
+import { ErrorState, Icon, PageHeader, StickyFilterBar } from "@/components/ui";
 import { FeedListCard, VenueDealCard, DealFilters } from "@/components/happenings";
 
 type DealListItem =
@@ -15,16 +15,18 @@ type DealListItem =
  *  section — this page just consumes the same response instead of standing
  *  up a parallel /api/deals route that would duplicate app/api/feed/route.ts's
  *  `buildDealsSection`/`buildDealCards`. `window` doesn't affect `deals` (see
- *  that route's own doc comment), so the query param is fixed here. */
-async function fetchDeals(): Promise<FeedResponse["deals"] | null> {
-  try {
-    const res = await fetch("/api/feed?window=now");
-    const json = (await res.json()) as FeedResponse;
-    return json.deals;
-  } catch (err) {
-    console.error("[deals] /api/feed fetch failed", err);
-    return null;
-  }
+ *  that route's own doc comment), so the query param is fixed here.
+ *
+ *  Throws (rather than swallowing to `null`) on a network error or a
+ *  non-2xx status — GET /api/feed's catch block now returns 401/500, not a
+ *  silent 200 with empty sections — so the caller can tell "the request
+ *  failed" apart from "the response was genuinely empty" instead of both
+ *  looking like the same `null`. */
+async function fetchDeals(): Promise<FeedResponse["deals"]> {
+  const res = await fetch("/api/feed?window=now");
+  if (!res.ok) throw new Error(`GET /api/feed ${res.status}`);
+  const json = (await res.json()) as FeedResponse;
+  return json.deals;
 }
 
 /**
@@ -35,19 +37,29 @@ async function fetchDeals(): Promise<FeedResponse["deals"] | null> {
  */
 export default function DealsPage() {
   const [deals, setDeals] = useState<FeedResponse["deals"] | null>(null);
+  const [error, setError] = useState(false);
+  const [reloadTick, setReloadTick] = useState(0);
   const [dealWhat, setDealWhat] = useState<DealWhatGroup | null>(null);
   const [dealWho, setDealWho] = useState<DealWhoGroup | null>(null);
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const json = await fetchDeals();
-      if (!cancelled) setDeals(json);
+      try {
+        const json = await fetchDeals();
+        if (!cancelled) {
+          setDeals(json);
+          setError(false);
+        }
+      } catch (err) {
+        console.error("[deals] /api/feed fetch failed", err);
+        if (!cancelled) setError(true);
+      }
     })();
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [reloadTick]);
 
   const filteredVenueGroups = useMemo(() => {
     if (!deals) return [];
@@ -92,8 +104,11 @@ export default function DealsPage() {
           </div>
         </StickyFilterBar>
 
-        {deals === null ? (
-          <div className="flex flex-col gap-3 pt-2">
+        {error ? (
+          <ErrorState title="Couldn't load deals" onRetry={() => setReloadTick((t) => t + 1)} />
+        ) : deals === null ? (
+          <div className="flex flex-col gap-3 pt-2" role="status" aria-live="polite">
+            <span className="sr-only">Loading deals…</span>
             {[0, 1, 2].map((i) => (
               <div key={i} className="h-20 animate-pulse rounded-lg bg-surface-container" />
             ))}

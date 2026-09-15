@@ -3,102 +3,156 @@
 // file deliberately has NO `import "server-only"`, unlike everything else in
 // lib/events/: it runs in client components (EventCard, the /event/[id] and
 // /events pages, the Home carousel).
+//
+// Every "what day/time is this" question below is answered in CITY.timezone
+// (Europe/London), never the device's own zone — a user on holiday abroad,
+// or just on a phone set to a different locale, must see the exact same
+// "Tonight"/"Tomorrow" as the curated happenings feed does (lib/happenings/
+// format.ts, which has always been city-zoned). The old `toLocaleTimeString
+// (undefined, …)` / `Date#getFullYear()` calls here used whatever zone the
+// device happened to be in instead — same class of bug lib/happenings/
+// occurrence.ts's module doc warns about, just not yet fixed in this file.
+import { CITY } from "@/lib/city";
+import { addDays, localDayDate } from "@/lib/happenings/occurrence";
+import { monthShort } from "@/lib/happenings/format";
 import type { EventItem } from "@/lib/types";
 
-const DAY_MS = 24 * 60 * 60 * 1000;
+/** An event with no `ends_at` is assumed to run this long — mirrors the
+ *  identical default for a dateless happening occurrence (lib/happenings/
+ *  occurrence.ts's `DEFAULT_OCCURRENCE_DURATION_MS`). */
+const DEFAULT_EVENT_DURATION_MS = 2 * 60 * 60 * 1000;
 
-function isSameCalendarDay(a: Date, b: Date): boolean {
-  return (
-    a.getFullYear() === b.getFullYear() &&
-    a.getMonth() === b.getMonth() &&
-    a.getDate() === b.getDate()
-  );
-}
+/** Events at/after this local hour read as "Tonight"; earlier same-day ones
+ *  read as "Today". Previously ANY same-day event said "Tonight" — a 12:30
+ *  lunch slot included. */
+const EVENING_HOUR = 17;
 
-/** "7:30 PM" */
-export function formatEventTime(starts_at: string): string {
-  const d = new Date(starts_at);
-  if (Number.isNaN(d.getTime())) return "";
-  return d.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
+/** Local hour (0-23) an instant falls on in `timeZone` — used only for the
+ *  Today/Tonight cutoff above, never to pick the calendar day itself (that's
+ *  `localDayDate`, which alone is DST/offset-correct). */
+function localHour(at: Date, timeZone: string): number {
+  const parts = new Intl.DateTimeFormat("en-GB", { timeZone, hour: "numeric", hourCycle: "h23" }).formatToParts(at);
+  return Number(parts.find((p) => p.type === "hour")?.value ?? 0);
 }
 
 /**
- * "Tonight · 7:30 PM" for today, "Sat 8 Aug · 8:00 PM" otherwise. `ends_at`
+ * The instant an event actually stops being "live" — its own `ends_at` when
+ * it has one (this alone already covers a multi-day exhibition correctly,
+ * since ITS `ends_at` is genuinely days later), else `starts_at` plus the
+ * default duration. Exported for `lib/db/events.ts`'s query-time "is this
+ * still running" filter as well as any UI that wants the same rule.
+ */
+export function eventEffectiveEndMs(e: Pick<EventItem, "starts_at" | "ends_at">): number {
+  if (e.ends_at) {
+    const t = new Date(e.ends_at).getTime();
+    if (!Number.isNaN(t)) return t;
+  }
+  const startMs = new Date(e.starts_at).getTime();
+  return Number.isNaN(startMs) ? Number.NEGATIVE_INFINITY : startMs + DEFAULT_EVENT_DURATION_MS;
+}
+
+/** True while `e` is still running (or hasn't started) as of `at` — i.e. it
+ *  hasn't yet reached its effective end. A malformed `starts_at` is never
+ *  "live". */
+export function eventIsLive(e: Pick<EventItem, "starts_at" | "ends_at">, at: Date = new Date()): boolean {
+  return eventEffectiveEndMs(e) > at.getTime();
+}
+
+/**
+ * "Today"/"Tonight"/"Tomorrow" for `starts_at` relative to `now`, entirely in
+ * `timeZone` — or `null` when it's neither (caller falls back to a full
+ * weekday+date string). Split out from `formatEventDate` so a caller that
+ * already has its own (possibly fixed-for-testing) clock — lib/happenings/
+ * hero.ts's `eventRecommendationScore`, which scores against a `now` it was
+ * handed, not the wall clock — can reuse the exact same cutoff instead of
+ * `formatEventDate`'s own hardcoded `new Date()`.
+ */
+export function eventDayLabel(
+  starts_at: string,
+  now: Date,
+  timeZone: string = CITY.timezone
+): "Today" | "Tonight" | "Tomorrow" | null {
+  const d = new Date(starts_at);
+  if (Number.isNaN(d.getTime())) return null;
+  const eventDay = localDayDate(d, timeZone);
+  const today = localDayDate(now, timeZone);
+  if (eventDay === today) return localHour(d, timeZone) >= EVENING_HOUR ? "Tonight" : "Today";
+  if (eventDay === addDays(today, 1)) return "Tomorrow";
+  return null;
+}
+
+/** "7:30 PM" in `timeZone` (defaults to CITY.timezone) — never the device's
+ *  own zone. */
+export function formatEventTime(starts_at: string, timeZone: string = CITY.timezone): string {
+  const d = new Date(starts_at);
+  if (Number.isNaN(d.getTime())) return "";
+  return d.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", timeZone });
+}
+
+/**
+ * "Today · 12:30 PM" / "Tonight · 7:30 PM" / "Sat 8 Aug · 8:00 PM". `ends_at`
  * is accepted for signature symmetry with the rest of the module (a future
  * "Tonight · 7:30–10 PM" span format could use it) but isn't rendered yet.
  */
 export function formatEventWhen(
   starts_at: string,
-  ends_at?: string | null
+  ends_at?: string | null,
+  timeZone: string = CITY.timezone
 ): string {
   void ends_at;
   const d = new Date(starts_at);
   if (Number.isNaN(d.getTime())) return "";
-  const now = new Date();
-  const time = formatEventTime(starts_at);
-
-  if (isSameCalendarDay(d, now)) return `Tonight · ${time}`;
-
-  const tomorrow = new Date(now.getTime() + DAY_MS);
-  if (isSameCalendarDay(d, tomorrow)) return `Tomorrow · ${time}`;
-
-  const datePart = d.toLocaleDateString(undefined, {
-    weekday: "short",
-    day: "numeric",
-    month: "short",
-  });
-  return `${datePart} · ${time}`;
+  return `${formatEventDate(starts_at, timeZone)} · ${formatEventTime(starts_at, timeZone)}`;
 }
 
 /**
- * "Tonight", "Tomorrow", or "Sat 8 Aug" — just the date part without the time.
+ * "Today", "Tonight", "Tomorrow", or "Sat 8 Aug" — just the date part
+ * without the time. "Today" only for a same-day start before 5pm local;
+ * 5pm-or-later reads "Tonight" (see `EVENING_HOUR`) — previously ANY
+ * same-day event, including a lunchtime one, said "Tonight". Same-day/
+ * tomorrow comparisons are calendar days in `timeZone`, never the device's
+ * own date.
  */
-export function formatEventDate(starts_at: string): string {
+export function formatEventDate(starts_at: string, timeZone: string = CITY.timezone): string {
   const d = new Date(starts_at);
   if (Number.isNaN(d.getTime())) return "";
-  const now = new Date();
 
-  if (isSameCalendarDay(d, now)) return "Tonight";
+  const label = eventDayLabel(starts_at, new Date(), timeZone);
+  if (label) return label;
 
-  const tomorrow = new Date(now.getTime() + DAY_MS);
-  if (isSameCalendarDay(d, tomorrow)) return "Tomorrow";
-
-  return d.toLocaleDateString(undefined, {
-    weekday: "short",
-    day: "numeric",
-    month: "short",
-  });
+  const eventDay = localDayDate(d, timeZone);
+  const weekday = new Intl.DateTimeFormat("en-GB", { weekday: "short", timeZone }).format(d);
+  return `${weekday} ${Number(eventDay.slice(8, 10))} ${monthShort(eventDay)}`;
 }
 
 /**
- * "7:30 PM" or "7:30 PM – 10:30 PM" when ends_at is present and on the same day.
- * Reuses the formatting style of formatEventTime for consistency.
+ * "7:30 PM" or "7:30 PM – 10:30 PM" when ends_at is present and on the same
+ * (`timeZone`) calendar day. Reuses the formatting style of formatEventTime
+ * for consistency.
  */
 export function formatEventTimeSpan(
   starts_at: string,
-  ends_at?: string | null
+  ends_at?: string | null,
+  timeZone: string = CITY.timezone
 ): string {
-  const startTime = formatEventTime(starts_at);
+  const startTime = formatEventTime(starts_at, timeZone);
   if (!startTime || !ends_at) return startTime;
 
-  const startDate = new Date(starts_at);
   const endDate = new Date(ends_at);
   if (Number.isNaN(endDate.getTime())) return startTime;
 
-  if (!isSameCalendarDay(startDate, endDate)) return startTime;
+  if (localDayDate(new Date(starts_at), timeZone) !== localDayDate(endDate, timeZone)) return startTime;
 
-  const endTime = formatEventTime(ends_at);
+  const endTime = formatEventTime(ends_at, timeZone);
   return `${startTime} – ${endTime}`;
 }
 
-/** "YYYY-MM-DD" in the event's local calendar day — for itinerary day_date. */
-export function eventDayDate(starts_at: string): string {
+/** "YYYY-MM-DD" in the event's `timeZone` calendar day (defaults to
+ *  CITY.timezone) — for itinerary day_date. */
+export function eventDayDate(starts_at: string, timeZone: string = CITY.timezone): string {
   const d = new Date(starts_at);
   if (Number.isNaN(d.getTime())) return "";
-  const year = d.getFullYear();
-  const month = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
+  return localDayDate(d, timeZone);
 }
 
 /** "Free", "From £12", or "" when price is unknown. */

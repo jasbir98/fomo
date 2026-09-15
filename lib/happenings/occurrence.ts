@@ -217,12 +217,19 @@ function occ(
   happeningId: string,
   dayDate: string,
   lastDayDate: string,
+  seriesEndDayDate: string | null,
   exact: boolean,
   startsAt: string | null = null,
   endsAt: string | null = null
 ): Occurrence {
-  return { happeningId, dayDate, lastDayDate, exact, startsAt, endsAt };
+  return { happeningId, dayDate, lastDayDate, seriesEndDayDate, exact, startsAt, endsAt };
 }
+
+/** A one-off ("once") occurrence with a real clock time and no `ends_at` is
+ *  assumed to run this long — long enough for a normal talk/tour/showing,
+ *  short enough that it doesn't linger as "live" into the evening. Mirrors
+ *  the analogous default used for provider events (lib/events/format.ts). */
+const DEFAULT_OCCURRENCE_DURATION_MS = 2 * 60 * 60 * 1000;
 
 /**
  * Expands a happening into its occurrences inside `[from, to]`, soonest first,
@@ -253,6 +260,18 @@ export function nextOccurrences(
   const validFrom = h.starts_at ? localDayDate(new Date(h.starts_at), timeZone) : null;
   const validTo = h.ends_at ? localDayDate(new Date(h.ends_at), timeZone) : null;
 
+  // The RULE's own overall end — `min` of the row's validity bound and the
+  // rule's own `until`, whichever are actually set. `null` means open-ended
+  // (no last chance — see `daysUntilLastChance`). Irrelevant to `once`
+  // (there's no separate "rule"; see that case's own seriesEnd) and to
+  // `always`, which computes its own from `validTo` alone (no `until` field
+  // on that recurrence shape).
+  function recurringSeriesEnd(until: string | undefined): string | null {
+    let end: string | null = until ?? null;
+    if (validTo && (end === null || validTo < end)) end = validTo;
+    return end;
+  }
+
   switch (rec.type) {
     case "once": {
       if (!h.starts_at) return [];
@@ -260,12 +279,23 @@ export function nextOccurrences(
       const end = validTo ?? start;
       if (end < windowFrom) return []; // already over
       if (start > windowTo) return []; // beyond the window
-      return [occ(h.id, start, end, true, h.starts_at, h.ends_at)];
+      // The day-level check above can't see that a same-day item's actual
+      // end INSTANT has already passed (a 10:00-11:00 item is still "today"
+      // at 21:00) — only matters when this occurrence's last day is `from`'s
+      // own day; any other day is already correctly excluded/included by the
+      // day comparison above.
+      if (end === windowFrom) {
+        const effectiveEndMs = h.ends_at
+          ? new Date(h.ends_at).getTime()
+          : new Date(h.starts_at).getTime() + DEFAULT_OCCURRENCE_DURATION_MS;
+        if (effectiveEndMs <= from.getTime()) return [];
+      }
+      return [occ(h.id, start, end, end, true, h.starts_at, h.ends_at)];
     }
 
     case "always": {
       if (validTo && validTo < windowFrom) return [];
-      return [occ(h.id, windowFrom, windowFrom, false)];
+      return [occ(h.id, windowFrom, windowFrom, validTo, false)];
     }
 
     case "weekly": {
@@ -274,10 +304,11 @@ export function nextOccurrences(
       let limit = windowTo;
       if (rec.until && rec.until < limit) limit = rec.until;
       if (validTo && validTo < limit) limit = validTo;
+      const seriesEnd = recurringSeriesEnd(rec.until);
 
       const out: Occurrence[] = [];
       while (cursor <= limit && out.length < MAX_OCCURRENCES_PER_HAPPENING) {
-        if (days.has(weekdayOf(cursor))) out.push(occ(h.id, cursor, cursor, false));
+        if (days.has(weekdayOf(cursor))) out.push(occ(h.id, cursor, cursor, seriesEnd, false));
         cursor = addDays(cursor, 1);
       }
       return out;
@@ -287,6 +318,7 @@ export function nextOccurrences(
       let limit = windowTo;
       if (rec.until && rec.until < limit) limit = rec.until;
       if (validTo && validTo < limit) limit = validTo;
+      const seriesEnd = recurringSeriesEnd(rec.until);
 
       const out: Occurrence[] = [];
       for (let y = yearOf(windowFrom); y <= yearOf(limit); y++) {
@@ -294,7 +326,7 @@ export function nextOccurrences(
         if (!start) continue;
         const end = rec.endDay ? (makeDayDate(y, rec.month, rec.endDay) ?? start) : start;
         // Intersects the window if it ends on/after the start and begins on/before the end.
-        if (end >= windowFrom && start <= limit) out.push(occ(h.id, start, end, false));
+        if (end >= windowFrom && start <= limit) out.push(occ(h.id, start, end, seriesEnd, false));
         if (out.length >= MAX_OCCURRENCES_PER_HAPPENING) break;
       }
       return out;
@@ -303,10 +335,14 @@ export function nextOccurrences(
     case "dates": {
       let limit = windowTo;
       if (validTo && validTo < limit) limit = validTo;
+      // "dates" has no `until` field of its own (Recurrence's `dates` shape
+      // carries only the list) — its series end is purely the row's own
+      // `ends_at`, if any.
+      const seriesEnd = validTo ?? null;
       return rec.dates
         .filter((d) => d >= windowFrom && d <= limit)
         .slice(0, MAX_OCCURRENCES_PER_HAPPENING)
-        .map((d) => occ(h.id, d, d, false));
+        .map((d) => occ(h.id, d, d, seriesEnd, false));
     }
   }
 }
@@ -336,15 +372,27 @@ export function isActiveNow(
   );
 }
 
-/** Whole days from `at` until the last day of an occurrence — the "last chance"
- *  clock the hero generator tiers its base score on. Negative once past. */
+/**
+ * Whole days from `at` until the happening's overall last chance — the
+ * "last chance" clock the hero generator tiers its base score on. Negative
+ * once past.
+ *
+ * Measured against `occurrence.seriesEndDayDate` (when the RULE stops, not
+ * when today's single instance does) — a daily/weekly rule with no end date
+ * has `seriesEndDayDate === null` and therefore no last chance at all
+ * (`+Infinity`, never "today only"/"Last Chance"). Using `lastDayDate`
+ * instead here was the bug: every occurrence of a recurring rule reports its
+ * OWN day as its last day, so a plain daily walk looked like it was ending
+ * today, every day, forever.
+ */
 export function daysUntilLastChance(
   occurrence: Occurrence,
   at: Date,
   timeZone: string = CITY.timezone
 ): number {
+  if (occurrence.seriesEndDayDate == null) return Number.POSITIVE_INFINITY;
   const today = localDayDate(at, timeZone);
   const [ty, tm, td] = today.split("-").map(Number);
-  const [ly, lm, ld] = occurrence.lastDayDate.split("-").map(Number);
+  const [ly, lm, ld] = occurrence.seriesEndDayDate.split("-").map(Number);
   return Math.round((Date.UTC(ly, lm - 1, ld) - Date.UTC(ty, tm - 1, td)) / 86_400_000);
 }

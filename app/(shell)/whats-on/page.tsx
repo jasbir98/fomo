@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import type { FeedCardData, FeedResponse, FeedWindow } from "@/lib/happenings/feed-types";
 import { weekendDates } from "@/lib/happenings/format";
 import { distinctCategoryFacets, matchesCategoryFilter, type CategoryFacetKey } from "@/lib/happenings/whats-on-filters";
-import { Chip, Icon, PageHeader, SegmentedControl, StickyFilterBar } from "@/components/ui";
+import { Chip, ErrorState, Icon, PageHeader, SegmentedControl, StickyFilterBar } from "@/components/ui";
 import { DateFilterRow, FeedListCard } from "@/components/happenings";
 import { cardOnDay, cardPillDate } from "@/components/happenings/DateFilterRow";
 
@@ -27,20 +27,18 @@ function cardKey(card: FeedCardData): string {
   return `event-${card.event.id}`;
 }
 
+// Throws on abort (the caller distinguishes that — a superseded request, not
+// a failure) or a non-2xx status, rather than swallowing every failure to
+// the same `null` a genuinely-empty bucket would also produce.
 async function fetchWhatsOn(
   window: Exclude<FeedWindow, "book_early">,
   signal?: AbortSignal
-): Promise<FeedCardData[] | null> {
-  try {
-    const params = new URLSearchParams({ window });
-    const res = await fetch(`/api/feed?${params.toString()}`, { signal });
-    const json = (await res.json()) as FeedResponse;
-    return json.whatsOn[0]?.cards ?? [];
-  } catch (err) {
-    if (err instanceof DOMException && err.name === "AbortError") return null;
-    console.error("[whats-on] /api/feed fetch failed", err);
-    return null;
-  }
+): Promise<FeedCardData[]> {
+  const params = new URLSearchParams({ window });
+  const res = await fetch(`/api/feed?${params.toString()}`, { signal });
+  if (!res.ok) throw new Error(`GET /api/feed ${res.status}`);
+  const json = (await res.json()) as FeedResponse;
+  return json.whatsOn[0]?.cards ?? [];
 }
 
 /**
@@ -66,6 +64,8 @@ function WhatsOnPageInner() {
   const initialWindow: Exclude<FeedWindow, "book_early"> = isWhatsOnWindow(windowParam) ? windowParam : "now";
   const [feedWindow, setFeedWindowState] = useState<Exclude<FeedWindow, "book_early">>(initialWindow);
   const [cards, setCards] = useState<FeedCardData[] | null>(null);
+  const [error, setError] = useState(false);
+  const [reloadTick, setReloadTick] = useState(0);
   const [dateFilter, setDateFilter] = useState<string>("all");
   const [categoryFilter, setCategoryFilter] = useState<CategoryFacetKey | null>(null);
 
@@ -80,11 +80,18 @@ function WhatsOnPageInner() {
     const controller = new AbortController();
     (async () => {
       setCards(null);
-      const json = await fetchWhatsOn(feedWindow, controller.signal);
-      if (!controller.signal.aborted) setCards(json);
+      setError(false);
+      try {
+        const json = await fetchWhatsOn(feedWindow, controller.signal);
+        if (!controller.signal.aborted) setCards(json);
+      } catch (err) {
+        if (controller.signal.aborted || (err instanceof DOMException && err.name === "AbortError")) return;
+        console.error("[whats-on] /api/feed fetch failed", err);
+        setError(true);
+      }
     })();
     return () => controller.abort();
-  }, [feedWindow]);
+  }, [feedWindow, reloadTick]);
 
   const dates = useMemo(() => {
     if (!cards) return [];
@@ -159,15 +166,18 @@ function WhatsOnPageInner() {
           <h2 className="text-headline-sm font-extrabold tracking-tight text-on-surface">
             {feedWindow === "now" ? "Today & tomorrow" : "Coming up"}
           </h2>
-          {cards !== null ? (
+          {cards !== null && !error ? (
             <span className="rounded-full border border-hairline-strong bg-surface-container px-2.5 py-0.5 text-label-sm font-extrabold text-primary">
               {visibleCards.length}
             </span>
           ) : null}
         </div>
 
-        {cards === null ? (
-          <div className="flex flex-col gap-3 pt-2">
+        {error ? (
+          <ErrorState title="Couldn't load what's on" onRetry={() => setReloadTick((t) => t + 1)} />
+        ) : cards === null ? (
+          <div className="flex flex-col gap-3 pt-2" role="status" aria-live="polite">
+            <span className="sr-only">Loading what&rsquo;s on…</span>
             {[0, 1, 2].map((i) => (
               <div key={i} className="h-24 animate-pulse rounded-lg bg-surface-container" />
             ))}

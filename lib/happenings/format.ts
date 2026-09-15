@@ -301,11 +301,29 @@ function formatClockTime(iso: string, timeZone: string): string {
   return minute === "00" ? `${hour}${dayPeriod}` : `${hour}:${minute}${dayPeriod}`;
 }
 
+/** Events at/after this local hour read as "Tonight"; earlier same-day ones
+ *  read as "Today" — mirrors lib/events/format.ts's identical cutoff for
+ *  provider events, kept as a small local copy rather than a cross-module
+ *  import (this file has none today) since it's one constant + one helper. */
+const EVENING_HOUR = 17;
+
+/** Local hour (0-23) an instant falls on in `timeZone` — used only for the
+ *  Today/Tonight cutoff above, never to pick the calendar day (that's
+ *  `localDayDate`, which alone is DST/offset-correct). */
+function localHour(iso: string, timeZone: string): number {
+  const d = new Date(iso);
+  const parts = new Intl.DateTimeFormat("en-GB", { timeZone, hour: "numeric", hourCycle: "h23" }).formatToParts(d);
+  return Number(parts.find((p) => p.type === "hour")?.value ?? 0);
+}
+
 /**
- * "Tonight 8:30pm" / "Tomorrow 8:30pm" / "Sat 8:30pm" for an occurrence with
- * a real clock time; null for a dateless/recurring occurrence (weekly deals
- * with no fixed hour, "always" rows) — the card shows only its venue line
- * then, matching the Brass Monkey card in the mockup.
+ * "Today 12:30pm" / "Tonight 8:30pm" / "Tomorrow 8:30pm" / "Sat 8:30pm" for
+ * an occurrence with a real clock time; null for a dateless/recurring
+ * occurrence (weekly deals with no fixed hour, "always" rows) — the card
+ * shows only its venue line then, matching the Brass Monkey card in the
+ * mockup. Same-day only reads "Tonight" from `EVENING_HOUR` on — previously
+ * ANY same-day occurrence said "Tonight", so a 12:30pm talk read the same as
+ * an 8pm gig.
  */
 export function happeningTimeLabel(
   occurrence: Pick<Occurrence, "exact" | "startsAt" | "dayDate">,
@@ -316,7 +334,10 @@ export function happeningTimeLabel(
   const today = localDayDate(now, timeZone);
   const tomorrow = addDays(today, 1);
   const clock = formatClockTime(occurrence.startsAt, timeZone);
-  if (occurrence.dayDate === today) return `Tonight ${clock}`;
+  if (occurrence.dayDate === today) {
+    const label = localHour(occurrence.startsAt, timeZone) >= EVENING_HOUR ? "Tonight" : "Today";
+    return `${label} ${clock}`;
+  }
   if (occurrence.dayDate === tomorrow) return `Tomorrow ${clock}`;
   const [y, m, d] = occurrence.dayDate.split("-").map(Number);
   const weekday = new Intl.DateTimeFormat("en-GB", { weekday: "short", timeZone: "UTC" }).format(

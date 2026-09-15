@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import Image from "next/image";
-import { cdnResize, isKnownImageHost, isOptimizableRemote } from "@/lib/image/cdn";
+import { cdnResize, isKnownImageHost, isOptimizableRemote, toHttpsUrl } from "@/lib/image/cdn";
+import { Icon } from "./Icon";
 
 export type SmartImageProps = {
   src: string | null | undefined;
@@ -26,6 +27,22 @@ const QUALITY = 70;
 // an oversized transform from either the CDN or next/image.
 const MAX_WIDTH = 2048;
 
+/** Generic broken/missing-image tile — same treatment PhotoCarousel already
+ *  uses for its own zero-photos state, reused here so every SmartImage
+ *  caller that doesn't supply its own `fallback` still degrades to a neutral
+ *  box instead of the browser's broken-image icon. Sized purely by the
+ *  caller's own `className` (the same Tailwind sizing classes that would
+ *  otherwise size the `<img>`) rather than inline width/height, so it fills
+ *  whatever box the caller already laid out instead of a fixed pixel size. */
+function DefaultFallback({ width, height, className }: { width: number; height: number; className: string }) {
+  const iconSize = Math.max(16, Math.min(width, height, 40));
+  return (
+    <div className={`flex items-center justify-center bg-surface-container ${className}`}>
+      <Icon name="image" size={iconSize} className="text-outline" />
+    </div>
+  );
+}
+
 /**
  * The single `<img>` primitive for the app. Three render paths, in order:
  *
@@ -40,11 +57,19 @@ const MAX_WIDTH = 2048;
  *    URLs) → a plain `<img>` with no rewriting — nothing left to optimize,
  *    or nothing safe to touch.
  *
- * `fallback` only ever replaces the image when `src` is missing, or after a
- * load error IF `fallback` was supplied — callers that already manage their
- * own error state (swapping `src` to a default image, or conditionally
- * unmounting this component entirely) keep working unchanged, since this
- * component still calls their `onError` either way.
+ * Before any of that, a plain `http://` `src` is upgraded to `https://`
+ * (`toHttpsUrl`, lib/image/cdn.ts) — this app's CSP `img-src` only allows
+ * `https:`/`data:`/`blob:`, so an un-rewritten `http://` URL (scraped source
+ * data sometimes stores one even though the host serves https) is silently
+ * dropped by the browser rather than fetched at all.
+ *
+ * `fallback` replaces the image when `src` is missing, or after a load
+ * error — callers that already manage their own error state (swapping `src`
+ * to a default image, or conditionally unmounting this component entirely)
+ * keep working unchanged, since this component still calls their `onError`
+ * either way. Callers that pass no `fallback` still get a neutral
+ * placeholder tile instead of a broken-image box (`DefaultFallback` below) —
+ * most callers across the app don't currently pass one.
  */
 export function SmartImage({
   src,
@@ -74,14 +99,18 @@ export function SmartImage({
     onError?.();
   }
 
-  if (!src) return <>{fallback ?? null}</>;
-  if (errored && fallback) return <>{fallback}</>;
+  if (!src) return <>{fallback ?? <DefaultFallback width={width} height={height} className={className} />}</>;
+  if (errored) return <>{fallback ?? <DefaultFallback width={width} height={height} className={className} />}</>;
+
+  // Upgrade a plain http:// src before it's ever handed to cdnResize/
+  // next/image/a plain <img> — see toHttpsUrl's own doc comment.
+  const httpsSrc = toHttpsUrl(src);
 
   const targetWidth = Math.min(width * 2, MAX_WIDTH);
-  const retina = cdnResize(src, { width: targetWidth, quality: QUALITY });
+  const retina = cdnResize(httpsSrc, { width: targetWidth, quality: QUALITY });
 
   if (retina) {
-    const standard = cdnResize(src, { width, quality: QUALITY }) ?? retina;
+    const standard = cdnResize(httpsSrc, { width, quality: QUALITY }) ?? retina;
     const srcSet = `${standard} 1x, ${retina} 2x`;
     return (
       // eslint-disable-next-line @next/next/no-img-element
@@ -101,7 +130,7 @@ export function SmartImage({
     );
   }
 
-  if (isOptimizableRemote(src)) {
+  if (isOptimizableRemote(httpsSrc)) {
     // `unoptimized` defaults to `true` (i.e. "assume NOT configured") unless
     // `isKnownImageHost` positively confirms the hostname matches one of
     // `REMOTE_IMAGE_HOSTNAMES` — never the other way around. Both a parse
@@ -114,13 +143,13 @@ export function SmartImage({
     // matching next/image's real (picomatch-backed) semantics exactly.
     let knownHost = false;
     try {
-      knownHost = isKnownImageHost(new URL(src).hostname);
+      knownHost = isKnownImageHost(new URL(httpsSrc).hostname);
     } catch {
       knownHost = false;
     }
     return (
       <Image
-        src={src}
+        src={httpsSrc}
         alt={alt}
         width={width}
         height={height}
@@ -137,7 +166,7 @@ export function SmartImage({
   return (
     // eslint-disable-next-line @next/next/no-img-element
     <img
-      src={src}
+      src={httpsSrc}
       alt={alt}
       width={width}
       height={height}

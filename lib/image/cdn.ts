@@ -108,6 +108,26 @@ export function isKnownImageHost(hostname: string): boolean {
 }
 
 /**
+ * Upgrades a plain `http://` URL to `https://`, otherwise returns `src`
+ * unchanged. Scraped source data occasionally stores a venue's image as
+ * `http://` even though the host actually serves it over https (the same
+ * class of bug already fixed once for the reel-thumbnail proxy — see
+ * app/api/media-proxy/route.ts's `streamImage`, which upgrades before
+ * fetching) — and this app's CSP `img-src` directive (next.config.ts) is
+ * `'self' https: data: blob:`, which does NOT include plain `http:`. Left
+ * un-rewritten, the browser silently drops the request (a CSP violation, not
+ * a network error), so `<img>`'s `onerror` never fires and SmartImage has no
+ * signal to fall back on — it just renders a permanently broken image box.
+ * Rewriting the URL before it ever reaches an `<img>`/`next/image` src fixes
+ * that at the source instead of trying to detect a CSP block after the fact.
+ * `data:`/`blob:` URIs and same-origin relative paths never start with
+ * `http://`, so they pass through untouched.
+ */
+export function toHttpsUrl(src: string): string {
+  return src.startsWith("http://") ? `https://${src.slice("http://".length)}` : src;
+}
+
+/**
  * Whether `src` is a genuine remote http(s) URL worth handing to an image
  * optimizer at all — false for `data:`/`blob:` URIs (already-local, in-memory
  * images) and same-origin relative paths like `/api/media-proxy?...`, both of

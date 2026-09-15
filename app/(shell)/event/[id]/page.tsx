@@ -9,7 +9,7 @@ import { getEvent } from "@/lib/db";
 import { isSaved, saveItem, unsaveItem } from "@/lib/db/saved";
 import { formatEventPrice, formatEventWhen } from "@/lib/events/format";
 import type { EventItem } from "@/lib/types";
-import { Button, Icon, PageHeader, PhotoCarousel, ShareButton, StatusPill } from "@/components/ui";
+import { Button, ErrorState, Icon, PageHeader, PhotoCarousel, ShareButton, StatusPill } from "@/components/ui";
 import type { CarouselPhoto } from "@/components/ui";
 
 /** Same lat/lng-first, address-fallback shape as lib/maps/links.ts's
@@ -39,6 +39,12 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
 
   const [event, setEvent] = useState<EventItem | null>(null);
   const [loading, setLoading] = useState(true);
+  // True only after a real fetch failure — `getEvent` (lib/db/events.ts)
+  // throws on an actual Supabase/network error and only ever resolves to
+  // `null` for a genuine "no such row", so this stays reserved for the
+  // former and never fires for the latter.
+  const [error, setError] = useState(false);
+  const [reloadTick, setReloadTick] = useState(0);
   const [saved, setSaved] = useState(false);
   const [savePending, setSavePending] = useState(false);
 
@@ -46,16 +52,22 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
     let cancelled = false;
     getEvent(db, id)
       .then((data) => {
-        if (!cancelled) setEvent(data);
+        if (!cancelled) {
+          setEvent(data);
+          setError(false);
+        }
       })
-      .catch((err) => console.error("Failed to load event", err))
+      .catch((err) => {
+        console.error("Failed to load event", err);
+        if (!cancelled) setError(true);
+      })
       .finally(() => {
         if (!cancelled) setLoading(false);
       });
     return () => {
       cancelled = true;
     };
-  }, [db, id]);
+  }, [db, id, reloadTick]);
 
   useEffect(() => {
     let cancelled = false;
@@ -89,8 +101,24 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
 
   if (loading) {
     return (
-      <div className="flex min-h-dvh items-center justify-center">
+      <div className="flex min-h-dvh items-center justify-center" role="status" aria-live="polite">
         <Icon name="auto_awesome" size={32} className="animate-pulse text-primary" />
+        <span className="sr-only">Loading…</span>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex flex-col gap-4">
+        <PageHeader title="Event" showBack />
+        <div className="px-5 py-16">
+          <ErrorState
+            title="Couldn't load this event"
+            message="Check your connection and try again."
+            onRetry={() => setReloadTick((t) => t + 1)}
+          />
+        </div>
       </div>
     );
   }

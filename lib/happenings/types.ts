@@ -142,6 +142,7 @@ export interface Happening {
   confidence: HappeningConfidence | null;
   status: HappeningStatus;
   priority: number | null;
+  season_valid_until?: string | null;
 
   created_at: string | null;
   updated_at: string | null;
@@ -162,8 +163,20 @@ export interface Occurrence {
   /** Only set when the row carries a real `starts_at`. Secondary sort key. */
   startsAt: string | null;
   endsAt: string | null;
-  /** Last calendar day of this occurrence's span; equals `dayDate` when single-day. */
+  /** Last calendar day of THIS occurrence's own span; equals `dayDate` when
+   *  single-day. For a recurring rule (weekly/annual/dates) this is still
+   *  just the one instance's day(s) — e.g. today's slot of a daily walk —
+   *  NEVER the rule's overall end. Use `seriesEndDayDate` (below) for
+   *  "when does this stop happening at all", which is what a "last chance"
+   *  countdown must be measured against. */
   lastDayDate: string;
+  /** The day the happening's RULE stops producing occurrences at all — the
+   *  overall recurrence end (`min` of the row's `ends_at` and the rule's own
+   *  `until`, in whichever are set), or `null` when it's open-ended. For a
+   *  one-off (`once`) this equals `lastDayDate` (there's no "rule" separate
+   *  from the single occurrence). A recurring rule with no end has no last
+   *  chance — see `daysUntilLastChance`. */
+  seriesEndDayDate: string | null;
   /** True when derived from a concrete timestamp, false when generated from a rule. */
   exact: boolean;
 }

@@ -18,7 +18,7 @@ import {
 import { categoryDefaultImage } from "@/lib/happenings/category-style";
 import type { HappeningResponse } from "@/app/api/happenings/[id]/route";
 import type { Happening, Occurrence } from "@/lib/happenings/types";
-import { Button, Icon, PageHeader, PhotoCarousel, ShareButton, StatusPill } from "@/components/ui";
+import { Button, ErrorState, Icon, PageHeader, PhotoCarousel, ShareButton, StatusPill } from "@/components/ui";
 import type { CarouselPhoto } from "@/components/ui";
 import { NOTIFY_ME_ENABLED } from "@/lib/happenings/book-early";
 import { NotifyMeButton } from "@/components/happenings";
@@ -38,8 +38,13 @@ function happeningDirectionsUrl(h: Happening): string | null {
   return `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(fallback)}`;
 }
 
+// Throws on a network error or non-2xx status (GET /api/happenings/[id]
+// returns 401/500 for those — see that route's own doc comment) so the
+// caller can tell "the request failed" apart from a genuine 404, which the
+// route signals differently: 200 with `happening: null`.
 async function fetchHappening(id: string): Promise<{ happening: Happening | null; siblings: Happening[] }> {
   const res = await fetch(`/api/happenings/${id}`);
+  if (!res.ok) throw new Error(`GET /api/happenings/${id} ${res.status}`);
   const json = (await res.json()) as HappeningResponse;
   return { happening: json.happening, siblings: json.siblings ?? [] };
 }
@@ -62,6 +67,12 @@ export default function HappeningDetailPage({ params }: { params: Promise<{ id: 
   // this happening isn't part of one. Drives the Locations section below.
   const [siblings, setSiblings] = useState<Happening[]>([]);
   const [loading, setLoading] = useState(true);
+  // True only after a real fetch failure (network error or non-2xx) — a
+  // genuine 404 (the route's own `happening: null`) never sets this, so the
+  // "We couldn't find this deal" copy stays reserved for an actually-missing
+  // happening instead of also covering a dropped connection.
+  const [error, setError] = useState(false);
+  const [reloadTick, setReloadTick] = useState(0);
   const [copied, setCopied] = useState(false);
   const [imgError, setImgError] = useState(false);
   const [notifySubscribed, setNotifySubscribed] = useState(false);
@@ -74,16 +85,20 @@ export default function HappeningDetailPage({ params }: { params: Promise<{ id: 
         if (!cancelled) {
           setHappening(happening);
           setSiblings(siblings);
+          setError(false);
         }
       })
-      .catch((err) => console.error("Failed to load happening", err))
+      .catch((err) => {
+        console.error("Failed to load happening", err);
+        if (!cancelled) setError(true);
+      })
       .finally(() => {
         if (!cancelled) setLoading(false);
       });
     return () => {
       cancelled = true;
     };
-  }, [id]);
+  }, [id, reloadTick]);
 
   // Whether this specific happening already has an on-sale alert for the
   // signed-in caller — fetches the caller's whole alert list rather than a
@@ -138,8 +153,24 @@ export default function HappeningDetailPage({ params }: { params: Promise<{ id: 
 
   if (loading) {
     return (
-      <div className="flex min-h-dvh items-center justify-center">
+      <div className="flex min-h-dvh items-center justify-center" role="status" aria-live="polite">
         <Icon name="auto_awesome" size={32} className="animate-pulse text-primary" />
+        <span className="sr-only">Loading…</span>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex flex-col gap-4">
+        <PageHeader title="Deal" showBack />
+        <div className="px-5 py-16">
+          <ErrorState
+            title="Couldn't load this deal"
+            message="Check your connection and try again."
+            onRetry={() => setReloadTick((t) => t + 1)}
+          />
+        </div>
       </div>
     );
   }

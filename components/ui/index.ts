@@ -44,3 +44,5 @@ export { CityPicker } from "./CityPicker";
 export type { CityPickerProps } from "./CityPicker";
 export { ShareButton } from "./ShareButton";
 export type { ShareButtonProps } from "./ShareButton";
+export { ErrorState } from "./ErrorState";
+export type { ErrorStateProps } from "./ErrorState";

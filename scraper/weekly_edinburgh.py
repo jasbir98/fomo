@@ -885,6 +885,13 @@ def record_is_fully_expired(record: dict[str, Any], today) -> bool:
     """
     if record.get("_collection_members"):
         return False
+    # A season-bound offer (festival concessions etc.) is often stored as an
+    # "always" row with no concrete dates, and its evergreen policy page keeps
+    # re-verifying year-round -- season_valid_until is the one date that
+    # retires it (supabase/add_season_valid_until.sql).
+    season_end = _coerce_date(record.get("season_valid_until"))
+    if season_end is not None and season_end < today:
+        return True
     recurrence = record.get("recurrence") or {}
     rec_type = recurrence.get("type")
     if rec_type == "weekly":

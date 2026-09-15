@@ -48,7 +48,20 @@ export async function listLiveHappenings(db: Db, city: CityConfig = CITY): Promi
     if (isMissingTableError(error)) return [];
     throw error;
   }
-  return (data ?? []) as Happening[];
+  return ((data ?? []) as Happening[]).filter((h) => !isPastSeason(h, city.timezone));
+}
+
+/**
+ * True once a season-bound row (festival concessions etc.) is past its
+ * `season_valid_until` in the city's own calendar day. Filtered in JS rather
+ * than in the query so the read keeps working before
+ * supabase/add_season_valid_until.sql has been run (the column is then just
+ * absent from `select *`, and every row passes).
+ */
+function isPastSeason(h: Happening, timeZone: string): boolean {
+  if (!h.season_valid_until) return false;
+  const today = new Intl.DateTimeFormat("en-CA", { timeZone }).format(new Date());
+  return h.season_valid_until < today;
 }
 
 /**
