@@ -14,6 +14,8 @@ import { categoryDefaultImage, categoryStyle, kindStyle } from "@/lib/happenings
 import type { FeedCardData, SeriesCardData } from "@/lib/happenings/feed-types";
 import type { Happening, HappeningKind, Occurrence } from "@/lib/happenings/types";
 import type { EventItem } from "@/lib/types";
+import { whoGroupForEligibility } from "@/lib/happenings/groups";
+import { useDealProfile } from "@/lib/useSaved";
 
 export interface FeedListCardProps {
   card: FeedCardData;
@@ -86,6 +88,9 @@ function HappeningRow({ happening, occurrence }: { happening: Happening; occurre
   const venue = happening.venue_name ?? happening.district;
   const badge = savingBadgeLabel(happening);
   const eligibility = eligibilityLine(happening);
+  const { who } = useDealProfile();
+  const whoGroup = whoGroupForEligibility(happening.eligibility);
+  const qualifies = whoGroup != null && who.includes(whoGroup);
   const oneLiner = oneLinerSummary(happening.summary);
 
   const thumbnail = happening.image_url ?? categoryDefaultImage(happening.category);
@@ -123,7 +128,12 @@ function HappeningRow({ happening, occurrence }: { happening: Happening; occurre
       ) : null}
 
       <div className="flex items-center justify-between gap-2">
-        {eligibility ? (
+        {eligibility && qualifies ? (
+          <span className="inline-flex w-fit items-center gap-1 rounded-full bg-secondary-container/25 px-2 py-0.5 text-[11px] font-bold text-primary">
+            <Icon name="check_circle" filled size={12} />
+            You qualify · {eligibility}
+          </span>
+        ) : eligibility ? (
           <span className="inline-flex w-fit items-center gap-1 rounded-full bg-surface-container px-2 py-0.5 text-[11px] font-bold text-secondary">
             <Icon name={ELIGIBILITY_ICON[happening.eligibility]} size={12} />
             {eligibility}

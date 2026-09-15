@@ -28,7 +28,7 @@
 import { CITY } from "@/lib/city";
 import { localDayDate, daysUntilLastChance } from "@/lib/happenings/occurrence";
 import { bucketForDayDate, isStale, moneyLabel, savingBadgeLabel } from "@/lib/happenings/format";
-import { isGenuineDeal } from "@/lib/happenings/groups";
+import { isGenuineDeal, whoGroupForEligibility, type DealWhoGroup } from "@/lib/happenings/groups";
 import { priceSignalForEvent } from "@/lib/now/price";
 import { eventDayLabel } from "@/lib/events/format";
 import type { Happening, HappeningEligibility, Occurrence } from "@/lib/happenings/types";
@@ -93,7 +93,8 @@ export function happeningRecommendationScore(
   h: Happening,
   occurrence: Occurrence,
   now: Date = new Date(),
-  timeZone: string = CITY.timezone
+  timeZone: string = CITY.timezone,
+  who: readonly DealWhoGroup[] = []
 ): RecommendationResult {
   const factors: ReasonFactor[] = [];
   let score = 0;
@@ -158,7 +159,17 @@ export function happeningRecommendationScore(
   if (isStale(h.verified_at, now, timeZone)) score -= 25;
 
   // --- Audience --------------------------------------------------------
-  if (NARROW_ELIGIBILITY.has(h.eligibility)) score -= 10;
+  // Marked down for everyone else, boosted for a visitor whose deals
+  // profile says they qualify.
+  if (NARROW_ELIGIBILITY.has(h.eligibility)) {
+    const group = whoGroupForEligibility(h.eligibility);
+    if (group && who.includes(group)) {
+      score += 10;
+      factors.push({ label: "You qualify", weight: 22 });
+    } else {
+      score -= 10;
+    }
+  }
 
   return { score, reason: buildReason(factors) };
 }

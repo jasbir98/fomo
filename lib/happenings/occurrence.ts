@@ -231,6 +231,14 @@ function occ(
  *  the analogous default used for provider events (lib/events/format.ts). */
 const DEFAULT_OCCURRENCE_DURATION_MS = 2 * 60 * 60 * 1000;
 
+/** True for an instant at exactly 00:00:00 UTC — how the pipeline stores a
+ *  date with no time. Such a row runs all day, so the 2h default above must
+ *  not end it at 3am. */
+function isMidnightUtc(iso: string): boolean {
+  const d = new Date(iso);
+  return !Number.isNaN(d.getTime()) && d.getUTCHours() === 0 && d.getUTCMinutes() === 0 && d.getUTCSeconds() === 0;
+}
+
 /**
  * Expands a happening into its occurrences inside `[from, to]`, soonest first,
  * capped at MAX_OCCURRENCES_PER_HAPPENING.
@@ -284,7 +292,8 @@ export function nextOccurrences(
       // at 21:00) — only matters when this occurrence's last day is `from`'s
       // own day; any other day is already correctly excluded/included by the
       // day comparison above.
-      if (end === windowFrom) {
+      const allDay = h.ends_at ? isMidnightUtc(h.ends_at) : isMidnightUtc(h.starts_at);
+      if (end === windowFrom && !allDay) {
         const effectiveEndMs = h.ends_at
           ? new Date(h.ends_at).getTime()
           : new Date(h.starts_at).getTime() + DEFAULT_OCCURRENCE_DURATION_MS;

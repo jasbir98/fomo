@@ -118,6 +118,8 @@ import type { Db } from "@/lib/supabase/types";
 import type { EventItem, Place } from "@/lib/types";
 import { cachedJson, CACHE_PRIVATE_NO_STORE } from "@/lib/http/cache";
 
+import { parseWhoGroups, type DealWhoGroup } from "@/lib/happenings/groups";
+
 export const runtime = "nodejs";
 
 const HERO_LOOKAHEAD_DAYS = 30;
@@ -284,7 +286,13 @@ function pickSeriesLeads(groups: HappeningSeriesGroup[], now: Date, timeZone: st
  * short `reason` string carried on the winning card. Ties (equal score) go
  * to whichever candidate's own start time is sooner.
  */
-function pickHero(happenings: Happening[], events: EventItem[], now: Date, timeZone: string): FeedHeroCard | null {
+function pickHero(
+  happenings: Happening[],
+  events: EventItem[],
+  now: Date,
+  timeZone: string,
+  who: readonly DealWhoGroup[] = []
+): FeedHeroCard | null {
   const happeningTo = new Date(now.getTime() + HERO_LOOKAHEAD_DAYS * 86_400_000);
   const eventCutoff = now.getTime() + HERO_EVENT_LOOKAHEAD_DAYS * 86_400_000;
 
@@ -302,7 +310,7 @@ function pickHero(happenings: Happening[], events: EventItem[], now: Date, timeZ
     if (!isDated(h)) continue;
     const occurrence = nextOccurrence(h, now, happeningTo, timeZone);
     if (!occurrence) continue;
-    const { score, reason } = happeningRecommendationScore(h, occurrence, now, timeZone);
+    const { score, reason } = happeningRecommendationScore(h, occurrence, now, timeZone, who);
     // London midnight, not UTC midnight — a dateless occurrence's tie-break
     // instant must sort against real `starts_at` instants (both happenings'
     // and events') the same way `bucketForDayDate`/`localDayDate` already
@@ -629,6 +637,12 @@ export async function GET(request: Request) {
   // 2026-09-15). Every table read here is `read_all` to anon under RLS, so a
   // cookie-less request simply runs as the anon role.
   const db = await supabaseServer();
+  // Signed-in visitors get the hero ranked for their deals profile; the rest
+  // of the response is the same for everyone.
+  const {
+    data: { user },
+  } = await db.auth.getUser();
+  const who = parseWhoGroups(user?.user_metadata);
 
   const { searchParams } = new URL(request.url);
   const window = parseWindow(searchParams.get("window"));
@@ -683,7 +697,7 @@ export async function GET(request: Request) {
       limit: 100,
     });
 
-    const hero = pickHero(happenings, bookEarlyEvents, now, timeZone);
+    const hero = pickHero(happenings, bookEarlyEvents, now, timeZone, who);
     const heroHappeningId = hero?.kind === "happening" ? hero.happening.id : null;
     const heroEventId = hero?.kind === "event" ? hero.event.id : null;
 

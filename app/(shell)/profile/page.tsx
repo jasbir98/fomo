@@ -2,31 +2,22 @@
 
 import { useEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
 import dynamic from "next/dynamic";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { supabaseBrowserAuth } from "@/lib/supabase/client";
 import {
   getProfile,
-  getPreferences,
-  getRules,
-  resetAllDismissals,
   upsertProfile,
   uploadAvatar,
   DEFAULT_NOTIFICATION_SETTINGS,
   DEFAULT_PRIVACY_SETTINGS,
 } from "@/lib/db";
-import type {
-  NotificationSettings,
-  PrivacySettings,
-  Profile,
-  TravelPreferences,
-  FomoRules,
-} from "@/lib/types";
+import type { NotificationSettings, PrivacySettings, Profile } from "@/lib/types";
 import type { Candidate } from "@/lib/now/types";
 import { useInfiniteList } from "@/lib/useInfiniteList";
 import { Button, BottomSheet, Card, Chip, Icon, PageHeader, SectionHeader, SmartImage, Toggle } from "@/components/ui";
 import { FomoCard } from "@/components/fomo/Card";
-import { INTEREST_TAG_META, type InterestTag } from "@/lib/taxonomy";
+import { WHO_GROUP_LABEL, WHO_GROUP_ORDER, type DealWhoGroup } from "@/lib/happenings/groups";
+import { useDealProfile } from "@/lib/useSaved";
 import { NOTIFY_ME_ENABLED } from "@/lib/happenings/book-early";
 import { ensurePushSubscribed, pushReasonMessage, pushSupportReason } from "@/lib/push/client";
 
@@ -51,52 +42,17 @@ const SAVED_GROUP_LABELS: { type: Candidate["subject"]["type"]; label: string }[
   { type: "experience", label: "Experiences" },
 ];
 
-/** Labels for the Phase 4/5 persona columns (supabase/add_person_persona.sql) shown read-only in the Travel DNA card below. Replaces the old three-slider display (luxury_backpacker/planned_spontaneous/foodie_utilitarian), dropped in Phase 8 (supabase/drop_legacy_preferences.sql). */
-const BUDGET_BAND_LABELS: Record<string, string> = {
-  shoestring: "Shoestring",
-  middle: "Middle",
-  treat: "Treat",
-};
-const WALK_TOLERANCE_LABELS: Record<string, string> = {
-  high: "Happy to walk",
-  medium: "Moderate",
-  low: "Keep it short",
-};
-const DAY_RHYTHM_LABELS: Record<string, string> = {
-  early: "Early riser",
-  steady: "Steady",
-  night: "Night owl",
-};
-const PACE_LABELS: Record<string, string> = {
-  packed: "Packed",
-  balanced: "Balanced",
-  slow: "Slow",
-};
-
-const DNA_FACTS: {
-  field: keyof Pick<TravelPreferences, "budget_band" | "walk_tolerance" | "pace" | "day_rhythm">;
-  label: string;
-  values: Record<string, string>;
-}[] = [
-  { field: "budget_band", label: "Budget", values: BUDGET_BAND_LABELS },
-  { field: "walk_tolerance", label: "Walking", values: WALK_TOLERANCE_LABELS },
-  { field: "pace", label: "Pace", values: PACE_LABELS },
-  { field: "day_rhythm", label: "Rhythm", values: DAY_RHYTHM_LABELS },
-];
-
 export default function ProfilePage() {
   const db = supabaseBrowserAuth();
   const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [profile, setProfile] = useState<Profile | null>(null);
-  const [prefs, setPrefs] = useState<TravelPreferences | null>(null);
-  const [rules, setRules] = useState<FomoRules | null>(null);
   const [resetOpen, setResetOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
   const [privacyOpen, setPrivacyOpen] = useState(false);
   const [securityOpen, setSecurityOpen] = useState(false);
-  const [resetPracticalitiesOpen, setResetPracticalitiesOpen] = useState(false);
-  const [resettingPracticalities, setResettingPracticalities] = useState(false);
+  const { who, setWho } = useDealProfile();
+  const [whoError, setWhoError] = useState<string | null>(null);
   const [notifSettings, setNotifSettings] = useState<NotificationSettings>(
     DEFAULT_NOTIFICATION_SETTINGS
   );
@@ -288,17 +244,10 @@ export default function ProfilePage() {
 
   useEffect(() => {
     let cancelled = false;
-    Promise.all([
-      getProfile(db),
-      getPreferences(db),
-      getRules(db),
-      db.auth.getUser(),
-    ])
-      .then(([profileRow, prefsRow, rulesRow, { data: userData }]) => {
+    Promise.all([getProfile(db), db.auth.getUser()])
+      .then(([profileRow, { data: userData }]) => {
         if (cancelled) return;
         setProfile(profileRow);
-        setPrefs(prefsRow);
-        setRules(rulesRow);
         setAccountEmail(userData.user?.email ?? null);
         setAccountId(userData.user?.id ?? null);
         // Merge fetched settings over the defaults (not the other way round)
@@ -331,32 +280,15 @@ export default function ProfilePage() {
     };
   }, [db]);
 
-  const displayName = profile?.display_name ?? "Fomo user";
-  const tier = profile?.membership_tier ?? "Explorer";
-  const rulesLines = (rules?.rules_text ?? "")
-    .split("\n")
-    .map((line) => line.trim())
-    .filter(Boolean);
-  const dnaFactsSet = DNA_FACTS.flatMap(({ field, label, values }) => {
-    const raw = prefs?.[field];
-    return raw ? [{ field, label, value: values[raw] ?? raw }] : [];
-  });
+  const displayName = profile?.display_name ?? accountEmail?.split("@")[0] ?? "You";
 
-  // "Reset practicalities" (plan §E.1, the item Phase 7 flagged and skipped)
-  // — clears every dismissed "Already sorted" topic for this account across
-  // every country, so they can resurface. Distinct from "Reset app data"
-  // above: this doesn't sign the user out, it just un-dismisses.
-  async function handleResetPracticalitiesConfirm() {
-    if (resettingPracticalities) return;
-    setResettingPracticalities(true);
-    try {
-      await resetAllDismissals(db);
-      setResetPracticalitiesOpen(false);
-    } catch (err) {
-      console.error("[profile] reset practicalities failed", err);
-    } finally {
-      setResettingPracticalities(false);
-    }
+  function toggleWho(group: DealWhoGroup) {
+    setWhoError(null);
+    const next = who.includes(group) ? who.filter((g) => g !== group) : [...who, group];
+    setWho(next).catch((err) => {
+      console.error("[profile] save deals profile failed", err);
+      setWhoError("Couldn't save that — try again.");
+    });
   }
 
   async function handleResetConfirm() {
@@ -417,9 +349,6 @@ export default function ProfilePage() {
                   </div>
                 ) : null}
               </div>
-              <div className="absolute bottom-0 right-0 rounded-full bg-secondary-container p-1.5 shadow-md">
-                <Icon name="verified" filled size={18} className="text-on-secondary-container" />
-              </div>
               <button
                 type="button"
                 aria-label={profile?.avatar_url ? "Change profile photo" : "Add profile photo"}
@@ -439,110 +368,36 @@ export default function ProfilePage() {
             </div>
             {avatarError ? <p className="text-label-sm text-error">{avatarError}</p> : null}
             <h2 className="text-headline-md text-primary">{displayName}</h2>
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-secondary-container/20 px-4 py-1.5 text-label-md text-secondary-container">
-              <Icon name="star" filled size={16} />
-              {tier}
-            </span>
           </section>
 
           <div className="flex flex-col gap-4 px-5">
-            {/* Travel DNA */}
+            {/* Deals for you — which concessions this person can use. Drives
+                the "You qualify" badges on feed cards, the Home pick, and
+                Ask Fomo (lib/useSaved.ts, lib/happenings/hero.ts). */}
             <Card>
-              <div className="mb-5 flex items-center justify-between">
-                <h3 className="flex items-center gap-2 text-headline-sm text-primary">
-                  <Icon name="dns" className="text-secondary" />
-                  Your preferences
-                </h3>
-                <Link
-                  href="/setup/travel-dna?edit=1"
-                  className="text-label-md font-medium text-secondary"
-                >
-                  Edit
-                </Link>
+              <h3 className="mb-1 flex items-center gap-2 text-headline-sm text-primary">
+                <Icon name="sell" className="text-secondary" />
+                Deals for you
+              </h3>
+              <p className="mb-4 text-body-md text-on-surface-variant">
+                Pick any that apply. Fomo flags offers you qualify for and puts them first.
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {WHO_GROUP_ORDER.map((group) => {
+                  const selected = who.includes(group);
+                  return (
+                    <Chip
+                      key={group}
+                      label={WHO_GROUP_LABEL[group]}
+                      selected={selected}
+                      leadingIcon={selected ? "check" : undefined}
+                      aria-pressed={selected}
+                      onClick={() => toggleWho(group)}
+                    />
+                  );
+                })}
               </div>
-
-              <div className="flex flex-col gap-3">
-                {dnaFactsSet.length ? (
-                  dnaFactsSet.map(({ field, label, value }) => (
-                    <div key={field} className="flex items-center justify-between">
-                      <span className="text-body-md text-on-surface-variant">{label}</span>
-                      <span className="text-body-md font-medium text-primary">{value}</span>
-                    </div>
-                  ))
-                ) : (
-                  <p className="text-body-md text-on-surface-variant">
-                    Nothing set yet — tap Edit to tell Fomo your taste.
-                  </p>
-                )}
-              </div>
-
-              <div className="mt-6 flex flex-col gap-3">
-                <p className="text-label-md font-bold text-primary">Interests</p>
-                {prefs?.interest_tags?.length ? (
-                  <div className="flex flex-wrap gap-2">
-                    {prefs.interest_tags.map((tag) => {
-                      const meta = INTEREST_TAG_META[tag as InterestTag] as
-                        | { label: string; icon: string }
-                        | undefined;
-                      return (
-                        <Chip
-                          key={tag}
-                          label={meta?.label ?? tag}
-                          selected
-                          leadingIcon={meta?.icon}
-                          tabIndex={-1}
-                        />
-                      );
-                    })}
-                  </div>
-                ) : (
-                  <p className="text-body-md text-on-surface-variant">
-                    No interests set yet — tap Edit to tell Fomo what you love.
-                  </p>
-                )}
-              </div>
-            </Card>
-
-            {/* Fomo Rules */}
-            <Card>
-              <div className="mb-5 flex items-center justify-between">
-                <h3 className="flex items-center gap-2 text-headline-sm text-primary">
-                  <Icon name="rule" className="text-secondary" />
-                  Fomo Rules
-                </h3>
-                <Link
-                  href="/setup/always-remember?edit=1"
-                  className="text-label-md font-medium text-secondary"
-                >
-                  Manage
-                </Link>
-              </div>
-
-              {rulesLines.length ? (
-                <div className="flex flex-col gap-3">
-                  {rulesLines.map((line, i) => (
-                    <div
-                      key={i}
-                      className="flex items-start gap-3 rounded-lg border-l-4 border-secondary bg-surface-container-low p-3"
-                    >
-                      <Icon name="warning" size={20} className="mt-0.5 text-secondary" />
-                      <p className="text-body-md text-on-surface-variant">{line}</p>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <p className="text-body-md text-on-surface-variant">
-                  No rules yet — tap Manage to tell Fomo what to always remember.
-                </p>
-              )}
-
-              {rules?.quick_chips?.length ? (
-                <div className="mt-4 flex flex-wrap gap-2">
-                  {rules.quick_chips.map((chip) => (
-                    <Chip key={chip} label={chip} selected tabIndex={-1} />
-                  ))}
-                </div>
-              ) : null}
+              {whoError ? <p className="mt-3 text-label-sm text-error">{whoError}</p> : null}
             </Card>
           </div>
 
@@ -560,7 +415,7 @@ export default function ProfilePage() {
                 <div className="flex flex-col items-center gap-2 py-6 text-center">
                   <Icon name="bookmark_border" size={32} className="text-on-surface-variant" />
                   <p className="text-body-md text-on-surface-variant">
-                    Tap the bookmark on any place, event, or experience to save it here.
+                    Tap the bookmark on any deal, event or place to save it here.
                   </p>
                 </div>
               </Card>
@@ -636,16 +491,6 @@ export default function ProfilePage() {
               </button>
               <button
                 type="button"
-                onClick={() => setResetPracticalitiesOpen(true)}
-                className="flex w-full items-center gap-4 p-4 text-left"
-              >
-                <span className="flex h-10 w-10 items-center justify-center rounded-full bg-primary-container/10 text-primary">
-                  <Icon name="restart_alt" />
-                </span>
-                <span className="text-body-lg text-primary">Reset practicalities</span>
-              </button>
-              <button
-                type="button"
                 onClick={() => setResetOpen(true)}
                 className="flex w-full items-center gap-4 p-4 text-left"
               >
@@ -698,38 +543,6 @@ export default function ProfilePage() {
             </Button>
             <Button variant="outline" fullWidth onClick={handleResetConfirm}>
               Sign out
-            </Button>
-          </div>
-        </div>
-      </BottomSheet>
-
-      <BottomSheet
-        open={resetPracticalitiesOpen}
-        onClose={() => setResetPracticalitiesOpen(false)}
-        title="Reset practicalities?"
-      >
-        <div className="flex flex-col gap-4">
-          <p className="text-body-md text-on-surface-variant">
-            This brings back every practicality you&apos;ve marked &quot;Already sorted&quot; —
-            eSIM, cash, transit, and more — across every country, so they can resurface next
-            time they&apos;re relevant.
-          </p>
-          <div className="flex gap-3">
-            <Button
-              variant="ghost"
-              fullWidth
-              disabled={resettingPracticalities}
-              onClick={() => setResetPracticalitiesOpen(false)}
-            >
-              Cancel
-            </Button>
-            <Button
-              variant="outline"
-              fullWidth
-              disabled={resettingPracticalities}
-              onClick={() => void handleResetPracticalitiesConfirm()}
-            >
-              {resettingPracticalities ? "Resetting…" : "Reset"}
             </Button>
           </div>
         </div>
@@ -816,7 +629,7 @@ export default function ProfilePage() {
               {
                 key: "personalized_recommendations",
                 label: "Personalized recommendations",
-                desc: "Use your preferences and Fomo Rules to tailor suggestions",
+                desc: "Use your deals profile to tailor suggestions",
               },
               {
                 key: "precise_location",
@@ -875,9 +688,9 @@ export default function ProfilePage() {
               <div className="flex flex-col gap-1">
                 <span className="text-label-sm text-on-surface-variant">Linked since</span>
                 <span className="text-body-md text-on-surface">
-                  {new Date(profile.created_at).toLocaleDateString("en-US", {
-                    month: "short",
+                  {new Date(profile.created_at).toLocaleDateString("en-GB", {
                     day: "numeric",
+                    month: "short",
                     year: "numeric",
                   })}
                 </span>

@@ -42,6 +42,17 @@ export const WHAT_GROUP_ORDER: DealWhatGroup[] = ["food_drink", "culture", "acti
 /** Chip order for the WHO row. No "All" chip in the union itself — the default, unfiltered state is "no chip selected" (`null`), per the task's own note that member/cardholder (and, since `anyone` maps to `null` too — see ELIGIBILITY_TO_WHO — unrestricted) rows should only show then. There's deliberately no "Everyone" chip: every deal already shows in that unfiltered default, so a chip that means the same thing as "no chip selected" would be redundant. */
 export const WHO_GROUP_ORDER: DealWhoGroup[] = ["students", "residents", "under_26", "over_60"];
 
+/**
+ * The visitor's own deals profile — the WHO groups they said they belong to
+ * (Profile → "Deals for you"), stored as `fomo_who` in Supabase auth
+ * user_metadata so it needs no table. Unknown values are dropped.
+ */
+export function parseWhoGroups(userMetadata: unknown): DealWhoGroup[] {
+  const raw = (userMetadata as { fomo_who?: unknown } | null | undefined)?.fomo_who;
+  if (!Array.isArray(raw)) return [];
+  return WHO_GROUP_ORDER.filter((group) => raw.includes(group));
+}
+
 /** `sports` gets its own WHAT group rather than folding into `activities`
  *  (its pre-existing bucket) — fixtures/season tickets/club discounts read
  *  as a distinct interest from parkruns and family days out, and lumping

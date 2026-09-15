@@ -4,6 +4,7 @@ import { useEffect, useSyncExternalStore } from "react";
 import { supabaseBrowserAuth } from "@/lib/supabase/client";
 import { listSavedItems, saveItem, unsaveItem } from "@/lib/db/saved";
 import { describeSupabaseError } from "@/lib/db/errors";
+import { parseWhoGroups, type DealWhoGroup } from "@/lib/happenings/groups";
 import type { CardSubjectType } from "@/lib/types";
 
 /**
@@ -21,9 +22,11 @@ interface SavedState {
   /** `null` until the session check resolves. */
   signedIn: boolean | null;
   keys: ReadonlySet<string>;
+  /** Deals profile (lib/happenings/groups.ts `parseWhoGroups`) — read from the same session. */
+  who: readonly DealWhoGroup[];
 }
 
-const INITIAL: SavedState = { signedIn: null, keys: new Set() };
+const INITIAL: SavedState = { signedIn: null, keys: new Set(), who: [] };
 let state: SavedState = INITIAL;
 const listeners = new Set<() => void>();
 const inFlight = new Set<string>();
@@ -54,15 +57,27 @@ async function load(): Promise<void> {
     data: { session },
   } = await db.auth.getSession();
   if (!session) {
-    setState({ signedIn: false, keys: new Set() });
+    setState({ signedIn: false, keys: new Set(), who: [] });
     return;
   }
+  const who = parseWhoGroups(session.user.user_metadata);
   try {
     const rows = await listSavedItems(db);
-    setState({ signedIn: true, keys: new Set(rows.map((r) => keyOf(r.subject_type, r.subject_id))) });
+    setState({ signedIn: true, keys: new Set(rows.map((r) => keyOf(r.subject_type, r.subject_id))), who });
   } catch (err) {
     console.error(`[saved] load failed ${describeSupabaseError(err)}`);
-    setState({ signedIn: true, keys: state.keys });
+    setState({ signedIn: true, keys: state.keys, who });
+  }
+}
+
+/** Save the deals profile to the account (auth user_metadata). Optimistic; reverts and rethrows on failure. */
+export async function setWhoGroups(groups: DealWhoGroup[]): Promise<void> {
+  const previous = state.who;
+  setState({ ...state, who: groups });
+  const { error } = await supabaseBrowserAuth().auth.updateUser({ data: { fomo_who: groups } });
+  if (error) {
+    setState({ ...state, who: previous });
+    throw error;
   }
 }
 
@@ -120,6 +135,7 @@ export function useSaved() {
   const snapshot = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
   return {
     signedIn: snapshot.signedIn,
+    who: snapshot.who,
     isSaved: (subjectType: CardSubjectType, subjectId: string) => snapshot.keys.has(keyOf(subjectType, subjectId)),
     toggle: toggleSaved,
   };
@@ -127,4 +143,9 @@ export function useSaved() {
 
 export function useSignedIn(): boolean | null {
   return useSaved().signedIn;
+}
+
+export function useDealProfile() {
+  const { signedIn, who } = useSaved();
+  return { signedIn, who, setWho: setWhoGroups };
 }

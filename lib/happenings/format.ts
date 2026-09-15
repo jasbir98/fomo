@@ -333,17 +333,26 @@ export function happeningTimeLabel(
   if (!occurrence.exact || !occurrence.startsAt) return null;
   const today = localDayDate(now, timeZone);
   const tomorrow = addDays(today, 1);
-  const clock = formatClockTime(occurrence.startsAt, timeZone);
+  // A date-only row is stored at 00:00 UTC, which would read "1am" in BST —
+  // show just the day for those.
+  const dateOnly = isMidnightUtc(occurrence.startsAt);
+  const clock = dateOnly ? "" : ` ${formatClockTime(occurrence.startsAt, timeZone)}`;
   if (occurrence.dayDate === today) {
-    const label = localHour(occurrence.startsAt, timeZone) >= EVENING_HOUR ? "Tonight" : "Today";
-    return `${label} ${clock}`;
+    const label = !dateOnly && localHour(occurrence.startsAt, timeZone) >= EVENING_HOUR ? "Tonight" : "Today";
+    return `${label}${clock}`;
   }
-  if (occurrence.dayDate === tomorrow) return `Tomorrow ${clock}`;
+  if (occurrence.dayDate === tomorrow) return `Tomorrow${clock}`;
   const [y, m, d] = occurrence.dayDate.split("-").map(Number);
   const weekday = new Intl.DateTimeFormat("en-GB", { weekday: "short", timeZone: "UTC" }).format(
     new Date(Date.UTC(y, m - 1, d))
   );
-  return `${weekday} ${clock}`;
+  return `${weekday}${clock}`;
+}
+
+/** True for an instant at exactly 00:00:00 UTC — how the pipeline stores a date with no time. */
+function isMidnightUtc(iso: string): boolean {
+  const d = new Date(iso);
+  return !Number.isNaN(d.getTime()) && d.getUTCHours() === 0 && d.getUTCMinutes() === 0 && d.getUTCSeconds() === 0;
 }
 
 /**

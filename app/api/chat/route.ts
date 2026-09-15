@@ -1,9 +1,13 @@
 /**
- * Fomo AI chat — real streaming Claude integration (server-only).
+ * Ask Fomo — streaming chat grounded in Fomo's own Edinburgh catalogue
+ * (server-only).
  *
- * Replaces the scripted `getChatReply` mock. The client POSTs the chat context
- * (mode, history, userText, trip, Travel DNA preferences, rules) and this route
- * calls Claude with a mode-tailored system prompt + two structured-action tools.
+ * Each request builds a compact catalogue of live happenings (deals, free
+ * things, festivals) and the next week's events, puts it in the system
+ * prompt, and gives the model one way to recommend something concrete:
+ * `show_items` with catalogue ids. The route resolves those ids into real
+ * cards (title, price, when, where, link), so the model never supplies a
+ * venue, price, photo or rating of its own.
  *
  * Transport: the response body is a stream of newline-delimited JSON events —
  *   {"type":"text_delta","text":"..."}   (0..n, streamed as the model types)
@@ -17,14 +21,16 @@ import "server-only";
 import { getAnthropic, CHAT_MODEL } from "@/lib/ai/anthropic";
 import { supabaseServer } from "@/lib/supabase/server";
 import { consumeRateLimit, rateLimitedResponse } from "@/lib/rate-limit";
-import type {
-  ActionProposal,
-  AiReplyBlock,
-  ChatMode,
-  PlaceCard,
-} from "@/lib/fomo-ai";
-import type { CardSubjectType, TravelPreferences } from "@/lib/types";
-import { INTEREST_TAG_META, type InterestTag } from "@/lib/taxonomy";
+import { CITY } from "@/lib/city";
+import { listLiveHappenings } from "@/lib/db/happenings";
+import { listUpcomingEvents } from "@/lib/db/events";
+import { nextOccurrence, normalizeRecurrence } from "@/lib/happenings/occurrence";
+import { eligibilityLine, happeningTimeLabel, recurrencePatternLabel, savingBadgeLabel } from "@/lib/happenings/format";
+import { parseWhoGroups, WHO_GROUP_LABEL, type DealWhoGroup } from "@/lib/happenings/groups";
+import { formatEventPrice, formatEventWhen } from "@/lib/events/format";
+import type { AiReplyBlock, ChatItem } from "@/lib/fomo-ai";
+import type { CardSubjectType } from "@/lib/types";
+import type { Db } from "@/lib/supabase/types";
 
 export const runtime = "nodejs";
 
@@ -34,11 +40,36 @@ export const runtime = "nodejs";
 const CHAT_RATE_LIMIT_BURST = { limit: 30, windowSeconds: 10 * 60 };
 const CHAT_RATE_LIMIT_DAILY = { limit: 150, windowSeconds: 24 * 60 * 60 };
 
-/** Matches the client's own cap (app/(shell)/fomo/page.tsx's MAX_HISTORY_MESSAGES sends 12) but enforced here too, since this route has no way to know a request came from that UI. */
+/** Matches the client's own cap (app/(shell)/fomo/page.tsx sends 12) but enforced here too, since this route has no way to know a request came from that UI. */
 const MAX_HISTORY_TURNS = 20;
 const MAX_MESSAGE_CHARS = 2000;
 
+/** How far ahead the catalogue looks, and how many provider events it carries. */
+const CATALOGUE_DAYS = 7;
+const MAX_CATALOGUE_EVENTS = 60;
+const MAX_ITEMS_PER_REPLY = 4;
+
 type HistoryTurn = { role: "user" | "assistant"; text: string };
+
+/** Set when the client opened chat from a card's "Ask Fomo" action, carrying what the card was about. */
+interface ChatSeedContext {
+  type: CardSubjectType;
+  name: string;
+  city: string | null;
+}
+
+interface ChatRequestBody {
+  history: HistoryTurn[];
+  userText: string;
+  seed?: ChatSeedContext | null;
+}
+
+interface Catalogue {
+  /** One pipe-separated line per item, for the system prompt. */
+  lines: string[];
+  /** Catalogue id ("H:<uuid>" / "E:<uuid>") → the card the client renders. */
+  items: Map<string, ChatItem>;
+}
 
 function jsonError(message: string, status: number): Response {
   return new Response(JSON.stringify({ type: "error", message }), {
@@ -47,256 +78,169 @@ function jsonError(message: string, status: number): Response {
   });
 }
 
-interface TripContext {
-  destination: string | null;
-  name: string | null;
-  start_date: string | null;
-  end_date: string | null;
+/** Pipe-separated fields can't contain a pipe or a newline. */
+function field(value: string | null | undefined, fallback: string): string {
+  const clean = (value ?? "").replace(/[|\n]+/g, " ").trim();
+  return clean || fallback;
 }
 
-/** plan-v1-home-pivot.md §7 — set when the client opened chat from a card's "Ask Fomo" action, carrying what the card was about. */
-interface ChatSeedContext {
-  type: CardSubjectType;
-  name: string;
-  city: string | null;
+async function buildCatalogue(db: Db, now: Date): Promise<Catalogue> {
+  const to = new Date(now.getTime() + CATALOGUE_DAYS * 86_400_000);
+  const [happenings, events] = await Promise.all([
+    listLiveHappenings(db, CITY),
+    listUpcomingEvents(db, {
+      destination: CITY.name,
+      from: now.toISOString(),
+      to: to.toISOString(),
+      limit: MAX_CATALOGUE_EVENTS,
+    }),
+  ]);
+
+  const lines: string[] = [];
+  const items = new Map<string, ChatItem>();
+
+  for (const h of happenings) {
+    const occurrence = nextOccurrence(h, now, to, CITY.timezone);
+    if (!occurrence) continue;
+    const when =
+      happeningTimeLabel(occurrence) ?? recurrencePatternLabel(normalizeRecurrence(h.recurrence)) ?? "any time";
+    const where = h.venue_name ?? h.district ?? null;
+    const badge = h.is_free ? "Free" : savingBadgeLabel(h);
+    const key = `H:${h.id}`;
+    lines.push(
+      [
+        key,
+        field(h.title, "Untitled"),
+        h.kind,
+        field(badge, "price varies"),
+        field(when, "any time"),
+        field(where, CITY.name),
+        field(eligibilityLine(h), "anyone"),
+        field(h.summary?.slice(0, 100), ""),
+      ].join(" | ")
+    );
+    items.set(key, {
+      kind: "happening",
+      id: h.id,
+      title: h.title,
+      subtitle: [when, where].filter(Boolean).join(" · ") || null,
+      badge,
+      image_url: h.image_url,
+      href: `/happening/${h.id}`,
+    });
+  }
+
+  for (const e of events) {
+    const key = `E:${e.id}`;
+    const when = formatEventWhen(e.starts_at);
+    const price = formatEventPrice(e) || null;
+    lines.push(
+      [
+        key,
+        field(e.name, "Untitled"),
+        "event",
+        field(price, "price unknown"),
+        field(when, "date unknown"),
+        field(e.venue_name, CITY.name),
+        field(e.category, ""),
+      ].join(" | ")
+    );
+    items.set(key, {
+      kind: "event",
+      id: e.id,
+      title: e.name,
+      subtitle: [when, e.venue_name].filter(Boolean).join(" · ") || null,
+      badge: price,
+      image_url: e.image_url,
+      href: `/event/${e.id}`,
+    });
+  }
+
+  return { lines, items };
 }
 
-interface ChatRequestBody {
-  mode: ChatMode;
-  history: HistoryTurn[];
-  userText: string;
-  trip: TripContext | null;
-  preferences: TravelPreferences | null;
-  rules: string | null;
-  seed?: ChatSeedContext | null;
-}
+function buildSystemPrompt(
+  catalogue: Catalogue,
+  now: Date,
+  who: DealWhoGroup[],
+  seed: ChatSeedContext | null | undefined
+): string {
+  const today = new Intl.DateTimeFormat("en-GB", {
+    timeZone: CITY.timezone,
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(now);
 
-// Readable labels for the persona columns added in Phase 4/5
-// (supabase/add_person_persona.sql) — replaces the old three-slider
-// prompt-builder below (Phase 8 cleanup, plan-v1.2-accounts.md §F).
-const BUDGET_BAND_LABELS: Record<string, string> = {
-  shoestring: "shoestring",
-  middle: "middle-of-the-road",
-  treat: "treat-yourself",
-};
-const WALK_TOLERANCE_LABELS: Record<string, string> = {
-  high: "happy to walk a lot",
-  medium: "moderate walker",
-  low: "prefers to keep walking short",
-};
-const DAY_RHYTHM_LABELS: Record<string, string> = {
-  early: "an early riser",
-  steady: "steady energy all day",
-  night: "a night owl",
-};
-const PACE_LABELS: Record<string, string> = {
-  packed: "likes a packed day",
-  balanced: "likes a balanced day",
-  slow: "prefers a slow day",
-};
+  const parts: string[] = [
+    `You are Fomo, a friend in ${CITY.name} who always knows what's on and what's free, cheap or discounted right now. It is ${today} in ${CITY.name}. Warm, direct, UK English.`,
+    "Keep replies short: 1-3 sentences, answer first, no preamble or caveats nobody asked for.",
+    `Ground every recommendation in the CATALOGUE below — Fomo's verified list of live deals, free things, festivals and this week's events. When you recommend something concrete, call show_items with its catalogue ids (up to ${MAX_ITEMS_PER_REPLY}, best first) and keep your text to a short lead-in; the app shows each card with its price, time and place. Never state a price, date, time, venue or discount that isn't in the catalogue, and never invent places or events. General ${CITY.name} knowledge (neighbourhoods, getting around, what an area is like) is fine without ids.`,
+    "If nothing in the catalogue fits, say so plainly and offer the closest match. If a request is too vague to act on, call suggest_quick_replies with 2-4 concrete options instead of guessing.",
+  ];
 
-const MODE_GUIDANCE: Record<ChatMode, string> = {
-  translate:
-    "You are in TRANSLATE mode. Translate the traveler's phrases into the local language of the trip destination. For each translation, give the phrase in the local script, then a pronunciation guide (romanized), then a literal English gloss in parentheses. Keep it practical and ready to speak aloud.",
-  plan:
-    "You are in PLAN mode. Help the traveler schedule or adjust their itinerary. When you want to add a concrete thing to the itinerary (a reservation, an activity, a stop), call the propose_itinerary_item tool so the app can render a Confirm/Dismiss card. Reason about timing around their existing plans.",
-  explain:
-    "You are in EXPLAIN mode. Explain local customs, etiquette, signs, menu items, or anything unfamiliar at the destination. Be concrete and respectful; give the traveler enough context to act correctly and confidently.",
-  recommend:
-    "You are in RECOMMEND mode. Recommend places that match the traveler's Travel DNA. When you recommend a specific place worth a rich card, call the suggest_place tool. Favor spots that fit their sliders, interests, and dietary needs over generic tourist stops.",
-  emergency:
-    "You are in EMERGENCY mode. Stay calm and safety-first. Surface the destination country's real emergency numbers (police, ambulance/fire) accurately — do not invent numbers; if you are unsure of a specific local number, say so and give the traveler a reliable way to find it. Be concise, clear, and reassuring, and offer concrete next steps. If you need to narrow down what's wrong, you may use suggest_quick_replies for a fast one-tap answer (e.g. \"Lost item\", \"Medical\", \"Lost/stranded\") — but never let clarifying delay an obviously urgent situation; give the essential safety info first.",
-};
-
-function buildSystemPrompt(body: ChatRequestBody): string {
-  const { mode, trip, preferences, rules, seed } = body;
-  const parts: string[] = [];
-
-  parts.push(
-    "You are Fomo, a knowledgeable local friend texting the traveler — warm and opinionated, never a dense guidebook. When you're not sure, commit to one recommendation and say why, rather than hedging with a list of options. Be specific: name the street, the stall, the dish, the exact thing that makes your answer worth more than a search result. You have three tools for structured actions: propose_itinerary_item (to add something to the itinerary), suggest_place (to surface a rich place card), and suggest_quick_replies (to offer 2-5 short tappable options and/or ask a clarifying question). Use them when they fit; otherwise just reply in text.\n\nKeep replies short: 1-3 sentences of prose by default. Answer the traveler's actual question directly first — don't restate it, don't preface with throat-clearing or generic scene-setting, don't list caveats or background the traveler didn't ask for. When a rich_card or propose_itinerary_item covers the details (name, description, timing), the prose reply should be a brief one-line lead-in, not a duplicate of the card's content. Only go longer than a few sentences if the traveler explicitly asks for more detail, a full explanation, or a list.\n\nWhen the traveler's request is vague, ambiguous, or too open-ended to act on well (e.g. \"plan something for me\", \"find me food\", \"what should I do\"), don't just guess — call suggest_quick_replies to offer a few concrete options or ask a short clarifying question, then wait for their tap. Don't overuse it: if the request is already clear enough to act on, just answer or use the other tools instead."
-  );
-
-  parts.push(MODE_GUIDANCE[mode]);
+  if (who.length > 0) {
+    parts.push(
+      `This person qualifies for: ${who.map((g) => WHO_GROUP_LABEL[g]).join(", ")}. Prefer offers they can use and mention when they qualify. Don't push concessions for other groups unless asked.`
+    );
+  } else {
+    parts.push(
+      "You don't know which concessions this person qualifies for. When you suggest a restricted offer (students, EH residents, under 26, over 60), say who it's for."
+    );
+  }
 
   if (seed) {
     parts.push(
-      `The traveler opened this chat by tapping "Ask Fomo" on a ${seed.type} card: "${seed.name}"${
-        seed.city ? ` in ${seed.city}` : ""
-      }. Assume their first message is about this specific ${seed.type} unless they clearly change the subject — answer as if you already know exactly what they're pointing at, don't ask them to clarify which place/event/experience they mean.`
+      `They opened this chat from "${seed.name}" (${seed.type}). Assume their first message is about it unless they clearly change the subject.`
     );
   }
 
-  if (trip) {
-    const tripLines: string[] = [];
-    if (trip.destination) tripLines.push(`Destination: ${trip.destination}`);
-    if (trip.name) tripLines.push(`Trip name: ${trip.name}`);
-    if (trip.start_date || trip.end_date) {
-      tripLines.push(
-        `Dates: ${trip.start_date ?? "?"} to ${trip.end_date ?? "?"}`
-      );
-    }
-    if (tripLines.length > 0) {
-      parts.push(`Current trip:\n${tripLines.join("\n")}`);
-    }
-  }
-
-  if (preferences) {
-    const dna: string[] = [];
-    if (preferences.budget_band)
-      dna.push(
-        `Budget: ${BUDGET_BAND_LABELS[preferences.budget_band] ?? preferences.budget_band}`
-      );
-    if (preferences.pace)
-      dna.push(`Pace: ${PACE_LABELS[preferences.pace] ?? preferences.pace}`);
-    if (preferences.day_rhythm)
-      dna.push(
-        `Daily rhythm: ${DAY_RHYTHM_LABELS[preferences.day_rhythm] ?? preferences.day_rhythm}`
-      );
-    if (preferences.interest_tags?.length) {
-      const labels = preferences.interest_tags.map(
-        (tag) => INTEREST_TAG_META[tag as InterestTag]?.label ?? tag
-      );
-      dna.push(`Interests: ${labels.join(", ")}`);
-    }
-    if (preferences.dietary?.length)
-      dna.push(`Dietary needs: ${preferences.dietary.join(", ")}`);
-    if (preferences.walk_tolerance)
-      dna.push(
-        `Walking: ${
-          WALK_TOLERANCE_LABELS[preferences.walk_tolerance] ?? preferences.walk_tolerance
-        }`
-      );
-    if (preferences.languages?.length)
-      dna.push(`Languages spoken: ${preferences.languages.join(", ")}`);
-    if (dna.length > 0) {
-      parts.push(
-        `Traveler's Travel DNA — tailor recommendations to this:\n${dna.join(
-          "\n"
-        )}`
-      );
-    }
-  }
-
-  if (rules && rules.trim()) {
-    parts.push(
-      `The traveler set these personal rules for you — always respect them:\n${rules.trim()}`
-    );
-  }
+  parts.push(
+    `CATALOGUE (id | title | kind | price or saving | when | where | who it's for or category | summary):\n${
+      catalogue.lines.length > 0 ? catalogue.lines.join("\n") : "(nothing live right now)"
+    }`
+  );
 
   return parts.join("\n\n");
 }
 
-// Tool schemas mirror ActionProposal and PlaceCard exactly so the assembled
-// tool_use.input maps straight onto the block types the UI renders.
 const TOOLS = [
   {
-    name: "propose_itinerary_item",
-    description:
-      "Propose adding a concrete item to the traveler's itinerary (a reservation, activity, or stop). The app renders a Confirm/Dismiss card; on confirm it inserts an itinerary item.",
+    name: "show_items",
+    description: `Show cards for the catalogue items you are recommending. Pass ids exactly as written in the CATALOGUE (e.g. "H:…" or "E:…"), best first, at most ${MAX_ITEMS_PER_REPLY}.`,
     input_schema: {
       type: "object" as const,
       properties: {
-        title: { type: "string", description: "Short title of the item." },
-        category: {
-          type: "string",
-          description:
-            "Category, e.g. reservation, activity, dining, transport.",
-        },
-        location: { type: "string", description: "Where it takes place." },
-        day_date: {
-          type: "string",
-          description: "Optional ISO date, e.g. 2026-03-28.",
-        },
-        time_label: {
-          type: "string",
-          description: 'Optional human time label, e.g. "12:45 PM".',
-        },
-        note: { type: "string", description: "Optional extra note." },
-        summary: {
-          type: "string",
-          description:
-            "One-sentence summary shown in the proposal card body, phrased as a question the traveler confirms.",
-        },
-        confirm_label: {
-          type: "string",
-          description: 'Optional confirm button label, defaults to "Confirm".',
-        },
-        dismiss_label: {
-          type: "string",
-          description: 'Optional dismiss button label, defaults to "Dismiss".',
-        },
-      },
-      required: ["title", "category", "location", "summary"],
-    },
-  },
-  {
-    name: "suggest_place",
-    description:
-      "Surface a rich place card for a specific recommended place. Use for standout recommendations worth showing with an image and details. Always include a `reason` explaining why this specific place fits this specific traveler right now, not just a description of the place.",
-    input_schema: {
-      type: "object" as const,
-      properties: {
-        name: { type: "string", description: "Place name." },
-        image_url: {
-          type: "string",
-          description:
-            "A relevant https://images.unsplash.com/... photo URL. If unsure, use a generic Unsplash travel photo URL. Real place photos come later.",
-        },
-        category: {
-          type: "string",
-          description: 'Category, e.g. "Sushi restaurant".',
-        },
-        rating: {
-          type: "number",
-          description: "Rating from 0 to 5, e.g. 4.8.",
-        },
-        price_tier: {
-          type: "string",
-          description: 'Optional price tier, e.g. "$$$$".',
-        },
-        description: {
-          type: "string",
-          description: "One-to-two sentence description of the place itself (what it is, what it's known for).",
+        ids: {
+          type: "array",
+          items: { type: "string" },
+          description: "Catalogue ids, best first.",
         },
         reason: {
           type: "string",
-          description:
-            "One short sentence explaining why THIS place is being recommended to THIS traveler right now — tie it to their Travel DNA (interests, sliders, dietary needs), their itinerary/current plans, or context from the conversation. E.g. \"Quiet spot near your afternoon stop and matches your interest in temples.\" Do not restate the `description` field or generic praise — be specific to the traveler.",
-        },
-        duration_label: {
-          type: "string",
-          description: 'Optional typical duration, e.g. "45-60 min".',
-        },
-        distance_label: {
-          type: "string",
-          description: 'Optional distance, e.g. "5 min away".',
-        },
-        cta_label: {
-          type: "string",
-          description:
-            'Set to any non-empty value (e.g. "true") to show an "Add to Itinerary" button on the card — the app adds this place to the traveler\'s itinerary when tapped. Omit if the place shouldn\'t be directly addable (e.g. a general area or a passing mention).',
+          description: "Optional short line on why these, shown above the cards.",
         },
       },
-      required: ["name", "image_url", "category", "rating", "description", "reason"],
+      required: ["ids"],
     },
   },
   {
     name: "suggest_quick_replies",
     description:
-      "Offer the traveler a short list of concrete, tappable quick-reply options, optionally with a lead-in question or prompt. Call this when the traveler's request is ambiguous, open-ended, or you need clarification before proceeding — instead of guessing, give them 2-5 one-tap options.",
+      "Offer 2-4 short, tappable reply options, optionally with a lead-in question. Use when the request is too vague to act on well, instead of guessing.",
     input_schema: {
       type: "object" as const,
       properties: {
         prompt: {
           type: "string",
-          description:
-            "Optional short lead-in question or text shown above the options, e.g. 'What kind of place are you in the mood for?'.",
+          description: "Optional short lead-in question shown above the options.",
         },
         options: {
           type: "array",
           items: { type: "string" },
-          description:
-            "2-5 short, tappable reply options, e.g. [\"Ramen\", \"Sushi\", \"Something local\"].",
+          description: '2-4 short options, e.g. ["Free", "Under £10", "Treat myself"].',
         },
       },
       required: ["options"],
@@ -304,9 +248,10 @@ const TOOLS = [
   },
 ];
 
-/** Assemble ordered AiReplyBlock[] from the model's final content blocks. */
+/** Assemble ordered AiReplyBlock[] from the model's final content blocks, resolving show_items ids against the catalogue (unknown ids are dropped). */
 function assembleBlocks(
-  content: Array<{ type: string; [key: string]: unknown }>
+  content: Array<{ type: string; [key: string]: unknown }>,
+  catalogue: Catalogue
 ): AiReplyBlock[] {
   const blocks: AiReplyBlock[] = [];
   for (const block of content) {
@@ -314,31 +259,35 @@ function assembleBlocks(
       const text = String(block.text ?? "").trim();
       if (text) blocks.push({ kind: "text", text });
     } else if (block.type === "tool_use") {
-      const name = block.name as string;
       const input = (block.input ?? {}) as Record<string, unknown>;
-      if (name === "propose_itinerary_item") {
-        blocks.push({
-          kind: "action_proposal",
-          proposal: input as unknown as ActionProposal,
-        });
-      } else if (name === "suggest_place") {
-        blocks.push({
-          kind: "rich_card",
-          card: input as unknown as PlaceCard,
-        });
-      } else if (name === "suggest_quick_replies") {
+      if (block.name === "show_items") {
+        const ids = Array.isArray(input.ids) ? input.ids : [];
+        const seen = new Set<string>();
+        const items: ChatItem[] = [];
+        for (const id of ids) {
+          if (typeof id !== "string") continue;
+          const key = id.trim();
+          const item = catalogue.items.get(key);
+          if (!item || seen.has(key)) continue;
+          seen.add(key);
+          items.push(item);
+          if (items.length >= MAX_ITEMS_PER_REPLY) break;
+        }
+        if (items.length > 0) {
+          blocks.push({
+            kind: "items",
+            reason: typeof input.reason === "string" && input.reason.trim() ? input.reason.trim() : undefined,
+            items,
+          });
+        }
+      } else if (block.name === "suggest_quick_replies") {
         const rawOptions = Array.isArray(input.options) ? input.options : [];
-        const options = rawOptions.filter(
-          (o): o is string => typeof o === "string" && o.trim().length > 0
-        );
+        const options = rawOptions.filter((o): o is string => typeof o === "string" && o.trim().length > 0);
         if (options.length > 0) {
           blocks.push({
             kind: "quick_replies",
             quick_replies: {
-              prompt:
-                typeof input.prompt === "string" && input.prompt.trim()
-                  ? input.prompt.trim()
-                  : undefined,
+              prompt: typeof input.prompt === "string" && input.prompt.trim() ? input.prompt.trim() : undefined,
               options,
             },
           });
@@ -350,8 +299,7 @@ function assembleBlocks(
 }
 
 function getStreamErrorMessage(err: unknown): string {
-  const fallback =
-    "Fomo hit a snag reaching the AI. Please try again in a moment.";
+  const fallback = "Fomo hit a snag reaching the AI. Please try again in a moment.";
 
   if (typeof err !== "object" || err === null) return fallback;
 
@@ -399,7 +347,6 @@ export async function POST(req: Request): Promise<Response> {
         typeof turn.text === "string"
     )
     .slice(-MAX_HISTORY_TURNS);
-  body = { ...body, history };
 
   // Rate limit — burst window first, then daily; either exceeded denies the
   // request. Fails open (lets the request through) until
@@ -410,12 +357,24 @@ export async function POST(req: Request): Promise<Response> {
   const daily = await consumeRateLimit(db, "chat:day", CHAT_RATE_LIMIT_DAILY);
   if (!daily.allowed) return rateLimitedResponse(daily);
 
-  const system = buildSystemPrompt(body);
+  const {
+    data: { user },
+  } = await db.auth.getUser();
+  const who = parseWhoGroups(user?.user_metadata);
+
+  const now = new Date();
+  let catalogue: Catalogue;
+  try {
+    catalogue = await buildCatalogue(db, now);
+  } catch (err) {
+    // Chat still answers general questions; the prompt says nothing is live.
+    console.error("[api/chat] catalogue build failed", err);
+    catalogue = { lines: [], items: new Map() };
+  }
+
+  const system = buildSystemPrompt(catalogue, now, who, body.seed);
   const messages = [
-    ...body.history.map((turn) => ({
-      role: turn.role,
-      content: turn.text,
-    })),
+    ...history.map((turn) => ({ role: turn.role, content: turn.text })),
     { role: "user" as const, content: body.userText },
   ];
 
@@ -446,28 +405,20 @@ export async function POST(req: Request): Promise<Response> {
 
         const finalMessage = await modelStream.finalMessage();
         const blocks = assembleBlocks(
-          finalMessage.content as unknown as Array<{
-            type: string;
-            [key: string]: unknown;
-          }>
+          finalMessage.content as unknown as Array<{ type: string; [key: string]: unknown }>,
+          catalogue
         );
 
         // Guarantee at least one block so the turn is never empty.
         if (blocks.length === 0) {
-          blocks.push({
-            kind: "text",
-            text: "I didn't catch that — could you rephrase?",
-          });
+          blocks.push({ kind: "text", text: "I didn't catch that — could you rephrase?" });
         }
 
         send({ type: "done", blocks });
       } catch (err) {
         const message = getStreamErrorMessage(err);
         console.warn("[api/chat] stream failed", message);
-        send({
-          type: "error",
-          message,
-        });
+        send({ type: "error", message });
       } finally {
         controller.close();
       }
