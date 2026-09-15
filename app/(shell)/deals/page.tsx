@@ -89,7 +89,7 @@ export default function DealsPage() {
 
       <div className="flex flex-col gap-4 px-4">
         <p className="text-body-sm text-on-surface-variant">
-          Standing discounts, promo codes &amp; savings — valid whenever you go
+          Discounts, promo codes &amp; concessions around Edinburgh
         </p>
 
         <StickyFilterBar className="-mx-4 px-4">

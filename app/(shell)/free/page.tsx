@@ -30,7 +30,7 @@ async function fetchFreeAnyTime(): Promise<FreeAnyTimeItem[]> {
 const ASK_FOMO_HREF = `/fomo?q=${encodeURIComponent("What free things can I do in Edinburgh today?")}`;
 
 /**
- * Free Any Time — its own full page (moved out of Home's in-place "Show all
+ * Free any time — its own full page (moved out of Home's in-place "Show all
  * N" expander per the task brief, same pattern as /book-early). Same rows as
  * the Home section (components/happenings/FreeAnyTimeList.tsx's
  * `FreeAnyTimeRow`, reused as-is) — this page adds two client-side filters
@@ -73,7 +73,7 @@ export default function FreeAnyTimePage() {
 
   return (
     <div className="flex flex-col gap-5 pb-8">
-      <PageHeader title="Free Any Time" showBack />
+      <PageHeader title="Free any time" showBack />
 
       <div className="flex flex-col gap-4 px-4">
         <p className="text-body-sm text-on-surface-variant">Edinburgh classics with £0 admission</p>
@@ -100,10 +100,10 @@ export default function FreeAnyTimePage() {
         </StickyFilterBar>
 
         {error ? (
-          <ErrorState title="Couldn't load Free Any Time" onRetry={() => setReloadTick((t) => t + 1)} />
+          <ErrorState title="Couldn't load Free any time" onRetry={() => setReloadTick((t) => t + 1)} />
         ) : items === null ? (
           <div className="flex flex-col gap-3 pt-2" role="status" aria-live="polite">
-            <span className="sr-only">Loading Free Any Time…</span>
+            <span className="sr-only">Loading Free any time…</span>
             {[0, 1, 2, 3].map((i) => (
               <div key={i} className="h-16 animate-pulse rounded-lg bg-surface-container" />
             ))}

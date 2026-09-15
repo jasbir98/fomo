@@ -77,7 +77,7 @@ export function FreeAnyTimeRow({ item }: { item: FreeAnyTimeItem }) {
 }
 
 /**
- * The trailing "Free Any Time" zone — thumbnail rows for things that are
+ * The trailing "Free any time" zone — thumbnail rows for things that are
  * free every day, not tied to any date bucket (permanently-free happenings
  * plus free, `price_level === 0` live `places` rows — see
  * app/api/feed/route.ts's `buildFreeAnyTime`). No save button per row: a
@@ -102,7 +102,7 @@ export function FreeAnyTimeList({ items }: FreeAnyTimeListProps) {
         <div className="flex flex-col gap-0.5">
           <div className="flex items-center gap-2">
             <Icon name="all_inclusive" size={20} className="text-accent" />
-            <h3 className="text-headline-sm font-extrabold tracking-tight text-on-surface">Free Any Time</h3>
+            <h3 className="text-headline-sm font-extrabold tracking-tight text-on-surface">Free any time</h3>
           </div>
           <p className="text-label-sm text-on-surface-variant">Edinburgh classics with £0 admission</p>
         </div>

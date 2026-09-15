@@ -78,7 +78,7 @@ export function HappeningHero({ happening, occurrence, variant = "fomo_pick", re
   const bucket = bucketForDayDate(occurrence.dayDate, now);
   const pickLabel =
     variant === "book_early"
-      ? `Book Early · ${bookEarlyLabelFor(happening, bookEarlyTier(happening, now), now).label}`
+      ? `Book early ·${bookEarlyLabelFor(happening, bookEarlyTier(happening, now), now).label}`
       : daysLeft <= 3
         ? "Fomo Pick · Last Chance"
         : bucket === "today_tomorrow"

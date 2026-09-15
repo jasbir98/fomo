@@ -102,6 +102,19 @@ const nextConfig: NextConfig = {
       },
     ];
   },
+  // Trip-era and duplicate screens nothing links to any more — old links and
+  // bookmarks land on the Fomo screen that replaced each one. Temporary (307)
+  // so the pages can be deleted later without browsers caching the move.
+  async redirects() {
+    return [
+      { source: "/events", destination: "/whats-on", permanent: false },
+      { source: "/experiences", destination: "/", permanent: false },
+      { source: "/discover/:intent", destination: "/explore", permanent: false },
+      { source: "/fomo/translator", destination: "/fomo", permanent: false },
+      { source: "/setup/:path*", destination: "/profile", permanent: false },
+      { source: "/kit", destination: "/", permanent: false },
+    ];
+  },
 };
 
 export default nextConfig;

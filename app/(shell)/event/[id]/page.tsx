@@ -130,8 +130,8 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
         <div className="flex flex-col items-center gap-3 px-5 py-16 text-center text-on-surface-variant">
           <Icon name="event_busy" size={32} />
           <p className="text-body-md">We couldn&rsquo;t find this event.</p>
-          <Link href="/events" className="text-label-md font-medium text-secondary">
-            Back to What&rsquo;s On
+          <Link href="/whats-on" className="text-label-md font-medium text-secondary">
+            Back to What&rsquo;s on
           </Link>
         </div>
       </div>

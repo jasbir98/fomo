@@ -491,11 +491,13 @@ async function buildFreeAnyTime(
  * `buildStandingDeals`'s identical exclusion, just expressed against `kind`
  * now instead of inferring "is this a deal" from recurrence alone).
  */
-function buildDealCards(happenings: Happening[], heroId: string | null, now: Date, timeZone: string): DealCardData[] {
+// The Home hero is NOT excluded here: /deals never shows that hero, so
+// dropping it made the single best deal the one you couldn't find in Deals.
+function buildDealCards(happenings: Happening[], now: Date, timeZone: string): DealCardData[] {
   const to = new Date(now.getTime() + BOOK_EARLY_LOOKAHEAD_DAYS * 86_400_000);
   const cards: DealCardData[] = [];
   for (const h of happenings) {
-    if (h.kind !== "deal" || h.id === heroId) continue;
+    if (h.kind !== "deal") continue;
     if (!isDated(h) && h.is_free === true) continue; // → freeAnyTime only
     if (!isGenuineDeal(h)) continue; // ticket price / on-sale notice, not an actual discount
     const occurrence = isDated(h) ? nextOccurrence(h, now, to, timeZone) : nextOccurrence(h, now, now, timeZone);
@@ -881,7 +883,7 @@ export async function GET(request: Request) {
       }
     }
 
-    const dealCards = buildDealCards(happenings, heroHappeningId, now, timeZone);
+    const dealCards = buildDealCards(happenings, now, timeZone);
     const deals = await buildDealsSection(db, dealCards);
 
     const freeAnyTime = await buildFreeAnyTime(db, happenings, seriesByMemberId, seriesLeads, placesById);

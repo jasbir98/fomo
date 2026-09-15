@@ -96,8 +96,8 @@ export default function ExperienceDetailPage({ params }: { params: Promise<{ id:
         <div className="flex flex-col items-center gap-3 px-5 py-16 text-center text-on-surface-variant">
           <Icon name="location_off" size={32} />
           <p className="text-body-md">We couldn&rsquo;t find this experience.</p>
-          <Link href="/experiences" className="text-label-md font-medium text-secondary">
-            Back to Experiences
+          <Link href="/" className="text-label-md font-medium text-secondary">
+            Back to Home
           </Link>
         </div>
       </div>

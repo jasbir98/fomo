@@ -27,10 +27,10 @@ interface HomeWeather {
  * tab here, then a range filter chip inside Coming up; both are gone now.
  * Now/Coming up are disjoint by construction server-side (see
  * occurrenceWindowRange in app/api/feed/route.ts). `book_early` is the third
- * tab, added because Book Early competed for attention as a section wedged
+ * tab, added because Book early competed for attention as a section wedged
  * under Coming up — it's not a date window at all (the route returns an
  * empty `whatsOn` for it), it swaps out What's on entirely for the ranked
- * Book Early list.
+ * Book early list.
  *
  * Neither Now nor Coming up has any per-day/category filtering here anymore
  * — that used to be an in-place "Show all N" expander plus (Coming up only)
@@ -188,7 +188,7 @@ export default function HomePage() {
   const [whatsOnRenderKey, setWhatsOnRenderKey] = useState(0);
   const whatsOnSectionRef = useRef<HTMLDivElement>(null);
   const prevFeedWindowRef = useRef<FeedWindow>(feedWindow);
-  // Book Early "Notify me" state — the caller's full on-sale-alert
+  // Book early "Notify me" state — the caller's full on-sale-alert
   // happening-id set, loaded once so each BookEarlyCard renders correctly
   // subscribed instead of resetting to "Notify me" on every load. Only
   // fetched when the feature is actually on (NEXT_PUBLIC_VAPID_PUBLIC_KEY
@@ -379,26 +379,31 @@ export default function HomePage() {
             <span className="text-headline-sm font-extrabold leading-none tracking-tight text-on-surface">
               Fomo
             </span>
-            <span className="mt-0.5 text-label-sm font-bold uppercase tracking-wider text-accent">
-              Feed
-            </span>
           </div>
-          <button
-            type="button"
-            onClick={() => setCityPickerOpen(true)}
-            aria-label={`Change city (currently ${city.name})`}
-            className="ml-1 flex shrink-0 items-center gap-1 rounded-full border border-hairline bg-surface-container-lowest px-2.5 py-0.5 transition-colors hover:bg-surface-container-low"
-          >
-            <Icon name="location_on" size={14} className="text-secondary" />
-            <span className="text-label-sm font-bold tracking-tight text-secondary">{cityBadge(city)}</span>
-          </button>
+          {/* A picker with one choice is noise — only offered once there's a second city. */}
+          {SUPPORTED_CITIES.length > 1 ? (
+            <button
+              type="button"
+              onClick={() => setCityPickerOpen(true)}
+              aria-label={`Change city (currently ${city.name})`}
+              className="ml-1 flex shrink-0 items-center gap-1 rounded-full border border-hairline bg-surface-container-lowest px-2.5 py-0.5 transition-colors hover:bg-surface-container-low"
+            >
+              <Icon name="location_on" size={14} className="text-secondary" />
+              <span className="text-label-sm font-bold tracking-tight text-secondary">{cityBadge(city)}</span>
+            </button>
+          ) : null}
         </div>
 
         <div className="flex shrink-0 items-center gap-1">
+          {/* Neutral tint: the per-condition colours read as an alert (rain came out red). */}
           <div
-            className={`flex items-center gap-1.5 rounded-full px-2.5 py-1 ${
-              weather ? WEATHER_THEME[weather.condition].chipClass : "text-on-surface-variant"
-            }`}
+            role="img"
+            aria-label={
+              weather && weather.tempC != null
+                ? `${WEATHER_THEME[weather.condition].label}, ${Math.round(weather.tempC)} degrees`
+                : "Weather unavailable"
+            }
+            className="flex items-center gap-1.5 rounded-full bg-surface-container px-2.5 py-1 text-on-surface-variant"
           >
             <Icon name={weather ? WEATHER_THEME[weather.condition].icon : "partly_cloudy_day"} size={16} />
             <span className="text-label-sm font-semibold">
@@ -513,7 +518,7 @@ export default function HomePage() {
             app/api/feed/route.ts's doc comment on `whatsOn`). Hidden entirely
             (heading, count badge, skeletons, empty state, all of it) on Book
             early: that tab isn't a date window at all, it's a swap-out to the
-            Book Early list below, and the route returns an empty `whatsOn`
+            Book early list below, and the route returns an empty `whatsOn`
             for it so there'd be nothing here to show anyway. `scroll-mt-20`
             keeps the sticky header from covering the section top when a
             window switch scrolls it into view (see the fetch effect above). */}
@@ -569,7 +574,7 @@ export default function HomePage() {
           </div>
         ) : null}
 
-        {/* Book early — its own tab (user feedback: Book Early deserved more
+        {/* Book early — its own tab (user feedback: Book early deserved more
             room than a capped section wedged under Coming up, and competed
             with What's on for the same tab's attention). The API field
             itself stays window-independent — it's unconditionally returned
@@ -585,7 +590,7 @@ export default function HomePage() {
               <div className="flex flex-col gap-0.5">
                 <div className="flex items-center gap-2">
                   <Icon name="confirmation_number" size={20} className="text-accent" />
-                  <h3 className="text-headline-sm font-extrabold tracking-tight text-on-surface">Book Early</h3>
+                  <h3 className="text-headline-sm font-extrabold tracking-tight text-on-surface">Book early</h3>
                 </div>
                 <p className="text-label-sm text-on-surface-variant">
                   Big dates worth booking before they sell out
@@ -594,10 +599,10 @@ export default function HomePage() {
               <SeeAllLink href="/book-early" total={bookEarlyAll.length} />
             </div>
             {feedError ? (
-              <ErrorState title="Couldn't load Book Early" onRetry={retryFeed} />
+              <ErrorState title="Couldn't load Book early" onRetry={retryFeed} />
             ) : feed === null ? (
               <div className="flex flex-col gap-3" role="status" aria-live="polite">
-                <span className="sr-only">Loading Book Early…</span>
+                <span className="sr-only">Loading Book early…</span>
                 {[0, 1].map((i) => (
                   <div key={i} className="h-20 animate-pulse rounded-lg bg-surface-container motion-reduce:animate-none" />
                 ))}

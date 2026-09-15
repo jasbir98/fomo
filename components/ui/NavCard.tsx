@@ -57,7 +57,7 @@ export function NavCard({ href, children, className = "", ariaLabel }: NavCardPr
       aria-label={ariaLabel}
       onClick={handleClick}
       onKeyDown={handleKeyDown}
-      className={className}
+      className={`${className} focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary`}
     >
       {children}
     </div>

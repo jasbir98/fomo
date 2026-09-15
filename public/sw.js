@@ -1,9 +1,11 @@
 // Fomo minimal service worker — app-shell precache + offline fallback.
 // Hand-rolled (next-pwa targets webpack; Next 16 uses Turbopack). v1.
 
-// Cache name intentionally left as "roameo-shell-v1" — the version suffix IS
-// the cache-bust mechanism, so renaming it would be a gratuitous full-cache eviction.
-const CACHE = "roameo-shell-v1";
+// The "roameo-shell" name stays on purpose; the version suffix IS the
+// cache-bust mechanism — bump it whenever a precached file (the offline page,
+// manifest, icons) changes, or installed copies keep serving the old one.
+// v2: offline page copy no longer promises saved items offline.
+const CACHE = "roameo-shell-v2";
 // Bumped v1 -> v2 to evict entries written by the previous version, which
 // accepted opaque cross-origin responses (status 0, unreadable error state)
 // and so could be holding cached failures for third-party CDN photos.

@@ -44,8 +44,8 @@ async function fetchBookEarly(): Promise<BookEarlyCardData[]> {
 }
 
 /**
- * Book Early — its own full page (moved out of Home's in-place "Show all N"
- * expander per the task brief: Book Early and Free Any Time each get a
+ * Book early — its own full page (moved out of Home's in-place "Show all N"
+ * expander per the task brief: Book early and Free Any Time each get a
  * dedicated destination with their own filters and an Ask Fomo entry point,
  * reached from Home via a "See all" link instead of growing Home in place).
  * Same ranking/labels as the Home section (lib/happenings/book-early.ts) —
@@ -124,7 +124,7 @@ export default function BookEarlyPage() {
 
   return (
     <div className="flex flex-col gap-5 pb-8">
-      <PageHeader title="Book Early" showBack />
+      <PageHeader title="Book early" showBack />
 
       <div className="flex flex-col gap-4 px-4">
         <p className="text-body-sm text-on-surface-variant">
@@ -155,10 +155,10 @@ export default function BookEarlyPage() {
         </StickyFilterBar>
 
         {error ? (
-          <ErrorState title="Couldn't load Book Early" onRetry={() => setReloadTick((t) => t + 1)} />
+          <ErrorState title="Couldn't load Book early" onRetry={() => setReloadTick((t) => t + 1)} />
         ) : cards === null ? (
           <div className="flex flex-col gap-3 pt-2" role="status" aria-live="polite">
-            <span className="sr-only">Loading Book Early…</span>
+            <span className="sr-only">Loading Book early…</span>
             {[0, 1, 2].map((i) => (
               <div key={i} className="h-24 animate-pulse rounded-lg bg-surface-container" />
             ))}
