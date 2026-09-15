@@ -121,18 +121,18 @@ def _rest_patch(supabase_url: str, supabase_key: str, path: str, params: dict[st
         resp.raise_for_status()
 
 
-def fetch_unclassified(supabase_url: str, supabase_key: str, limit: int) -> list[dict]:
-    return _rest_get(
-        supabase_url,
-        supabase_key,
-        "scraped_reels",
-        {
-            "classified": "eq.false",
-            "select": "id,video_url,platform,caption,author_handle,location,destination,thumbnail_url,likes",
-            "order": "scraped_at.asc",
-            "limit": str(limit),
-        },
-    )
+def fetch_unclassified(supabase_url: str, supabase_key: str, limit: int, destination: str | None = None) -> list[dict]:
+    params = {
+        "classified": "eq.false",
+        "select": "id,video_url,platform,caption,author_handle,location,destination,thumbnail_url,likes",
+        "order": "scraped_at.asc",
+        "limit": str(limit),
+    }
+    # Oldest-first across every destination otherwise — a fresh Edinburgh
+    # batch would wait behind every older Scotland/Japan row.
+    if destination:
+        params["destination"] = f"eq.{destination}"
+    return _rest_get(supabase_url, supabase_key, "scraped_reels", params)
 
 
 def fetch_approved(supabase_url: str, supabase_key: str) -> list[dict]:
@@ -539,11 +539,15 @@ def main() -> None:
     parser.add_argument("--batch-size", type=int, default=15, help="Reels per Claude call.")
     parser.add_argument("--model", default=os.environ.get("REEL_CLASSIFY_MODEL", DEFAULT_MODEL))
     parser.add_argument("--dry-run", action="store_true", help="Classify and print verdicts without upserting to Supabase.")
+    parser.add_argument(
+        "--destination",
+        help='Only classify unclassified rows with this exact destination, e.g. "Edinburgh". Promotion still covers every approved row.',
+    )
     args = parser.parse_args()
 
     supabase_url, supabase_key = _get_credentials()
 
-    reels = fetch_unclassified(supabase_url, supabase_key, args.limit)
+    reels = fetch_unclassified(supabase_url, supabase_key, args.limit, args.destination)
     classified_count = 0
 
     if not reels:
