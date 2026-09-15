@@ -4,6 +4,7 @@ import { Suspense, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import type { AuthError } from "@supabase/supabase-js";
 import { Button, Input } from "@/components/ui";
+import { FomoBuddy } from "@/components/onboarding/Characters";
 import { supabaseBrowserAuth } from "@/lib/supabase/client";
 import { safeNext } from "@/lib/auth/safe-next";
 
@@ -189,6 +190,12 @@ function SigninContent() {
 
       <main className="mx-auto flex w-full max-w-sm flex-1 flex-col justify-center gap-6 pb-10">
         <div className="text-center">
+          <svg viewBox="-80 -72 160 150" className="mx-auto mb-3 h-28 w-28" aria-hidden="true">
+            <ellipse cx={0} cy={70} rx={36} ry={5} fill="#1b365d" opacity={0.12} />
+            <g className="fomo-float">
+              <FomoBuddy mood={step === "email" ? "grin" : "wow"} pose={step === "email" ? "wave" : "cheer"} />
+            </g>
+          </svg>
           <h1 className="mb-2 text-headline-md text-on-surface">
             {step === "email" ? "Sign in" : "Check your email"}
           </h1>

@@ -1,43 +1,50 @@
 "use client";
 
-import { Suspense, useEffect, useRef, useState, type TouchEvent } from "react";
+import { Suspense, useEffect, useRef, useState, type ReactNode, type TouchEvent } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Button, ProgressDots } from "@/components/ui";
+import { BookEarlyScene, DealsScene, WhatsOnScene } from "@/components/onboarding/Characters";
 import { safeNext } from "@/lib/auth/safe-next";
 
-// Hero treatments for the Fomo Edinburgh intro (replaces the pre-pivot travel
-// illustrations reused from `Fomo copy/app/onboarding/page.tsx`). Simple,
-// on-brand Material Symbols in soft tinted circles rather than redrawn scene
-// art — deliberately plain so there's no travel-specific imagery to update
-// again on the next pivot.
-function heroIcon(icon: string, tint: string, accent: string): string {
-  return `<svg viewBox="0 0 200 158" width="100%" height="100%">
-    <circle cx="20" cy="20" r="2.5" fill="${accent}" opacity="0.3"></circle>
-    <circle cx="180" cy="30" r="3" fill="${accent}" opacity="0.3"></circle>
-    <circle cx="178" cy="135" r="2.5" fill="${accent}" opacity="0.4"></circle>
-    <circle cx="22" cy="130" r="2" fill="${accent}" opacity="0.5"></circle>
-    <circle cx="100" cy="79" r="48" fill="${tint}"></circle>
-    <text x="100" y="79" text-anchor="middle" dominant-baseline="central"
-      font-family="'Material Symbols Outlined'" font-size="56" fill="${accent}">${icon}</text>
-  </svg>`;
+/** Hand-drawn orange underline for the word each headline hangs on. */
+function Scribble({ children }: { children: ReactNode }) {
+  return (
+    <span className="relative inline-block">
+      <span className="relative z-10">{children}</span>
+      <svg
+        viewBox="0 0 120 12"
+        preserveAspectRatio="none"
+        className="absolute -bottom-1 left-0 h-2.5 w-full"
+        aria-hidden="true"
+      >
+        <path
+          d="M2 8C30 2 60 11 118 4"
+          stroke="#fc8a40"
+          strokeWidth={4}
+          fill="none"
+          strokeLinecap="round"
+          vectorEffect="non-scaling-stroke"
+        />
+      </svg>
+    </span>
+  );
 }
 
-const HERO_WHATS_ON = heroIcon("celebration", "#FDE8D8", "#C04A2B");
-const HERO_DEALS = heroIcon("sell", "#E1EAF7", "#1B365D");
-const HERO_BOOK_EARLY = heroIcon("confirmation_number", "#E4EEE0", "#5C7A52");
-
 type Slide = {
-  hero: string;
-  title: React.ReactNode;
-  body: React.ReactNode;
+  scene: ReactNode;
+  /** Page background while this slide is showing — cross-fades between slides. */
+  tint: string;
+  title: ReactNode;
+  body: ReactNode;
 };
 
 const SLIDES: Slide[] = [
   {
-    hero: HERO_WHATS_ON,
+    scene: <WhatsOnScene />,
+    tint: "#fff1e3",
     title: (
       <>
-        Never miss what&rsquo;s on
+        Never miss <Scribble>what&rsquo;s on</Scribble>
         <br />
         in Edinburgh
       </>
@@ -51,10 +58,11 @@ const SLIDES: Slide[] = [
     ),
   },
   {
-    hero: HERO_DEALS,
+    scene: <DealsScene />,
+    tint: "#e6f5ec",
     title: (
       <>
-        Free, cheap
+        <Scribble>Free</Scribble>, cheap
         <br />
         &amp; discounted
       </>
@@ -68,12 +76,13 @@ const SLIDES: Slide[] = [
     ),
   },
   {
-    hero: HERO_BOOK_EARLY,
+    scene: <BookEarlyScene />,
+    tint: "#ecebff",
     title: (
       <>
         Book before
         <br />
-        it sells out
+        it <Scribble>sells out</Scribble>
       </>
     ),
     body: (
@@ -103,9 +112,9 @@ function WelcomeContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [index, setIndex] = useState(0);
+  const [dragX, setDragX] = useState(0);
   const touchStartX = useRef<number | null>(null);
   const isLast = index === SLIDES.length - 1;
-  const slide = SLIDES[index];
   const next = safeNext(searchParams.get("next"));
   const sharedLink = next !== "/" && isSharedDetailLink(next);
 
@@ -154,22 +163,42 @@ function WelcomeContent() {
     touchStartX.current = e.touches[0]?.clientX ?? null;
   }
 
+  // The track follows the finger; past either end it drags at a third of the
+  // distance so the edge feels elastic rather than broken.
+  function onTouchMove(e: TouchEvent<HTMLDivElement>) {
+    if (touchStartX.current == null) return;
+    const dx = (e.touches[0]?.clientX ?? 0) - touchStartX.current;
+    const atEdge = (index === 0 && dx > 0) || (isLast && dx < 0);
+    setDragX(atEdge ? dx / 3 : dx);
+  }
+
   function onTouchEnd(e: TouchEvent<HTMLDivElement>) {
     if (touchStartX.current == null) return;
     const delta = (e.changedTouches[0]?.clientX ?? 0) - touchStartX.current;
+    touchStartX.current = null;
+    setDragX(0);
     if (delta <= -SWIPE_THRESHOLD) goNext();
     else if (delta >= SWIPE_THRESHOLD) goPrev();
-    touchStartX.current = null;
   }
+
+  function onTouchCancel() {
+    touchStartX.current = null;
+    setDragX(0);
+  }
+
+  const dragging = dragX !== 0;
 
   return (
     <div
-      className="flex min-h-dvh w-full flex-col bg-background px-6 pt-safe pb-safe"
+      className="flex min-h-dvh w-full flex-col overflow-hidden pt-safe pb-safe transition-colors duration-500"
+      style={{ backgroundColor: SLIDES[index].tint }}
       onTouchStart={onTouchStart}
+      onTouchMove={onTouchMove}
       onTouchEnd={onTouchEnd}
+      onTouchCancel={onTouchCancel}
     >
       {/* Brand lockup + persistent Skip */}
-      <div className="flex items-center justify-between pt-10 pb-8">
+      <div className="flex items-center justify-between px-6 pt-10 pb-4">
         <div className="w-12" aria-hidden="true" />
         <div className="flex items-center justify-center gap-2">
           <svg width="20" height="20" viewBox="0 0 20 20" aria-hidden="true">
@@ -192,23 +221,35 @@ function WelcomeContent() {
         </button>
       </div>
 
-      {/* Slide content */}
-      <div className="flex flex-1 flex-col items-center justify-center">
+      {/* Slide track */}
+      <div className="flex flex-1 flex-col justify-center overflow-hidden">
         <div
-          key={index}
-          className="mb-8 h-64 w-full max-w-sm shrink-0"
-          dangerouslySetInnerHTML={{ __html: slide.hero }}
-        />
-        <div className="w-full text-center">
-          <h1 className="mb-3 text-headline-md text-on-surface">{slide.title}</h1>
-          <p className="mx-auto max-w-[280px] text-body-md text-on-surface-variant">
-            {slide.body}
-          </p>
+          className="flex"
+          style={{
+            transform: `translateX(calc(${-index * 100}% + ${dragX}px))`,
+            transition: dragging ? "none" : "transform 480ms cubic-bezier(0.22, 0.8, 0.2, 1)",
+          }}
+        >
+          {SLIDES.map((s, i) => (
+            <section
+              key={i}
+              aria-hidden={i !== index}
+              className={`flex w-full shrink-0 flex-col items-center px-6 transition-[opacity,scale] duration-500 ${
+                i === index ? "scale-100 opacity-100" : "scale-90 opacity-0"
+              }`}
+            >
+              <div className="mb-4 h-[min(50dvh,400px)] w-full max-w-[420px]">{s.scene}</div>
+              <h1 className="mb-3 text-center text-headline-md text-on-surface">{s.title}</h1>
+              <p className="mx-auto max-w-[280px] text-center text-body-md text-on-surface-variant">
+                {s.body}
+              </p>
+            </section>
+          ))}
         </div>
       </div>
 
       {/* Bottom controls */}
-      <div className="flex flex-col items-center gap-8 pt-8 pb-6">
+      <div className="flex flex-col items-center gap-6 px-6 pt-6 pb-6">
         <ProgressDots count={SLIDES.length} active={index} tone="orange" />
         {sharedLink && (
           <p className="text-body-md text-on-surface-variant">

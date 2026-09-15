@@ -330,7 +330,10 @@ export function ReelViewer({ reels, startIndex, places }: ReelViewerProps) {
           onPointerUp={handlePointerUp}
           onPointerCancel={handlePointerCancel}
           style={{
-            transform: `translateX(${dragX}px) rotate(${rotation}deg)`,
+            // No transform at rest: a transformed ancestor is a known source
+            // of mis-hit taps on cross-origin iframes in mobile WebKit, and the
+            // Instagram embed only starts on a tap that lands inside it.
+            transform: dragX === 0 ? "none" : `translateX(${dragX}px) rotate(${rotation}deg)`,
             transition: phase === "dragging" ? "none" : `transform ${EXIT_DURATION_MS}ms ease`,
           }}
           className="absolute inset-0 touch-none select-none"
