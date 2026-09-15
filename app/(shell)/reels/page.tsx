@@ -11,6 +11,7 @@ import {
 import type { Place } from "@/lib/types";
 import { sortByDistance, useGeolocation, type Coordinates } from "@/lib/geo";
 import { Icon, PageHeader, SegmentedControl } from "@/components/ui";
+import { FomoSpot } from "@/components/fomo/FomoSpot";
 import { ReelViewer } from "@/components/social/ReelViewer";
 
 type ViewerData = { reels: SocialPostWithPlace[]; places: Place[] };
@@ -182,7 +183,7 @@ export default function ReelsTabPage() {
         {filterRow}
         {note}
         <div className="flex flex-col items-center gap-3 px-5 py-16 text-center text-on-surface-variant">
-          <Icon name="videocam_off" size={32} />
+          <FomoSpot mood="meh" pose="shrug" className="h-20 w-20" />
           <p className="text-body-md">{SCOPE_EMPTY_COPY[scope]}</p>
         </div>
       </div>

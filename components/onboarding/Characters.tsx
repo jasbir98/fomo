@@ -82,14 +82,16 @@ function Backdrop() {
 // Fomo
 // ---------------------------------------------------------------------------
 
-export type FomoMood = "wow" | "grin" | "gasp";
-export type FomoPose = "cheer" | "hold" | "run" | "wave";
+export type FomoMood = "wow" | "grin" | "gasp" | "meh" | "hmm";
+export type FomoPose = "cheer" | "hold" | "run" | "wave" | "shrug" | "none";
 
 const ARMS: Record<FomoPose, string[]> = {
   cheer: ["M-40 -4Q-58 -18 -60 -40", "M40 -4Q58 -18 60 -40"],
   hold: ["M-42 8Q-58 18 -52 32", "M42 -6Q60 -24 62 -48"],
   run: ["M-40 4Q-58 14 -68 4", "M40 -8Q56 -32 50 -58"],
   wave: ["M-42 8Q-56 22 -50 36", "M42 -6Q62 -20 66 -42"],
+  shrug: ["M-42 6Q-60 6 -64 -8", "M42 6Q60 6 64 -8"],
+  none: [],
 };
 
 const HANDS: Record<FomoPose, [number, number][]> = {
@@ -97,17 +99,32 @@ const HANDS: Record<FomoPose, [number, number][]> = {
   hold: [[-52, 34], [62, -52]],
   run: [[-70, 2], [50, -62]],
   wave: [[-50, 38], [66, -46]],
+  shrug: [[-66, -12], [66, -12]],
+  none: [],
 };
 
-/** Fomo, centred on its body (radius ~48; feet reach y≈66, raised hands y≈-62). */
+/** Where the pupils look, per mood: up for wow, down for meh, up-right for hmm. */
+const LOOK: Record<FomoMood, [number, number]> = {
+  wow: [0, -8],
+  grin: [0, -3],
+  gasp: [0, -3],
+  meh: [0, 1],
+  hmm: [4, -8],
+};
+
+/**
+ * Fomo, centred on its body (radius ~48; feet reach y≈66, raised hands y≈-62).
+ * wow/grin/gasp carry the onboarding scenes; meh is for "nothing here" states,
+ * hmm for Ask Fomo thinking. Pose "none" drops the limbs (see FomoFace).
+ */
 export function FomoBuddy({ mood = "grin", pose = "wave" }: { mood?: FomoMood; pose?: FomoPose }) {
   const limb = { stroke: NAVY, strokeWidth: 5, strokeLinecap: "round" as const, fill: "none" };
   const pupil = mood === "gasp" ? 3.5 : 5.5;
-  const lookY = mood === "wow" ? -8 : -3;
+  const [lookX, lookY] = LOOK[mood];
 
   return (
     <g>
-      {pose === "run" ? (
+      {pose === "none" ? null : pose === "run" ? (
         <>
           <path d="M-12 40Q-24 52 -38 50" {...limb} />
           <ellipse cx={-42} cy={49} rx={9} ry={5} fill={NAVY} transform="rotate(-20 -42 49)" />
@@ -139,15 +156,24 @@ export function FomoBuddy({ mood = "grin", pose = "wave" }: { mood?: FomoMood; p
           <path d="M-26 -26Q-16 -35 -6 -28" />
           <path d="M6 -28Q16 -35 26 -26" />
         </g>
+      ) : mood === "hmm" ? (
+        <path d="M6 -30Q16 -37 26 -31" stroke={NAVY} strokeWidth={3} strokeLinecap="round" fill="none" />
       ) : null}
 
       <g className="fomo-blink">
         <ellipse cx={-16} cy={-6} rx={11} ry={13} fill="#fff" />
         <ellipse cx={16} cy={-6} rx={11} ry={13} fill="#fff" />
-        <circle cx={-14} cy={lookY} r={pupil} fill={NAVY} />
-        <circle cx={18} cy={lookY} r={pupil} fill={NAVY} />
-        <circle cx={-12} cy={lookY - 2} r={1.8} fill="#fff" />
-        <circle cx={20} cy={lookY - 2} r={1.8} fill="#fff" />
+        <circle cx={-14 + lookX} cy={lookY} r={pupil} fill={NAVY} />
+        <circle cx={18 + lookX} cy={lookY} r={pupil} fill={NAVY} />
+        <circle cx={-12 + lookX} cy={lookY - 2} r={1.8} fill="#fff" />
+        <circle cx={20 + lookX} cy={lookY - 2} r={1.8} fill="#fff" />
+        {mood === "meh" ? (
+          // Heavy lids: body-coloured bars over the top of each eye.
+          <>
+            <rect x={-28} y={-20} width={24} height={11} fill={ORANGE} />
+            <rect x={4} y={-20} width={24} height={11} fill={ORANGE} />
+          </>
+        ) : null}
       </g>
 
       <ellipse cx={-33} cy={12} rx={7} ry={4} fill="#ff5a5a" opacity={0.3} />
@@ -163,6 +189,10 @@ export function FomoBuddy({ mood = "grin", pose = "wave" }: { mood?: FomoMood; p
           <ellipse cx={0} cy={20} rx={7} ry={9} fill={NAVY} />
           <ellipse cx={0} cy={25} rx={4} ry={2.5} fill={TONGUE} />
         </>
+      ) : mood === "meh" ? (
+        <path d="M-9 21Q-4.5 17 0 21T9 21" stroke={NAVY} strokeWidth={3} strokeLinecap="round" fill="none" />
+      ) : mood === "hmm" ? (
+        <ellipse cx={7} cy={21} rx={4} ry={3.5} fill={NAVY} />
       ) : (
         <>
           <ellipse cx={0} cy={21} rx={9} ry={10} fill={NAVY} />
@@ -170,6 +200,15 @@ export function FomoBuddy({ mood = "grin", pose = "wave" }: { mood?: FomoMood; p
         </>
       )}
     </g>
+  );
+}
+
+/** Fomo's face alone (no limbs), sized by className — chat avatars and the nav button. */
+export function FomoFace({ mood = "grin", className = "" }: { mood?: FomoMood; className?: string }) {
+  return (
+    <svg viewBox="-50 -50 100 100" className={className} aria-hidden="true">
+      <FomoBuddy mood={mood} pose="none" />
+    </svg>
   );
 }
 

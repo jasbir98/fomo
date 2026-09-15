@@ -4,6 +4,8 @@ import { Suspense, useEffect, useMemo, useRef, useState, type ReactNode } from "
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { ConfirmDialog, Icon, SmartImage } from "@/components/ui";
+import { FomoFace, type FomoMood } from "@/components/onboarding/Characters";
+import { FomoSpot } from "@/components/fomo/FomoSpot";
 import { supabaseBrowserAuth } from "@/lib/supabase/client";
 import { addMessage, clearMessages, listMessages } from "@/lib/db";
 import { ASK_FOMO_PROMPTS, type AiReplyBlock, type ChatItem } from "@/lib/fomo-ai";
@@ -296,9 +298,7 @@ function FomoChatPageInner() {
               <Icon name="arrow_back" />
             </button>
           ) : (
-            <span className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-on-primary shadow-sm">
-              <Icon name="auto_awesome" filled size={18} />
-            </span>
+            <FomoFace mood={sending ? "hmm" : "grin"} className="h-8 w-8 drop-shadow-sm" />
           )}
           <h1 className="text-headline-sm text-primary">Ask Fomo</h1>
         </div>
@@ -335,10 +335,8 @@ function FomoChatPageInner() {
         ) : null}
 
         {empty ? (
-          <div className="mt-8 flex flex-col items-center gap-3 text-center">
-            <span className="flex h-14 w-14 items-center justify-center rounded-full bg-primary text-on-primary shadow-md">
-              <Icon name="auto_awesome" filled size={28} />
-            </span>
+          <div className="mt-4 flex flex-col items-center gap-3 text-center">
+            <FomoSpot mood={seed ? "hmm" : "grin"} pose="wave" className="h-28 w-28" />
             <p className="text-body-lg text-on-surface">
               {seed ? `Ask me anything about ${seed.name}.` : "What are you in the mood for?"}
             </p>
@@ -361,7 +359,7 @@ function FomoChatPageInner() {
           if (isProvisional) {
             return (
               <div key={m.id} className="flex max-w-[90%] items-end gap-2 self-start">
-                <FomoAvatar />
+                <FomoAvatar mood="hmm" />
                 <ThinkingDots />
               </div>
             );
@@ -433,12 +431,9 @@ function FomoChatPageInner() {
   );
 }
 
-function FomoAvatar() {
-  return (
-    <span className="mb-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary text-on-primary shadow-md">
-      <Icon name="auto_awesome" filled size={18} />
-    </span>
-  );
+/** Fomo's face beside its replies; "hmm" while a reply is still coming. */
+function FomoAvatar({ mood = "grin" }: { mood?: FomoMood }) {
+  return <FomoFace mood={mood} className="mb-1 h-8 w-8 shrink-0 drop-shadow-sm" />;
 }
 
 function UserBubble({ text }: { text: string }) {

@@ -5,8 +5,9 @@ import { useRouter, useSearchParams } from "next/navigation";
 import type { FeedCardData, FeedResponse, FeedWindow } from "@/lib/happenings/feed-types";
 import { weekendDates } from "@/lib/happenings/format";
 import { distinctCategoryFacets, matchesCategoryFilter, type CategoryFacetKey } from "@/lib/happenings/whats-on-filters";
-import { Chip, ErrorState, Icon, PageHeader, SegmentedControl, StickyFilterBar } from "@/components/ui";
+import { Chip, ErrorState, PageHeader, SegmentedControl, StickyFilterBar } from "@/components/ui";
 import { DateFilterRow, FeedListCard } from "@/components/happenings";
+import { FomoSpot } from "@/components/fomo/FomoSpot";
 import { cardOnDay, cardPillDate } from "@/components/happenings/DateFilterRow";
 
 /** Only these two windows are date windows at all — `book_early` is a
@@ -184,7 +185,7 @@ function WhatsOnPageInner() {
           </div>
         ) : visibleCards.length === 0 ? (
           <div className="flex flex-col items-center gap-2 rounded-2xl border border-dashed border-hairline-strong p-8 text-center">
-            <Icon name="event_busy" size={28} className="text-outline" />
+            <FomoSpot mood={cards.length > 0 ? "hmm" : "meh"} pose="shrug" className="h-20 w-20" />
             <p className="text-body-md text-on-surface-variant">{emptyMessage()}</p>
           </div>
         ) : (

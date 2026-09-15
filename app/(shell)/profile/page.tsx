@@ -10,6 +10,7 @@ import type { Candidate } from "@/lib/now/types";
 import { useInfiniteList } from "@/lib/useInfiniteList";
 import { Button, BottomSheet, Card, Chip, Icon, PageHeader, SectionHeader, SmartImage, Toggle } from "@/components/ui";
 import { FomoCard } from "@/components/fomo/Card";
+import { FomoSpot } from "@/components/fomo/FomoSpot";
 import { WHO_GROUP_LABEL, WHO_GROUP_ORDER, type DealWhoGroup } from "@/lib/happenings/groups";
 import { useDealProfile } from "@/lib/useSaved";
 import { NOTIFY_ME_ENABLED } from "@/lib/happenings/book-early";
@@ -363,7 +364,7 @@ export default function ProfilePage() {
             ) : savedCandidates.length === 0 ? (
               <Card>
                 <div className="flex flex-col items-center gap-2 py-6 text-center">
-                  <Icon name="bookmark_border" size={32} className="text-on-surface-variant" />
+                  <FomoSpot mood="meh" pose="shrug" className="h-20 w-20" />
                   <p className="text-body-md text-on-surface-variant">
                     Tap the bookmark on any deal, event or place to save it here.
                   </p>

@@ -12,6 +12,7 @@ import type { CardSubjectType, Place, SocialPost } from "@/lib/types";
 import { resolvePlaceForReel } from "@/lib/social/reel-place";
 import { proxiedThumbnailUrl } from "@/lib/social/media-proxy";
 import { Icon } from "@/components/ui";
+import { FomoSpot } from "@/components/fomo/FomoSpot";
 import { VideoEmbed } from "./VideoEmbed";
 
 /**
@@ -241,7 +242,7 @@ export function ReelViewer({ reels, startIndex, places }: ReelViewerProps) {
   if (reels.length === 0) {
     return (
       <div className="flex h-full w-full flex-col items-center justify-center gap-3 px-8 text-center text-on-surface-variant">
-        <Icon name="videocam_off" size={32} />
+        <FomoSpot mood="meh" pose="shrug" className="h-20 w-20" />
         <p className="text-body-md">No reels here yet.</p>
         <Link href="/" className="text-label-md font-medium text-secondary">
           Back to Home
@@ -253,7 +254,7 @@ export function ReelViewer({ reels, startIndex, places }: ReelViewerProps) {
   if (index >= reels.length) {
     return (
       <div className="flex h-full w-full flex-col items-center justify-center gap-3 px-8 text-center text-on-surface-variant">
-        <Icon name="check_circle" size={32} />
+        <FomoSpot mood="grin" pose="cheer" className="h-20 w-20" />
         <p className="text-body-md">You&rsquo;re all caught up.</p>
         <p className="text-label-sm">{likedIds.size} liked this session</p>
         <Link href="/" className="text-label-md font-medium text-secondary">

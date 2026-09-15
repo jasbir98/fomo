@@ -14,6 +14,7 @@ import { CATEGORY_ORDER } from "@/lib/happenings/category-style";
 import type { HappeningCategory } from "@/lib/happenings/types";
 import { ErrorState, Icon, PageHeader, StickyFilterBar } from "@/components/ui";
 import { BookEarlyCard, BookEarlyFilters } from "@/components/happenings";
+import { FomoSpot } from "@/components/fomo/FomoSpot";
 
 function bookEarlyCardKey(card: BookEarlyCardData): string {
   return card.kind === "happening" ? `happening-${card.happening.id}` : `event-${card.event.id}`;
@@ -165,13 +166,14 @@ export default function BookEarlyPage() {
           </div>
         ) : cards.length === 0 ? (
           <div className="flex flex-col items-center gap-2 rounded-2xl border border-dashed border-hairline-strong p-8 text-center">
-            <Icon name="confirmation_number" size={28} className="text-outline" />
+            <FomoSpot mood="meh" pose="shrug" className="h-20 w-20" />
             <p className="text-body-md text-on-surface-variant">Nothing to book early right now — check back soon.</p>
           </div>
         ) : filteredCards.length === 0 ? (
-          <p className="rounded-2xl border border-dashed border-hairline-strong py-6 text-center text-body-sm text-on-surface-variant">
-            Nothing matches — clear filters
-          </p>
+          <div className="flex flex-col items-center gap-2 rounded-2xl border border-dashed border-hairline-strong py-6 text-center">
+            <FomoSpot mood="hmm" pose="shrug" className="h-16 w-16" />
+            <p className="text-body-sm text-on-surface-variant">Nothing matches — clear filters</p>
+          </div>
         ) : (
           <div className="flex flex-col gap-3 pt-1">
             {filteredCards.map((card) => (

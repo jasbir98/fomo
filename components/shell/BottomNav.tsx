@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { FomoFace } from "../onboarding/Characters";
 import { Icon } from "../ui/Icon";
 
 type NavItem = { href: string; icon: string; label: string };
@@ -38,13 +39,13 @@ function NavTab({ item, active }: { item: NavItem; active: boolean }) {
 /**
  * Canonical Fomo bottom navigation: Feed · Reels · [Fomo FAB] · Deals · Explore.
  * Fixed to the bottom of the max-w-[480px] phone column; the centre Fomo FAB
- * is a raised 64px button. Deals took Saved's slot in the Home decluttering
- * pass — Deals & Offers is now its own full page (app/(shell)/deals/page.tsx)
- * instead of a Home section, and Saved moved into Profile (/saved now just
- * redirects there). The last tab was renamed Map -> Explore (same map view,
- * app/(shell)/explore/page.tsx); `/map` still works as a redirect for old
- * links. Visual styling here predates the Modern Maritime re-skin and is
- * revisited in that pass.
+ * is a raised 64px button wearing the mascot's face (components/onboarding/
+ * Characters.tsx), which grins while you're chatting with it. Deals took
+ * Saved's slot in the Home decluttering pass — Deals & Offers is now its own
+ * full page (app/(shell)/deals/page.tsx) instead of a Home section, and Saved
+ * moved into Profile (/saved now just redirects there). The last tab was
+ * renamed Map -> Explore (same map view, app/(shell)/explore/page.tsx); `/map`
+ * still works as a redirect for old links.
  */
 export function BottomNav() {
   const pathname = usePathname();
@@ -66,14 +67,12 @@ export function BottomNav() {
         <div className="flex w-16 shrink-0 justify-center">
           <Link
             href="/fomo"
-            aria-label="Fomo"
+            aria-label="Ask Fomo"
             aria-current={fomoActive ? "page" : undefined}
-            className={`absolute -top-6 flex h-16 w-16 flex-col items-center justify-center rounded-full bg-primary text-on-primary shadow-[0_6px_20px_rgba(27,54,93,0.35)] ring-4 ring-background transition-transform active:scale-95 ${
-              fomoActive ? "text-secondary-container" : ""
-            }`}
+            className="absolute -top-6 flex h-16 w-16 flex-col items-center justify-center rounded-full bg-primary text-on-primary shadow-[0_6px_20px_rgba(27,54,93,0.35)] ring-4 ring-background transition-transform active:scale-95"
           >
-            <Icon name="auto_awesome" filled size={28} />
-            <span className="text-[10px] font-semibold leading-none mt-0.5">Fomo</span>
+            <FomoFace mood={fomoActive ? "grin" : "wow"} className="h-9 w-9" />
+            <span className="mt-0.5 text-[10px] font-semibold leading-none">Fomo</span>
           </Link>
         </div>
 

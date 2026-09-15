@@ -3,8 +3,9 @@
 import { useEffect, useMemo, useState } from "react";
 import type { DealCardData, FeedResponse, VenueDealGroup } from "@/lib/happenings/feed-types";
 import { matchesDealFilters, type DealWhatGroup, type DealWhoGroup } from "@/lib/happenings/groups";
-import { ErrorState, Icon, PageHeader, StickyFilterBar } from "@/components/ui";
+import { ErrorState, PageHeader, StickyFilterBar } from "@/components/ui";
 import { FeedListCard, VenueDealCard, DealFilters } from "@/components/happenings";
+import { FomoSpot } from "@/components/fomo/FomoSpot";
 
 type DealListItem =
   | { kind: "venue"; group: VenueDealGroup }
@@ -115,13 +116,14 @@ export default function DealsPage() {
           </div>
         ) : totalBeforeFilters === 0 ? (
           <div className="flex flex-col items-center gap-2 rounded-2xl border border-dashed border-hairline-strong p-8 text-center">
-            <Icon name="sell" size={28} className="text-outline" />
+            <FomoSpot mood="meh" pose="shrug" className="h-20 w-20" />
             <p className="text-body-md text-on-surface-variant">No live deals right now — check back soon.</p>
           </div>
         ) : dealItems.length === 0 ? (
-          <p className="rounded-2xl border border-dashed border-hairline-strong py-6 text-center text-body-sm text-on-surface-variant">
-            No deals match — clear filters
-          </p>
+          <div className="flex flex-col items-center gap-2 rounded-2xl border border-dashed border-hairline-strong py-6 text-center">
+            <FomoSpot mood="hmm" pose="shrug" className="h-16 w-16" />
+            <p className="text-body-sm text-on-surface-variant">No deals match — clear filters</p>
+          </div>
         ) : (
           <div className="flex flex-col gap-3 pt-1">
             {dealItems.map((item) =>

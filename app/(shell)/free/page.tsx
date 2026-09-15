@@ -6,6 +6,7 @@ import type { FeedResponse, FreeAnyTimeItem } from "@/lib/happenings/feed-types"
 import { distinctTypeBuckets, distinctDistricts, matchesFreeAnyTimeFilters } from "@/lib/happenings/free-any-time-filters";
 import { ErrorState, Icon, PageHeader, StickyFilterBar } from "@/components/ui";
 import { FreeAnyTimeFilters, FreeAnyTimeRow } from "@/components/happenings";
+import { FomoSpot } from "@/components/fomo/FomoSpot";
 
 /** GET /api/feed's `freeAnyTime` is already the FULL list (Home only ever
  *  slices its first few) — reused here rather than a parallel /api/free
@@ -110,13 +111,14 @@ export default function FreeAnyTimePage() {
           </div>
         ) : items.length === 0 ? (
           <div className="flex flex-col items-center gap-2 rounded-2xl border border-dashed border-hairline-strong p-8 text-center">
-            <Icon name="all_inclusive" size={28} className="text-outline" />
+            <FomoSpot mood="meh" pose="shrug" className="h-20 w-20" />
             <p className="text-body-md text-on-surface-variant">Nothing free to show right now — check back soon.</p>
           </div>
         ) : filteredItems.length === 0 ? (
-          <p className="rounded-2xl border border-dashed border-hairline-strong py-6 text-center text-body-sm text-on-surface-variant">
-            Nothing matches — clear filters
-          </p>
+          <div className="flex flex-col items-center gap-2 rounded-2xl border border-dashed border-hairline-strong py-6 text-center">
+            <FomoSpot mood="hmm" pose="shrug" className="h-16 w-16" />
+            <p className="text-body-sm text-on-surface-variant">Nothing matches — clear filters</p>
+          </div>
         ) : (
           <div className="flex flex-col gap-2.5 pt-1">
             {filteredItems.map((item) => (

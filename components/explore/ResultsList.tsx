@@ -6,6 +6,7 @@ import { PIN_TYPE_STYLE } from "@/lib/explore/pin-style";
 import { distanceKm, formatDistanceLabel, walkMinutes, type Coordinates } from "@/lib/geo";
 import { useProgressiveReveal } from "@/lib/useProgressiveReveal";
 import { Icon, SmartImage } from "@/components/ui";
+import { FomoSpot } from "@/components/fomo/FomoSpot";
 
 export interface ResultsListProps {
   pins: ExplorePin[];
@@ -116,7 +117,7 @@ export function ResultsList({
         </div>
       ) : pins.length === 0 ? (
         <div className="flex flex-col items-center gap-2 rounded-2xl border border-dashed border-outline-variant/70 p-8 text-center">
-          <Icon name="explore_off" size={28} className="text-outline" />
+          <FomoSpot mood="hmm" pose="shrug" className="h-16 w-16" />
           <p className="text-body-md text-on-surface-variant">
             Nothing here yet — try a different layer or area.
           </p>

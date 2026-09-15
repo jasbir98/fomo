@@ -15,6 +15,7 @@ import type { WeatherCondition } from "@/lib/weather";
 import { WEATHER_THEME } from "@/lib/weatherUi";
 import { CityPicker, ErrorState, Icon, SegmentedControl } from "@/components/ui";
 import { FomoCard } from "@/components/fomo/Card";
+import { FomoSpot } from "@/components/fomo/FomoSpot";
 import { FeedHero, FeedListCard, FreeAnyTimeList, BookEarlyCard } from "@/components/happenings";
 
 interface HomeWeather {
@@ -565,7 +566,10 @@ export default function HomePage() {
                 }`}
               >
                 {whatsOnCards.length === 0 ? (
-                  <p className="px-1 text-body-sm text-on-surface-variant">{whatsOnEmptyMessage()}</p>
+                  <div className="flex flex-col items-center gap-2 px-1 text-center">
+                    <FomoSpot mood="meh" pose="shrug" className="h-16 w-16" />
+                    <p className="text-body-sm text-on-surface-variant">{whatsOnEmptyMessage()}</p>
+                  </div>
                 ) : (
                   whatsOnCards.slice(0, SECTION_CAP).map((card) => <FeedListCard key={cardKey(card)} card={card} />)
                 )}
@@ -608,9 +612,12 @@ export default function HomePage() {
                 ))}
               </div>
             ) : bookEarlyAll.length === 0 ? (
-              <p className="px-1 text-body-sm text-on-surface-variant">
-                Nothing worth booking early right now — check back soon.
-              </p>
+              <div className="flex flex-col items-center gap-2 px-1 text-center">
+                <FomoSpot mood="meh" pose="shrug" className="h-16 w-16" />
+                <p className="text-body-sm text-on-surface-variant">
+                  Nothing worth booking early right now — check back soon.
+                </p>
+              </div>
             ) : (
               <div className="flex flex-col gap-3">
                 {bookEarlyAll.slice(0, SECTION_CAP).map((card) => (
