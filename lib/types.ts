@@ -344,7 +344,7 @@ export interface Experience {
 // only feedback channel: every shown/opened/dismissed("Nah")/saved/planned
 // event on a ranked card. See lib/now/.
 // ============================================================================
-export type CardSubjectType = "place" | "event" | "experience" | "itinerary_item" | "reel" | "practicality";
+export type CardSubjectType = "place" | "event" | "experience" | "itinerary_item" | "reel" | "practicality" | "happening";
 export type CardSignalAction = "shown" | "opened" | "dismissed" | "saved" | "planned";
 
 export interface CardSignal {

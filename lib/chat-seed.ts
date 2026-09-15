@@ -54,6 +54,7 @@ const QUESTIONS_BY_TYPE: Record<CardSubjectType, string[]> = {
   itinerary_item: ["Any tips for this?", "What's nearby after?", "How long should I plan for it?"],
   reel: ["Where exactly is this?", "Is it worth visiting?", "How do I get there?"],
   practicality: ["What do I actually need to do?", "Where do I sort this?", "Anything I should watch out for?"],
+  happening: ["How do I claim this?", "Is it worth it?", "What else is on nearby?"],
 };
 
 /** Suggested-question chips for a seeded chat — never an empty input on open (plan-v1-home-pivot.md §7). */

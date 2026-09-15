@@ -53,16 +53,8 @@ export interface HappeningResponse {
 export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const db = await supabaseServer();
-  const {
-    data: { user },
-  } = await db.auth.getUser();
-  if (!user) {
-    // Auth-gated (401 vs 200 per session) — must not be publicly cached
-    // despite the underlying happening data itself being non-user-specific.
-    return cachedJson<HappeningResponse>({ happening: null, siblings: [] }, CACHE_PRIVATE_NO_STORE, {
-      status: 401,
-    });
-  }
+  // Public: shared deal links open signed out (user decision 2026-09-15);
+  // happenings are `read_all` to anon under RLS.
 
   try {
     let happening = await getHappeningById(db, id);

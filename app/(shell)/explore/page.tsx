@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import { CITY } from "@/lib/city";
-import { useGeolocation, sortByDistance, distanceKm } from "@/lib/geo";
+import { currentCoordinates, refreshGeolocation, useGeolocation, sortByDistance, distanceKm } from "@/lib/geo";
 import type { ExploreLayer, ExplorePin, ExploreResponse } from "@/lib/explore/types";
 import type { ExploreCategorySlug } from "@/lib/explore/categories";
 import { NEIGHBOURHOOD_RADIUS_KM, findNeighbourhood } from "@/lib/explore/neighbourhoods";
@@ -75,7 +75,7 @@ export default function ExplorePage() {
 
   const [isRainy, setIsRainy] = useState(false);
 
-  const { coords } = useGeolocation();
+  const { coords, status: geoStatus } = useGeolocation();
   const mapRef = useRef<MapCanvasHandle>(null);
   const mapAnchorRef = useRef<HTMLDivElement>(null);
 
@@ -192,12 +192,19 @@ export default function ExplorePage() {
     }
   }
 
-  function handleNearMe() {
-    if (!coords) return;
+  // Location is never requested on page load (lib/geo.ts) — this tap is the
+  // ask, so the permission dialog appears when the visitor wants "near me".
+  async function handleNearMe() {
+    let target = coords;
+    if (!target) {
+      await refreshGeolocation();
+      target = currentCoordinates();
+    }
+    if (!target) return;
     setNeighbourhood(null);
     setBbox(null);
     setPendingBounds(null);
-    mapRef.current?.flyTo(coords, 15);
+    mapRef.current?.flyTo(target, 15);
   }
 
   function handleSearchThisArea() {
@@ -276,7 +283,7 @@ export default function ExplorePage() {
             showSearchThisArea={pendingBounds !== null}
             onSearchThisArea={handleSearchThisArea}
             onNearMe={handleNearMe}
-            nearMeAvailable={coords !== null}
+            nearMeAvailable={geoStatus !== "denied" && geoStatus !== "unsupported"}
           />
         </div>
 

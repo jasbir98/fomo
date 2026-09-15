@@ -18,7 +18,7 @@ import {
 import { categoryDefaultImage } from "@/lib/happenings/category-style";
 import type { HappeningResponse } from "@/app/api/happenings/[id]/route";
 import type { Happening, Occurrence } from "@/lib/happenings/types";
-import { Button, ErrorState, Icon, PageHeader, PhotoCarousel, ShareButton, StatusPill } from "@/components/ui";
+import { Button, ErrorState, Icon, PageHeader, PhotoCarousel, SaveButton, ShareButton, StatusPill } from "@/components/ui";
 import type { CarouselPhoto } from "@/components/ui";
 import { NOTIFY_ME_ENABLED } from "@/lib/happenings/book-early";
 import { NotifyMeButton } from "@/components/happenings";
@@ -254,7 +254,12 @@ export default function HappeningDetailPage({ params }: { params: Promise<{ id: 
       <PageHeader
         title={happening.title}
         showBack
-        action={<ShareButton title={happening.title} text={shareText} url={shareUrl} />}
+        action={
+          <div className="flex items-center gap-1">
+            <SaveButton subjectType="happening" subjectId={happening.id} />
+            <ShareButton title={happening.title} text={shareText} url={shareUrl} />
+          </div>
+        }
       />
 
       {/* Hero — heroPhotos always has exactly one entry (see heroImageUrl's

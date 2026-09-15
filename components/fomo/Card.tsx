@@ -42,6 +42,7 @@ const CATEGORY_GLYPH: Record<CardSubjectType, string> = {
   itinerary_item: "bookmark",
   reel: "movie",
   practicality: "info",
+  happening: "sell",
 };
 
 function directionsUrl(coords: { lat: number; lng: number }): string {
@@ -147,7 +148,9 @@ export function FomoCard({
           ? `/experience/${candidate.subject.id}`
           : candidate.subject.type === "reel"
             ? `/social/${candidate.subject.id}`
-            : null;
+            : candidate.subject.type === "happening"
+              ? `/happening/${candidate.subject.id}`
+              : null;
 
   function handleOpenDetails() {
     signal("opened");

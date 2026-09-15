@@ -625,25 +625,10 @@ function buildBookEarly(
 }
 
 export async function GET(request: Request) {
+  // Public: signed-out visitors browse the feed too (user decision
+  // 2026-09-15). Every table read here is `read_all` to anon under RLS, so a
+  // cookie-less request simply runs as the anon role.
   const db = await supabaseServer();
-  const {
-    data: { user },
-  } = await db.auth.getUser();
-  if (!user) {
-    // Auth-gated (session cookie decides 401 vs 200) — explicit no-store so
-    // no intermediary caches this per-session response.
-    return cachedJson<FeedResponse>(
-      {
-        hero: null,
-        whatsOn: [],
-        bookEarly: [],
-        deals: { venueGroups: [], singles: [] },
-        freeAnyTime: [],
-        degraded: "unauthorized",
-      },
-      CACHE_PRIVATE_NO_STORE
-    );
-  }
 
   const { searchParams } = new URL(request.url);
   const window = parseWindow(searchParams.get("window"));

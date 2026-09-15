@@ -103,3 +103,18 @@ export async function listHappeningsForPlace(db: Db, placeId: string): Promise<H
   }
   return (data ?? []) as Happening[];
 }
+
+/**
+ * Happenings by id, any status — the Saved list resolves saved rows through
+ * this, and an offer that has since gone dormant should still show there
+ * (the caller marks it ended) rather than silently vanish.
+ */
+export async function listHappeningsByIds(db: Db, ids: string[]): Promise<Happening[]> {
+  if (ids.length === 0) return [];
+  const { data, error } = await db.from("happenings").select("*").in("id", ids);
+  if (error) {
+    if (isMissingTableError(error)) return [];
+    throw error;
+  }
+  return (data ?? []) as Happening[];
+}

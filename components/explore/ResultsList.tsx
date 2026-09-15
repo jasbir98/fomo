@@ -101,7 +101,7 @@ export function ResultsList({
   return (
     <section className="flex flex-col gap-3">
       <h2 className="text-headline-sm text-primary">
-        {pins.length > 0 ? `${pins.length} nearby` : "Results"}
+        {pins.length > 0 ? `${pins.length} ${pins.length === 1 ? "result" : "results"}` : "Results"}
       </h2>
       {degraded ? (
         <p className="text-label-sm text-on-surface-variant">

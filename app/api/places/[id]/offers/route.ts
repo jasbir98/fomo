@@ -26,14 +26,7 @@ export interface PlaceOffersResponse {
 export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const db = await supabaseServer();
-  const {
-    data: { user },
-  } = await db.auth.getUser();
-  if (!user) {
-    // Auth-gated (401 vs 200 depends on the session cookie) — must never be
-    // publicly cached even though the underlying data isn't per-user.
-    return cachedJson<PlaceOffersResponse>({ offers: [] }, CACHE_PRIVATE_NO_STORE, { status: 401 });
-  }
+  // Public: place pages are browsable signed out (user decision 2026-09-15).
 
   try {
     const offers = await listHappeningsForPlace(db, id);

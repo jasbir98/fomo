@@ -1,13 +1,13 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { ExplorePin } from "@/lib/explore/types";
 import { PIN_TYPE_STYLE, directionsUrlForPin, subjectTypeForPin } from "@/lib/explore/pin-style";
 import { CITY } from "@/lib/city";
-import { isSaved, recordCardSignal, saveItem, unsaveItem } from "@/lib/db";
+import { recordCardSignal } from "@/lib/db";
 import { supabaseBrowserAuth } from "@/lib/supabase/client";
+import { useSaved } from "@/lib/useSaved";
 import { buildAskFomoHref } from "@/lib/chat-seed";
 import { BottomSheet, Icon, SmartImage } from "@/components/ui";
 
@@ -37,70 +37,31 @@ function formatStartsAt(iso: string): string {
  * header for why the pin contract stays small; "View full details" is the
  * escape hatch for a place/happening/event's full page.
  *
- * Save and Ask Fomo only render when `subjectTypeForPin` resolves a real
- * `CardSubjectType` (place or provider-event pins) — a deal/free/event pin
- * backed by a `happenings` row (href `/happening/<id>`) has no
- * `CardSubjectType` to hand those helpers, so it gets Directions + View
- * details only, same as the task brief's "keep actions where helpers support
- * the subject type" instruction. Its own detail page has its own Save action.
+ * Save and Ask Fomo render whenever `subjectTypeForPin` resolves a
+ * `CardSubjectType` — place, provider-event and `happenings`-backed
+ * (`/happening/<id>`) pins all do.
  */
 export function ExploreSheet({ pin, onClose }: ExploreSheetProps) {
   const db = supabaseBrowserAuth();
   const pathname = usePathname();
-  const [saved, setSaved] = useState(false);
-  const [saveBusy, setSaveBusy] = useState(false);
+  // Shared saved store (lib/useSaved.ts): starts in the real state for every
+  // pin, and a signed-out tap goes to sign-in and back.
+  const { signedIn, isSaved, toggle } = useSaved();
 
   const subjectType = pin ? subjectTypeForPin(pin) : null;
-
-  // Reset the (stale, previous pin's) saved flag the instant a new pin is
-  // selected — the "adjust state during render" pattern (see
-  // lib/useProgressiveReveal.ts's own prevTotal reset for the same trick)
-  // rather than a `setSaved(false)` inside the effect below, which React's
-  // lint rightly flags as a synchronous setState-in-effect (it'd cascade an
-  // extra render on every pin change for no benefit over doing it here).
-  const [resetForPinId, setResetForPinId] = useState<string | null>(null);
-  if (pin && pin.id !== resetForPinId) {
-    setResetForPinId(pin.id);
-    setSaved(false);
-  }
-
-  // The real (possibly-true) saved status — async, so it can only ever
-  // follow the render-time reset above, never replace it.
-  useEffect(() => {
-    if (!pin || !subjectType) return;
-    let cancelled = false;
-    isSaved(db, subjectType, pin.id)
-      .then((v) => {
-        if (!cancelled) setSaved(v);
-      })
-      .catch((err) => console.error("[explore] saved lookup failed", err));
-    return () => {
-      cancelled = true;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- `db` is a stable client instance per mount, re-running on it would refire the lookup for no reason.
-  }, [pin, subjectType]);
+  const saved = pin && subjectType ? isSaved(subjectType, pin.id) : false;
 
   async function handleToggleSave() {
-    if (!pin || !subjectType || saveBusy) return;
-    setSaveBusy(true);
-    try {
-      if (saved) {
-        await unsaveItem(db, subjectType, pin.id);
-        setSaved(false);
-      } else {
-        await saveItem(db, { subject_type: subjectType, subject_id: pin.id, note: null });
-        setSaved(true);
-        void recordCardSignal(db, {
-          card_type: "map",
-          subject_type: subjectType,
-          subject_id: pin.id,
-          action: "saved",
-        });
-      }
-    } catch (err) {
-      console.error("[explore] save toggle failed", err);
-    } finally {
-      setSaveBusy(false);
+    if (!pin || !subjectType) return;
+    const wasSaved = saved;
+    await toggle(subjectType, pin.id);
+    if (!wasSaved && signedIn) {
+      void recordCardSignal(db, {
+        card_type: "map",
+        subject_type: subjectType,
+        subject_id: pin.id,
+        action: "saved",
+      });
     }
   }
 
@@ -189,7 +150,6 @@ export function ExploreSheet({ pin, onClose }: ExploreSheetProps) {
                 type="button"
                 aria-label={saved ? "Remove from saved" : "Save"}
                 onClick={handleToggleSave}
-                disabled={saveBusy}
                 className="flex min-h-[44px] w-[44px] shrink-0 items-center justify-center rounded-xl border border-outline-variant text-primary transition-opacity hover:opacity-90 disabled:opacity-60"
               >
                 <Icon name={saved ? "bookmark" : "bookmark_add"} filled={saved} size={20} />

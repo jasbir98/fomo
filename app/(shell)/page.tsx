@@ -5,6 +5,7 @@ import Link from "next/link";
 import { cityBadge, SUPPORTED_CITIES } from "@/lib/city";
 import { supabaseBrowserAuth } from "@/lib/supabase/client";
 import { refreshGeolocation, useGeolocation } from "@/lib/geo";
+import { useSignedIn } from "@/lib/useSaved";
 import { chooseCity, dismissCityPrompt, useSelectedCity } from "@/lib/useSelectedCity";
 import { rememberUserLocation, forgetUserLocation } from "@/lib/now/location";
 import type { CardKind, NowResponse } from "@/lib/now/types";
@@ -194,15 +195,18 @@ export default function HomePage() {
   // set) — no reason to hit /api/alerts on every Home load otherwise.
   const [alertHappeningIds, setAlertHappeningIds] = useState<Set<string>>(new Set());
   const { coords, status: geoStatus } = useGeolocation();
+  const signedIn = useSignedIn();
   const { city, source: citySource, shouldPrompt: shouldPromptCity } = useSelectedCity();
   const [cityPickerOpen, setCityPickerOpen] = useState(false);
 
   // Coarse last-known location, for graceful degradation on a later cold open.
   // Not used for this request, which sends the live reading directly.
+  // Signed-in only: it writes to the caller's own profile row.
   useEffect(() => {
+    if (!signedIn) return;
     if (geoStatus === "granted" && coords) void rememberUserLocation(db, coords.lat, coords.lng);
     else if (geoStatus === "denied") void forgetUserLocation(db);
-  }, [db, geoStatus, coords]);
+  }, [db, geoStatus, coords, signedIn]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -402,12 +406,26 @@ export default function HomePage() {
             </span>
           </div>
           <Link
-            href="/profile"
-            aria-label="Profile"
-            className="flex h-8 w-8 items-center justify-center rounded-full bg-primary-container text-on-primary"
+            href="/saved"
+            aria-label="Saved"
+            className="flex h-10 w-10 items-center justify-center rounded-full text-on-surface-variant transition-colors hover:bg-surface-container hover:text-on-surface"
           >
-            <Icon name="person" size={17} />
+            <Icon name="bookmark" size={22} />
           </Link>
+          {signedIn === false ? (
+            <Link
+              href="/signin"
+              className="ml-1 flex h-9 items-center rounded-full bg-primary px-3.5 text-label-md font-bold text-on-primary"
+            >
+              Sign in
+            </Link>
+          ) : (
+            <Link href="/profile" aria-label="Profile" className="flex h-10 w-10 items-center justify-center">
+              <span className="flex h-8 w-8 items-center justify-center rounded-full bg-primary-container text-on-primary">
+                <Icon name="person" size={17} />
+              </span>
+            </Link>
+          )}
         </div>
       </header>
 

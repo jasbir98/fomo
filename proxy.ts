@@ -9,9 +9,11 @@ import { safeNext } from "@/lib/auth/safe-next";
  *
  *   1. refresh session cookies (Phase 1 code — unchanged, see footgun #1)
  *   2. read the user (Phase 1's getUser() call — unchanged, see footgun #2)
- *   3. /api/*        → no user? 401 JSON, never a redirect
+ *   3. /api/*        → no user? 401 JSON, never a redirect — except the
+ *                      read-only catalogue APIs in PUBLIC_API_PREFIXES
  *      passive-public (/welcome, /auth/callback, /offline) → always pass
- *      no user        → 302 /welcome?next=... (unless already on /signin)
+ *      no user        → public pages pass; account pages (SIGNED_IN_PAGE_PREFIXES)
+ *                      302 /welcome?next=... (unless already on /signin)
  *      user, on /signin or under the retired /onboarding → 302 ?next or /
  *
  * Two documented footguns, both worth re-reading before touching this file:
@@ -56,6 +58,45 @@ import { safeNext } from "@/lib/auth/safe-next";
  * exported function, `config.matcher` unchanged). See
  * node_modules/next/dist/docs/01-app/03-api-reference/03-file-conventions/proxy.md.
  */
+
+/**
+ * Pages that need an account: chat, profile/saved, and the leftover setup
+ * screens. Everything else — Feed, Deals, Free, Explore, detail pages and
+ * shared links — is browsable signed out (user decision 2026-09-15); sign-in
+ * is asked for only when Save, Notify me or Ask Fomo is tapped.
+ */
+const SIGNED_IN_PAGE_PREFIXES = ["/fomo", "/profile", "/saved", "/setup", "/kit"];
+
+function matchesPrefix(pathname: string, prefix: string): boolean {
+  return pathname === prefix || pathname.startsWith(`${prefix}/`);
+}
+
+function needsAccount(pathname: string): boolean {
+  return SIGNED_IN_PAGE_PREFIXES.some((prefix) => matchesPrefix(pathname, prefix));
+}
+
+/**
+ * Read-only catalogue APIs the public pages call. GET/HEAD only; each serves
+ * data RLS already grants `read_all` to anon, and handles a missing user
+ * itself. Chat, translate, saved, push, alerts, geocode and places search
+ * stay behind a session — they cost money per call or write per-user rows.
+ */
+const PUBLIC_API_PREFIXES = [
+  "/api/feed",
+  "/api/happenings",
+  "/api/events",
+  "/api/explore",
+  "/api/weather",
+  "/api/now",
+  "/api/media-proxy",
+];
+const PUBLIC_PLACE_OFFERS = /^\/api\/places\/[^/]+\/offers$/;
+
+function isPublicApi(request: NextRequest): boolean {
+  if (request.method !== "GET" && request.method !== "HEAD") return false;
+  const { pathname } = request.nextUrl;
+  return PUBLIC_PLACE_OFFERS.test(pathname) || PUBLIC_API_PREFIXES.some((prefix) => matchesPrefix(pathname, prefix));
+}
 
 /** Pages that are always servable regardless of auth/onboarding state. */
 function isPassivePublic(pathname: string): boolean {
@@ -132,7 +173,7 @@ export async function proxy(request: NextRequest) {
   // caller's fetch() can actually branch on; a redirect would just hand it
   // an HTML page.
   if (isApi) {
-    if (!user) {
+    if (!user && !isPublicApi(request)) {
       return withCookies(
         NextResponse.json({ error: "Unauthorized" }, { status: 401 }),
         response
@@ -149,13 +190,14 @@ export async function proxy(request: NextRequest) {
     return response;
   }
 
-  // 3. No user.
+  // 3. No user. Public pages are served as-is; only account pages (chat,
+  // profile, saved) send the visitor through /welcome to sign in.
   if (!user) {
     // /signin is where a signed-out visitor is SUPPOSED to end up (either
     // straight from a deep link's redirect, or via /welcome's own
     // client-side skip-if-seen-intro check) — serve it directly rather than
     // bouncing back through /welcome.
-    if (isSignin) return response;
+    if (isSignin || !needsAccount(pathname)) return response;
     const url = new URL("/welcome", request.url);
     url.searchParams.set("next", pathWithSearch(request));
     return withCookies(NextResponse.redirect(url), response);

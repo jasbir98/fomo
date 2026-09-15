@@ -62,7 +62,8 @@ export function sortByDistance<T>(
     .map(({ item }) => item);
 }
 
-export type GeolocationStatus = "loading" | "granted" | "denied" | "unsupported";
+/** `prompt`: permission never asked — waiting for an explicit "near me" tap (`refreshGeolocation`). */
+export type GeolocationStatus = "loading" | "prompt" | "granted" | "denied" | "unsupported";
 
 export interface GeolocationState {
   coords: Coordinates | null;
@@ -238,11 +239,11 @@ function handlePermissionState(permission: PermissionState, cached: CachedPositi
     void requestPosition();
     return;
   }
-  // "prompt": only actually trigger the browser prompt if we don't already
-  // have a fresh fix. This is what keeps a permission-granted user from
-  // re-prompting on every navigation -- the prompt only fires once, here,
-  // the first time `ensureInitialized` runs for the whole page load.
-  if (!cached || !isFresh(cached)) void requestPosition();
+  // "prompt": never ask on page load. A cold permission dialog before the
+  // visitor has seen anything tends to get denied, and a denial usually
+  // sticks -- so wait for an explicit "near me" tap (`refreshGeolocation`).
+  // A fresh cached fix from an earlier grant still applies.
+  if (!cached || !isFresh(cached)) setState({ coords: null, status: "prompt" });
 }
 
 /**
@@ -294,7 +295,9 @@ function fallbackWithoutPermissionsApi(cached: CachedPosition | null): void {
     setState({ coords: null, status: "denied" });
     return;
   }
-  if (!cached || !isFresh(cached)) void requestPosition();
+  // No way to tell "granted" from "never asked" here, so don't risk a cold
+  // prompt on load either -- same rule as the "prompt" branch above.
+  if (!cached || !isFresh(cached)) setState({ coords: null, status: "prompt" });
 }
 
 /**
@@ -308,6 +311,11 @@ export function refreshGeolocation(): Promise<void> {
     return Promise.resolve();
   }
   return requestPosition();
+}
+
+/** The shared store's current fix, read outside React — e.g. right after awaiting `refreshGeolocation()` in a tap handler. */
+export function currentCoordinates(): Coordinates | null {
+  return getSnapshot().coords;
 }
 
 /**

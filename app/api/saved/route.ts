@@ -29,6 +29,7 @@ import { listSavedItemsPage } from "@/lib/db/saved";
 import { listPlacesByIds } from "@/lib/db/places";
 import { listEventsByIds } from "@/lib/db/events";
 import { listExperiencesByIds } from "@/lib/db/experiences";
+import { listHappeningsByIds } from "@/lib/db/happenings";
 import { placeImage, placeCoords, eventHeadline, venueLabel } from "@/lib/now/generators";
 import type { Candidate } from "@/lib/now/types";
 import type { SavedItem } from "@/lib/types";
@@ -92,15 +93,18 @@ async function resolveCandidates(db: Db, saved: SavedItem[]): Promise<Candidate[
   const placeIds = saved.filter((s) => s.subject_type === "place").map((s) => s.subject_id);
   const eventIds = saved.filter((s) => s.subject_type === "event").map((s) => s.subject_id);
   const experienceIds = saved.filter((s) => s.subject_type === "experience").map((s) => s.subject_id);
+  const happeningIds = saved.filter((s) => s.subject_type === "happening").map((s) => s.subject_id);
 
-  const [places, events, experiences] = await Promise.all([
+  const [places, events, experiences, happenings] = await Promise.all([
     listPlacesByIds(db, placeIds),
     listEventsByIds(db, eventIds),
     listExperiencesByIds(db, experienceIds),
+    listHappeningsByIds(db, happeningIds),
   ]);
   const placeById = new Map(places.map((p) => [p.id, p]));
   const eventById = new Map(events.map((e) => [e.id, e]));
   const experienceById = new Map(experiences.map((e) => [e.id, e]));
+  const happeningById = new Map(happenings.map((h) => [h.id, h]));
 
   const now = new Date();
   const out: Candidate[] = [];
@@ -118,7 +122,7 @@ async function resolveCandidates(db: Db, saved: SavedItem[]): Promise<Candidate[
         why: "You saved this",
         headline: place.name ?? "Saved place",
         detail: place.detail_line ?? "",
-        primaryAction: { label: "Add to today", kind: "add" },
+        primaryAction: { label: "Saved", kind: "add" },
         image: placeImage(place),
         urgency: "low",
         validFrom: now.toISOString(),
@@ -142,7 +146,7 @@ async function resolveCandidates(db: Db, saved: SavedItem[]): Promise<Candidate[
         why: "You saved this",
         headline: title,
         detail: venueLabel(event.venue_name) ?? "",
-        primaryAction: { label: "Add to today", kind: "add" },
+        primaryAction: { label: "Saved", kind: "add" },
         image: { url: event.image_url, quality: event.image_url ? "thin" : "none" },
         urgency: "low",
         validFrom: now.toISOString(),
@@ -173,6 +177,32 @@ async function resolveCandidates(db: Db, saved: SavedItem[]): Promise<Candidate[
         distanceKm: null,
         subjectName: exp.title,
         coords: placeCoords(exp),
+        railTitle: "You saved these",
+        railMeta: "from your saves",
+      });
+    } else if (s.subject_type === "happening") {
+      const h = happeningById.get(s.subject_id);
+      if (!h) continue;
+      // A saved offer that has since gone dormant/retired stays in the list,
+      // clearly marked, instead of silently disappearing.
+      const ended = h.status !== "live";
+      out.push({
+        generator: "saved_pick",
+        baseScore: 50,
+        score: 50,
+        subject: { type: "happening", id: h.id },
+        pill: ended ? "Ended" : "Saved",
+        why: ended ? "This offer has ended" : "You saved this",
+        headline: h.title,
+        detail: ended ? "No longer running" : (h.venue_name ?? ""),
+        primaryAction: { label: "Saved", kind: "add" },
+        image: { url: h.image_url, quality: h.image_url ? "thin" : "none" },
+        urgency: "low",
+        validFrom: now.toISOString(),
+        validUntil: new Date(now.getTime() + 24 * 3_600_000).toISOString(),
+        distanceKm: null,
+        subjectName: h.title,
+        coords: placeCoords(h),
         railTitle: "You saved these",
         railMeta: "from your saves",
       });

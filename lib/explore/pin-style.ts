@@ -55,6 +55,7 @@ export const LAYER_PIN_TYPES: Record<ExploreLayer, ExplorePinType[]> = {
 export function subjectTypeForPin(pin: Pick<ExplorePin, "href">): CardSubjectType | null {
   if (pin.href.startsWith("/place/")) return "place";
   if (pin.href.startsWith("/event/")) return "event";
+  if (pin.href.startsWith("/happening/")) return "happening";
   return null;
 }
 

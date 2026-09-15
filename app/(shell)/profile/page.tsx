@@ -45,6 +45,7 @@ interface SavedApiResponse {
 }
 
 const SAVED_GROUP_LABELS: { type: Candidate["subject"]["type"]; label: string }[] = [
+  { type: "happening", label: "Deals & things to do" },
   { type: "place", label: "Places" },
   { type: "event", label: "Events" },
   { type: "experience", label: "Experiences" },

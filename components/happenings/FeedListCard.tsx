@@ -1,7 +1,6 @@
 "use client";
 
-import { useState } from "react";
-import { Icon, NavCard, SmartImage } from "@/components/ui";
+import { Icon, NavCard, SaveButton, SmartImage } from "@/components/ui";
 import { formatEventDate, formatEventPrice, formatEventTimeSpan } from "@/lib/events/format";
 import {
   ELIGIBILITY_ICON,
@@ -15,9 +14,6 @@ import { categoryDefaultImage, categoryStyle, kindStyle } from "@/lib/happenings
 import type { FeedCardData, SeriesCardData } from "@/lib/happenings/feed-types";
 import type { Happening, HappeningKind, Occurrence } from "@/lib/happenings/types";
 import type { EventItem } from "@/lib/types";
-import { saveItem, unsaveItem } from "@/lib/db/saved";
-import { describeSupabaseError } from "@/lib/db/errors";
-import { supabaseBrowserAuth } from "@/lib/supabase/client";
 
 export interface FeedListCardProps {
   card: FeedCardData;
@@ -65,43 +61,6 @@ function CategoryDot({ category }: { category: Happening["category"] }) {
   return <Icon name={style.icon} size={13} className={style.textClass} />;
 }
 
-/** Bookmark toggle for a save-able subject (events, and — eventually — places). Local optimistic state, same convention components/fomo/Card.tsx's FomoCard uses: it doesn't preload whether the subject is already saved, it just flips on tap. */
-function SaveButton({ subjectType, subjectId }: { subjectType: "event"; subjectId: string }) {
-  const db = supabaseBrowserAuth();
-  const [saved, setSaved] = useState(false);
-  const [busy, setBusy] = useState(false);
-
-  async function toggle(e: React.MouseEvent) {
-    e.stopPropagation();
-    if (busy) return;
-    setBusy(true);
-    try {
-      if (saved) {
-        await unsaveItem(db, subjectType, subjectId);
-        setSaved(false);
-      } else {
-        await saveItem(db, { subject_type: subjectType, subject_id: subjectId, note: null });
-        setSaved(true);
-      }
-    } catch (err) {
-      console.error(`[feed] save toggle failed ${describeSupabaseError(err)}`);
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  return (
-    <button
-      type="button"
-      aria-label={saved ? "Remove from saved" : "Save deal"}
-      onClick={toggle}
-      disabled={busy}
-      className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-on-surface-variant transition-colors hover:text-accent disabled:opacity-60"
-    >
-      <Icon name={saved ? "bookmark" : "bookmark_border"} filled={saved} size={20} />
-    </button>
-  );
-}
 
 /** Makes the whole card row navigate to `href` while keeping its own inner
  *  buttons/links working — see components/ui/NavCard.tsx's doc comment for
@@ -163,12 +122,17 @@ function HappeningRow({ happening, occurrence }: { happening: Happening; occurre
         <p className="line-clamp-1 text-body-sm leading-relaxed text-on-surface-variant">{oneLiner}</p>
       ) : null}
 
-      {eligibility ? (
-        <span className="inline-flex w-fit items-center gap-1 rounded-full bg-surface-container px-2 py-0.5 text-[11px] font-bold text-secondary">
-          <Icon name={ELIGIBILITY_ICON[happening.eligibility]} size={12} />
-          {eligibility}
-        </span>
-      ) : null}
+      <div className="flex items-center justify-between gap-2">
+        {eligibility ? (
+          <span className="inline-flex w-fit items-center gap-1 rounded-full bg-surface-container px-2 py-0.5 text-[11px] font-bold text-secondary">
+            <Icon name={ELIGIBILITY_ICON[happening.eligibility]} size={12} />
+            {eligibility}
+          </span>
+        ) : (
+          <span />
+        )}
+        <SaveButton subjectType="happening" subjectId={happening.id} className="-my-2 -mr-2" />
+      </div>
     </CardShell>
   );
 }
@@ -205,9 +169,14 @@ function SeriesRow({ card }: { card: SeriesCardData }) {
         </div>
       </div>
 
-      {oneLiner ? (
-        <p className="line-clamp-1 text-body-sm leading-relaxed text-on-surface-variant">{oneLiner}</p>
-      ) : null}
+      <div className="flex items-center justify-between gap-2">
+        {oneLiner ? (
+          <p className="line-clamp-1 text-body-sm leading-relaxed text-on-surface-variant">{oneLiner}</p>
+        ) : (
+          <span />
+        )}
+        <SaveButton subjectType="happening" subjectId={lead.id} className="-my-2 -mr-2" />
+      </div>
     </CardShell>
   );
 }
@@ -337,7 +306,7 @@ function EventRow({ event }: { event: EventItem }) {
           <Icon name="schedule" size={14} className="text-secondary" />
           {eventTime}
         </span>
-        <SaveButton subjectType="event" subjectId={event.id} />
+        <SaveButton subjectType="event" subjectId={event.id} className="-my-2 -mr-2" />
       </div>
     </CardShell>
   );
