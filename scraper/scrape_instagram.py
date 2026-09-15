@@ -34,6 +34,14 @@ visit) and extracts details primarily from the page's `og:description` /
 username on <date>: "<caption>"" — a more stable extraction point than CSS
 classes, but still best-effort. If Instagram changes this format, update
 `extract_from_post_page()` below.
+
+Grid pre-filtering: hashtag grids are mostly photos (Instagram doesn't offer
+a "reels only" hashtag view), and visiting every tile just to discard photos
+wastes page loads and inflates the "empty" streak that trips the batch
+runner's cool-off. `collect_reel_links()` classifies each tile from the grid
+DOM alone (href shape + icon overlay — see `classify_tile_html()`) so photos
+can be skipped without ever being opened. Update `classify_tile_html()` if
+Instagram changes these grid-level signals.
 """
 
 from __future__ import annotations
@@ -44,6 +52,7 @@ import random
 import re
 import sys
 import time
+from dataclasses import dataclass, field
 from pathlib import Path
 
 from playwright.sync_api import Page, sync_playwright
@@ -120,69 +129,156 @@ POST_LINK_RE = re.compile(
     r"^(?:https://www\.instagram\.com)?/(?:[\w.]+/)?(?:p|reels?|tv)/([\w-]+)"
 )
 
+# Hard caps on how long we'll scroll/inspect the grid hunting for reel
+# candidates. A sparse or photo-heavy hashtag shouldn't turn into an
+# unbounded scroll marathon — past these, work with whatever was found.
+MAX_GRID_SCROLLS = 8
+MAX_GRID_TILES = 60
 
-def collect_reel_links(page: Page, hashtag: str, limit: int) -> list[str]:
-    """Scroll the hashtag explore grid and collect up to `limit * 3` unique
-    post shortcodes (candidates — photos are filtered out later once each
-    post page is visited, so we over-collect a bit up front)."""
+# Icon aria-labels Instagram overlays on grid tiles — the only signal besides
+# the href shape available without opening the post. Best-effort/observed,
+# like everything else here; if Instagram changes these, update
+# `classify_tile_html()`.
+VIDEO_ICON_RE = re.compile(r"clip|reel|video", re.I)
+PHOTO_ICON_RE = re.compile(r"carousel|album|multiple images|multiple photos", re.I)
+
+
+def classify_tile_html(html: str | None) -> str:
+    """Classify one grid tile's outer HTML as "reel", "photo", or "unknown"
+    — WITHOUT visiting the post. Lets `collect_reel_links()` skip the
+    photo-heavy bulk of a hashtag grid instead of opening every tile.
+
+    Signals, most specific first:
+      1. An href to /reel/ or /reels/ -> definite reel.
+      2. A clip/video icon overlay (aria-label containing "Clip", "Reel" or
+         "Video") -> reel candidate even under a /p/ href, since Instagram
+         also serves plain in-feed video posts and IGTV that way.
+      3. A carousel/album icon overlay -> definite photo (multi-image post,
+         no video signal).
+      4. A bare /p/ href with no icon at all -> photo. Instagram always
+         overlays an icon on video/carousel tiles, so an undecorated tile is
+         a plain single photo.
+      5. Anything else (href missing/unrecognised, icon unreadable) ->
+         "unknown", left for the caller to visit as a last resort.
+
+    Pure/offline on purpose so it can be unit-tested against hand-written
+    tile HTML — the real scan only ever calls it with a tile's outerHTML.
+    """
+    if not html:
+        return "unknown"
+    href_match = re.search(r'href=["\']([^"\']+)', html)
+    href = href_match.group(1) if href_match else ""
+    if re.search(r"/reels?/[\w-]+", href):
+        return "reel"
+    icon_labels = " ".join(re.findall(r'aria-label=["\']([^"\']*)["\']', html))
+    if VIDEO_ICON_RE.search(icon_labels):
+        return "reel"
+    if PHOTO_ICON_RE.search(icon_labels):
+        return "photo"
+    if re.search(r"/p/[\w-]+", href):
+        return "photo"
+    return "unknown"
+
+
+@dataclass
+class GridScan:
+    """What `collect_reel_links()` found on the hashtag explore grid, before
+    any individual post was visited."""
+
+    reel_candidates: list[str] = field(default_factory=list)
+    unknown_candidates: list[str] = field(default_factory=list)
+    photo_count: int = 0
+    total_tiles: int = 0
+    blocked_reason: str | None = None
+
+
+def collect_reel_links(page: Page, hashtag: str, limit: int) -> GridScan:
+    """Scroll the hashtag explore grid, classifying each tile as it appears
+    (see `classify_tile_html()`) so photos are skipped without ever being
+    opened. Keeps scrolling until `limit` reel candidates are found, or
+    MAX_GRID_SCROLLS/MAX_GRID_TILES caps out, or the grid stalls (stops
+    producing new tiles)."""
     url = f"https://www.instagram.com/explore/tags/{hashtag}/"
     page.goto(url, wait_until="domcontentloaded")
+
+    scan = GridScan()
 
     try:
         page.wait_for_selector('a[href*="/p/"], a[href*="/reel/"]', timeout=15000)
     except Exception:
         block_reason = detect_block(page)
         if block_reason:
+            scan.blocked_reason = block_reason
             print(f"[instagram] BLOCKED on explore page: {block_reason}")
-            return []
-        print(f"[instagram] no post links found on explore page (final url: {page.url})")
-        return []
+        else:
+            print(f"[instagram] no post links found on explore page (final url: {page.url})")
+        return scan
 
     polite_delay()
 
     block_reason = detect_block(page)
     if block_reason:
+        scan.blocked_reason = block_reason
         print(f"[instagram] BLOCKED on explore page: {block_reason}")
-        return []
+        return scan
 
-    candidate_limit = limit * 3
-    shortcodes: list[str] = []
     seen: set[str] = set()
     max_stall_attempts = 6
     stalls = 0
+    scrolls = 0
 
-    while len(shortcodes) < candidate_limit and stalls < max_stall_attempts:
+    while True:
         anchors = page.locator('a[href*="/p/"], a[href*="/reel/"], a[href*="/reels/"]')
         count = anchors.count()
         added = 0
         for i in range(count):
-            if len(shortcodes) >= candidate_limit:
+            if scan.total_tiles >= MAX_GRID_TILES:
                 break
-            href = anchors.nth(i).get_attribute("href")
+            anchor = anchors.nth(i)
+            href = anchor.get_attribute("href")
             if not href:
                 continue
             match = POST_LINK_RE.match(href)
             if not match:
                 continue
             code = match.group(1)
-            if code not in seen:
-                seen.add(code)
-                shortcodes.append(code)
-                added += 1
+            if code in seen:
+                continue
+            seen.add(code)
+            scan.total_tiles += 1
+            added += 1
 
-        if len(shortcodes) >= candidate_limit:
+            try:
+                tile_html = anchor.evaluate("el => el.outerHTML")
+            except Exception:
+                tile_html = href  # still lets the href-based signal work
+
+            kind = classify_tile_html(tile_html)
+            if kind == "reel":
+                scan.reel_candidates.append(code)
+            elif kind == "photo":
+                scan.photo_count += 1
+            else:
+                scan.unknown_candidates.append(code)
+
+        if len(scan.reel_candidates) >= limit or scan.total_tiles >= MAX_GRID_TILES:
             break
 
         stalls = stalls + 1 if added == 0 else 0
+        scrolls += 1
+        if stalls >= max_stall_attempts or scrolls >= MAX_GRID_SCROLLS:
+            break
+
         page.mouse.wheel(0, random.randint(1800, 2600))
         polite_delay()
 
         block_reason = detect_block(page)
         if block_reason:
+            scan.blocked_reason = block_reason
             print(f"[instagram] BLOCKED mid-scroll: {block_reason}")
             break
 
-    return shortcodes
+    return scan
 
 
 def extract_from_post_page(page: Page, shortcode: str) -> dict | None:
@@ -332,7 +428,21 @@ def extract_from_post_page(page: Page, shortcode: str) -> dict | None:
     }
 
 
-def search_and_extract(page: Page, query: str, limit: int) -> list[dict]:
+class ReelResults(list):
+    """list[dict] of scraped reels, plus a `grid_had_tiles` flag so the batch
+    runner's cool-off heuristic (scrape_places_batch.py) can tell "the grid
+    was genuinely empty or blocked" apart from "the grid had tiles, they
+    just weren't reels" — only the former is a real block signal. Always set
+    explicitly below before this is returned; the batch runner's own
+    `getattr(..., False)` default is what keeps a plain list (e.g. from
+    another platform's search_and_extract, which knows nothing about this
+    attribute) on today's behaviour.
+    """
+
+    grid_had_tiles: bool = False
+
+
+def search_and_extract(page: Page, query: str, limit: int) -> ReelResults:
     """Search Instagram (via hashtag explore) for `query` on an already-open
     `page` and collect up to `limit` reels. Does not launch or close a
     browser context — callers own that (either `scrape_instagram()` below for
@@ -342,12 +452,30 @@ def search_and_extract(page: Page, query: str, limit: int) -> list[dict]:
     hashtag = to_hashtag(query)
     print(f"[instagram] searching #{hashtag} (from query '{query}', limit={limit})")
 
-    shortcodes = collect_reel_links(page, hashtag, limit)
-    print(f"[instagram] found {len(shortcodes)} candidate post(s), visiting each for details")
+    scan = collect_reel_links(page, hashtag, limit)
+
+    if scan.blocked_reason:
+        result = ReelResults()
+        result.grid_had_tiles = False
+        return result
+
+    fallback_needed = max(0, limit - len(scan.reel_candidates))
+    fallback_used = scan.unknown_candidates[:fallback_needed]
+    candidates = scan.reel_candidates + fallback_used
+
+    fallback_note = (
+        f", {len(fallback_used)} unclassified tile(s) held as a last-resort fallback"
+        if fallback_used
+        else ""
+    )
+    print(
+        f"[instagram] found {scan.total_tiles} tile(s) -> {len(scan.reel_candidates)} reel "
+        f"candidate(s) ({scan.photo_count} photo(s) skipped without visiting{fallback_note})"
+    )
 
     collected: list[dict] = []
     skipped_non_video = 0
-    for shortcode in shortcodes:
+    for shortcode in candidates:
         if len(collected) >= limit:
             break
         polite_delay()
@@ -369,7 +497,12 @@ def search_and_extract(page: Page, query: str, limit: int) -> list[dict]:
         f"[instagram] collected {len(collected)} reel(s) "
         f"(skipped {skipped_non_video} non-video post(s)) for '{query}'"
     )
-    return collected
+
+    result = ReelResults(collected)
+    # Grid had real content (some kind of tile) even if none of it panned
+    # out as a reel — that's not a block signal, see ReelResults docstring.
+    result.grid_had_tiles = scan.total_tiles > 0
+    return result
 
 
 def scrape_instagram(query: str, limit: int, headless: bool) -> list[dict]:

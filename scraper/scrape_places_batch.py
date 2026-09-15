@@ -660,8 +660,21 @@ def run_platform(platform: str, places: list[Place], args: argparse.Namespace, p
                         f"running total: {stats.reels}"
                     )
                 else:
-                    consecutive_empty += 1
                     block_reason = config["detect_block"](page)
+                    # A search_and_extract can flag whether its search
+                    # surface had any candidates at all (e.g. Instagram's
+                    # `grid_had_tiles` — grid tiles found, even if none were
+                    # reels). Zero candidates and any kind of block are real
+                    # signals the session/IP is having trouble; "candidates
+                    # were there but none matched what we scrape" (an
+                    # all-photo hashtag grid) is not, and must not burn down
+                    # the cool-off budget. Callers that don't set the
+                    # attribute (e.g. TikTok) keep today's behaviour: default
+                    # to "no candidates" so any empty result still counts.
+                    had_candidates = getattr(reels, "grid_had_tiles", False)
+                    real_signal = bool(block_reason) or not had_candidates
+                    if real_signal:
+                        consecutive_empty += 1
                     status = "blocked" if block_reason else "empty"
                     if block_reason:
                         stats.blocked += 1
@@ -676,6 +689,7 @@ def run_platform(platform: str, places: list[Place], args: argparse.Namespace, p
                     print(
                         f"[batch:{platform}] ({i}/{len(pending)}) '{query}' -> 0 reel(s)"
                         + (f" ({block_reason})" if block_reason else "")
+                        + ("" if real_signal else " (had candidates, none were reels — not counted toward cool-off)")
                     )
 
                 # record_result above already replaced the in_progress claim
