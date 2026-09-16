@@ -6,7 +6,7 @@ import { CITY } from "@/lib/city";
 import { useSignedIn } from "@/lib/useSaved";
 import type { WeatherCondition } from "@/lib/weather";
 import { WEATHER_THEME } from "@/lib/weatherUi";
-import { Icon } from "@/components/ui";
+import { FomoLogo, Icon } from "@/components/ui";
 
 interface HeaderWeather {
   condition: WeatherCondition;
@@ -72,7 +72,7 @@ export function AppHeader({ title, className = "" }: AppHeaderProps) {
     >
       <header className="flex min-h-[64px] items-center justify-between gap-2 px-4 pt-safe">
         <div className="flex min-w-0 items-center gap-2.5">
-          <span className="text-headline-sm font-extrabold leading-none tracking-tight text-on-surface">Fomo</span>
+          <FomoLogo size={28} />
         </div>
 
         <div className="flex shrink-0 items-center gap-1">

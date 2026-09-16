@@ -2,7 +2,7 @@
 
 import { Suspense, useEffect, useRef, useState, type ReactNode, type TouchEvent } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Button, ProgressDots } from "@/components/ui";
+import { Button, FomoLogo, ProgressDots } from "@/components/ui";
 import { BookEarlyScene, DealsScene, WhatsOnScene } from "@/components/onboarding/Characters";
 import { safeNext } from "@/lib/auth/safe-next";
 
@@ -201,16 +201,7 @@ function WelcomeContent() {
       <div className="flex items-center justify-between px-6 pt-10 pb-4">
         <div className="w-12" aria-hidden="true" />
         <div className="flex items-center justify-center gap-2">
-          <svg width="20" height="20" viewBox="0 0 20 20" aria-hidden="true">
-            <circle cx="10" cy="10" r="10" className="fill-primary" />
-            <path
-              d="M0 10C0 15.5228 4.47715 20 10 20C15.5228 20 20 15.5228 20 10H0Z"
-              className="fill-secondary-container"
-            />
-          </svg>
-          <span className="text-headline-sm text-on-surface">
-            Fomo<span className="text-secondary-container">.</span>
-          </span>
+          <FomoLogo tone="light" size={30} />
         </div>
         <button
           type="button"

@@ -3,7 +3,7 @@
 import { Suspense, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import type { AuthError } from "@supabase/supabase-js";
-import { Button, Input } from "@/components/ui";
+import { Button, FomoLogo, Input } from "@/components/ui";
 import { FomoPeek, SigninSkyline } from "@/components/onboarding/Characters";
 import { supabaseBrowserAuth } from "@/lib/supabase/client";
 import { safeNext } from "@/lib/auth/safe-next";
@@ -197,16 +197,7 @@ function SigninContent() {
     <div className="flex min-h-dvh w-full flex-col bg-background pb-safe">
       <header className="relative overflow-hidden bg-gradient-to-b from-primary to-[#1b365d] px-6 pt-safe text-center">
         <div className="relative z-10 flex items-center justify-center gap-2 pt-8">
-          <svg width="20" height="20" viewBox="0 0 20 20" aria-hidden="true">
-            <circle cx="10" cy="10" r="10" fill="#ffffff" />
-            <path
-              d="M0 10C0 15.5228 4.47715 20 10 20C15.5228 20 20 15.5228 20 10H0Z"
-              className="fill-secondary-container"
-            />
-          </svg>
-          <span className="text-headline-sm text-on-primary">
-            Fomo<span className="text-secondary-container">.</span>
-          </span>
+          <FomoLogo tone="dark" size={30} />
         </div>
         <h1 className="relative z-10 mt-6 text-headline-md text-on-primary">
           {step === "email" ? "Edinburgh’s on tonight" : "Check your email"}

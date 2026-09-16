@@ -48,3 +48,5 @@ export { ErrorState } from "./ErrorState";
 export type { ErrorStateProps } from "./ErrorState";
 export { SaveButton } from "./SaveButton";
 export type { SaveButtonProps } from "./SaveButton";
+export { FomoLogo } from "./FomoLogo";
+export type { FomoLogoProps } from "./FomoLogo";

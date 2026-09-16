@@ -14,7 +14,7 @@ import type { FeedCardData, FeedResponse, FeedWindow } from "@/lib/happenings/fe
 import { NOTIFY_ME_ENABLED } from "@/lib/happenings/book-early";
 import type { WeatherCondition } from "@/lib/weather";
 import { WEATHER_THEME } from "@/lib/weatherUi";
-import { CityPicker, ErrorState, Icon, SegmentedControl } from "@/components/ui";
+import { CityPicker, ErrorState, FomoLogo, Icon, SegmentedControl } from "@/components/ui";
 import { FomoCard } from "@/components/fomo/Card";
 import { FomoSpot } from "@/components/fomo/FomoSpot";
 import { FeedHero, FeedListCard, FreeAnyTimeList, BookEarlyCard } from "@/components/happenings";
@@ -386,11 +386,7 @@ export default function HomePage() {
       <header className="sticky top-0 z-40 flex items-center justify-between gap-2 border-b border-hairline bg-surface-container-lowest/95 px-4 pt-safe min-h-[64px] backdrop-blur-xl">
 
         <div className="flex min-w-0 items-center gap-2.5">
-          <div className="flex flex-col">
-            <span className="text-headline-sm font-extrabold leading-none tracking-tight text-on-surface">
-              Fomo
-            </span>
-          </div>
+          <FomoLogo size={28} />
           {/* A picker with one choice is noise — only offered once there's a second city. */}
           {SUPPORTED_CITIES.length > 1 ? (
             <button
