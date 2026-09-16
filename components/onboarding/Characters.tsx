@@ -602,3 +602,68 @@ export function BookEarlyScene() {
     </Scene>
   );
 }
+
+function EnvelopePal() {
+  return (
+    <g>
+      <rect x={-32} y={-22} width={64} height={44} rx={6} fill="#fff" stroke={NAVY} strokeWidth={2.5} />
+      <path d="M-30 -18L0 6L30 -18" stroke={NAVY} strokeWidth={2.5} fill="none" strokeLinejoin="round" />
+      <circle cx={-10} cy={8} r={2.6} fill={NAVY} />
+      <circle cx={10} cy={8} r={2.6} fill={NAVY} />
+      <path d="M-5 14Q0 18 5 14" stroke={NAVY} strokeWidth={2} fill="none" strokeLinecap="round" />
+      <circle cx={28} cy={-20} r={9} fill={ORANGE} stroke={NAVY} strokeWidth={2} />
+      <text x={28} y={-16} textAnchor="middle" fontSize={11} fontWeight={800} fill="#fff">
+        1
+      </text>
+    </g>
+  );
+}
+
+/**
+ * Sign-in hero (viewBox 360×240). Fomo waves you in on the email step; on the
+ * code step it cheers while the envelope pal delivers. Nessie and the coo
+ * peek in from the edges so the page feels like part of the welcome slides.
+ */
+export function SigninScene({ step }: { step: "email" | "code" }) {
+  const sent = step === "code";
+  return (
+    <svg viewBox="0 0 360 240" className="h-full w-full" aria-hidden="true">
+      <path
+        d="M180 18C258 14 318 58 314 124C310 190 252 226 178 222C104 218 46 182 48 118C50 56 104 22 180 18Z"
+        fill="#ffffff"
+        opacity={0.75}
+      />
+
+      <At x={60} y={44} anim="fomo-twinkle">
+        <Sparkle size={7} />
+      </At>
+      <At x={300} y={36} anim="fomo-twinkle fomo-delay-1">
+        <Sparkle size={6} color={PURPLE} />
+      </At>
+      <At x={236} y={30} anim="fomo-twinkle fomo-delay-2">
+        <Sparkle size={5} color={ORANGE} />
+      </At>
+      {sent ? (
+        <At x={124} y={40} anim="fomo-twinkle fomo-delay-1">
+          <Burst size={12} color={YELLOW} />
+        </At>
+      ) : null}
+
+      <At x={-4} y={214} s={0.7} anim="fomo-bob">
+        <Nessie />
+      </At>
+      <At x={318} y={170} r={-10} s={0.62} anim="fomo-bob fomo-delay-1">
+        <HighlandCoo />
+      </At>
+
+      <At x={252} y={82} r={sent ? 10 : -8} anim="fomo-float fomo-delay-1">
+        {sent ? <EnvelopePal /> : <TicketPal />}
+      </At>
+
+      <ellipse cx={164} cy={222} rx={42} ry={6} fill={NAVY} opacity={0.12} />
+      <At x={164} y={154} anim={sent ? "fomo-hop" : "fomo-float"}>
+        <FomoBuddy mood={sent ? "wow" : "grin"} pose={sent ? "cheer" : "wave"} />
+      </At>
+    </svg>
+  );
+}
