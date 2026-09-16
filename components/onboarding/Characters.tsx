@@ -603,67 +603,79 @@ export function BookEarlyScene() {
   );
 }
 
-function EnvelopePal() {
+const NIGHT_SKYLINE =
+  "M0 150L0 118L18 118L18 104L30 104L30 114L46 114L46 96L52 88L58 96L58 114L74 114L74 106L88 106L88 120L104 120L104 98L112 98L112 90L120 90L120 98L128 98L128 122L150 122L150 112C170 104 186 100 200 98L200 80L207 80L207 74L213 74L213 80L220 80L220 66L224 58L228 66L228 80L242 80L242 72L248 72L248 76L254 76L254 72L260 72L260 80L270 80L270 74L276 74L276 80L282 80L282 100C292 106 300 114 304 122L320 122L320 102L326 94L332 102L332 110L346 110L346 118L360 118L360 150Z";
+
+/**
+ * Sign-in hero (viewBox 360×150): Edinburgh by night — castle skyline, moon,
+ * stars and a string of festival lights. Deliberately not the welcome slides'
+ * blob-and-cast look; Fomo appears separately, peeking over the form card.
+ */
+export function SigninSkyline() {
+  const bulbs = [ORANGE, YELLOW, PURPLE, GREEN, RED, SKY, ORANGE, YELLOW, PURPLE];
   return (
-    <g>
-      <rect x={-32} y={-22} width={64} height={44} rx={6} fill="#fff" stroke={NAVY} strokeWidth={2.5} />
-      <path d="M-30 -18L0 6L30 -18" stroke={NAVY} strokeWidth={2.5} fill="none" strokeLinejoin="round" />
-      <circle cx={-10} cy={8} r={2.6} fill={NAVY} />
-      <circle cx={10} cy={8} r={2.6} fill={NAVY} />
-      <path d="M-5 14Q0 18 5 14" stroke={NAVY} strokeWidth={2} fill="none" strokeLinecap="round" />
-      <circle cx={28} cy={-20} r={9} fill={ORANGE} stroke={NAVY} strokeWidth={2} />
-      <text x={28} y={-16} textAnchor="middle" fontSize={11} fontWeight={800} fill="#fff">
-        1
-      </text>
-    </g>
+    <svg viewBox="0 0 360 150" preserveAspectRatio="xMidYMax slice" className="h-full w-full" aria-hidden="true">
+      <circle cx={300} cy={34} r={16} fill="#fff4d6" />
+      <circle cx={294} cy={30} r={3} fill="#f0dfb2" />
+      <circle cx={304} cy={40} r={2} fill="#f0dfb2" />
+      {[
+        [30, 30, 0], [72, 18, 1], [120, 40, 2], [170, 16, 0], [236, 26, 1], [340, 60, 2], [256, 50, 0],
+      ].map(([x, y, d]) => (
+        <At key={`${x},${y}`} x={x} y={y} anim={`fomo-twinkle${d ? ` fomo-delay-${d}` : ""}`}>
+          <Sparkle size={d === 1 ? 5 : 4} color="#ffffff" />
+        </At>
+      ))}
+      <path d="M-4 58Q90 96 180 70T364 66" stroke="#ffffff" strokeOpacity={0.35} strokeWidth={1.5} fill="none" />
+      {bulbs.map((c, n) => {
+        const x = 20 + n * 40;
+        const y = n < 4 ? 62 + [4, 12, 16, 14][n] : [72, 70, 66, 64, 64][n - 4];
+        return (
+          <At key={n} x={x} y={y + 6} anim={`fomo-twinkle fomo-delay-${n % 3}`}>
+            <circle r={4.5} fill={c} />
+          </At>
+        );
+      })}
+      <path d={NIGHT_SKYLINE} fill="#ffffff" opacity={0.08} transform="translate(-20 6)" />
+      <path d={NIGHT_SKYLINE} fill="#0b1a33" opacity={0.55} />
+      <g fill={YELLOW} opacity={0.8}>
+        <rect x={214} y={88} width={4} height={6} rx={1} />
+        <rect x={234} y={92} width={4} height={6} rx={1} />
+        <rect x={262} y={88} width={4} height={6} rx={1} />
+        <rect x={108} y={106} width={3} height={5} rx={1} />
+        <rect x={52} y={104} width={3} height={5} rx={1} />
+        <rect x={326} y={114} width={3} height={5} rx={1} />
+      </g>
+    </svg>
   );
 }
 
 /**
- * Sign-in hero (viewBox 360×240). Fomo waves you in on the email step; on the
- * code step it cheers while the envelope pal delivers. Nessie and the coo
- * peek in from the edges so the page feels like part of the welcome slides.
+ * Fomo's top half, hands gripping a ledge at y=0 — sits on the top edge of
+ * the sign-in card. viewBox -64 -70 128 78; the body is clipped at the ledge.
  */
-export function SigninScene({ step }: { step: "email" | "code" }) {
-  const sent = step === "code";
+export function FomoPeek({ mood = "grin" }: { mood?: FomoMood }) {
   return (
-    <svg viewBox="0 0 360 240" className="h-full w-full" aria-hidden="true">
-      <path
-        d="M180 18C258 14 318 58 314 124C310 190 252 226 178 222C104 218 46 182 48 118C50 56 104 22 180 18Z"
-        fill="#ffffff"
-        opacity={0.75}
-      />
-
-      <At x={60} y={44} anim="fomo-twinkle">
-        <Sparkle size={7} />
-      </At>
-      <At x={300} y={36} anim="fomo-twinkle fomo-delay-1">
-        <Sparkle size={6} color={PURPLE} />
-      </At>
-      <At x={236} y={30} anim="fomo-twinkle fomo-delay-2">
-        <Sparkle size={5} color={ORANGE} />
-      </At>
-      {sent ? (
-        <At x={124} y={40} anim="fomo-twinkle fomo-delay-1">
-          <Burst size={12} color={YELLOW} />
-        </At>
-      ) : null}
-
-      <At x={-4} y={214} s={0.7} anim="fomo-bob">
-        <Nessie />
-      </At>
-      <At x={318} y={170} r={-10} s={0.62} anim="fomo-bob fomo-delay-1">
-        <HighlandCoo />
-      </At>
-
-      <At x={252} y={82} r={sent ? 10 : -8} anim="fomo-float fomo-delay-1">
-        {sent ? <EnvelopePal /> : <TicketPal />}
-      </At>
-
-      <ellipse cx={164} cy={222} rx={42} ry={6} fill={NAVY} opacity={0.12} />
-      <At x={164} y={154} anim={sent ? "fomo-hop" : "fomo-float"}>
-        <FomoBuddy mood={sent ? "wow" : "grin"} pose={sent ? "cheer" : "wave"} />
-      </At>
+    <svg viewBox="-64 -70 128 78" className="h-full w-full" aria-hidden="true">
+      <defs>
+        <clipPath id="fomo-peek-ledge">
+          <rect x={-64} y={-70} width={128} height={70} />
+        </clipPath>
+      </defs>
+      <g clipPath="url(#fomo-peek-ledge)">
+        <g transform="translate(0 -18)">
+          <FomoBuddy mood={mood} pose="none" />
+        </g>
+      </g>
+      {[-38, 38].map((hx) => (
+        <g key={hx} transform={`translate(${hx} 0)`}>
+          <ellipse cx={0} cy={-2} rx={11} ry={7} fill={NAVY} />
+          <g stroke="#ffffff" strokeOpacity={0.35} strokeWidth={1.5} strokeLinecap="round">
+            <path d="M-4 -6V0" />
+            <path d="M0 -7V0" />
+            <path d="M4 -6V0" />
+          </g>
+        </g>
+      ))}
     </svg>
   );
 }

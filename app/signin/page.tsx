@@ -4,7 +4,7 @@ import { Suspense, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import type { AuthError } from "@supabase/supabase-js";
 import { Button, Input } from "@/components/ui";
-import { SigninScene } from "@/components/onboarding/Characters";
+import { FomoPeek, SigninSkyline } from "@/components/onboarding/Characters";
 import { supabaseBrowserAuth } from "@/lib/supabase/client";
 import { safeNext } from "@/lib/auth/safe-next";
 
@@ -194,34 +194,41 @@ function SigninContent() {
   }
 
   return (
-    <div className="flex min-h-dvh w-full flex-col bg-gradient-to-b from-[#fff1e3] via-[#fff7ef] to-background px-6 pt-safe pb-safe">
-      <div className="flex items-center justify-center gap-2 pt-8 pb-2">
-        <svg width="20" height="20" viewBox="0 0 20 20" aria-hidden="true">
-          <circle cx="10" cy="10" r="10" className="fill-primary" />
-          <path
-            d="M0 10C0 15.5228 4.47715 20 10 20C15.5228 20 20 15.5228 20 10H0Z"
-            className="fill-secondary-container"
-          />
-        </svg>
-        <span className="text-headline-sm text-on-surface">
-          Fomo<span className="text-secondary-container">.</span>
-        </span>
-      </div>
-
-      <main className="mx-auto flex w-full max-w-sm flex-1 flex-col justify-center gap-5 pb-10">
-        <div className="text-center">
-          <div className="-mx-6 mb-2 h-52">
-            <SigninScene step={step} />
-          </div>
-          <h1 className="mb-2 text-headline-md text-on-surface">
-            {step === "email" ? "Don’t miss out" : "Check your email"}
-          </h1>
-          <p className="text-body-md text-on-surface-variant">
-            {step === "email"
-              ? "We’ll email you a code. No password needed."
-              : `Enter the code we sent to ${email.trim()}.`}
-          </p>
+    <div className="flex min-h-dvh w-full flex-col bg-background pb-safe">
+      <header className="relative overflow-hidden bg-gradient-to-b from-primary to-[#1b365d] px-6 pt-safe text-center">
+        <div className="relative z-10 flex items-center justify-center gap-2 pt-8">
+          <svg width="20" height="20" viewBox="0 0 20 20" aria-hidden="true">
+            <circle cx="10" cy="10" r="10" fill="#ffffff" />
+            <path
+              d="M0 10C0 15.5228 4.47715 20 10 20C15.5228 20 20 15.5228 20 10H0Z"
+              className="fill-secondary-container"
+            />
+          </svg>
+          <span className="text-headline-sm text-on-primary">
+            Fomo<span className="text-secondary-container">.</span>
+          </span>
         </div>
+        <h1 className="relative z-10 mt-6 text-headline-md text-on-primary">
+          {step === "email" ? "Edinburgh’s on tonight" : "Check your email"}
+        </h1>
+        <p className="relative z-10 mt-1 text-body-md text-on-primary/75">
+          {step === "email" ? "Sign in so you don’t miss it." : `We sent a code to ${email.trim()}.`}
+        </p>
+        <div className="pointer-events-none -mx-6 mt-2 h-36">
+          <SigninSkyline />
+        </div>
+      </header>
+
+      <main className="relative z-10 mx-auto -mt-8 flex w-full max-w-sm flex-1 flex-col px-4">
+        <div className="relative flex flex-col gap-5 rounded-3xl bg-surface-container-lowest px-5 pt-10 pb-6 shadow-[0_12px_40px_-12px_rgba(0,32,70,0.25)]">
+          <div className="absolute -top-[61px] left-1/2 h-[68px] w-28 -translate-x-1/2">
+            <FomoPeek mood={step === "email" ? "grin" : "wow"} />
+          </div>
+          <p className="text-center text-body-md text-on-surface-variant">
+            {step === "email"
+              ? "One-time code by email. No password."
+              : "Enter it below to finish signing in."}
+          </p>
 
         {callbackError ? (
           <p
@@ -325,6 +332,7 @@ function SigninContent() {
             <AppleLogo />
             {oauthLoading === "apple" ? "Redirecting…" : "Continue with Apple"}
           </button>
+        </div>
         </div>
       </main>
     </div>
