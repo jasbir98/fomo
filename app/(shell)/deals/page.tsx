@@ -5,7 +5,8 @@ import type { DealCardData, FeedResponse, VenueDealGroup } from "@/lib/happening
 import { matchesDealFilters, type DealWhatGroup, type DealWhoGroup } from "@/lib/happenings/groups";
 import { useCachedJson } from "@/lib/http/clientCache";
 import { useProgressiveReveal } from "@/lib/useProgressiveReveal";
-import { ErrorState, PageHeader, StickyFilterBar } from "@/components/ui";
+import { ErrorState, StickyFilterBar } from "@/components/ui";
+import { AppHeader } from "@/components/shell/AppHeader";
 import { FeedListCard, VenueDealCard, DealFilters } from "@/components/happenings";
 import { FomoSpot } from "@/components/fomo/FomoSpot";
 
@@ -85,7 +86,7 @@ export default function DealsPage() {
 
   return (
     <div className="flex flex-col gap-5 pb-8">
-      <PageHeader title="Deals & Offers" showBack />
+      <AppHeader title="Deals & Offers" />
 
       <div className="flex flex-col gap-4 px-4">
         <p className="text-body-sm text-on-surface-variant">
