@@ -17,20 +17,40 @@
  * fetch+parse-JSON-LD approach as scraper/weekly_edinburgh.py's
  * `direct_records()`, reimplemented here in JS since this needs to run in
  * GitHub Actions on plain Node, and upsert straight into `events` via
- * PostgREST) and upserts normalized rows into `events`, keyed on
+ * PostgREST), plus a proactive (paginated, 60-day-lookahead) pull of the
+ * same two APIs `lib/events/` already calls live (Skiddle, Ticketmaster,
+ * when SKIDDLE_API_KEY / TICKETMASTER_API_KEY are set — see SOURCES below),
+ * and upserts normalized rows into `events`, keyed on
  * (provider, provider_event_id) — the same unique index Skiddle/Ticketmaster
  * already use, so a row already cached by a live user request and a row
  * found here for the same event just co-exist as two different provider
  * rows (cross-provider dedupe at read time already exists —
- * lib/happenings/merge-events.ts's `dedupeProviderEvents`).
+ * lib/happenings/merge-events.ts's `dedupeProviderEvents`), on top of this
+ * script's own cross-source dedupe (see dedupeAcrossSources below) across
+ * all seven sources before anything is upserted.
  *
- * SOURCES (all free, public, no auth):
- *   luma       https://lu.ma/edinburgh                                    (~20 events; tech/startup/networking)
- *   eventbrite https://www.eventbrite.co.uk/d/united-kingdom--edinburgh/...  (discover pages, 20/page)
- *   songkick   https://www.songkick.com/metro-areas/24551-uk-edinburgh    (gigs; NOT 24542, that's Birmingham)
- *   allevents  https://allevents.in/edinburgh/all                         (leaks non-Edinburgh rows — geo-filtered below)
+ * SOURCES:
+ *   luma         https://lu.ma/edinburgh                                    (~20 events; tech/startup/networking; free, public, JSON-LD)
+ *   eventbrite   https://www.eventbrite.co.uk/d/united-kingdom--edinburgh/...  (discover pages, 20/page; free, public, JSON-LD)
+ *   songkick     https://www.songkick.com/metro-areas/24551-uk-edinburgh    (gigs; NOT 24542, that's Birmingham; free, public, JSON-LD)
+ *   allevents    https://allevents.in/edinburgh/all                         (leaks non-Edinburgh rows — geo-filtered below; free, public, JSON-LD)
+ *   skiddle      Skiddle Events API, /events/search/ (needs SKIDDLE_API_KEY)
+ *   ticketmaster Ticketmaster Discovery v2, /events.json (needs TICKETMASTER_API_KEY)
+ *   sneakypetes  https://sneakypetes.co.uk/feed                             (venue RSS feed — see VENUE_RSS_FEEDS below for the many venues checked and rejected: no structured data, blocked, or robots-disallowed)
  *
- * POLITENESS. robots.txt is fetched and evaluated once per hostname per run
+ * Every row (from any of the seven sources) also gets: an "off-wedge" filter
+ * (drops multi-day/excursion-style listings that don't fit Edinburgh
+ * students/young professionals looking for tonight/this weekend — see
+ * isOffWedge below) and a keyword-based category fallback for rows a
+ * source's own type/segment/eventcode mapping left as "other" (see
+ * classifyCategory below).
+ *
+ * POLITENESS. Applies to the four JSON-LD (HTML-scraped) sources only —
+ * Skiddle/Ticketmaster are authenticated API calls, not page scrapes, so
+ * robots.txt doesn't apply to them; they're still one sequential request at
+ * a time, wrapped in the same try/catch-per-page safety and paginated with a
+ * hard page cap (never an unbounded loop). For the JSON-LD sources:
+ * robots.txt is fetched and evaluated once per hostname per run
  * (cached) before any page on that host is requested — group selection by
  * product-token match (falling back to `*`), longest-path Allow/Disallow
  * with `*`/`$` wildcards, and Crawl-delay (raises the per-host interval when
@@ -65,22 +85,33 @@
  * --write (server-only — never NEXT_PUBLIC_ for the key itself). Dry runs
  * work without them; a warning is printed instead of failing, since a dry
  * run's whole point is to be inspectable without touching the DB.
+ * Optional SKIDDLE_API_KEY / TICKETMASTER_API_KEY enable the two API
+ * adapters; each is skipped with a log line (not a failure) when its key is
+ * absent, in both dry-run and --write.
  */
 
 if (process.argv.includes("--help") || process.argv.includes("-h")) {
   console.log(`Usage: node --env-file=.env.local scripts/daily-sources.mjs [options]
 
-Crawls lu.ma, Eventbrite, Songkick and allevents.in's Edinburgh listing
-pages for schema.org Event JSON-LD and upserts normalized rows into
-\`events\`, deduped on (provider, provider_event_id).
+Crawls lu.ma, Eventbrite, Songkick and allevents.in's Edinburgh listing pages
+for schema.org Event JSON-LD, plus (when SKIDDLE_API_KEY / TICKETMASTER_API_KEY
+are set) a proactive paginated pull of the Skiddle and Ticketmaster APIs, and
+upserts normalized rows into \`events\`, deduped on (provider, provider_event_id).
 
 Options:
   --dry-run       Print per-source counts + 3 sample rows, write nothing.
                    Default behavior when neither --dry-run nor --write is given.
   --write         Actually upsert into \`events\`.
-  --only=a,b      Only run the named adapters (luma, eventbrite, songkick, allevents).
+  --only=a,b      Only run the named adapters (luma, eventbrite, songkick, allevents, skiddle, ticketmaster, sneakypetes).
+  --skip=a,b      Skip the named adapters (same as DAILY_SOURCES_SKIP env var, comma-separated).
+                   Eventbrite has been seen returning HTTP 405 to some datacenter IPs (e.g.
+                   GitHub Actions runners) — if that happens on this workflow's runner,
+                   set DAILY_SOURCES_SKIP=eventbrite there and run --only=eventbrite by hand
+                   from an unaffected IP instead.
 
 Requires NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY in the env to --write.
+Optional: SKIDDLE_API_KEY / TICKETMASTER_API_KEY to enable those two adapters
+(each skips cleanly, logging why, when its key is missing).
 `);
   process.exit(0);
 }
@@ -90,6 +121,16 @@ const DRY_RUN = !WRITE;
 
 const onlyArg = process.argv.find((a) => a.startsWith("--only="));
 const ONLY = onlyArg ? new Set(onlyArg.slice("--only=".length).split(",").map((s) => s.trim())) : null;
+
+const skipArg = process.argv.find((a) => a.startsWith("--skip="));
+const SKIP = new Set(
+  [
+    ...(skipArg ? skipArg.slice("--skip=".length).split(",") : []),
+    ...(process.env.DAILY_SOURCES_SKIP ? process.env.DAILY_SOURCES_SKIP.split(",") : []),
+  ]
+    .map((s) => s.trim())
+    .filter(Boolean)
+);
 
 const SUPABASE_URL = (process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL || "").replace(/\/$/, "");
 const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
@@ -619,12 +660,110 @@ function isEdinburghRow(row) {
   return LOCALITY_KEYWORDS.some((k) => haystack.includes(k));
 }
 
+// --- category enhancement -----------------------------------------------------
+//
+// JSON-LD `@type` (via TYPE_TO_CATEGORY above), Skiddle's `eventcode` and
+// Ticketmaster's `classifications[].segment.name` are each a source's own
+// specific category signal and always win when present (an actual
+// ComedyEvent/MusicEvent/etc., or an actual Skiddle "COMEDY"/"CLUB" code, is
+// more trustworthy than a keyword guess). But most listing-page JSON-LD uses
+// the generic `Event`/`SocialEvent` type, which TYPE_TO_CATEGORY can't map,
+// so those — and anything else that fell through to "other" — get a second
+// pass here: a keyword classifier over name + venue + description, mapped
+// only onto lib/events/categories.ts's real EventCategory slugs (music |
+// nightlife | festival | arts | comedy | sports | food | family | other) —
+// no new slugs invented. Checked in priority order; first match wins.
+const CATEGORY_KEYWORD_RULES = [
+  {
+    category: "comedy",
+    keywords: ["comedy night", "comedy show", "stand-up", "standup", "open mic comedy", "improv comedy", "comedian"],
+    venues: ["monkey barrel", "the stand", "gilded balloon"],
+  },
+  {
+    category: "nightlife",
+    keywords: [
+      "club night", "clubnight", "dj set", "all night rave", "rave", "afterparty", "after party",
+      "techno night", "house night", "warehouse party", "nightclub",
+    ],
+  },
+  {
+    category: "sports",
+    keywords: [
+      "5-a-side", "five-a-side", "football match", "rugby match", "parkrun", "running club",
+      "fun run", "5k run", "10k run", "sports club", "match day",
+    ],
+  },
+  {
+    category: "food",
+    keywords: [
+      "oktoberfest", "tasting", "brunch", "supper club", "food festival", "beer festival",
+      "wine tasting", "gin tasting", "whisky tasting", "pop-up restaurant", "food market", "street food",
+    ],
+  },
+  {
+    category: "family",
+    keywords: ["kids", "children's", "family fun", "family friendly", "toddler"],
+  },
+  {
+    category: "arts",
+    keywords: [
+      "ceilidh", "barn dance", "ceilidh dance",
+      "theatre", "panto", "pantomime", "play", "musical",
+      "film screening", "cinema", "movie night", "screening",
+      "exhibition", "art show", "gallery", "private view",
+    ],
+  },
+  {
+    category: "music",
+    keywords: ["gig", "live music", "live at", "acoustic set", "concert", "open mic", "jam session", "dj night"],
+  },
+];
+
+/**
+ * Keyword fallback for rows whose category is still "other" after the
+ * source's own specific-type mapping. Never downgrades a category a source
+ * already assigned with confidence.
+ */
+function classifyCategory(row) {
+  if (row.category && row.category !== "other") return row.category;
+  const haystack = `${row.name ?? ""} ${row.venue_name ?? ""} ${row.description ?? ""}`.toLowerCase();
+  for (const rule of CATEGORY_KEYWORD_RULES) {
+    if (rule.venues?.some((v) => haystack.includes(v))) return rule.category;
+    if (rule.keywords.some((k) => haystack.includes(k))) return rule.category;
+  }
+  return "other";
+}
+
+// --- off-wedge filter ----------------------------------------------------------
+//
+// The wedge is Edinburgh students/young professionals looking for something
+// to do tonight/this weekend — not multi-day excursions that leave the city.
+// Conservative on purpose: only drops rows with an explicit "this leaves
+// Edinburgh" signal, or a genuinely long+pricey span (a >2-day event priced
+// over £60 reads as a package/festival-pass/excursion, not a single outing).
+const OFF_WEDGE_KEYWORDS = [
+  "weekend trip", "day trip to", "day trip:", "multi-day tour", "multi day tour",
+  "highlands tour", "tour of the highlands", "highland tour", "isle of skye", "isle of mull",
+  "isle of arran", "isle of harris", "outer hebrides", "loch ness tour", "excursion to",
+  "orkney tour", "shetland tour", "glencoe tour", "nc500", "north coast 500",
+];
+
+function isOffWedge(row) {
+  const haystack = `${row.name ?? ""} ${row.description ?? ""}`.toLowerCase();
+  if (OFF_WEDGE_KEYWORDS.some((k) => haystack.includes(k))) return true;
+  if (row.ends_at) {
+    const spanDays = (new Date(row.ends_at).getTime() - new Date(row.starts_at).getTime()) / (1000 * 60 * 60 * 24);
+    if (spanDays > 2 && (row.price_from ?? 0) > 60) return true;
+  }
+  return false;
+}
+
 /**
  * Fetch a page and extract normalized rows from its JSON-LD Event objects.
  * Returns per-page stats plus the rows. Never throws.
  */
 async function fetchAndExtract(url, { provider, destination, now, requireEdinburgh }) {
-  const stats = { fetched: 0, parsed: 0, kept: 0, skipped: { past: 0, invalid: 0, notEdinburgh: 0, robots: 0, blocked: 0 } };
+  const stats = { fetched: 0, parsed: 0, kept: 0, skipped: { past: 0, invalid: 0, notEdinburgh: 0, robots: 0, blocked: 0, offWedge: 0 } };
   const result = await politeFetch(url);
   if (!result.ok) {
     if (result.reason === "robots_disallowed" || result.reason === "robots_unavailable") {
@@ -666,6 +805,14 @@ async function fetchAndExtract(url, { provider, destination, now, requireEdinbur
       stats.skipped.notEdinburgh += 1;
       continue;
     }
+    if (isOffWedge(row)) {
+      stats.skipped.offWedge += 1;
+      console.log(`    [${provider}] off-wedge, skipped: "${row.name}" @ ${row.starts_at}`);
+      continue;
+    }
+    CATEGORY_STATS.before[row.category ?? "other"] = (CATEGORY_STATS.before[row.category ?? "other"] ?? 0) + 1;
+    row.category = classifyCategory(row);
+    CATEGORY_STATS.after[row.category ?? "other"] = (CATEGORY_STATS.after[row.category ?? "other"] ?? 0) + 1;
     rows.push(row);
     stats.kept += 1;
   }
@@ -683,6 +830,7 @@ function mergeStats(a, b) {
       notEdinburgh: a.skipped.notEdinburgh + b.skipped.notEdinburgh,
       robots: a.skipped.robots + b.skipped.robots,
       blocked: a.skipped.blocked + b.skipped.blocked,
+      offWedge: a.skipped.offWedge + b.skipped.offWedge,
     },
   };
 }
@@ -698,12 +846,17 @@ function dedupeWithinSource(rows) {
 
 const DESTINATION = "Edinburgh, Scotland, United Kingdom";
 
+// Category distribution before/after the keyword-classifier fallback, across
+// every adapter (JSON-LD, Skiddle, Ticketmaster) — printed in the final
+// summary so the effect of classifyCategory() is visible on every run.
+const CATEGORY_STATS = { before: {}, after: {} };
+
 // --- adapters ----------------------------------------------------------------
 
 async function adapterLuma(now) {
   const provider = "luma";
   const pages = ["https://lu.ma/edinburgh"];
-  let stats = { fetched: 0, parsed: 0, kept: 0, skipped: { past: 0, invalid: 0, notEdinburgh: 0, robots: 0, blocked: 0 } };
+  let stats = { fetched: 0, parsed: 0, kept: 0, skipped: { past: 0, invalid: 0, notEdinburgh: 0, robots: 0, blocked: 0, offWedge: 0 } };
   let rows = [];
   for (const url of pages) {
     try {
@@ -725,7 +878,7 @@ async function adapterEventbrite(now) {
     "https://www.eventbrite.co.uk/d/united-kingdom--edinburgh/free--events/?page=2",
     "https://www.eventbrite.co.uk/d/united-kingdom--edinburgh/events--this-weekend/",
   ];
-  let stats = { fetched: 0, parsed: 0, kept: 0, skipped: { past: 0, invalid: 0, notEdinburgh: 0, robots: 0, blocked: 0 } };
+  let stats = { fetched: 0, parsed: 0, kept: 0, skipped: { past: 0, invalid: 0, notEdinburgh: 0, robots: 0, blocked: 0, offWedge: 0 } };
   let rows = [];
   for (const url of pages) {
     try {
@@ -743,7 +896,7 @@ async function adapterEventbrite(now) {
 async function adapterSongkick(now) {
   const provider = "songkick";
   const pages = ["https://www.songkick.com/metro-areas/24551-uk-edinburgh"];
-  let stats = { fetched: 0, parsed: 0, kept: 0, skipped: { past: 0, invalid: 0, notEdinburgh: 0, robots: 0, blocked: 0 } };
+  let stats = { fetched: 0, parsed: 0, kept: 0, skipped: { past: 0, invalid: 0, notEdinburgh: 0, robots: 0, blocked: 0, offWedge: 0 } };
   let rows = [];
   for (const url of pages) {
     try {
@@ -761,7 +914,7 @@ async function adapterSongkick(now) {
 async function adapterAllevents(now) {
   const provider = "allevents";
   const pages = ["https://allevents.in/edinburgh/all"];
-  let stats = { fetched: 0, parsed: 0, kept: 0, skipped: { past: 0, invalid: 0, notEdinburgh: 0, robots: 0, blocked: 0 } };
+  let stats = { fetched: 0, parsed: 0, kept: 0, skipped: { past: 0, invalid: 0, notEdinburgh: 0, robots: 0, blocked: 0, offWedge: 0 } };
   let rows = [];
   for (const url of pages) {
     try {
@@ -779,25 +932,811 @@ async function adapterAllevents(now) {
   return { provider, rows, stats };
 }
 
+// --- venue RSS feed adapter (generic) ------------------------------------------
+//
+// Some venues run their event listings as a WordPress blog where each post's
+// *scheduled publish date* is set to the gig's own date/time, rather than the
+// post's authoring date — verified against Sneaky Pete's public `/feed`:
+// every item's <pubDate> is the show night (spread out months into the
+// future), not "when this post was written". This is a small, reusable RSS
+// parser (title/link/pubDate/category/description) driven by a per-venue
+// config list (VENUE_RSS_FEEDS below), so adding another venue that
+// publishes the same way is a config entry, not a new adapter function.
+//
+// Researched-but-rejected sources for this same "student ticketing / venue
+// feeds" scope (checked robots.txt + fetched the listing page/likely
+// feed endpoints, no bypass attempted):
+//   - Fixr (fixr.co): Cloudflare bot-challenge on every request ("Just a
+//     moment..." interstitial, HTTP 403) — blocked, no bypass.
+//   - EUSA / Edinburgh University Students' Association: robots.txt is
+//     `User-agent: * / Disallow: /` with explicit per-bot Allow overrides
+//     only for Googlebot/Bingbot/facebookexternalhit/Slurp/Baiduspider —
+//     this bot isn't on that list, so robots disallows it outright.
+//   - Heriot-Watt SU (hwunion.com): same platform + same robots.txt shape
+//     as EUSA (only named-bot Allow groups, no generic `*` Allow); its
+//     `/ents/eventlist` page is also fully client-rendered with no
+//     JSON-LD/RSS/API reachable without executing JS, so it's a double
+//     reject even setting robots aside.
+//   - Napier SU (napierstudents.com): robots.txt itself is permissive, but
+//     `/ents/eventlist/` is a fully client-rendered SPA — no JSON-LD, no
+//     RSS, no JSON API endpoint found in the server-rendered HTML.
+//   - Summerhall: every request (including /robots.txt) returns a
+//     Cloudflare "Attention Required" challenge page (HTTP 403) — blocked.
+//   - The Stand Comedy Club: listing page is a client-rendered SPA with no
+//     JSON-LD Event data and no server-rendered per-show links to follow.
+//   - Usher Hall: now redirects to cultureedinburgh.com, a heavyweight
+//     (~3.4MB) client-rendered app with zero structured data (no JSON-LD,
+//     no embedded JSON blob, no RSS) in the server-rendered HTML.
+//   - The Queen's Hall: `/whats-on`'s only JSON-LD is a placeholder stub
+//     (`{"@type":"Event","name":"What's on","endDate":""}` — the *page*
+//     mislabeled as an Event, not real show data); `/rss.xml` exists but
+//     its `<channel>` has zero `<item>`s.
+//   - Traverse Theatre: listing and individual show pages only carry
+//     venue/business schema (`EntertainmentBusiness`/`TouristAttraction`),
+//     never an `Event`; no RSS/JSON feed of shows found (its `/blog/rss`
+//     is a news blog, not show listings).
+//   - Leith Theatre: Squarespace site; listing page has only generic
+//     `LocalBusiness`/`WebSite` JSON-LD, no per-show `Event` objects; no
+//     ICS/RSS/API event feed found.
+//   - Cabaret Voltaire: listing page has only `Organization`/
+//     `BreadcrumbList` JSON-LD, no `Event` objects, and no server-rendered
+//     per-show links to follow (client-rendered listing).
+//   - Capital Theatres (Festival Theatre / King's Theatre operator):
+//     `/whats-on` has only `Organization`/`BreadcrumbList` JSON-LD, no
+//     `Event` data; `/feed` and `/whats-on/rss` are real RSS feeds but
+//     contain press/news posts ("Dr Harry Brunjes appointed as new
+//     Chair..."), not show listings.
+//   - Assembly Roxy: SPA that 200s (`text/html`) for *any* path — every
+//     guessed feed/API endpoint (`/events.ics`, `/events.json`,
+//     `/api/events`, etc.) came back as the same client-rendered shell,
+//     not real data; homepage itself has zero JSON-LD.
+//   - Filmhouse / Cameo: `filmhousecinema.com` doesn't resolve; the
+//     historic `filmhouse.co.uk` domain now redirects to an unrelated
+//     cinema chain (regmovies.com) — couldn't confidently locate either
+//     venue's current listings page within scope.
+//
+// Only Sneaky Pete's (`sneakypetes.co.uk/feed`) checked out: real,
+// structured, public, `Allow: /` in robots.txt, one show per RSS item.
+
+const VENUE_RSS_FEEDS = [
+  {
+    provider: "sneakypetes",
+    feedUrl: "https://sneakypetes.co.uk/feed",
+    // Sneaky Pete's own site never states its address/coordinates in the
+    // feed — same as Skiddle/Ticketmaster rows already carry venue-supplied
+    // location data these JSON-LD scrapes don't have from the page itself.
+    venue: {
+      venue_name: "Sneaky Pete's",
+      address: "73 Cowgate, Edinburgh, EH1 1JW",
+      city: "Edinburgh",
+      lat: 55.9490,
+      lng: -3.1878,
+    },
+    // RSS <category> -> Fomo category. Falls through to classifyCategory's
+    // keyword fallback (title/description) for anything unmapped.
+    categoryMap: { Gigs: "music", Clubs: "nightlife", Comedy: "comedy" },
+  },
+];
+
+const RSS_ITEM_RE = /<item>([\s\S]*?)<\/item>/gi;
+function rssTag(itemXml, tag) {
+  const m = itemXml.match(new RegExp(`<${tag}[^>]*>([\\s\\S]*?)<\\/${tag}>`, "i"));
+  if (!m) return null;
+  return m[1].replace(/^<!\[CDATA\[/, "").replace(/\]\]>$/, "").trim();
+}
+function rssCategories(itemXml) {
+  const out = [];
+  const re = /<category[^>]*>([\s\S]*?)<\/category>/gi;
+  let m;
+  while ((m = re.exec(itemXml)) !== null) {
+    out.push(m[1].replace(/^<!\[CDATA\[/, "").replace(/\]\]>$/, "").trim());
+  }
+  return out;
+}
+function decodeXmlEntities(s) {
+  return s
+    .replace(/&#8211;/g, "–")
+    .replace(/&#8216;/g, "'")
+    .replace(/&#8217;/g, "'")
+    .replace(/&#8230;/g, "…")
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&#039;/g, "'");
+}
+
+/** Collapses the runs of whitespace WordPress titles/descriptions sometimes carry over from copy-pasted formatting (e.g. "Wytch   for fans of…") into single spaces. Does not attempt to fix missing spaces in the source data itself (e.g. "Unitfor") — that's a venue-side typo, not something safe to guess-correct. */
+function collapseWhitespace(s) {
+  return s.replace(/\s+/g, " ").trim();
+}
+
+/** Minimal RSS 2.0 <item> parser — title/link/guid/pubDate/category/description only, no XML library dependency (same reasoning as this file's regex-based JSON-LD extraction). */
+function extractRssItems(xml) {
+  const items = [];
+  let m;
+  RSS_ITEM_RE.lastIndex = 0;
+  while ((m = RSS_ITEM_RE.exec(xml)) !== null) {
+    const itemXml = m[1];
+    items.push({
+      title: collapseWhitespace(decodeXmlEntities(rssTag(itemXml, "title") ?? "")),
+      link: rssTag(itemXml, "link"),
+      guid: rssTag(itemXml, "guid"),
+      pubDate: rssTag(itemXml, "pubDate"),
+      categories: rssCategories(itemXml),
+      description: collapseWhitespace(decodeXmlEntities((rssTag(itemXml, "description") ?? "").replace(/<[^>]+>/g, "").trim())),
+    });
+  }
+  return items;
+}
+
+/** Maps one RSS item (an upcoming show, per this venue's publish-on-the-gig-date pattern) to the `events` upsert shape. */
+function mapVenueRssItem(item, { provider, feedUrl, destination, now, venue, categoryMap }) {
+  const name = item.title?.trim();
+  if (!name || !item.pubDate) return { row: null, reason: "invalid" };
+  // RFC 822 pubDate always carries an explicit offset (RSS 2.0 spec) —
+  // unlike Skiddle's undocumented bare-date fallback, safe to hand straight
+  // to `new Date` regardless of host timezone.
+  const startsAt = new Date(item.pubDate);
+  if (Number.isNaN(startsAt.getTime())) return { row: null, reason: "invalid" };
+  if (startsAt.getTime() < now.getTime()) return { row: null, reason: "past" };
+
+  let eventUrl = item.link;
+  try {
+    eventUrl = new URL(item.link ?? feedUrl, feedUrl).toString();
+  } catch {
+    eventUrl = feedUrl;
+  }
+  // Prefer the permalink (`item.link`): canonicalUrl() strips query strings,
+  // which is safe for path-based permalinks but would collapse every item's
+  // WordPress guid (`https://site/?p=1234`, identity lives in the query
+  // string) down to the same bare root URL — verified against this feed,
+  // where that bug silently merged 18 of 20 distinct shows onto one ID.
+  // Only fall back to the raw (untransformed) guid when there's no usable
+  // link at all.
+  const providerEventId = eventUrl !== feedUrl ? canonicalUrl(eventUrl) : item.guid || null;
+  if (!providerEventId) return { row: null, reason: "invalid" };
+
+  const mappedCategory = item.categories.map((c) => categoryMap?.[c]).find(Boolean) ?? "other";
+
+  const row = {
+    provider,
+    provider_event_id: providerEventId,
+    name,
+    description: item.description ? item.description.slice(0, 2000) : null,
+    category: mappedCategory,
+    image_url: null, // RSS <item> carries no reliable photo (no enclosure/media tag on this feed)
+    ticket_url: eventUrl,
+    starts_at: startsAt.toISOString(),
+    ends_at: null,
+    venue_name: venue.venue_name,
+    address: venue.address ?? null,
+    lat: venue.lat ?? null,
+    lng: venue.lng ?? null,
+    city: venue.city ?? "Edinburgh",
+    country: "GB",
+    is_free: null, // not stated in the feed
+    price_from: null,
+    currency: null,
+    destination,
+    source: "api",
+    fetched_at: now.toISOString(),
+  };
+  return { row, reason: null };
+}
+
+async function adapterVenueRssFeed(config, now) {
+  const { provider, feedUrl, venue, categoryMap } = config;
+  const stats = { fetched: 0, parsed: 0, kept: 0, skipped: { past: 0, invalid: 0, notEdinburgh: 0, robots: 0, blocked: 0, offWedge: 0 } };
+  let rows = [];
+  const result = await politeFetch(feedUrl);
+  if (!result.ok) {
+    if (result.reason === "robots_disallowed" || result.reason === "robots_unavailable") {
+      stats.skipped.robots += 1;
+    } else {
+      stats.skipped.blocked += 1;
+    }
+    console.log(`  [${provider}] ${feedUrl} -> SKIPPED (${result.reason})`);
+    return { provider, rows, stats };
+  }
+  stats.fetched += 1;
+
+  const items = extractRssItems(result.html);
+  for (const item of items) {
+    stats.parsed += 1;
+    const { row, reason } = mapVenueRssItem(item, { provider, feedUrl, destination: DESTINATION, now, venue, categoryMap });
+    if (!row) {
+      if (reason === "past") stats.skipped.past += 1;
+      else stats.skipped.invalid += 1;
+      continue;
+    }
+    // Venue-supplied lat/lng is fixed and already Edinburgh — no notEdinburgh check needed.
+    if (isOffWedge(row)) {
+      stats.skipped.offWedge += 1;
+      console.log(`    [${provider}] off-wedge, skipped: "${row.name}" @ ${row.starts_at}`);
+      continue;
+    }
+    CATEGORY_STATS.before[row.category ?? "other"] = (CATEGORY_STATS.before[row.category ?? "other"] ?? 0) + 1;
+    row.category = classifyCategory(row);
+    CATEGORY_STATS.after[row.category ?? "other"] = (CATEGORY_STATS.after[row.category ?? "other"] ?? 0) + 1;
+    rows.push(row);
+    stats.kept += 1;
+  }
+  rows = dedupeWithinSource(rows);
+  return { provider, rows, stats };
+}
+
+async function adapterSneakyPetes(now) {
+  return adapterVenueRssFeed(VENUE_RSS_FEEDS.find((f) => f.provider === "sneakypetes"), now);
+}
+
+// --- Skiddle / Ticketmaster proactive refresh ---------------------------------
+//
+// lib/events/skiddle.ts and lib/events/ticketmaster.ts are only ever called
+// live, from getEventsForDestination(), one page at a time, gated behind a
+// user actually requesting Edinburgh. This is the proactive half for those
+// two APIs too: the same field mapping (so provider_event_id — and every
+// other column — comes out byte-identical to what a live request would
+// write), but paginated over a 60-day window instead of one capped page.
+// Because the (provider, provider_event_id) unique index is exactly what
+// lib/events/getForDestination.ts's own upsert conflicts on, a row this
+// script writes today and a row a live user request writes tomorrow for the
+// same event upsert onto the same row rather than duplicating it.
+
+const PROACTIVE_LOOKAHEAD_DAYS = 60;
+const PROACTIVE_RADIUS_MILES = 10; // brief: "Edinburgh ... radius ~10 miles"
+
+const SKIDDLE_EVENTCODE_MAP = {
+  CLUB: "nightlife",
+  LIVE: "music",
+  FEST: "festival",
+  THEATRE: "arts",
+  ARTS: "arts",
+  EXHIB: "arts",
+  COMEDY: "comedy",
+  DATE: "food",
+  KIDS: "family",
+  SPORT: "sports",
+};
+function categoryFromSkiddleCode(raw) {
+  if (!raw) return "other";
+  return SKIDDLE_EVENTCODE_MAP[String(raw).toUpperCase().trim()] ?? "other";
+}
+
+const TICKETMASTER_SEGMENT_MAP = {
+  Music: "music",
+  Sports: "sports",
+  "Arts & Theatre": "arts",
+  Film: "arts",
+  Miscellaneous: "other",
+};
+function categoryFromTicketmasterSegment(raw) {
+  if (!raw) return "other";
+  return TICKETMASTER_SEGMENT_MAP[String(raw).trim()] ?? "other";
+}
+
+// Same placeholder-image filter as lib/events/skiddle.ts's realSkiddleImage —
+// Skiddle serves a generic "no photo" CDN graphic for events/venues with no
+// uploaded image; treat it as no image rather than a usable photo.
+const SKIDDLE_PLACEHOLDER_IMAGE = /\/assets\/default\d*\.png$/i;
+function realSkiddleImage(url) {
+  if (!url || SKIDDLE_PLACEHOLDER_IMAGE.test(url)) return null;
+  return url;
+}
+
+// Europe/London's UTC offset (0 in GMT, 60 in BST) for the given instant,
+// computed via Intl rather than a hardcoded date range so it's correct
+// across DST transitions in any year, and independent of the *host*
+// machine's own timezone (unlike `new Date("YYYY-MM-DDTHH:mm:ss")`, which
+// silently parses as host-local time — fine on a UTC CI runner most of the
+// year, wrong by up to several hours run anywhere else, e.g. this repo's
+// dev machines).
+function londonOffsetMinutes(date) {
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Europe/London",
+    hourCycle: "h23",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+  })
+    .formatToParts(date)
+    .reduce((acc, p) => {
+      acc[p.type] = p.value;
+      return acc;
+    }, {});
+  const asUtc = Date.UTC(
+    Number(parts.year),
+    Number(parts.month) - 1,
+    Number(parts.day),
+    Number(parts.hour),
+    Number(parts.minute),
+    Number(parts.second)
+  );
+  return (asUtc - date.getTime()) / 60_000;
+}
+
+/**
+ * Skiddle's docs describe dates as "YYYY-MM-DD HH:mm:ss" with no timezone
+ * (UK local) — but the live /events/search/ response actually returns full
+ * ISO 8601 with an explicit offset (e.g. "2026-10-01T19:00:00+00:00", and
+ * that offset is genuinely the UTC instant, not a mislabeled local time —
+ * verified against the live API: autumn evening gigs came back with a UTC
+ * hour consistent with a ~7-8pm BST local start). Handle both: an explicit
+ * offset/Z is trusted as-is (`new Date` parses it correctly regardless of
+ * host timezone); only the undocumented-but-possible bare
+ * "YYYY-MM-DD HH:mm:ss" form (no offset) is treated as Europe/London wall
+ * time and converted, since `new Date("YYYY-MM-DDTHH:mm:ss")` would
+ * otherwise silently parse as the *host* machine's local timezone.
+ */
+function parseSkiddleDate(raw) {
+  if (!raw) return null;
+  const trimmed = String(raw).trim();
+  if (/(Z|[+-]\d{2}:?\d{2})$/.test(trimmed)) {
+    const d = new Date(trimmed);
+    return Number.isNaN(d.getTime()) ? null : d.toISOString();
+  }
+  const m = trimmed.match(/^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2}):(\d{2})$/);
+  if (!m) return null;
+  const [, y, mo, d, h, mi, s] = m.map(Number);
+  // First guess the wall-clock time is UTC, find what Europe/London offset
+  // is in effect at that instant, then correct — self-consistent because
+  // the offset only flips on DST transition dates at 1/2am local, never at
+  // the same wall-clock reading under both offsets.
+  const guessUtcMs = Date.UTC(y, mo - 1, d, h, mi, s);
+  const offsetMin = londonOffsetMinutes(new Date(guessUtcMs));
+  const dt = new Date(guessUtcMs - offsetMin * 60_000);
+  return Number.isNaN(dt.getTime()) ? null : dt.toISOString();
+}
+
+function parseSkiddlePrice(raw) {
+  if (!raw) return { isFree: null, priceFrom: null };
+  const trimmed = String(raw).trim();
+  if (/free/i.test(trimmed)) return { isFree: true, priceFrom: 0 };
+  const match = trimmed.match(/[\d.]+/);
+  if (!match) return { isFree: null, priceFrom: null };
+  const value = Number(match[0]);
+  return { isFree: false, priceFrom: Number.isFinite(value) ? value : null };
+}
+
+/** Mirrors lib/events/skiddle.ts's mapEvent() exactly — same fields, same provider_event_id shape (String(event.id), no transformation). */
+function mapSkiddleEvent(event, { destination, now }) {
+  const id = event.id != null ? String(event.id) : null;
+  const starts_at = parseSkiddleDate(event.startdate);
+  if (!id || !event.eventname || !starts_at) return { row: null, reason: "invalid" };
+  const startDate = new Date(starts_at);
+  const ends_at = parseSkiddleDate(event.enddate);
+  const effectiveEnd = ends_at ? new Date(ends_at) : startDate;
+  if (effectiveEnd.getTime() < now.getTime()) return { row: null, reason: "past" };
+
+  const lat = event.venue?.latitude ?? event.latitude;
+  const lng = event.venue?.longitude ?? event.longitude;
+  const { isFree, priceFrom } = parseSkiddlePrice(event.entryprice);
+
+  const row = {
+    provider: "skiddle",
+    provider_event_id: id,
+    name: event.eventname,
+    description: event.description ?? null,
+    category: categoryFromSkiddleCode(event.eventcode),
+    image_url: realSkiddleImage(event.largeimageurl) ?? realSkiddleImage(event.imageurl),
+    ticket_url: event.link ?? event.admin?.link ?? null,
+    starts_at,
+    ends_at,
+    venue_name: event.venue?.name ?? null,
+    address: [event.venue?.address, event.venue?.town].filter(Boolean).join(", ") || null,
+    lat: lat != null ? Number(lat) : null,
+    lng: lng != null ? Number(lng) : null,
+    city: event.venue?.town ?? null,
+    country: "GB",
+    is_free: isFree,
+    price_from: priceFrom,
+    currency: isFree ? null : event.currency ?? "GBP",
+    destination,
+    source: "api",
+    fetched_at: now.toISOString(),
+  };
+  return { row, reason: null };
+}
+
+async function adapterSkiddle(now) {
+  const provider = "skiddle";
+  const stats = { fetched: 0, parsed: 0, kept: 0, skipped: { past: 0, invalid: 0, notEdinburgh: 0, robots: 0, blocked: 0, offWedge: 0 } };
+  const apiKey = process.env.SKIDDLE_API_KEY;
+  if (!apiKey) {
+    console.log(`  [${provider}] SKIPPED (no SKIDDLE_API_KEY in env)`);
+    return { provider, rows: [], stats };
+  }
+
+  const minDate = now.toISOString().slice(0, 10);
+  const maxDate = new Date(now.getTime() + PROACTIVE_LOOKAHEAD_DAYS * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+  const limit = 100;
+  const MAX_PAGES = 15; // safety cap: 1500 events, comfortably above Edinburgh's 60-day volume
+  let rows = [];
+  let offset = 0;
+  for (let page = 0; page < MAX_PAGES; page++) {
+    const params = new URLSearchParams({
+      api_key: apiKey,
+      latitude: String(EDINBURGH_CENTER.lat),
+      longitude: String(EDINBURGH_CENTER.lng),
+      radius: String(PROACTIVE_RADIUS_MILES),
+      order: "date",
+      description: "1",
+      limit: String(limit),
+      offset: String(offset),
+      country: "GB",
+      minDate,
+      maxDate,
+    });
+    let res;
+    try {
+      res = await fetch(`https://www.skiddle.com/api/v1/events/search/?${params.toString()}`);
+    } catch (err) {
+      console.error(`  [${provider}] offset=${offset} -> network error: ${err.message}`);
+      break;
+    }
+    if (!res.ok) {
+      console.log(`  [${provider}] offset=${offset} -> HTTP ${res.status}`);
+      break;
+    }
+    let data;
+    try {
+      data = await res.json();
+    } catch (err) {
+      console.error(`  [${provider}] offset=${offset} -> bad JSON: ${err.message}`);
+      break;
+    }
+    if (data.error) {
+      console.log(`  [${provider}] offset=${offset} -> api error: ${data.error}`);
+      break;
+    }
+    stats.fetched += 1;
+    const results = data.results ?? [];
+    for (const e of results) {
+      stats.parsed += 1;
+      const { row, reason } = mapSkiddleEvent(e, { destination: DESTINATION, now });
+      if (!row) {
+        if (reason === "past") stats.skipped.past += 1;
+        else stats.skipped.invalid += 1;
+        continue;
+      }
+      if (isOffWedge(row)) {
+        stats.skipped.offWedge += 1;
+        console.log(`    [${provider}] off-wedge, skipped: "${row.name}" @ ${row.starts_at}`);
+        continue;
+      }
+      CATEGORY_STATS.before[row.category ?? "other"] = (CATEGORY_STATS.before[row.category ?? "other"] ?? 0) + 1;
+      row.category = classifyCategory(row);
+      CATEGORY_STATS.after[row.category ?? "other"] = (CATEGORY_STATS.after[row.category ?? "other"] ?? 0) + 1;
+      rows.push(row);
+      stats.kept += 1;
+    }
+    if (results.length < limit) break; // last page
+    offset += limit;
+  }
+  rows = dedupeWithinSource(rows);
+  return { provider, rows, stats };
+}
+
+// Minimal lat/lng -> geohash encoder for Ticketmaster Discovery v2's
+// `geoPoint` param — same standard base32 geohash algorithm as
+// lib/events/geohash.ts's encodeGeohash(), reimplemented here since this
+// script is plain Node with no `@/` import alias.
+const GEOHASH_BASE32 = "0123456789bcdefghjkmnpqrstuvwxyz";
+function encodeGeohash(lat, lng, precision = 9) {
+  let latMin = -90, latMax = 90, lngMin = -180, lngMax = 180;
+  let hash = "";
+  let bit = 0;
+  let ch = 0;
+  let evenBit = true;
+  while (hash.length < precision) {
+    if (evenBit) {
+      const mid = (lngMin + lngMax) / 2;
+      if (lng >= mid) { ch = (ch << 1) | 1; lngMin = mid; } else { ch = ch << 1; lngMax = mid; }
+    } else {
+      const mid = (latMin + latMax) / 2;
+      if (lat >= mid) { ch = (ch << 1) | 1; latMin = mid; } else { ch = ch << 1; latMax = mid; }
+    }
+    evenBit = !evenBit;
+    if (++bit === 5) { hash += GEOHASH_BASE32[ch]; bit = 0; ch = 0; }
+  }
+  return hash;
+}
+
+/** Pick the widest available image, preferring 16:9 — same as lib/events/ticketmaster.ts's pickImage(). */
+function pickTmImage(images) {
+  if (!images || images.length === 0) return null;
+  const sixteenByNine = images.filter((i) => i.ratio === "16_9");
+  const pool = sixteenByNine.length > 0 ? sixteenByNine : images;
+  const widest = [...pool].sort((a, b) => (b.width ?? 0) - (a.width ?? 0))[0];
+  return widest?.url ?? null;
+}
+
+/** Mirrors lib/events/ticketmaster.ts's mapEvent() exactly — provider_event_id is event.id, untransformed. */
+function mapTicketmasterEvent(event, { destination, now }) {
+  const id = event.id;
+  const starts_at = event.dates?.start?.dateTime;
+  if (!id || !event.name || !starts_at) return { row: null, reason: "invalid" };
+  const startDate = new Date(starts_at);
+  if (Number.isNaN(startDate.getTime())) return { row: null, reason: "invalid" };
+  if (startDate.getTime() < now.getTime()) return { row: null, reason: "past" };
+
+  const venue = event._embedded?.venues?.[0];
+  const lat = venue?.location?.latitude != null ? Number(venue.location.latitude) : null;
+  const lng = venue?.location?.longitude != null ? Number(venue.location.longitude) : null;
+  const segmentName = event.classifications?.[0]?.segment?.name;
+  const price = event.priceRanges?.[0];
+
+  const row = {
+    provider: "ticketmaster",
+    provider_event_id: id,
+    name: event.name,
+    description: event.info ?? event.pleaseNote ?? null,
+    category: categoryFromTicketmasterSegment(segmentName),
+    image_url: pickTmImage(event.images),
+    ticket_url: event.url ?? null,
+    starts_at,
+    ends_at: null,
+    venue_name: venue?.name ?? null,
+    address: [venue?.address?.line1, venue?.city?.name].filter(Boolean).join(", ") || null,
+    lat: lat != null && Number.isFinite(lat) ? lat : null,
+    lng: lng != null && Number.isFinite(lng) ? lng : null,
+    city: venue?.city?.name ?? null,
+    country: venue?.country?.countryCode ?? null,
+    is_free: null,
+    price_from: typeof price?.min === "number" ? price.min : null,
+    currency: price?.currency ?? null,
+    destination,
+    source: "api",
+    fetched_at: now.toISOString(),
+  };
+  return { row, reason: null };
+}
+
+function toTmDateTime(date) {
+  return date.toISOString().replace(/\.\d{3}Z$/, "Z");
+}
+
+async function adapterTicketmaster(now) {
+  const provider = "ticketmaster";
+  const stats = { fetched: 0, parsed: 0, kept: 0, skipped: { past: 0, invalid: 0, notEdinburgh: 0, robots: 0, blocked: 0, offWedge: 0 } };
+  const apiKey = process.env.TICKETMASTER_API_KEY;
+  if (!apiKey) {
+    console.log(`  [${provider}] SKIPPED (no TICKETMASTER_API_KEY in env)`);
+    return { provider, rows: [], stats };
+  }
+
+  const startDateTime = toTmDateTime(now);
+  const endDateTime = toTmDateTime(new Date(now.getTime() + PROACTIVE_LOOKAHEAD_DAYS * 24 * 60 * 60 * 1000));
+  const size = 100;
+  const MAX_PAGES = 15;
+  let rows = [];
+  for (let pageNum = 0; pageNum < MAX_PAGES; pageNum++) {
+    const params = new URLSearchParams({
+      apikey: apiKey,
+      geoPoint: encodeGeohash(EDINBURGH_CENTER.lat, EDINBURGH_CENTER.lng, 9),
+      radius: String(Math.round(PROACTIVE_RADIUS_MILES * 1.60934)), // TM's `unit` param below is km
+      unit: "km",
+      size: String(size),
+      page: String(pageNum),
+      sort: "date,asc",
+      startDateTime,
+      endDateTime,
+    });
+    let res;
+    try {
+      res = await fetch(`https://app.ticketmaster.com/discovery/v2/events.json?${params.toString()}`);
+    } catch (err) {
+      console.error(`  [${provider}] page=${pageNum} -> network error: ${err.message}`);
+      break;
+    }
+    if (!res.ok) {
+      // TM returns 401/403 for a bad key — treated the same as "this source said no", no retry.
+      console.log(`  [${provider}] page=${pageNum} -> HTTP ${res.status}`);
+      break;
+    }
+    let data;
+    try {
+      data = await res.json();
+    } catch (err) {
+      console.error(`  [${provider}] page=${pageNum} -> bad JSON: ${err.message}`);
+      break;
+    }
+    stats.fetched += 1;
+    const events = data._embedded?.events ?? [];
+    for (const e of events) {
+      stats.parsed += 1;
+      const { row, reason } = mapTicketmasterEvent(e, { destination: DESTINATION, now });
+      if (!row) {
+        if (reason === "past") stats.skipped.past += 1;
+        else stats.skipped.invalid += 1;
+        continue;
+      }
+      if (isOffWedge(row)) {
+        stats.skipped.offWedge += 1;
+        console.log(`    [${provider}] off-wedge, skipped: "${row.name}" @ ${row.starts_at}`);
+        continue;
+      }
+      CATEGORY_STATS.before[row.category ?? "other"] = (CATEGORY_STATS.before[row.category ?? "other"] ?? 0) + 1;
+      row.category = classifyCategory(row);
+      CATEGORY_STATS.after[row.category ?? "other"] = (CATEGORY_STATS.after[row.category ?? "other"] ?? 0) + 1;
+      rows.push(row);
+      stats.kept += 1;
+    }
+    const totalPages = data.page?.totalPages ?? 1;
+    if (pageNum + 1 >= totalPages || events.length === 0) break;
+  }
+  rows = dedupeWithinSource(rows);
+  return { provider, rows, stats };
+}
+
 const ADAPTERS = {
   luma: adapterLuma,
   eventbrite: adapterEventbrite,
   songkick: adapterSongkick,
   allevents: adapterAllevents,
+  skiddle: adapterSkiddle,
+  ticketmaster: adapterTicketmaster,
+  sneakypetes: adapterSneakyPetes,
 };
 
 // --- cross-source merge + upsert ----------------------------------------------
 
-/** Same identity heuristic as lib/events/dedupe.ts: slugified name + calendar day + coarse lat/lng. */
-function crossSourceKey(row) {
-  const day = row.starts_at.slice(0, 10);
-  const lat = row.lat != null ? row.lat.toFixed(3) : "?";
-  const lng = row.lng != null ? row.lng.toFixed(3) : "?";
-  return `${slugify(row.name)}|${day}|${lat},${lng}`;
+// en-CA gives YYYY-MM-DD directly — used to key on the event's Europe/London
+// calendar date rather than the raw (often UTC) starts_at timestamp, so an
+// 11pm-local gig doesn't key onto the next UTC day.
+const LONDON_DATE_FMT = new Intl.DateTimeFormat("en-CA", {
+  timeZone: "Europe/London",
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+});
+function londonDateKey(iso) {
+  try {
+    return LONDON_DATE_FMT.format(new Date(iso));
+  } catch {
+    return String(iso).slice(0, 10);
+  }
 }
 
+const LONDON_HOUR_FMT = new Intl.DateTimeFormat("en-GB", {
+  timeZone: "Europe/London",
+  hourCycle: "h23",
+  hour: "2-digit",
+});
+// Coarse (3h) time-of-day bucket, Europe/London local hour. Tolerates the
+// few-minutes showtime discrepancies different sources report for the same
+// real event, while still telling apart a same-day matinee (e.g. 13:30) from
+// an evening show (e.g. 18:30) of a touring production at the same venue —
+// title+date+venue alone can't distinguish those.
+function londonHourBucket(iso) {
+  try {
+    const hour = Number(LONDON_HOUR_FMT.format(new Date(iso)));
+    return Math.floor(hour / 3);
+  } catch {
+    return "?";
+  }
+}
+
+function stripDiacritics(s) {
+  return s.normalize("NFKD").replace(/[̀-ͯ]/g, "");
+}
+
+/**
+ * Normalize a title for cross-source identity matching: strip the trailing
+ * venue/qualifier noise each source tacks onto the same event's name
+ * differently ("Walter Trout // Edinburgh Queens Hall" vs "Walter Trout @
+ * Queen's Hall" vs "Walter Trout - Edinburgh" vs "Walter Trout (Edinburgh)"),
+ * fold accents (Angèle -> angele) so different sources' encodings of the same
+ * name match, and collapse punctuation/whitespace. This runs on every row
+ * before keying — JSON-LD sources and the Skiddle/Ticketmaster proactive
+ * rows alike — so a gig discovered by both a scrape and a provider API
+ * collapses onto one row too.
+ */
+function normalizeEventTitle(name, venueName) {
+  let t = stripDiacritics(String(name ?? "")).toLowerCase().trim();
+
+  // Trailing "this is actually the venue/qualifier" patterns, in order.
+  t = t.replace(/\s*\/\/\s*.+$/, ""); // " // Edinburgh Queens Hall"
+  t = t.replace(/\s*@\s*.+$/, ""); // " @ Queen's Hall"
+  t = t.replace(/\s*\|\s*.+$/, ""); // " | ..."
+  t = t.replace(/\s*\(edinburgh\)\s*$/, ""); // " (Edinburgh)"
+  t = t.replace(/\s*[-–—]\s*edinburgh\s*$/, ""); // " - Edinburgh"
+
+  if (venueName) {
+    const v = stripDiacritics(String(venueName)).toLowerCase().trim();
+    if (v) {
+      const escaped = v.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      t = t.replace(new RegExp(`\\s+at\\s+(the\\s+)?${escaped}\\s*$`), ""); // " at (the) Queen's Hall"
+      t = t.replace(new RegExp(`\\s*[-–—]\\s*${escaped}\\s*$`), ""); // " - Queen's Hall"
+    }
+  }
+  // Generic " at <venue>" trailing suffix when it wasn't already caught by
+  // the row's own venue name above (e.g. venue_name missing/different casing).
+  t = t.replace(/\s+at\s+the\s+\S.*$/, "");
+
+  t = t
+    .replace(/['’]/g, "'")
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim()
+    .replace(/\s+/g, " ");
+  return t;
+}
+
+// "the", "at" and Edinburgh/UK boilerplate that different sources pad venue
+// names with inconsistently ("The Queen's Hall" vs "Queen's Hall, Edinburgh")
+// and which would otherwise make an identical venue fail to key-match.
+const VENUE_STOPWORDS = new Set(["the", "edinburgh", "uk", "scotland"]);
+
+/**
+ * Coarse venue identity for the cross-source key: same normalization as
+ * normalizeEventTitle (diacritics/case/punctuation folded), minus stopwords,
+ * so "The Queen's Hall" and "Queen's Hall, Edinburgh" match while "Edinburgh
+ * Playhouse" and "Sheffield City Hall" (a touring show's two different
+ * stops, same title, same/adjacent date) do not. Without this, a
+ * title+date-only key would wrongly collapse distinct performances of a
+ * touring production — different cities, or same city's matinee + evening
+ * show on one date — onto a single row, silently dropping the other.
+ */
+function normalizeVenueKey(venueName) {
+  const folded = stripDiacritics(String(venueName ?? ""))
+    .toLowerCase()
+    .replace(/['’]/g, "'")
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+  if (!folded) return "?"; // no venue info at all — never claim a false match on emptiness
+  return folded
+    .split(" ")
+    .filter((w) => w && !VENUE_STOPWORDS.has(w))
+    .join(" ");
+}
+
+/**
+ * Identity key: normalized title + Europe/London calendar date + coarse
+ * (3h) time bucket + coarse venue. Venue (rather than lat/lng) survives
+ * slightly different geocoding between sources for the very same venue,
+ * and the time bucket tells apart a same-day matinee vs evening show at
+ * that same venue; either alone (title+date, or title+date+venue) would
+ * incorrectly merge distinct performances of a touring production —
+ * different cities on the same date, or the same city's two showtimes.
+ */
+function crossSourceKey(row) {
+  return `${normalizeEventTitle(row.name, row.venue_name)}|${londonDateKey(row.starts_at)}|${londonHourBucket(row.starts_at)}|${normalizeVenueKey(row.venue_name)}`;
+}
+
+// Preference order when two rows collapse onto the same key: the primary
+// ticket sellers (Ticketmaster/Skiddle — official APIs) and Songkick (gig
+// aggregator with its own canonical listing) outrank general discovery
+// scrapes, which outrank allevents.in (already flagged elsewhere in this
+// file as the noisiest/least precise source).
+const PROVIDER_PRIORITY = { ticketmaster: 3, skiddle: 3, songkick: 2, luma: 1, eventbrite: 1, allevents: 0 };
+
+/** True if `candidate` should replace `existing` for the same cross-source key. */
+function isBetterRow(candidate, existing) {
+  const cPrice = candidate.price_from != null;
+  const ePrice = existing.price_from != null;
+  if (cPrice !== ePrice) return cPrice;
+
+  const cImage = candidate.image_url != null;
+  const eImage = existing.image_url != null;
+  if (cImage !== eImage) return cImage;
+
+  const cUrl = candidate.ticket_url != null;
+  const eUrl = existing.ticket_url != null;
+  const cPri = PROVIDER_PRIORITY[candidate.provider] ?? 0;
+  const ePri = PROVIDER_PRIORITY[existing.provider] ?? 0;
+  if (cPri !== ePri) return cPri > ePri;
+  if (cUrl !== eUrl) return cUrl;
+
+  return false; // keep whichever was seen first
+}
+
+/** Cross-source dedupe. Returns the deduped rows plus a log of every collapse (kept vs dropped) for reporting. */
 function dedupeAcrossSources(rows) {
   const best = new Map();
+  const collapses = [];
   for (const row of rows) {
     const key = crossSourceKey(row);
     const existing = best.get(key);
@@ -805,10 +1744,14 @@ function dedupeAcrossSources(rows) {
       best.set(key, row);
       continue;
     }
-    // Prefer whichever candidate has an image; otherwise keep the first seen.
-    if (row.image_url != null && existing.image_url == null) best.set(key, row);
+    if (isBetterRow(row, existing)) {
+      collapses.push({ key, kept: row, dropped: existing });
+      best.set(key, row);
+    } else {
+      collapses.push({ key, kept: existing, dropped: row });
+    }
   }
-  return Array.from(best.values());
+  return { rows: Array.from(best.values()), collapses };
 }
 
 async function upsertEvents(rows) {
@@ -853,7 +1796,7 @@ function printSummary(provider, stats, rows) {
   const s = stats;
   console.log(
     `[${provider}] fetched=${s.fetched} parsed=${s.parsed} kept=${rows.length} ` +
-      `skipped(past=${s.skipped.past} invalid=${s.skipped.invalid} notEdinburgh=${s.skipped.notEdinburgh} robots=${s.skipped.robots} blocked=${s.skipped.blocked})`
+      `skipped(past=${s.skipped.past} invalid=${s.skipped.invalid} notEdinburgh=${s.skipped.notEdinburgh} robots=${s.skipped.robots} blocked=${s.skipped.blocked} offWedge=${s.skipped.offWedge})`
   );
   const samples = rows.slice(0, 3);
   for (const row of samples) {
@@ -866,10 +1809,13 @@ function printSummary(provider, stats, rows) {
 
 async function main() {
   const now = new Date();
-  const names = Object.keys(ADAPTERS).filter((n) => !ONLY || ONLY.has(n));
+  const names = Object.keys(ADAPTERS).filter((n) => (!ONLY || ONLY.has(n)) && !SKIP.has(n));
   if (names.length === 0) {
-    console.error(`[daily-sources] --only matched no adapters (available: ${Object.keys(ADAPTERS).join(", ")})`);
+    console.error(`[daily-sources] no adapters selected (--only/--skip/DAILY_SOURCES_SKIP left nothing to run; available: ${Object.keys(ADAPTERS).join(", ")})`);
     process.exit(1);
+  }
+  if (SKIP.size > 0) {
+    console.log(`[daily-sources] skipping: ${[...SKIP].join(",")}`);
   }
 
   console.log(`[daily-sources] mode=${DRY_RUN ? "DRY RUN (pass --write to upsert)" : "WRITE"} sources=${names.join(",")}`);
@@ -883,18 +1829,31 @@ async function main() {
       perSource.push(result);
     } catch (err) {
       console.error(`[${name}] adapter FAILED entirely: ${err.message}`);
-      perSource.push({ provider: name, rows: [], stats: { fetched: 0, parsed: 0, kept: 0, skipped: { past: 0, invalid: 0, notEdinburgh: 0, robots: 0, blocked: 0 } } });
+      perSource.push({ provider: name, rows: [], stats: { fetched: 0, parsed: 0, kept: 0, skipped: { past: 0, invalid: 0, notEdinburgh: 0, robots: 0, blocked: 0, offWedge: 0 } } });
     }
   }
 
   const allRows = perSource.flatMap((s) => s.rows);
-  const merged = dedupeAcrossSources(allRows);
+  const { rows: merged, collapses } = dedupeAcrossSources(allRows);
   const totalKept = perSource.reduce((sum, s) => sum + s.rows.length, 0);
 
   console.log(
     `\n[daily-sources] TOTAL kept-per-source=${totalKept} after cross-source dedupe=${merged.length} ` +
       `(${totalKept - merged.length} collapsed as likely duplicates across sources)`
   );
+  if (collapses.length > 0) {
+    console.log(`[daily-sources] cross-source collapses (kept <- dropped):`);
+    for (const c of collapses) {
+      console.log(
+        `    "${c.kept.name}" (${c.kept.provider}) <- "${c.dropped.name}" (${c.dropped.provider}) | key="${c.key}"`
+      );
+    }
+  }
+
+  const beforeStr = Object.entries(CATEGORY_STATS.before).sort((a, b) => b[1] - a[1]).map(([k, v]) => `${k}=${v}`).join(" ");
+  const afterStr = Object.entries(CATEGORY_STATS.after).sort((a, b) => b[1] - a[1]).map(([k, v]) => `${k}=${v}`).join(" ");
+  console.log(`\n[daily-sources] category distribution BEFORE keyword classifier: ${beforeStr || "(none)"}`);
+  console.log(`[daily-sources] category distribution AFTER keyword classifier:  ${afterStr || "(none)"}`);
 
   if (DRY_RUN) {
     console.log("[daily-sources] DRY RUN — pass --write to actually upsert. Nothing written.");

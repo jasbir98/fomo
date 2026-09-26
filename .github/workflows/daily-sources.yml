@@ -1,7 +1,8 @@
 name: Daily Tier-1 events ingest
 
 # Crawls lu.ma, Eventbrite, Songkick and allevents.in's Edinburgh listing
-# pages (scripts/daily-sources.mjs) and upserts normalized rows into the
+# pages, plus a proactive paginated pull of the Skiddle and Ticketmaster
+# APIs (scripts/daily-sources.mjs) and upserts normalized rows into the
 # `events` table. See docs/daily-sources.md for the sources, required
 # secrets, and how to run this by hand.
 on:
@@ -15,8 +16,9 @@ on:
 jobs:
   ingest:
     runs-on: ubuntu-latest
-    # SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY live as Production
-    # environment secrets on jasbir98/fomo, not repository secrets.
+    # NEXT_PUBLIC_SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY / SKIDDLE_API_KEY /
+    # TICKETMASTER_API_KEY live as Production environment secrets on
+    # jasbir98/fomo, not repository secrets.
     environment: Production
     timeout-minutes: 15
     steps:
@@ -27,12 +29,14 @@ jobs:
           node-version: 20
 
       - name: Run daily sources ingest
-        # daily-sources.mjs only crawls lu.ma/Eventbrite/Songkick/allevents.in
-        # (JSON-LD scraping, no API key needed) — SKIDDLE_API_KEY and
-        # TICKETMASTER_API_KEY are not read by this script; they're the
-        # separate live-request-time providers in lib/events/, unrelated to
-        # this workflow.
+        # SKIDDLE_API_KEY / TICKETMASTER_API_KEY are optional: when unset,
+        # daily-sources.mjs skips those two adapters gracefully (a log line,
+        # not a failure) and still runs the remaining five sources (luma,
+        # eventbrite, songkick, allevents JSON-LD pages, plus the
+        # sneakypetes venue RSS feed — none of which need a secret).
         env:
-          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL || secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          SKIDDLE_API_KEY: ${{ secrets.SKIDDLE_API_KEY }}
+          TICKETMASTER_API_KEY: ${{ secrets.TICKETMASTER_API_KEY }}
         run: node scripts/daily-sources.mjs --write
