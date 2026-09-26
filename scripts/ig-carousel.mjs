@@ -20,7 +20,7 @@
  * — same weekly-picks query scripts/fomo-friday.mjs uses).
  */
 import { ImageResponse } from "next/og.js";
-import { mkdir, writeFile } from "node:fs/promises";
+import { mkdir, writeFile, readFile, rm } from "node:fs/promises";
 import path from "node:path";
 import { getWeeklyPicks } from "./lib/weekly-picks.mjs";
 
@@ -52,6 +52,62 @@ const NAVY = "#1b365d";
 const ACCENT = "#fc8a40"; // the brand's own orange dot/underline accent (components/ui/FomoLogo.tsx)
 const WHITE = "#ffffff";
 
+// --- font loading with caching ---
+async function loadFonts() {
+  const fontCacheDir = path.join(process.cwd(), "scripts", "out", ".fonts");
+  await mkdir(fontCacheDir, { recursive: true });
+
+  const fonts = [];
+  const variants = [
+    { weight: 400, file: "PlusJakartaSans-400.ttf" },
+    { weight: 800, file: "PlusJakartaSans-800.ttf" },
+  ];
+
+  for (const variant of variants) {
+    const fontPath = path.join(fontCacheDir, variant.file);
+    let fontData;
+
+    try {
+      // Try to read cached font
+      fontData = await readFile(fontPath);
+    } catch {
+      // Fetch from Google Fonts
+      try {
+        console.log(`[ig-carousel] Fetching ${variant.file}...`);
+        const cssRes = await fetch(
+          `https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@${variant.weight}`,
+          { headers: { "User-Agent": "node" } }
+        );
+        if (!cssRes.ok) throw new Error(`CSS fetch failed: ${cssRes.status}`);
+        const css = await cssRes.text();
+
+        // Extract TTF URL from CSS (format: url(https://...ttf))
+        const urlMatch = css.match(/url\((https:\/\/[^)]+\.ttf)\)/);
+        if (!urlMatch) throw new Error("No TTF URL found in CSS");
+
+        const ttfRes = await fetch(urlMatch[1]);
+        if (!ttfRes.ok) throw new Error(`TTF fetch failed: ${ttfRes.status}`);
+        fontData = Buffer.from(await ttfRes.arrayBuffer());
+
+        // Cache it
+        await writeFile(fontPath, fontData);
+        console.log(`[ig-carousel] Cached ${variant.file}`);
+      } catch (err) {
+        console.warn(`[ig-carousel] Font fetch failed for weight ${variant.weight}:`, err.message);
+        return null; // Fall back to default
+      }
+    }
+
+    fonts.push({
+      name: "Plus Jakarta Sans",
+      data: fontData,
+      weight: variant.weight,
+    });
+  }
+
+  return fonts;
+}
+
 // --- tiny hyperscript so slide markup reads like JSX without a JSX build step ---
 function h(type, props, ...children) {
   const flatChildren = children.flat(Infinity).filter((c) => c !== null && c !== undefined && c !== false);
@@ -61,6 +117,36 @@ function h(type, props, ...children) {
 function truncate(text, max) {
   if (!text || text.length <= max) return text ?? "";
   return `${text.slice(0, max - 1).trimEnd()}…`;
+}
+
+/** Clamp title to 3 lines (roughly 70 chars per line for the font size used). */
+function clampTitle(text, maxChars = 70) {
+  if (!text) return "";
+  if (text.length <= maxChars) return text;
+  // Truncate at maxChars with ellipsis
+  return `${text.slice(0, maxChars - 1).trimEnd()}…`;
+}
+
+/** Fetch and inline an image as a data URL, or return null if it fails. */
+async function imageToDataUrl(url) {
+  if (!url) return null;
+  try {
+    const res = await fetch(url, { headers: { "User-Agent": "Mozilla/5.0" } });
+    if (!res.ok) return null;
+    const buffer = Buffer.from(await res.arrayBuffer());
+    // Sniff the bytes rather than trust content-type: satori decodes only
+    // PNG/JPEG/GIF, and a WebP/AVIF (or an HTML error page) crashes the render.
+    const type =
+      buffer[0] === 0x89 && buffer[1] === 0x50 ? "image/png"
+      : buffer[0] === 0xff && buffer[1] === 0xd8 ? "image/jpeg"
+      : buffer.subarray(0, 3).toString() === "GIF" ? "image/gif"
+      : null;
+    if (!type) return null;
+    return `data:${type};base64,${buffer.toString("base64")}`;
+  } catch (err) {
+    console.warn(`[ig-carousel] Image fetch failed for ${url}:`, err.message);
+    return null;
+  }
 }
 
 function baseSlide(children) {
@@ -74,8 +160,8 @@ function baseSlide(children) {
         flexDirection: "column",
         background: NAVY,
         color: WHITE,
-        fontFamily: "sans-serif",
-        padding: 72,
+        fontFamily: "Plus Jakarta Sans",
+        padding: "72px",
         position: "relative",
       },
     },
@@ -117,49 +203,187 @@ function coverSlide() {
   ]);
 }
 
-function pickSlide(item, index, total) {
-  return baseSlide([
+function pickSlide(item, index, total, imageDataUrl) {
+  const hasImage = !!imageDataUrl;
+  const imageHeight = Math.round(HEIGHT * 0.55); // ~55% for image
+  const panelHeight = HEIGHT - imageHeight;
+
+  if (hasImage) {
+    return h(
+      "div",
+      {
+        style: {
+          width: "100%",
+          height: "100%",
+          display: "flex",
+          flexDirection: "column",
+          background: NAVY,
+          color: WHITE,
+          fontFamily: "Plus Jakarta Sans",
+          position: "relative",
+        },
+      },
+      // Image top section (using backgroundImage since img tags have rendering issues)
+      h("img", {
+        src: imageDataUrl,
+        width: WIDTH,
+        height: imageHeight,
+        style: { width: WIDTH, height: imageHeight, objectFit: "cover" },
+      }),
+      // Navy panel bottom section
+      h(
+        "div",
+        {
+          style: {
+            width: "100%",
+            height: panelHeight,
+            display: "flex",
+            flexDirection: "column",
+            padding: "40px 56px",
+            justifyContent: "space-between",
+            boxSizing: "border-box",
+            paddingBottom: 56,
+          },
+        },
+        // Middle: title + price pill inline
+        h(
+          "div",
+          { style: { display: "flex", flexDirection: "column" } },
+          h(
+            "div",
+            { style: { display: "flex", alignItems: "center", gap: 20, marginBottom: 16 } },
+            h(
+              "div",
+              { style: { fontSize: 56, fontWeight: 800, lineHeight: 1.15, flex: 1, minWidth: 0, flexWrap: "wrap", display: "flex" } },
+              clampTitle(item.title, 70)
+            ),
+            item.price
+              ? h(
+                "div",
+                {
+                  style: {
+                    display: "flex",
+                    background: item.price === "FREE" ? "#1e7d4c" : ACCENT,
+                    color: WHITE,
+                    fontSize: 32,
+                    fontWeight: 800,
+                    padding: "10px 24px",
+                    borderRadius: 999,
+                    flexShrink: 0,
+                    whiteSpace: "nowrap",
+                  },
+                },
+                item.price
+              )
+              : null
+          ),
+          item.when
+            ? h("div", { style: { display: "flex", fontSize: 28, color: "#c7d2e3", marginBottom: 8 } }, item.when)
+            : null,
+          item.venue
+            ? h("div", { style: { display: "flex", fontSize: 24, color: "#8b93a3" } }, truncate(item.venue, 46))
+            : null
+        )
+      ),
+      // Slide counter: top-right with semi-transparent dark pill
+      h(
+        "div",
+        {
+          style: {
+            display: "flex",
+            position: "absolute",
+            top: 56,
+            right: 72,
+            fontSize: 32,
+            fontWeight: 800,
+            color: WHITE,
+            background: "rgba(0, 0, 0, 0.5)",
+            padding: "12px 24px",
+            borderRadius: 999,
+          },
+        },
+        `${index + 1} / ${total}`
+      ),
+      // Wordmark
+      wordmark()
+    );
+  }
+
+  // Fallback: all-navy layout (no image)
+  return h(
+    "div",
+    {
+      style: {
+        width: "100%",
+        height: "100%",
+        display: "flex",
+        flexDirection: "column",
+        background: NAVY,
+        color: WHITE,
+        fontFamily: "Plus Jakarta Sans",
+        padding: "72px",
+        position: "relative",
+      },
+    },
     wordmark(),
+    // Slide counter: top-right with semi-transparent dark pill
     h(
       "div",
-      { style: { display: "flex", position: "absolute", top: 56, right: 72, fontSize: 24, color: "#8b93a3" } },
+      {
+        style: {
+          display: "flex",
+          position: "absolute",
+          top: 56,
+          right: 72,
+          fontSize: 32,
+          fontWeight: 800,
+          color: WHITE,
+          background: "rgba(0, 0, 0, 0.5)",
+          padding: "12px 24px",
+          borderRadius: 999,
+        },
+      },
       `${index + 1} / ${total}`
     ),
     h(
       "div",
       { style: { display: "flex", flexDirection: "column", flex: 1, justifyContent: "center" } },
-      item.price
-        ? h(
-        "div",
-        {
-          style: {
-            display: "flex",
-            alignSelf: "flex-start",
-            background: item.price === "FREE" ? "#1e7d4c" : ACCENT,
-            color: WHITE,
-            fontSize: 40,
-            fontWeight: 800,
-            padding: "14px 32px",
-            borderRadius: 999,
-            marginBottom: 40,
-          },
-        },
-        item.price
-      )
-        : null,
       h(
         "div",
-        { style: { fontSize: 64, fontWeight: 800, lineHeight: 1.12, display: "flex", flexWrap: "wrap" } },
-        truncate(item.title, 70)
+        { style: { display: "flex", alignItems: "center", gap: 20, marginBottom: 24 } },
+        h(
+          "div",
+          { style: { fontSize: 64, fontWeight: 800, lineHeight: 1.12, flex: 1, minWidth: 0, flexWrap: "wrap", display: "flex" } },
+          clampTitle(item.title, 70)
+        ),
+        item.price
+          ? h(
+            "div",
+            {
+              style: {
+                display: "flex",
+                background: item.price === "FREE" ? "#1e7d4c" : ACCENT,
+                color: WHITE,
+                fontSize: 40,
+                fontWeight: 800,
+                padding: "14px 32px",
+                borderRadius: 999,
+                flexShrink: 0,
+                whiteSpace: "nowrap",
+              },
+            },
+            item.price
+          )
+          : null
       ),
       item.when
-        ? h("div", { style: { display: "flex", fontSize: 34, color: "#c7d2e3", marginTop: 28 } }, item.when)
+        ? h("div", { style: { display: "flex", fontSize: 34, color: "#c7d2e3", marginBottom: 8 } }, item.when)
         : null,
       item.venue
-        ? h("div", { style: { display: "flex", fontSize: 30, color: "#8b93a3", marginTop: 10 } }, truncate(item.venue, 46))
+        ? h("div", { style: { display: "flex", fontSize: 30, color: "#8b93a3" } }, truncate(item.venue, 46))
         : null
-    ),
-  ]);
+    )
+  );
 }
 
 function ctaSlide() {
@@ -213,8 +437,12 @@ function buildCaption(picks) {
   return lines.join("\n");
 }
 
-async function renderSlide(element) {
-  const res = new ImageResponse(element, { width: WIDTH, height: HEIGHT });
+async function renderSlide(element, fonts) {
+  const options = { width: WIDTH, height: HEIGHT };
+  if (fonts) {
+    options.fonts = fonts;
+  }
+  const res = new ImageResponse(element, options);
   return Buffer.from(await res.arrayBuffer());
 }
 
@@ -226,20 +454,46 @@ async function main() {
     process.exit(1);
   }
 
+  // Plus Jakarta Sans 400/800 (the app's brand face). Without it satori's
+  // built-in font has no bold weight, so every title rendered thin.
+  let fonts = null;
+  try {
+    fonts = await loadFonts();
+  } catch (err) {
+    console.warn("[ig-carousel] Font loading error, using the default font:", err.message);
+  }
+
   const todayIso = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/London" }).format(new Date());
   const outDir = path.join(process.cwd(), "scripts", "out", `ig-${todayIso}`);
+  // Same-day reruns reuse this folder: clear old slides so a stale 11.png
+  // from a longer run can't end up in the post.
+  await rm(outDir, { recursive: true, force: true });
   await mkdir(outDir, { recursive: true });
 
-  const slides = [coverSlide(), ...picks.map((p, i) => pickSlide(p, i, picks.length)), ctaSlide()];
+  const imageDataUrls = await Promise.all(picks.map((p) => imageToDataUrl(p.image_url)));
+
+  // Build slides with image data
+  const totalSlides = picks.length + 2; // cover + picks + CTA
+  const slides = [
+    coverSlide(),
+    ...picks.map((p, i) => pickSlide(p, i + 1, totalSlides, imageDataUrls[i])),
+    ctaSlide(),
+  ];
 
   const files = [];
   for (let i = 0; i < slides.length; i++) {
-    const buf = await renderSlide(slides[i]);
-    const fileName = `${String(i).padStart(2, "0")}.png`;
-    const filePath = path.join(outDir, fileName);
-    await writeFile(filePath, buf);
-    files.push(filePath);
-    console.log(`[ig-carousel] Wrote ${filePath} (${buf.length} bytes)`);
+    try {
+      console.log(`[ig-carousel] Rendering slide ${i}...`);
+      const buf = await renderSlide(slides[i], fonts);
+      const fileName = `${String(i).padStart(2, "0")}.png`;
+      const filePath = path.join(outDir, fileName);
+      await writeFile(filePath, buf);
+      files.push(filePath);
+      console.log(`[ig-carousel] Wrote ${filePath} (${buf.length} bytes)`);
+    } catch (err) {
+      console.error(`[ig-carousel] Failed to render slide ${i}:`, err.message);
+      throw err;
+    }
   }
 
   const captionPath = path.join(outDir, "caption.txt");

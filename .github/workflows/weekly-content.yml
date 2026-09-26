@@ -1,0 +1,98 @@
+name: Weekly content (carousel + email)
+
+# Weekly IG carousel: Wednesday 16:07 UTC
+# Weekly email: Friday 07:07 UTC
+# Both can be triggered manually with `workflow_dispatch` (with input to pick carousel|email-dry-run|email-send)
+on:
+  schedule:
+    # Wednesday 16:07 UTC (carousel)
+    - cron: "7 16 * * 3"
+    # Friday 07:07 UTC (email)
+    - cron: "7 7 * * 5"
+  workflow_dispatch:
+    inputs:
+      action:
+        description: "What to run: carousel, email-dry-run, or email-send"
+        required: false
+        default: "carousel"
+        type: choice
+        options:
+          - carousel
+          - email-dry-run
+          - email-send
+
+jobs:
+  carousel:
+    # Run carousel job on Wednesday cron (schedule[0]) or if manually triggered with action=carousel
+    if: |
+      (github.event_name == 'schedule' && github.event.schedule == '7 16 * * 3') ||
+      (github.event_name == 'workflow_dispatch' && (inputs.action == 'carousel' || inputs.action == ''))
+    runs-on: ubuntu-latest
+    environment: Production
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Render IG carousel
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL || secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: node scripts/ig-carousel.mjs
+
+      - name: Upload carousel as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ig-carousel-${{ github.run_number }}
+          path: scripts/out/ig-*/
+          retention-days: 14
+
+  email:
+    # Run email job on Friday cron (schedule[1]) or if manually triggered with action=email-*
+    if: |
+      (github.event_name == 'schedule' && github.event.schedule == '7 7 * * 5') ||
+      (github.event_name == 'workflow_dispatch' && (inputs.action == 'email-dry-run' || inputs.action == 'email-send'))
+    runs-on: ubuntu-latest
+    environment: Production
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install dependencies
+        run: npm ci
+
+      # Sends on the Friday schedule or a manual email-send, but only once
+      # RESEND_API_KEY is set; otherwise (and for email-dry-run) it dry-runs.
+      - name: Run Fomo Friday email
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL || secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY || '' }}
+          FOMO_FROM_EMAIL: ${{ secrets.FOMO_FROM_EMAIL || '' }}
+          SENDER_ADDRESS: ${{ secrets.SENDER_ADDRESS || '' }}
+          EVENT_NAME: ${{ github.event_name }}
+          ACTION: ${{ inputs.action }}
+        run: |
+          if [[ -n "$RESEND_API_KEY" && ( "$EVENT_NAME" == "schedule" || "$ACTION" == "email-send" ) ]]; then
+            node scripts/fomo-friday.mjs --send
+          else
+            node scripts/fomo-friday.mjs --dry-run
+          fi
+
+      - name: Upload rendered email as artifact (dry-run)
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.action == 'email-dry-run' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: fomo-friday-html-${{ github.run_number }}
+          path: scripts/out/fomo-friday-*
+          retention-days: 14

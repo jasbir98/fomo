@@ -793,9 +793,8 @@ export async function GET(request: Request) {
       // which used to be able to starve the section empty on a busy day.
       // Skipped entirely for an inverted range ("This month", selected with
       // no days left in it), which by definition matches nothing. `limit`
-      // raised from 60 to 200: with the price ceiling gone by default, a busy
-      // window's full catalogue is much bigger, and truncating it here would
-      // arbitrarily drop rows before dedupe/merge and sorting ever see them.
+      // raised from 60 to 200 to 500: as the catalogue grows with more sources,
+      // a higher budget ensures dedupe/merge can find all matching pairs.
       const windowEventsRaw =
         to < from
           ? []
@@ -803,7 +802,7 @@ export async function GET(request: Request) {
               destination: CITY.name,
               from: from.toISOString(),
               to: to.toISOString(),
-              limit: 200,
+              limit: 500,
             });
       // Exclude the hero itself so an event-kind hero never also renders as
       // a What's on card — mirrors the happening-side `h.id !== heroHappeningId`

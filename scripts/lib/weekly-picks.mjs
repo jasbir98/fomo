@@ -391,6 +391,7 @@ function whenLabelForHappening(h, occurrence) {
 
 function whenLabelForEvent(startsAt) {
   const d = new Date(startsAt);
+  if (isMidnightUtc(startsAt)) return dayNameFormatter.format(d);
   return `${dayNameFormatter.format(d)} ${formatClock(startsAt)}`;
 }
 
