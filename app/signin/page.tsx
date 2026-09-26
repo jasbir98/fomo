@@ -1,12 +1,20 @@
 "use client";
 
 import { Suspense, useEffect, useRef, useState } from "react";
+import Script from "next/script";
+import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import type { AuthError } from "@supabase/supabase-js";
 import { Button, FomoLogo, Input } from "@/components/ui";
 import { FomoPeek, SigninSkyline } from "@/components/onboarding/Characters";
 import { supabaseBrowserAuth } from "@/lib/supabase/client";
 import { safeNext } from "@/lib/auth/safe-next";
+import { generateNonce, sha256Hex } from "@/lib/auth/google-identity";
+
+// Set in .env.local / Vercel — see this file's Google sign-in block below.
+// Left unset, the Google button falls back to the existing
+// `signInWithOAuth` redirect flow unchanged (see `signInWithProvider`).
+const GOOGLE_CLIENT_ID = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
 
 // Supabase's raw AuthError messages are usually fine, but a few common OTP
 // failures read as backend jargon — friendlier copy for those, message text
@@ -84,11 +92,113 @@ function SigninContent() {
   const [cooldown, setCooldown] = useState(0);
   const cooldownTimer = useRef<ReturnType<typeof setInterval> | null>(null);
 
+  // Google Identity Services (GIS) sign-in — runs on our own origin (no
+  // "continue to <project>.supabase.co" account chooser). `gisLoaded` flips
+  // once the GSI script has executed; `gisFailed` covers both a script load
+  // error and the script loading but `window.google` never materializing
+  // (ad blockers commonly do the latter) — either way we fall back to the
+  // existing signInWithOAuth redirect button below.
+  const [gisLoaded, setGisLoaded] = useState(false);
+  const [gisFailed, setGisFailed] = useState(false);
+  const googleButtonRef = useRef<HTMLDivElement>(null);
+  // The raw nonce for the in-flight GIS attempt — stashed here so the
+  // credential callback (registered once, at `initialize` time) can read
+  // whatever nonce was actually handed to Google for that attempt.
+  const googleNonceRef = useRef<string | null>(null);
+  // `google.accounts.id.initialize`'s `callback` is registered once and
+  // never re-registered on re-render, so it closes over stale state if it
+  // reads component state directly. Route it through a ref that's kept
+  // current every render instead.
+  const handleGoogleCredentialRef = useRef<(token: string) => void>(() => {});
+
   useEffect(() => {
     return () => {
       if (cooldownTimer.current) clearInterval(cooldownTimer.current);
     };
   }, []);
+
+  // Kept current every render so the GIS callback (below) always sees the
+  // latest `nextParam` / setter identities without re-initializing GIS.
+  useEffect(() => {
+    handleGoogleCredentialRef.current = async (token: string) => {
+      const rawNonce = googleNonceRef.current;
+      if (!rawNonce) return;
+      setError(null);
+      setCallbackError(null);
+      setOauthLoading("google");
+      try {
+        const supabase = supabaseBrowserAuth();
+        const { error: idTokenError } = await supabase.auth.signInWithIdToken({
+          provider: "google",
+          token,
+          nonce: rawNonce,
+        });
+        if (idTokenError) {
+          setError(idTokenError.message);
+          setOauthLoading(null);
+          return;
+        }
+        // Same post-sign-in navigation as the OTP/OAuth paths — the
+        // `on_auth_user_created` DB trigger (supabase/add_auth_identity.sql)
+        // creates the `profiles` row server-side on first sign-in, same as
+        // for OAuth/OTP, so there's nothing else to replicate client-side.
+        window.location.assign(nextParam);
+      } catch (err) {
+        console.error("[signin] signInWithIdToken failed", err);
+        setError("Couldn't sign in with Google. Try again.");
+        setOauthLoading(null);
+      }
+    };
+  });
+
+  // Initializes GIS and renders Google's own button once the GSI script has
+  // loaded. Only runs when NEXT_PUBLIC_GOOGLE_CLIENT_ID is set — otherwise
+  // the hand-off-free OAuth redirect button below is the only Google option.
+  useEffect(() => {
+    if (!GOOGLE_CLIENT_ID || !gisLoaded) return;
+    const google = window.google;
+    if (!google?.accounts?.id) {
+      // Script tag loaded but the API never showed up — blocked by an
+      // extension, or Google's own outage. Fall back to the redirect button.
+      // Deferred a tick: setting state synchronously inside an effect body
+      // (rather than in response to an external event) risks cascading
+      // renders — see react-hooks/set-state-in-effect.
+      queueMicrotask(() => setGisFailed(true));
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      const rawNonce = generateNonce();
+      const hashedNonce = await sha256Hex(rawNonce);
+      if (cancelled) return;
+      googleNonceRef.current = rawNonce;
+      google.accounts.id.initialize({
+        client_id: GOOGLE_CLIENT_ID,
+        callback: (response) => {
+          void handleGoogleCredentialRef.current(response.credential);
+        },
+        nonce: hashedNonce,
+        use_fedcm_for_prompt: true,
+        ux_mode: "popup",
+        itp_support: true,
+      });
+      if (googleButtonRef.current) {
+        const width = Math.round(googleButtonRef.current.getBoundingClientRect().width) || 320;
+        google.accounts.id.renderButton(googleButtonRef.current, {
+          type: "standard",
+          theme: "outline",
+          size: "large",
+          text: "continue_with",
+          shape: "rectangular",
+          logo_alignment: "left",
+          width,
+        });
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [gisLoaded]);
 
   function startCooldown() {
     setCooldown(RESEND_COOLDOWN_SECONDS);
@@ -305,15 +415,48 @@ function SigninContent() {
         </div>
 
         <div className="flex flex-col gap-3">
-          <button
-            type="button"
-            onClick={() => signInWithProvider("google")}
-            disabled={oauthLoading !== null}
-            className="inline-flex h-12 w-full items-center justify-center gap-3 rounded-xl border border-[#dadce0] bg-white text-label-md font-medium text-[#1f1f1f] shadow-sm transition-all hover:bg-[#f8faff] hover:shadow active:bg-[#eef3fd] disabled:pointer-events-none disabled:opacity-40"
-          >
-            <GoogleLogo />
-            {oauthLoading === "google" ? "Redirecting…" : "Continue with Google"}
-          </button>
+          {GOOGLE_CLIENT_ID ? (
+            <>
+              <Script
+                src="https://accounts.google.com/gsi/client"
+                strategy="afterInteractive"
+                onLoad={() => setGisLoaded(true)}
+                onError={() => setGisFailed(true)}
+              />
+              {gisFailed ? (
+                <>
+                  <p className="text-center text-label-sm text-on-surface-variant">
+                    Google sign-in didn&rsquo;t load — continuing with redirect.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => signInWithProvider("google")}
+                    disabled={oauthLoading !== null}
+                    className="inline-flex h-12 w-full items-center justify-center gap-3 rounded-xl border border-[#dadce0] bg-white text-label-md font-medium text-[#1f1f1f] shadow-sm transition-all hover:bg-[#f8faff] hover:shadow active:bg-[#eef3fd] disabled:pointer-events-none disabled:opacity-40"
+                  >
+                    <GoogleLogo />
+                    {oauthLoading === "google" ? "Redirecting…" : "Continue with Google"}
+                  </button>
+                </>
+              ) : (
+                // Google's own official button, rendered by GIS into this
+                // container — not hand-drawn, per Google's brand guidelines.
+                // Height/visuals come entirely from renderButton's options
+                // above; the flex wrapper just centers it at full width.
+                <div ref={googleButtonRef} className="flex h-12 w-full items-center justify-center" />
+              )}
+            </>
+          ) : (
+            <button
+              type="button"
+              onClick={() => signInWithProvider("google")}
+              disabled={oauthLoading !== null}
+              className="inline-flex h-12 w-full items-center justify-center gap-3 rounded-xl border border-[#dadce0] bg-white text-label-md font-medium text-[#1f1f1f] shadow-sm transition-all hover:bg-[#f8faff] hover:shadow active:bg-[#eef3fd] disabled:pointer-events-none disabled:opacity-40"
+            >
+              <GoogleLogo />
+              {oauthLoading === "google" ? "Redirecting…" : "Continue with Google"}
+            </button>
+          )}
           <button
             type="button"
             onClick={() => signInWithProvider("apple")}
@@ -324,6 +467,18 @@ function SigninContent() {
             {oauthLoading === "apple" ? "Redirecting…" : "Continue with Apple"}
           </button>
         </div>
+
+        <p className="mt-2 text-center text-label-sm text-on-surface-variant">
+          By continuing you agree to our{" "}
+          <Link href="/terms" className="underline underline-offset-2">
+            Terms
+          </Link>{" "}
+          and{" "}
+          <Link href="/privacy" className="underline underline-offset-2">
+            Privacy Policy
+          </Link>
+          .
+        </p>
         </div>
       </main>
     </div>

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
+import Link from "next/link";
 import { Icon } from "@/components/ui";
 
 export interface SubscribeCardProps {
@@ -149,6 +150,10 @@ export function SubscribeCard({ source, className = "" }: SubscribeCardProps) {
           {errorMessage}
         </p>
       ) : null}
+
+      <Link href="/privacy" className="text-label-sm text-on-surface-variant underline underline-offset-2">
+        Privacy
+      </Link>
     </form>
   );
 }

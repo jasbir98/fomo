@@ -21,12 +21,15 @@ const isProductionDeploy = process.env.VERCEL_ENV === "production";
 const CSP_DIRECTIVES = [
   "default-src 'self'",
   // No nonce infra yet — Next emits inline bootstrap scripts, so
-  // 'unsafe-inline' stays here until that's built out.
-  "script-src 'self' 'unsafe-inline'",
+  // 'unsafe-inline' stays here until that's built out. Google Identity
+  // Services (GIS) sign-in (app/signin/page.tsx) loads its client script
+  // from accounts.google.com/gsi/client — see Google's GIS CSP guidance.
+  "script-src 'self' 'unsafe-inline' https://accounts.google.com/gsi/client",
   // Tailwind's compiled stylesheet is same-origin; 'unsafe-inline' covers the
   // many inline style={{...}} attributes throughout components (e.g.
   // ReelViewer's drag transforms) and Next's own inline <style> tags.
-  "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+  // accounts.google.com/gsi/style is GIS's own button stylesheet.
+  "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://accounts.google.com/gsi/style",
   // Place/event/experience photos and reel posters are hotlinked from
   // whatever CDN the source data points at (or proxied same-origin via
   // /api/media-proxy) — no fixed allowlist of image hosts is possible here.
@@ -38,11 +41,14 @@ const CSP_DIRECTIVES = [
   `manifest-src 'self'${isProductionDeploy ? "" : " https://vercel.com"}`,
   "font-src 'self' https://fonts.gstatic.com data:",
   // Supabase (DB + realtime), Mapbox (geocoding/directions + telemetry +
-  // tiles). DeepSeek/Anthropic calls happen server-side only (app/api/chat,
-  // app/api/translate) so they never need a browser connect-src entry.
-  "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.mapbox.com https://events.mapbox.com https://*.tiles.mapbox.com",
+  // tiles), GIS's own XHR/fetch calls (token/credential exchange happens
+  // against accounts.google.com/gsi/ from the button's iframe). DeepSeek/
+  // Anthropic calls happen server-side only (app/api/chat, app/api/translate)
+  // so they never need a browser connect-src entry.
+  "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.mapbox.com https://events.mapbox.com https://*.tiles.mapbox.com https://accounts.google.com/gsi/",
   // TikTok's player/v1 embed and Instagram's /embed iframe (VideoEmbed.tsx).
-  "frame-src https://www.tiktok.com https://www.instagram.com",
+  // accounts.google.com/gsi/ is GIS's own button/prompt iframe.
+  "frame-src https://www.tiktok.com https://www.instagram.com https://accounts.google.com/gsi/",
   // Mapbox GL workers are spun up from blob: URLs.
   "worker-src 'self' blob:",
   "child-src blob:",
@@ -62,6 +68,11 @@ const SECURITY_HEADERS = [
   { key: "X-Content-Type-Options", value: "nosniff" },
   { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
   { key: "X-Frame-Options", value: "DENY" },
+  // No Cross-Origin-Opener-Policy header is set anywhere in this app today.
+  // If one is ever added, it must be "same-origin-allow-popups" (not
+  // "same-origin") — GIS's `ux_mode: 'popup'` (app/signin/page.tsx) opens a
+  // same-origin-initiated popup that needs `window.postMessage` back to this
+  // page, which a stricter COOP value blocks.
   // Only what the app actually uses: geolocation (lib/geo.ts, Home's "near
   // me" sort) via the real Geolocation API. The translator's photo mode
   // (app/fomo/translator/page.tsx) uses <input type="file" capture> — the
