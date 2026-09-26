@@ -4,7 +4,17 @@ import { useState } from "react";
 import Link from "next/link";
 import { Icon, NavCard, SmartImage } from "@/components/ui";
 import { categoryDefaultImage } from "@/lib/happenings/category-style";
+import { PriceTag } from "@/components/happenings/PriceTag";
+import type { PriceLabel } from "@/lib/happenings/price-label";
 import type { FreeAnyTimeItem } from "@/lib/happenings/feed-types";
+
+/** Every row in this zone is free by construction (see the route's
+ *  `buildFreeAnyTime` — a `kind: "happening"` `recurrence: {type:"always"}`
+ *  catalog row, or a live `places` row with `price_level === 0`), so there's
+ *  no `is_free` field to read off `FreeAnyTimeItem` — this is the one fixed
+ *  price label every row shares, routed through the same `PriceTag` every
+ *  other card uses rather than a bespoke span. */
+const FREE_LABEL: PriceLabel = { text: "FREE", kind: "free" };
 
 export interface FreeAnyTimeListProps {
   items: FreeAnyTimeItem[];
@@ -58,9 +68,7 @@ export function FreeAnyTimeRow({ item }: { item: FreeAnyTimeItem }) {
       <div className="flex min-w-0 flex-1 flex-col justify-center">
         <div className="mb-0.5 flex items-center justify-between gap-1">
           <h5 className="truncate text-label-lg font-bold text-on-surface">{item.name}</h5>
-          <span className="shrink-0 rounded-full bg-surface-container px-2 py-0.5 text-[10px] font-extrabold text-secondary">
-            Free
-          </span>
+          <PriceTag label={FREE_LABEL} variant="compact" />
         </div>
         {item.description ? (
           <p className="line-clamp-1 text-label-sm text-on-surface-variant">{item.description}</p>

@@ -447,6 +447,18 @@ export default function ProfilePage() {
                 </span>
                 <Icon name="chevron_right" className="text-on-surface-variant" />
               </button>
+              <a
+                href="/tip"
+                className="flex w-full items-center justify-between p-4 text-left"
+              >
+                <span className="flex items-center gap-4">
+                  <span className="flex h-10 w-10 items-center justify-center rounded-full bg-primary-container/10 text-primary">
+                    <Icon name="lightbulb" />
+                  </span>
+                  <span className="text-body-lg text-primary">Tip us off</span>
+                </span>
+                <Icon name="chevron_right" className="text-on-surface-variant" />
+              </a>
               <button
                 type="button"
                 onClick={() => setResetOpen(true)}

@@ -55,6 +55,7 @@ from happenings_research import (  # noqa: E402
 )
 from llm_client import RESEARCH_CALL_KWARGS, default_research_model, make_research_client  # noqa: E402
 from upsert_happenings import upsert_happenings  # noqa: E402
+from identity import Catalogue, reconcile  # noqa: E402
 
 USER_AGENT = "FomoWeeklyEdinburgh/1.0 (+https://fomo.app; polite publisher-data refresh)"
 WEEKLY_CAP_USD = 3.00
@@ -507,7 +508,7 @@ class CostLedger:
         return cost
 
 
-def topic_system_prompt(topic: Topic) -> str:
+def topic_system_prompt(topic: Topic, known_lines: list[str] | None = None) -> str:
     # The existing submit schema and strict record validation remain the single
     # source of truth.  This narrower instruction is what avoids one category
     # consuming the entire research budget.
@@ -520,10 +521,23 @@ For every populated factual field, set field_sources to the page that supports i
 Never emit an expired one-off. Source URL must state the terms; booking URL may be different.
 An offer or night valid only on certain weekdays is recurrence type "weekly" with those days; put its hours in time_note.
 If the page limits an offer to a month, season or end date, set that last valid date as recurrence.until (weekly) or ends_at (any other type).
+""" + known_items_block(known_lines)
+
+
+def known_items_block(known_lines: list[str] | None) -> str:
+    """Tell the topic agent what Fomo already lists, so the budget goes on
+    finding new things instead of rediscovering these (plan §2c)."""
+    if not known_lines:
+        return ""
+    listed = "\n".join(f"- {line}" for line in known_lines)
+    return f"""
+Fomo already lists these (title | date | venue). Do NOT return them again unless a fact has changed
+(price, date, promo code, sold out); if so, return it with the same title and the new fact.
+{listed}
 """
 
 
-def research_topic(topic: Topic, batch_id: str, model: str) -> tuple[Topic, list[dict[str, Any]], Usage, str | None]:
+def research_topic(topic: Topic, batch_id: str, model: str, known_lines: list[str] | None = None) -> tuple[Topic, list[dict[str, Any]], Usage, str | None]:
     """Two-phase DeepSeek/Anthropic call for one narrow topic, with usage kept.
 
     The client calls are intentionally independent so they can run in parallel
@@ -536,7 +550,7 @@ def research_topic(topic: Topic, batch_id: str, model: str) -> tuple[Topic, list
         with client.messages.stream(
             model=model,
             max_tokens=RESEARCH_MAX_TOKENS,
-            system=topic_system_prompt(topic),
+            system=topic_system_prompt(topic, known_lines),
             tools=[web_search_tool_for_model(model, 5)],
             messages=messages,
             **RESEARCH_CALL_KWARGS,
@@ -549,7 +563,7 @@ def research_topic(topic: Topic, batch_id: str, model: str) -> tuple[Topic, list
         with client.messages.stream(
             model=model,
             max_tokens=SUBMIT_MAX_TOKENS,
-            system=topic_system_prompt(topic),
+            system=topic_system_prompt(topic, known_lines),
             tools=[{"name": "submit_happenings", "description": "Submit verified topic findings.", "input_schema": {"type": "object", "properties": {"happenings": {"type": "array", "items": HAPPENING_SCHEMA}}, "required": ["happenings"]}}],
             tool_choice={"type": "tool", "name": "submit_happenings"},
             messages=messages,
@@ -963,6 +977,10 @@ def make_report(batch_id: str, report: dict[str, Any], report_path: Path) -> Non
     lines += [f"- {title}" for title in report.get("dropped_expired", [])] or ["- None"]
     lines += ["", "## Dropped — low-value/generic (not staged, not review items)", ""]
     lines += [f"- {title}" for title in report.get("dropped_low_value", [])] or ["- None"]
+    lines += ["", "## Identity — already on Fomo", "", "Refreshing an existing row (slug reused):", ""]
+    lines += [f"- {title}" for title in report.get("refreshed_known", [])] or ["- None"]
+    lines += ["", "Dropped — already in a provider feed:", ""]
+    lines += [f"- {note}" for note in report.get("dropped_known_provider_event", [])] or ["- None"]
     lines += ["", "## Review required", ""]
     for item in review:
         lines.append(f"- **{item['title']}** — {item['reason']}")
@@ -1046,6 +1064,46 @@ def supabase_connection() -> tuple[str, str] | None:
     url = (os.environ.get("SUPABASE_URL") or os.environ.get("NEXT_PUBLIC_SUPABASE_URL") or "").rstrip("/")
     key = (os.environ.get("SUPABASE_SERVICE_ROLE_KEY") or "").strip()
     return (url, key) if url and key else None
+
+
+def _rest_all(url: str, key: str, table: str, params: dict[str, str]) -> list[dict[str, Any]]:
+    """Every row of a PostgREST query, paged past the 1000-row server cap."""
+    rows: list[dict[str, Any]] = []
+    page = 1000
+    while True:
+        response = requests.get(
+            f"{url}/rest/v1/{table}",
+            headers={"apikey": key, "Authorization": f"Bearer {key}", "Range": f"{len(rows)}-{len(rows) + page - 1}"},
+            params=params,
+            timeout=30,
+        )
+        response.raise_for_status()
+        batch = response.json()
+        rows.extend(batch)
+        if len(batch) < page:
+            return rows
+
+
+def load_catalogue() -> tuple[Catalogue | None, str | None]:
+    """Live + dormant happenings and upcoming provider events, for identity
+    matching (scraper/identity.py). Failure is reported, never fatal: the run
+    then behaves as before, with only within-run dedupe."""
+    connection = supabase_connection()
+    if not connection:
+        return None, "identity matching skipped: Supabase credentials are unavailable"
+    url, key = connection
+    try:
+        happenings = _rest_all(url, key, "happenings", {
+            "status": "in.(live,dormant)",
+            "select": "id,slug,title,kind,status,starts_at,recurrence,venue_name,place_id,saving_label,source_url",
+        })
+        events = _rest_all(url, key, "events", {
+            "starts_at": f"gte.{datetime.now(timezone.utc).date().isoformat()}",
+            "select": "id,name,starts_at,venue_name,ticket_url",
+        })
+        return Catalogue(happenings, events), None
+    except requests.RequestException as exc:
+        return None, f"identity matching skipped: {exc.__class__.__name__}"
 
 
 def overdue_live_rows() -> tuple[list[dict[str, Any]], str | None]:
@@ -1167,6 +1225,10 @@ def main() -> None:
                 continue
             candidates.extend(direct_records(source, html or "", final_url or source.url, args.batch_id, now))
 
+    catalogue, catalogue_note = load_catalogue()
+    if catalogue_note:
+        lifecycle_notes.append(catalogue_note)
+
     ledger = CostLedger(args.cap_usd, args.input_usd_per_million, args.output_usd_per_million, args.search_usd)
     research_records = 0
     topic_failures: list[dict[str, str]] = []
@@ -1192,7 +1254,8 @@ def main() -> None:
                         topic_failures.append({"topic": topic.name, "reason": "not started: remaining budget is below the reserved topic ceiling"})
                         exhausted = True
                         break
-                    future = pool.submit(research_topic, topic, args.batch_id, default_research_model())
+                    known_lines = catalogue.known_lines(topic.name, topic.seeds, deals=topic.mode == "offers") if catalogue else None
+                    future = pool.submit(research_topic, topic, args.batch_id, default_research_model(), known_lines)
                     pending[future] = (topic, args.topic_reserve_usd)
                 if not pending:
                     break
@@ -1229,6 +1292,14 @@ def main() -> None:
             kept.append(record)
     merged = kept
 
+    # Cross-run identity: known items reuse their slug (so promotion refreshes
+    # the existing row), provider-feed duplicates are dropped, and dormant or
+    # borderline matches are forced to review (scraper/identity.py).
+    dropped_known: list[str] = []
+    identity_review: list[str] = []
+    if catalogue:
+        merged, dropped_known, identity_review = reconcile(merged, catalogue)
+
     verified: list[dict[str, Any]] = []
     staging_records: list[dict[str, Any]] = []
     review_staging_slugs: list[str] = []
@@ -1237,6 +1308,8 @@ def main() -> None:
     retired_live: list[str] = []
     with concurrent.futures.ThreadPoolExecutor(max_workers=8) as pool:
         for record, reasons in pool.map(verify_record, merged):
+            if record.get("_force_review"):
+                reasons = [*reasons, str(record["_force_review"])]
             if reasons:
                 review.append({"slug": record["slug"], "title": record["title"], "reason": "; ".join(reasons)})
                 record["extraction_status"] = "pending"
@@ -1303,6 +1376,9 @@ def main() -> None:
         "verified": [{"slug": r["slug"], "title": r["title"]} for r in verified],
         "dropped_expired": dropped_expired,
         "dropped_low_value": dropped_low_value,
+        "dropped_known_provider_event": dropped_known,
+        "identity_review": identity_review,
+        "refreshed_known": [str(r.get("title")) for r in merged if r.get("_known_happening_id")],
         "review": review,
         "review_staging_slugs": review_staging_slugs,
         "source_failures": source_failures + [{"source": f"DeepSeek: {row['topic']}", "reason": row["reason"]} for row in topic_failures] + [{"source": "pipeline", "reason": note} for note in lifecycle_notes],

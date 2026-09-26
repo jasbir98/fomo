@@ -3,7 +3,8 @@
 import { useState } from "react";
 import { Icon, NavCard, SmartImage } from "@/components/ui";
 import { WHO_GROUP_LABEL, type DealWhoGroup } from "@/lib/happenings/groups";
-import { savingBadgeLabel } from "@/lib/happenings/format";
+import { priceLabelForHappening, type PriceLabel } from "@/lib/happenings/price-label";
+import { PriceTag } from "@/components/happenings/PriceTag";
 import type { DealCardData } from "@/lib/happenings/feed-types";
 
 export interface VenueDealCardProps {
@@ -16,15 +17,15 @@ export interface VenueDealCardProps {
 }
 
 /**
- * The best short saving to show as the card's badge — the offer with the
+ * The best short saving to show as the card's price tag — the offer with the
  * largest `saving_amount`, falling back to the first offer when none carry a
- * numeric amount. Goes through `savingBadgeLabel` (same short-badge deriver
- * every other card uses) rather than the raw `saving_label` sentence — that
- * field is often a full clause ("One free child ticket with each full-paying
- * adult") that would blow out this card's fixed-width pill exactly like
- * FeedListCard's own doc comment warns against.
+ * numeric amount. Goes through `priceLabelForHappening` (the one shared price
+ * label every card uses, PM decision 2026-09-26) rather than the raw
+ * `saving_label` sentence — that field is often a full clause ("One free
+ * child ticket with each full-paying adult") that would blow out this card's
+ * fixed-width pill exactly like FeedListCard's own doc comment warns against.
  */
-function bestSaving(offers: DealCardData[]): string | null {
+function bestSaving(offers: DealCardData[]): PriceLabel | null {
   if (offers.length === 0) return null;
   const withAmount = offers.filter((o) => o.happening.saving_amount != null);
   const pick =
@@ -33,7 +34,7 @@ function bestSaving(offers: DealCardData[]): string | null {
           (o.happening.saving_amount ?? 0) > (best.happening.saving_amount ?? 0) ? o : best
         )
       : offers[0];
-  return savingBadgeLabel(pick.happening);
+  return priceLabelForHappening(pick.happening);
 }
 
 /**
@@ -45,7 +46,7 @@ function bestSaving(offers: DealCardData[]): string | null {
 export function VenueDealCard({ placeId, placeName, placeImageUrl, district, offers }: VenueDealCardProps) {
   const [imgError, setImgError] = useState(false);
   const showImage = placeImageUrl && !imgError;
-  const badge = bestSaving(offers);
+  const priceLabel = bestSaving(offers);
   const whoLabels = Array.from(
     new Set(offers.map((o) => o.who).filter((w): w is DealWhoGroup => w != null))
   ).map((w) => WHO_GROUP_LABEL[w]);
@@ -75,11 +76,7 @@ export function VenueDealCard({ placeId, placeName, placeImageUrl, district, off
       <div className="flex min-w-0 flex-1 flex-col justify-center gap-0.5">
         <div className="flex items-center justify-between gap-1">
           <h5 className="truncate text-label-lg font-bold text-on-surface">{placeName}</h5>
-          {badge ? (
-            <span className="shrink-0 rounded-full bg-surface-container px-2 py-0.5 text-[10px] font-extrabold text-primary">
-              {badge}
-            </span>
-          ) : null}
+          <PriceTag label={priceLabel} variant="compact" />
         </div>
         <span className="text-label-sm text-on-surface-variant">
           {offers.length} offer{offers.length === 1 ? "" : "s"}

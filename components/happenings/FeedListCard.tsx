@@ -1,16 +1,18 @@
 "use client";
 
 import { Icon, NavCard, SaveButton, SmartImage } from "@/components/ui";
-import { formatEventDate, formatEventPrice, formatEventTimeSpan } from "@/lib/events/format";
+import { formatEventDate, formatEventTimeSpan } from "@/lib/events/format";
 import {
   ELIGIBILITY_ICON,
+  checkedLabel,
   eligibilityLine,
   happeningTimeLabel,
   happeningTypeTag,
   oneLinerSummary,
-  savingBadgeLabel,
 } from "@/lib/happenings/format";
 import { categoryDefaultImage, categoryStyle, kindStyle } from "@/lib/happenings/category-style";
+import { priceLabelForEvent, priceLabelForHappening } from "@/lib/happenings/price-label";
+import { PriceTag } from "@/components/happenings/PriceTag";
 import type { FeedCardData, SeriesCardData } from "@/lib/happenings/feed-types";
 import type { Happening, HappeningKind, Occurrence } from "@/lib/happenings/types";
 import type { EventItem } from "@/lib/types";
@@ -86,7 +88,7 @@ function HappeningRow({ happening, occurrence }: { happening: Happening; occurre
   const tag = happeningTypeTag(happening, occurrence.exact);
   const time = happeningTimeLabel(occurrence);
   const venue = happening.venue_name ?? happening.district;
-  const badge = savingBadgeLabel(happening);
+  const priceLabel = priceLabelForHappening(happening);
   const eligibility = eligibilityLine(happening);
   const { who } = useDealProfile();
   const whoGroup = whoGroupForEligibility(happening.eligibility);
@@ -96,12 +98,14 @@ function HappeningRow({ happening, occurrence }: { happening: Happening; occurre
   const thumbnail = happening.image_url ?? categoryDefaultImage(happening.category);
 
   // CARD DENSITY: this row shows ONLY a compact meta chip row (kind/time/
-  // venue), the title, one derived one-liner, the price badge and (at most)
-  // one eligibility badge. The full saving_label sentence, the full summary,
-  // the eligibility_note/allowance_note sentence, and the source/"Checked
-  // Nd ago" line all used to render here too — they still render in full on
-  // the happening's own /happening/[id] page, just never duplicated outside
-  // the card (see the Home card-density pass).
+  // venue), the title, one derived one-liner, the price badge, (at most) one
+  // eligibility badge, and — PM decision 2026-09-26 (freshness badge) — a
+  // single subtle "Checked Nd ago" line. The full saving_label sentence, the
+  // full summary and the eligibility_note/allowance_note sentence still
+  // render in full only on the happening's own /happening/[id] page, never
+  // duplicated outside the card (see the Home card-density pass); "Checked
+  // Nd ago" is the one exception, restored here in as small a footprint as
+  // possible (a bare timestamp line, not the full source_name too).
   return (
     <CardShell href={`/happening/${happening.id}`}>
       <div className="flex items-start justify-between gap-3">
@@ -116,11 +120,7 @@ function HappeningRow({ happening, occurrence }: { happening: Happening; occurre
           </div>
           <h4 className="line-clamp-2 text-headline-sm font-bold leading-snug text-on-surface">{happening.title}</h4>
         </div>
-        {badge ? (
-          <span className="shrink-0 whitespace-nowrap rounded-full border border-hairline-strong bg-surface-container px-2.5 py-1 text-label-md font-extrabold text-primary shadow-xs">
-            {badge}
-          </span>
-        ) : null}
+        <PriceTag label={priceLabel} />
       </div>
 
       {oneLiner ? (
@@ -143,6 +143,8 @@ function HappeningRow({ happening, occurrence }: { happening: Happening; occurre
         )}
         <SaveButton subjectType="happening" subjectId={happening.id} className="-my-2 -mr-2" />
       </div>
+
+      <span className="text-[10px] text-on-surface-variant/70">{checkedLabel(happening.verified_at)}</span>
     </CardShell>
   );
 }
@@ -162,6 +164,10 @@ function SeriesRow({ card }: { card: SeriesCardData }) {
   const time = happeningTimeLabel(occurrence);
   const thumbnail = lead.image_url ?? categoryDefaultImage(lead.category);
   const oneLiner = oneLinerSummary(lead.summary);
+  // The lead's own price stands in for the whole series (a "Parkrun ·
+  // 3 locations" card has one price story, not three — same reason it
+  // already borrows the lead's image/category/eligibility).
+  const priceLabel = priceLabelForHappening(lead);
 
   return (
     <CardShell href={`/happening/${lead.id}`}>
@@ -177,6 +183,7 @@ function SeriesRow({ card }: { card: SeriesCardData }) {
           </div>
           <h4 className="line-clamp-2 text-headline-sm font-bold leading-snug text-on-surface">{card.title}</h4>
         </div>
+        <PriceTag label={priceLabel} />
       </div>
 
       <div className="flex items-center justify-between gap-2">
@@ -187,12 +194,14 @@ function SeriesRow({ card }: { card: SeriesCardData }) {
         )}
         <SaveButton subjectType="happening" subjectId={lead.id} className="-my-2 -mr-2" />
       </div>
+
+      <span className="text-[10px] text-on-surface-variant/70">{checkedLabel(lead.verified_at)}</span>
     </CardShell>
   );
 }
 
 function FestivalRow({ happening }: { happening: Happening }) {
-  const badge = savingBadgeLabel(happening);
+  const priceLabel = priceLabelForHappening(happening);
   const ctaHref = happening.booking_url ?? happening.source_url;
   const ctaLabel = happening.cta_label ?? "View Details";
   let sourceHost = happening.source_url;
@@ -233,11 +242,7 @@ function FestivalRow({ happening }: { happening: Happening }) {
           </div>
           <h4 className="pt-1 text-headline-md font-extrabold leading-tight text-on-surface">{happening.title}</h4>
         </div>
-        {badge ? (
-          <span className="shrink-0 rounded-full border border-on-primary/20 bg-primary-container px-3 py-1 text-label-md font-extrabold text-on-primary-container shadow-xs">
-            {badge}
-          </span>
-        ) : null}
+        <PriceTag label={priceLabel} variant="banner" />
       </div>
 
       {oneLinerSummary(happening.summary) ? (
@@ -246,14 +251,19 @@ function FestivalRow({ happening }: { happening: Happening }) {
         </p>
       ) : null}
 
-      {/* Source domain + an icon-only verified mark — the full "Checked Nd
-          ago" text moved to the detail page's Provenance section. */}
+      {/* Source domain + verified mark — PM decision 2026-09-26 (freshness
+          badge) restored a subtle "Checked Nd ago" alongside the icon,
+          which used to be icon-only with the full text left to the detail
+          page's Provenance section. */}
       <div className="flex items-center justify-between rounded-lg bg-surface-container p-2.5">
         <div className="flex min-w-0 items-center gap-2">
           <Icon name="public" size={17} className="text-accent" />
           <span className="truncate text-label-md font-bold text-on-surface">{sourceHost}</span>
         </div>
-        <Icon name="verified" size={16} className="shrink-0 text-secondary" />
+        <div className="flex shrink-0 items-center gap-1 text-[10px] text-on-surface-variant/70">
+          <Icon name="verified" size={16} className="text-secondary" />
+          {checkedLabel(happening.verified_at)}
+        </div>
       </div>
 
       <a
@@ -274,7 +284,7 @@ function FestivalRow({ happening }: { happening: Happening }) {
 function EventRow({ event }: { event: EventItem }) {
   const eventDate = formatEventDate(event.starts_at);
   const eventTime = formatEventTimeSpan(event.starts_at, event.ends_at);
-  const price = formatEventPrice(event);
+  const priceLabel = priceLabelForEvent(event);
   // EventItem (Skiddle/Ticketmaster) has no HappeningCategory-shaped column —
   // its own `category` is a free-text provider string, not our enum — so the
   // fallback default image just uses the neutral "other" category tile
@@ -298,11 +308,7 @@ function EventRow({ event }: { event: EventItem }) {
           </div>
           <h4 className="line-clamp-2 text-headline-sm font-bold leading-snug text-on-surface">{event.name}</h4>
         </div>
-        {price ? (
-          <span className="shrink-0 rounded-full border border-hairline-strong bg-surface-container px-2.5 py-1 text-label-md font-extrabold text-primary shadow-xs">
-            {price}
-          </span>
-        ) : null}
+        <PriceTag label={priceLabel} />
       </div>
 
       {oneLinerSummary(event.description) ? (

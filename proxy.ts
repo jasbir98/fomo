@@ -88,6 +88,10 @@ const PUBLIC_API_PREFIXES = [
   "/api/weather",
   "/api/now",
   "/api/media-proxy",
+  // GET half of the Fomo Friday one-click unsubscribe link — the page
+  // itself (app/unsubscribe/page.tsx) calls this on mount with no session.
+  // The POST half (RFC 8058 one-click) is in PUBLIC_POST_PREFIXES below.
+  "/api/unsubscribe",
 ];
 const PUBLIC_PLACE_OFFERS = /^\/api\/places\/[^/]+\/offers$/;
 
@@ -97,9 +101,12 @@ const PUBLIC_PLACE_OFFERS = /^\/api\/places\/[^/]+\/offers$/;
  * (read-only catalogue reads), and widening its method check would silently
  * open every route in it to unauthenticated writes. Only /api/subscribe
  * (email capture for the "Fomo Friday" digest, app/api/subscribe/route.ts)
- * needs this — it has no session to gate on at all.
+ * /api/tips (community-sourced deal/event tips, app/api/tips/route.ts), and
+ * /api/unsubscribe (RFC 8058 one-click unsubscribe — the mail client itself
+ * POSTs this, with no session and no page load; see app/api/unsubscribe/
+ * route.ts) need this — none of them have a session to gate on at all.
  */
-const PUBLIC_POST_PREFIXES = ["/api/subscribe"];
+const PUBLIC_POST_PREFIXES = ["/api/subscribe", "/api/tips", "/api/unsubscribe"];
 
 function isPublicApi(request: NextRequest): boolean {
   const { pathname } = request.nextUrl;

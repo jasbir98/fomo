@@ -4,6 +4,7 @@ import { Suspense, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { FeedCardData, FeedResponse, FeedWindow } from "@/lib/happenings/feed-types";
 import { weekendDates } from "@/lib/happenings/format";
+import { isFreeCard } from "@/lib/happenings/price-label";
 import { distinctCategoryFacets, matchesCategoryFilter, type CategoryFacetKey } from "@/lib/happenings/whats-on-filters";
 import { useCachedJson } from "@/lib/http/clientCache";
 import { useProgressiveReveal } from "@/lib/useProgressiveReveal";
@@ -71,6 +72,19 @@ function WhatsOnPageInner() {
   const [feedWindow, setFeedWindowState] = useState<Exclude<FeedWindow, "book_early">>(initialWindow);
   const [dateFilter, setDateFilter] = useState<string>("all");
   const [categoryFilter, setCategoryFilter] = useState<CategoryFacetKey | null>(null);
+  // Freshness badge / price label task (PM decision 2026-09-26): a "Free
+  // only" toggle, state kept in the URL (`?free=1`, alongside the existing
+  // `?window=`) so an IG link like askfomo.com/whats-on?free=1 lands
+  // pre-filtered — same URL-as-state principle as `feedWindow` above.
+  const [freeOnly, setFreeOnlyState] = useState(searchParams.get("free") === "1");
+
+  function setFreeOnly(next: boolean) {
+    setFreeOnlyState(next);
+    const params = new URLSearchParams(searchParams.toString());
+    if (next) params.set("free", "1");
+    else params.delete("free");
+    router.replace(`/whats-on?${params.toString()}`, { scroll: false });
+  }
 
   // Cached (and shared with Home, see fetchFeed's doc comment) per window —
   // `error` only means "nothing cached for this window and the last attempt
@@ -89,7 +103,9 @@ function WhatsOnPageInner() {
     setFeedWindowState(next);
     setDateFilter("all");
     setCategoryFilter(null);
-    router.replace(`/whats-on?window=${next}`, { scroll: false });
+    const params = new URLSearchParams({ window: next });
+    if (freeOnly) params.set("free", "1");
+    router.replace(`/whats-on?${params.toString()}`, { scroll: false });
   }
 
   const dates = useMemo(() => {
@@ -116,8 +132,11 @@ function WhatsOnPageInner() {
   const categoryOptions = useMemo(() => distinctCategoryFacets(dateFilteredCards), [dateFilteredCards]);
 
   const visibleCards = useMemo(
-    () => dateFilteredCards.filter((c) => matchesCategoryFilter(c, categoryFilter)),
-    [dateFilteredCards, categoryFilter]
+    () =>
+      dateFilteredCards.filter(
+        (c) => matchesCategoryFilter(c, categoryFilter) && (!freeOnly || isFreeCard(c))
+      ),
+    [dateFilteredCards, categoryFilter, freeOnly]
   );
 
   // Renders in chunks of 20 rather than mounting the whole (potentially
@@ -131,9 +150,9 @@ function WhatsOnPageInner() {
 
   function emptyMessage(): string {
     if (cards && cards.length > 0 && visibleCards.length === 0) {
-      return dateFilter !== "all" && dateFilteredCards.length === 0
-        ? "Nothing on that day — try another date."
-        : "Nothing matches — try a different filter.";
+      if (dateFilter !== "all" && dateFilteredCards.length === 0) return "Nothing on that day — try another date.";
+      if (freeOnly) return "Nothing free matches — turn off Free only.";
+      return "Nothing matches — try a different filter.";
     }
     return feedWindow === "now"
       ? "Nothing lined up for today & tomorrow yet — try Coming up."
@@ -153,20 +172,28 @@ function WhatsOnPageInner() {
               <DateFilterRow dates={dates} selected={dateFilter} onSelect={setDateFilter} />
             ) : null}
 
-            {categoryOptions.length > 1 ? (
-              <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1 [&::-webkit-scrollbar]:hidden">
-                <Chip label="All" selected={categoryFilter === null} onClick={() => setCategoryFilter(null)} />
-                {categoryOptions.map((facet) => (
-                  <Chip
-                    key={facet.key}
-                    label={facet.label}
-                    leadingIcon={facet.icon}
-                    selected={categoryFilter === facet.key}
-                    onClick={() => setCategoryFilter(facet.key)}
-                  />
-                ))}
-              </div>
-            ) : null}
+            <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1 [&::-webkit-scrollbar]:hidden">
+              <Chip
+                label="Free only"
+                leadingIcon="check_circle"
+                selected={freeOnly}
+                onClick={() => setFreeOnly(!freeOnly)}
+              />
+              {categoryOptions.length > 1 ? (
+                <>
+                  <Chip label="All" selected={categoryFilter === null} onClick={() => setCategoryFilter(null)} />
+                  {categoryOptions.map((facet) => (
+                    <Chip
+                      key={facet.key}
+                      label={facet.label}
+                      leadingIcon={facet.icon}
+                      selected={categoryFilter === facet.key}
+                      onClick={() => setCategoryFilter(facet.key)}
+                    />
+                  ))}
+                </>
+              ) : null}
+            </div>
           </div>
         </StickyFilterBar>
 

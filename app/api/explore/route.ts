@@ -266,7 +266,11 @@ export async function GET(request: Request) {
           lng: coords.lng,
           image: h.image_url,
           category: categoryStyle(h.category).label,
-          badge: savingBadgeLabel(h) ?? "Deal",
+          // No "?? 'Deal'" guess fallback (PM decision 2026-09-26, price
+          // label consistency pass): an unrecognized saving shape now shows
+          // no badge at all rather than a made-up generic one — same "never
+          // guess" rule the new priceLabelFor* helpers follow.
+          badge: savingBadgeLabel(h),
           href: `/happening/${h.id}`,
           starts_at: startsAt,
         });

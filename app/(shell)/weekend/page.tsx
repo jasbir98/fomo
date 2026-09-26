@@ -1,12 +1,14 @@
 "use client";
 
-import { useMemo, useRef } from "react";
+import { Suspense, useMemo, useRef, useState } from "react";
 import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
 import type { FeedCardData, FeedResponse, FeedWindow } from "@/lib/happenings/feed-types";
 import { weekendDates } from "@/lib/happenings/format";
+import { isFreeCard } from "@/lib/happenings/price-label";
 import { useCachedJson } from "@/lib/http/clientCache";
 import { useProgressiveReveal } from "@/lib/useProgressiveReveal";
-import { ErrorState, Icon, PageHeader, ShareButton } from "@/components/ui";
+import { Chip, ErrorState, Icon, PageHeader, ShareButton, StickyFilterBar } from "@/components/ui";
 import { FeedListCard, SubscribeCard } from "@/components/happenings";
 import { FomoSpot } from "@/components/fomo/FomoSpot";
 import { cardOnDay } from "@/components/happenings/DateFilterRow";
@@ -35,14 +37,29 @@ async function fetchFeed(window: Exclude<FeedWindow, "book_early">, signal?: Abo
  * both under the same `feed:${window}` cache keys Home and What's on use,
  * merges, dedupes and keeps cards on this Saturday or Sunday.
  */
-export default function WeekendPage() {
+function WeekendPageInner() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const now = useCachedJson<FeedResponse>("feed:now", (s) => fetchFeed("now", s), { staleMs: FEED_STALE_MS });
   const later = useCachedJson<FeedResponse>("feed:coming_up", (s) => fetchFeed("coming_up", s), {
     staleMs: FEED_STALE_MS,
   });
   const { saturday, sunday } = weekendDates();
 
-  const cards = useMemo(() => {
+  // Freshness badge / price label task (PM decision 2026-09-26): a "Free
+  // only" toggle, state kept in the URL (`?free=1`) so an IG link like
+  // askfomo.com/weekend?free=1 lands pre-filtered.
+  const [freeOnly, setFreeOnlyState] = useState(searchParams.get("free") === "1");
+
+  function setFreeOnly(next: boolean) {
+    setFreeOnlyState(next);
+    const params = new URLSearchParams(searchParams.toString());
+    if (next) params.set("free", "1");
+    else params.delete("free");
+    router.replace(`/weekend${params.toString() ? `?${params.toString()}` : ""}`, { scroll: false });
+  }
+
+  const allCards = useMemo(() => {
     if (!now.data || !later.data) return null;
     const seen = new Set<string>();
     const out: FeedCardData[] = [];
@@ -54,6 +71,11 @@ export default function WeekendPage() {
     }
     return out;
   }, [now.data, later.data, saturday, sunday]);
+
+  const cards = useMemo(() => {
+    if (!allCards) return null;
+    return freeOnly ? allCards.filter(isFreeCard) : allCards;
+  }, [allCards, freeOnly]);
 
   const dealCount = later.data?.deals ? countDeals(later.data.deals) : null;
   const error = (now.error != null && !now.data) || (later.error != null && !later.data);
@@ -94,6 +116,17 @@ export default function WeekendPage() {
           ) : null}
         </div>
 
+        <StickyFilterBar className="-mx-4 px-4">
+          <div className="flex justify-end">
+            <Chip
+              label="Free only"
+              leadingIcon="check_circle"
+              selected={freeOnly}
+              onClick={() => setFreeOnly(!freeOnly)}
+            />
+          </div>
+        </StickyFilterBar>
+
         {error ? (
           <ErrorState
             title="Couldn't load this weekend"
@@ -112,7 +145,11 @@ export default function WeekendPage() {
         ) : cards.length === 0 ? (
           <div className="flex flex-col items-center gap-2 rounded-2xl border border-dashed border-hairline-strong p-8 text-center">
             <FomoSpot mood="meh" pose="shrug" className="h-20 w-20" />
-            <p className="text-body-md text-on-surface-variant">Nothing lined up for this weekend yet — check back soon.</p>
+            <p className="text-body-md text-on-surface-variant">
+              {freeOnly
+                ? "Nothing free matches — turn off Free only."
+                : "Nothing lined up for this weekend yet — check back soon."}
+            </p>
           </div>
         ) : (
           <div className="flex flex-col gap-3 pt-1">
@@ -126,6 +163,14 @@ export default function WeekendPage() {
         <SubscribeCard source="weekend" />
       </div>
     </div>
+  );
+}
+
+export default function WeekendPage() {
+  return (
+    <Suspense fallback={null}>
+      <WeekendPageInner />
+    </Suspense>
   );
 }
 

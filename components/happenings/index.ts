@@ -4,6 +4,8 @@ export { FeedHero } from "./FeedHero";
 export type { FeedHeroProps } from "./FeedHero";
 export { FeedListCard } from "./FeedListCard";
 export type { FeedListCardProps } from "./FeedListCard";
+export { PriceTag } from "./PriceTag";
+export type { PriceTagProps } from "./PriceTag";
 export { DateFilterRow, cardDayDate, dayPillParts } from "./DateFilterRow";
 export type { DateFilterRowProps } from "./DateFilterRow";
 export { FreeAnyTimeList, FreeAnyTimeRow } from "./FreeAnyTimeList";

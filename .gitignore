@@ -50,6 +50,10 @@ next-env.d.ts
 /scraper/.venv/
 /scraper/.pw-profile/
 
+# scripts run output — regenerable content-loop artifacts (rendered digest
+# HTML/text, IG carousel PNGs), not app source.
+/scripts/out/
+
 # scraper run output — regenerable pipeline results, not app source.
 # scraper/data (inputs + progress files), scraper/countries and
 # scraper/happenings (Python packages) stay tracked.

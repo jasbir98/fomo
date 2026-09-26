@@ -5,7 +5,7 @@ import Link from "next/link";
 import { cityBadge, SUPPORTED_CITIES } from "@/lib/city";
 import { supabaseBrowserAuth } from "@/lib/supabase/client";
 import { refreshGeolocation, useGeolocation } from "@/lib/geo";
-import { useSignedIn } from "@/lib/useSaved";
+import { useSaved } from "@/lib/useSaved";
 import { chooseCity, dismissCityPrompt, useSelectedCity } from "@/lib/useSelectedCity";
 import { rememberUserLocation, forgetUserLocation } from "@/lib/now/location";
 import { prefetchJson, useCachedJson } from "@/lib/http/clientCache";
@@ -18,6 +18,8 @@ import { CityPicker, ErrorState, FomoLogo, Icon, SegmentedControl } from "@/comp
 import { FomoCard } from "@/components/fomo/Card";
 import { FomoSpot } from "@/components/fomo/FomoSpot";
 import { FeedHero, FeedListCard, FreeAnyTimeList, BookEarlyCard, SubscribeCard } from "@/components/happenings";
+import { TodaysDealsStrip } from "@/components/happenings/TodaysDealsStrip";
+import { todaysDeals } from "@/lib/happenings/today-deals";
 
 interface HomeWeather {
   condition: WeatherCondition;
@@ -228,7 +230,7 @@ export default function HomePage() {
   const pendingScrollRef = useRef(false);
   const prevFeedWindowRef = useRef<FeedWindow>(feedWindow);
   const { coords, status: geoStatus } = useGeolocation();
-  const signedIn = useSignedIn();
+  const { signedIn, who: dealWho } = useSaved();
   const { city, source: citySource, shouldPrompt: shouldPromptCity } = useSelectedCity();
   const [cityPickerOpen, setCityPickerOpen] = useState(false);
 
@@ -357,6 +359,16 @@ export default function HomePage() {
   const whatsOnBucket = feed?.whatsOn[0] ?? null;
   const bookEarlyAll = feed?.bookEarly ?? [];
   const freeAnyTime = feed?.freeAnyTime ?? [];
+
+  // "Today's deals" strip — deals valid TODAY in Edinburgh time, derived
+  // client-side from the same `deals` section every window already carries
+  // (lib/happenings/today-deals.ts). Independent of `feedWindow`, same as
+  // Book early/Free any time's own data; recomputed only when `feed` or the
+  // visitor's deal profile actually changes, not on every render.
+  const todaysDealsList = useMemo(
+    () => (feed ? todaysDeals(feed.deals, new Date(), { who: dealWho }) : []),
+    [feed, dealWho]
+  );
 
   // What's on's currently-relevant list — the window's one bucket, uncapped
   // (the render below slices its first SECTION_CAP); no per-day/category
@@ -520,6 +532,13 @@ export default function HomePage() {
             </p>
           </div>
         )}
+
+        {/* Today's deals — independent of `feedWindow` (same as Book
+            early/Free any time), so it stays put across every tab rather
+            than disappearing on Coming up/Book early. Renders nothing of
+            its own accord when the day's selection is too thin (see
+            TodaysDealsStrip/todaysDeals). */}
+        <TodaysDealsStrip deals={todaysDealsList} />
 
         {/* What's on — window-driven, one chronological list (see
             app/api/feed/route.ts's doc comment on `whatsOn`). Hidden entirely
