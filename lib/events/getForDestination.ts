@@ -23,7 +23,12 @@ import type { Db } from "@/lib/supabase/types";
 
 export const EVENTS_CACHE_TTL_MS = 6 * 60 * 60 * 1000; // 6 hours
 const DEFAULT_RADIUS_KM = 25;
-const DEFAULT_LIMIT = 20;
+// Matches lib/events/index.ts's own DEFAULT_LIMIT — see the comment there.
+// This is the default actually used in practice: every caller of this
+// function either omits `limit` (hitting this constant) or passes one
+// explicitly, so lib/events/index.ts's own default is effectively dead code
+// reached only if this function is bypassed.
+const DEFAULT_LIMIT = 100;
 
 export interface GetEventsForDestinationOpts {
   destination: string;

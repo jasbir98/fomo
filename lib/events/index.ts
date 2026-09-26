@@ -43,7 +43,16 @@ function isLikelyUK(center: Center): boolean {
 }
 
 const DEFAULT_RADIUS_KM = 25;
-const DEFAULT_LIMIT = 20;
+// Both providers cap a single request at 100 (Skiddle's `limit` and
+// Ticketmaster's `size` are each clamped to 100 below/in ticketmaster.ts) and
+// neither call here is paginated — this is genuinely the whole first page,
+// not a slice of it. The old default of 20 meant every live fetch only ever
+// asked for the top 20 events near a destination, which is most of why the
+// shared `events` cache stayed thin (~97 rows) even after many requests: a
+// dense city has more than 20 upcoming events within 25km, and this default
+// silently discarded the rest instead of asking for the max both APIs
+// already allow. Raised to the actual per-request ceiling.
+const DEFAULT_LIMIT = 100;
 
 /**
  * Fan out to every enabled event provider (one that has an API key set) and

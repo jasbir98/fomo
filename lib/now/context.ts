@@ -110,7 +110,7 @@ export async function buildFeedContext(input: BuildContextInput): Promise<FeedCo
 
   const [candidatePlaces, candidateEvents, candidateExperiences, forecast] = await Promise.all([
     loadCandidatePlaces(db, coords),
-    getEventsForDestination(db, { destination: CITY.name, limit: 40 })
+    getEventsForDestination(db, { destination: CITY.name, limit: 100 })
       .then((r) => r.events)
       .catch((err) => {
         console.error("[now/context] events lookup failed", err);

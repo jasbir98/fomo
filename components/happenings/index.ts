@@ -20,3 +20,5 @@ export { FreeAnyTimeFilters } from "./FreeAnyTimeFilters";
 export type { FreeAnyTimeFiltersProps } from "./FreeAnyTimeFilters";
 export { NotifyMeButton } from "./NotifyMeButton";
 export type { NotifyMeButtonProps } from "./NotifyMeButton";
+export { SubscribeCard } from "./SubscribeCard";
+export type { SubscribeCardProps } from "./SubscribeCard";

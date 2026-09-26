@@ -17,7 +17,7 @@ import { WEATHER_THEME } from "@/lib/weatherUi";
 import { CityPicker, ErrorState, FomoLogo, Icon, SegmentedControl } from "@/components/ui";
 import { FomoCard } from "@/components/fomo/Card";
 import { FomoSpot } from "@/components/fomo/FomoSpot";
-import { FeedHero, FeedListCard, FreeAnyTimeList, BookEarlyCard } from "@/components/happenings";
+import { FeedHero, FeedListCard, FreeAnyTimeList, BookEarlyCard, SubscribeCard } from "@/components/happenings";
 
 interface HomeWeather {
   condition: WeatherCondition;
@@ -665,6 +665,8 @@ export default function HomePage() {
             the one tab short enough that "here's what's always free" still
             earns its place at the bottom rather than padding out the scroll. */}
         {feedWindow === "now" ? <FreeAnyTimeList items={freeAnyTime} /> : null}
+
+        <SubscribeCard source="home" />
       </div>
     </div>
   );

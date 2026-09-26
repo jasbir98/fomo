@@ -141,13 +141,26 @@ TOPICS: tuple[Topic, ...] = (
     Topic("EIF ticket releases", "book-early", ("eif.co.uk",), 95),
     Topic("Book Festival ticket releases", "book-early", ("edbookfest.co.uk",), 94),
     Topic("Edinburgh resident rewards", "offers", ("edinburgh.org/residentrewards/",), 93),
+    # Wedge topics (2026-09-26): students + young professionals. Kept narrow on
+    # purpose — deepseek-flash front-loads the first category of a broad prompt
+    # and stops. Day-specific offers should come back as recurrence "weekly"
+    # with the weekday(s) set, so the app can show "today's deals".
     Topic("student deals in Edinburgh", "offers", ("studentbeans.com", "myunidays.com"), 92),
-    Topic("under-26 concessions", "offers", ("youngscot.org", "nationalgalleries.org"), 91),
-    Topic("over-60 concessions", "offers", ("edinburgh.org", "nms.ac.uk"), 90),
-    Topic("Edinburgh pub chain offers", "offers", ("jdwetherspoon.com", "greeneking.co.uk"), 89),
-    Topic("Edinburgh restaurant chain offers", "offers", ("nandos.co.uk", "turtlebay.co.uk"), 88),
-    Topic("Edinburgh happy hours", "offers", ("5pm.co.uk", "designmynight.com/edinburgh"), 87),
-    Topic("cheap cinema days", "offers", ("filmhousecinema.co.uk", "dominioncinema.co.uk", "cameopicturehouse.co.uk"), 86),
+    Topic("Edinburgh student nights by weekday", "whats-on", ("fatsoma.com", "fixr.co", "eusa.ed.ac.uk"), 92),
+    Topic("students' association events", "whats-on", ("eusa.ed.ac.uk", "napierstudents.com", "hwunion.com", "qmusu.org.uk"), 91),
+    Topic("Edinburgh happy hours", "offers", ("5pm.co.uk", "designmynight.com/edinburgh"), 91),
+    Topic("Edinburgh 2-for-1 and bottomless brunch deals", "offers", ("designmynight.com/edinburgh",), 90),
+    Topic("Edinburgh weekday pizza and burger deals", "offers", ("francomanca.co.uk", "honestburgers.co.uk"), 90),
+    Topic("Edinburgh cheap lunch deals under £10", "offers", ("5pm.co.uk",), 89),
+    Topic("Edinburgh pub quiz nights", "whats-on", ("designmynight.com/edinburgh",), 89),
+    Topic("under-26 theatre tickets", "offers", ("lyceum.org.uk", "traverse.co.uk", "capitaltheatres.com"), 89),
+    Topic("under-26 concessions", "offers", ("youngscot.org", "nationalgalleries.org"), 88),
+    Topic("cheap cinema days", "offers", ("filmhousecinema.co.uk", "dominioncinema.co.uk", "cameopicturehouse.co.uk"), 88),
+    Topic("free and cheap comedy nights", "whats-on", ("monkeybarrelcomedy.com", "thestand.co.uk"), 87),
+    Topic("free public lectures and talks", "whats-on", ("ed.ac.uk/events", "napier.ac.uk"), 86),
+    Topic("Edinburgh pub chain offers", "offers", ("jdwetherspoon.com", "greeneking.co.uk"), 86),
+    Topic("Edinburgh restaurant chain offers", "offers", ("nandos.co.uk", "turtlebay.co.uk"), 85),
+    Topic("over-60 concessions", "offers", ("edinburgh.org", "nms.ac.uk"), 60),
     Topic("free museum admission", "offers", ("nms.ac.uk", "nationalgalleries.org"), 85),
     Topic("free festival shows", "calendar", ("freefringe.org", "edfringe.com"), 84),
     Topic("Edinburgh comedy nights", "whats-on", ("thestand.co.uk", "summerhall.co.uk"), 83),
@@ -505,6 +518,8 @@ Do not research adjacent categories. Return only genuine, currently valid happen
 Every date, price, eligibility rule and promo code must be stated word-for-word on its cited page. Do not guess.
 For every populated factual field, set field_sources to the page that supports it. Prefer null to inference.
 Never emit an expired one-off. Source URL must state the terms; booking URL may be different.
+An offer or night valid only on certain weekdays is recurrence type "weekly" with those days; put its hours in time_note.
+If the page limits an offer to a month, season or end date, set that last valid date as recurrence.until (weekly) or ends_at (any other type).
 """
 
 

@@ -3,20 +3,17 @@ import { NextResponse, type NextRequest } from "next/server";
 import { safeNext } from "@/lib/auth/safe-next";
 
 /**
- * Login wall. This proxy both refreshes the Supabase session cookie AND gates
- * every request:
+ * Open browsing, account-only actions. This proxy both refreshes the Supabase
+ * session cookie AND gates account pages and costly APIs:
  *
  *   1. refresh session cookies (see footgun #1)
  *   2. read the user (see footgun #2)
- *   3. /api/*        → no user? 401 JSON, never a redirect
+ *   3. /api/*        → no user? 401 JSON, never a redirect — except the
+ *                      read-only catalogue APIs in PUBLIC_API_PREFIXES
  *      passive-public (/welcome, /auth/callback, /offline) → always pass
- *      no user        → /signin passes; every other page 302 /welcome?next=...
+ *      no user        → public pages pass; account pages (SIGNED_IN_PAGE_PREFIXES)
+ *                      302 /welcome?next=... (unless already on /signin)
  *      user, on /signin or under the retired /onboarding → 302 ?next or /
- *
- * Every page needs an account, shared links included (user decision
- * 2026-09-15, reversing the same day's open-browsing change). A shared link
- * still lands on its page after sign-in via `next`; a dedicated signed-out
- * view for shared links is a later piece of work.
  *
  * Two documented footguns, both worth re-reading before touching this file:
  *
@@ -60,6 +57,56 @@ import { safeNext } from "@/lib/auth/safe-next";
  * exported function, `config.matcher` unchanged). See
  * node_modules/next/dist/docs/01-app/03-api-reference/03-file-conventions/proxy.md.
  */
+
+/**
+ * Pages that need an account: chat, profile/saved, and the leftover setup
+ * screens. Everything else — Feed, Deals, Free, Explore, detail pages and
+ * shared links — is browsable signed out (user decision 2026-09-15, re-confirmed 2026-09-26 for PMF); sign-in
+ * is asked for only when Save, Notify me or Ask Fomo is tapped.
+ */
+const SIGNED_IN_PAGE_PREFIXES = ["/fomo", "/profile", "/saved", "/setup", "/kit"];
+
+function matchesPrefix(pathname: string, prefix: string): boolean {
+  return pathname === prefix || pathname.startsWith(`${prefix}/`);
+}
+
+function needsAccount(pathname: string): boolean {
+  return SIGNED_IN_PAGE_PREFIXES.some((prefix) => matchesPrefix(pathname, prefix));
+}
+
+/**
+ * Read-only catalogue APIs the public pages call. GET/HEAD only; each serves
+ * data RLS already grants `read_all` to anon, and handles a missing user
+ * itself. Chat, translate, saved, push, alerts, geocode and places search
+ * stay behind a session — they cost money per call or write per-user rows.
+ */
+const PUBLIC_API_PREFIXES = [
+  "/api/feed",
+  "/api/happenings",
+  "/api/events",
+  "/api/explore",
+  "/api/weather",
+  "/api/now",
+  "/api/media-proxy",
+];
+const PUBLIC_PLACE_OFFERS = /^\/api\/places\/[^/]+\/offers$/;
+
+/**
+ * POST endpoints servable with no session, kept as a SEPARATE allowlist from
+ * `PUBLIC_API_PREFIXES` on purpose — that list is GET/HEAD-only by design
+ * (read-only catalogue reads), and widening its method check would silently
+ * open every route in it to unauthenticated writes. Only /api/subscribe
+ * (email capture for the "Fomo Friday" digest, app/api/subscribe/route.ts)
+ * needs this — it has no session to gate on at all.
+ */
+const PUBLIC_POST_PREFIXES = ["/api/subscribe"];
+
+function isPublicApi(request: NextRequest): boolean {
+  const { pathname } = request.nextUrl;
+  if (request.method === "POST") return PUBLIC_POST_PREFIXES.some((prefix) => matchesPrefix(pathname, prefix));
+  if (request.method !== "GET" && request.method !== "HEAD") return false;
+  return PUBLIC_PLACE_OFFERS.test(pathname) || PUBLIC_API_PREFIXES.some((prefix) => matchesPrefix(pathname, prefix));
+}
 
 /** Pages that are always servable regardless of auth/onboarding state. */
 function isPassivePublic(pathname: string): boolean {
@@ -136,7 +183,7 @@ export async function proxy(request: NextRequest) {
   // caller's fetch() can actually branch on; a redirect would just hand it
   // an HTML page.
   if (isApi) {
-    if (!user) {
+    if (!user && !isPublicApi(request)) {
       return withCookies(
         NextResponse.json({ error: "Unauthorized" }, { status: 401 }),
         response
@@ -153,13 +200,14 @@ export async function proxy(request: NextRequest) {
     return response;
   }
 
-  // 3. No user — every page goes through /welcome to sign in.
+  // 3. No user. Public pages are served as-is; only account pages (chat,
+  // profile, saved) send the visitor through /welcome to sign in.
   if (!user) {
     // /signin is where a signed-out visitor is SUPPOSED to end up (either
     // straight from a deep link's redirect, or via /welcome's own
     // client-side skip-if-seen-intro check) — serve it directly rather than
     // bouncing back through /welcome.
-    if (isSignin) return response;
+    if (isSignin || !needsAccount(pathname)) return response;
     const url = new URL("/welcome", request.url);
     url.searchParams.set("next", pathWithSearch(request));
     return withCookies(NextResponse.redirect(url), response);

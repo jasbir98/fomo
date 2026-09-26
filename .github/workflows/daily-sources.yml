@@ -1,0 +1,35 @@
+name: Daily Tier-1 events ingest
+
+# Crawls lu.ma, Eventbrite, Songkick and allevents.in's Edinburgh listing
+# pages (scripts/daily-sources.mjs) and upserts normalized rows into the
+# `events` table. See docs/daily-sources.md for the sources, required
+# secrets, and how to run this by hand.
+on:
+  schedule:
+    # 06:17 UTC daily — off-the-hour on purpose, same reasoning any cron
+    # scheduling guide gives: avoids the top-of-hour pile-up on GitHub's
+    # shared runners.
+    - cron: "17 6 * * *"
+  workflow_dispatch: {}
+
+jobs:
+  ingest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Run daily sources ingest
+        # daily-sources.mjs only crawls lu.ma/Eventbrite/Songkick/allevents.in
+        # (JSON-LD scraping, no API key needed) — SKIDDLE_API_KEY and
+        # TICKETMASTER_API_KEY are not read by this script; they're the
+        # separate live-request-time providers in lib/events/, unrelated to
+        # this workflow.
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: node scripts/daily-sources.mjs --write

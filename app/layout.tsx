@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Plus_Jakarta_Sans } from "next/font/google";
+import { Analytics } from "@vercel/analytics/next";
 import "./globals.css";
 
 const jakarta = Plus_Jakarta_Sans({
@@ -10,8 +11,19 @@ const jakarta = Plus_Jakarta_Sans({
 });
 
 export const metadata: Metadata = {
-  title: "Fomo",
-  description: "Fomo — what's on in Edinburgh: events, free things and deals.",
+  // Absolute base for OG/Twitter image URLs on shared links.
+  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL ?? "https://askfomo.com"),
+  title: { default: "Fomo — free, cheap and deals in Edinburgh", template: "%s · Fomo" },
+  description: "What's on in Edinburgh that's free, cheap or discounted — events, student deals and things to do this weekend.",
+  openGraph: {
+    siteName: "Fomo",
+    type: "website",
+    locale: "en_GB",
+    title: "Fomo — free, cheap and deals in Edinburgh",
+    description: "Never miss the £4 cinema weekend again. What's on in Edinburgh, free, cheap or discounted.",
+    images: ["/icons/icon-512.png"],
+  },
+  twitter: { card: "summary" },
   manifest: "/manifest.json",
   appleWebApp: {
     capable: true,
@@ -97,6 +109,7 @@ export default function RootLayout({
             }}
           />
         )}
+        <Analytics />
       </body>
     </html>
   );
