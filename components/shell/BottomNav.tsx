@@ -9,7 +9,7 @@ type NavItem = { href: string; icon: string; label: string };
 
 const LEFT: NavItem[] = [
   { href: "/", icon: "local_activity", label: "Feed" },
-  { href: "/profile", icon: "bookmark", label: "Saved" },
+  { href: "/saved", icon: "bookmark", label: "Saved" },
 ];
 const RIGHT: NavItem[] = [
   { href: "/deals", icon: "sell", label: "Deals" },
@@ -39,14 +39,13 @@ function NavTab({ item, active }: { item: NavItem; active: boolean }) {
 /**
  * Canonical Fomo bottom navigation: Feed · Saved · [Fomo FAB] · Deals · Explore.
  * Reels left the nav on 2026-09-26 (no Edinburgh reels yet; reels live on the
- * Instagram account) — /reels still works as a page. Saved points at Profile,
- * which holds the saved list (/saved redirects there).
+ * Instagram account) — /reels still works as a page. Saved points at /saved,
+ * its own dedicated page (app/(shell)/saved/page.tsx).
  * Fixed to the bottom of the max-w-[480px] phone column; the centre Fomo FAB
  * is a raised 64px button wearing the mascot's face (components/onboarding/
  * Characters.tsx), which grins while you're chatting with it. Deals took
  * Saved's slot in the Home decluttering pass — Deals & Offers is now its own
- * full page (app/(shell)/deals/page.tsx) instead of a Home section, and Saved
- * moved into Profile (/saved now just redirects there). The last tab was
+ * full page (app/(shell)/deals/page.tsx) instead of a Home section. The last tab was
  * renamed Map -> Explore (same map view, app/(shell)/explore/page.tsx); `/map`
  * still works as a redirect for old links.
  */

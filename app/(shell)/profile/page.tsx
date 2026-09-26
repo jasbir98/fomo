@@ -1,48 +1,21 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
+import { useEffect, useRef, useState, type ChangeEvent } from "react";
 import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { supabaseBrowserAuth } from "@/lib/supabase/client";
 import { getProfile, upsertProfile, uploadAvatar } from "@/lib/db";
 import type { Profile } from "@/lib/types";
-import type { Candidate } from "@/lib/now/types";
-import { useInfiniteList } from "@/lib/useInfiniteList";
-import { invalidate } from "@/lib/http/clientCache";
-import { Button, BottomSheet, Card, Chip, Icon, PageHeader, SectionHeader, SmartImage, Toggle } from "@/components/ui";
-import { FomoCard } from "@/components/fomo/Card";
-import { FomoSpot } from "@/components/fomo/FomoSpot";
+import { Button, BottomSheet, Card, Chip, Icon, PageHeader, SmartImage, Toggle } from "@/components/ui";
 import { WHO_GROUP_LABEL, WHO_GROUP_ORDER, type DealWhoGroup } from "@/lib/happenings/groups";
-import { useDealProfile, subscribeSavedChanges } from "@/lib/useSaved";
+import { useDealProfile } from "@/lib/useSaved";
 import { NOTIFY_ME_ENABLED } from "@/lib/happenings/book-early";
 import { ensurePushSubscribed, pushReasonMessage, pushSupportReason } from "@/lib/push/client";
 
 const AvatarCropModal = dynamic(() => import("@/components/fomo/AvatarCropModal").then((mod) => mod.AvatarCropModal), {
   ssr: false,
 });
-
-// One /api/saved page's worth of rows — matches /api/discover's own default
-// page size, same convention the old standalone /saved page used before its
-// "Saved" section moved onto Profile (app/(shell)/saved/page.tsx now just
-// redirects to /profile#saved).
-const SAVED_PAGE_SIZE = 24;
-
-// lib/http/clientCache.ts key for the Saved section's first page — a fixed
-// key (not per-user) is fine: the cache is wiped entirely on SIGNED_OUT (see
-// clientCache.ts), so it never survives across accounts on a shared device.
-const SAVED_CACHE_KEY = "saved:page0";
-
-interface SavedApiResponse {
-  items: Candidate[];
-}
-
-const SAVED_GROUP_LABELS: { type: Candidate["subject"]["type"]; label: string }[] = [
-  { type: "happening", label: "Deals & things to do" },
-  { type: "reel", label: "Reels" },
-  { type: "place", label: "Places" },
-  { type: "event", label: "Events" },
-  { type: "experience", label: "Experiences" },
-];
 
 export default function ProfilePage() {
   const db = supabaseBrowserAuth();
@@ -83,51 +56,6 @@ export default function ProfilePage() {
     null
   );
   const avatarInputRef = useRef<HTMLInputElement>(null);
-
-  // Saved (moved here from the old standalone /saved page — see this file's
-  // "Saved" section below). Reads through the same GET /api/saved the old
-  // page used, grouped by subject type for display.
-  const {
-    items: savedCandidates,
-    loading: savedLoading,
-    loadingMore: savedLoadingMore,
-    hasMore: savedHasMore,
-    sentinelRef: savedSentinelRef,
-  } = useInfiniteList<Candidate>(
-    {
-      pageSize: SAVED_PAGE_SIZE,
-      getId: (c) => `${c.subject.type}:${c.subject.id}`,
-      onError: (err, phase) =>
-        console.error(`[profile] saved ${phase === "initial" ? "load" : "load more"} failed`, err),
-      fetchPage: async ({ limit, offset }) => {
-        const params = new URLSearchParams({ limit: String(limit), offset: String(offset) });
-        const res = await fetch(`/api/saved?${params.toString()}`);
-        const data = (await res.json()) as SavedApiResponse;
-        return data.items ?? [];
-      },
-      // Seeds page 1 from lib/http/clientCache.ts so a repeat visit to
-      // Profile shows the caller's saved items instantly instead of the
-      // hourglass spinner below — see lib/useInfiniteList.ts's `cacheKey`.
-      cacheKey: SAVED_CACHE_KEY,
-    },
-    [db]
-  );
-
-  // A save/unsave anywhere in the app (this page's grid, a card on Home, a
-  // reel, …) goes through the one shared lib/useSaved.ts store — invalidate
-  // this page's cached page 1 whenever that set changes so it revalidates
-  // instead of showing a stale saved/unsaved state on the next visit here.
-  useEffect(() => {
-    return subscribeSavedChanges(() => invalidate(SAVED_CACHE_KEY));
-  }, []);
-
-  const savedGroups = useMemo(() => {
-    return SAVED_GROUP_LABELS.map(({ type, label }) => ({
-      type,
-      label,
-      items: savedCandidates.filter((c) => c.subject.type === type),
-    })).filter((g) => g.items.length > 0);
-  }, [savedCandidates]);
 
   function pickAvatarFile() {
     setAvatarOpen(false);
@@ -372,49 +300,21 @@ export default function ProfilePage() {
             </Card>
           </div>
 
-          {/* Saved — moved here from the old standalone /saved page/nav tab;
-              Deals took that bottom-nav slot (components/shell/BottomNav.tsx).
-              /saved still works as a redirect to #saved for old links. */}
-          <section id="saved" className="flex flex-col gap-4 px-5 scroll-mt-16">
-            <SectionHeader title="Saved" />
-            {savedLoading ? (
-              <div className="flex justify-center py-8">
-                <Icon name="hourglass_top" size={24} className="animate-pulse text-primary" />
-              </div>
-            ) : savedCandidates.length === 0 ? (
-              <Card>
-                <div className="flex flex-col items-center gap-2 py-6 text-center">
-                  <FomoSpot mood="meh" pose="shrug" className="h-20 w-20" />
-                  <p className="text-body-md text-on-surface-variant">
-                    Tap the bookmark on any deal, event or place to save it here.
-                  </p>
-                </div>
-              </Card>
-            ) : (
-              <div className="flex flex-col gap-5">
-                {savedGroups.map((group) => (
-                  <div key={group.type}>
-                    <p className="mb-2 text-label-md font-bold text-on-surface-variant">{group.label}</p>
-                    <div className="grid grid-cols-2 gap-3">
-                      {group.items.map((item) => (
-                        <FomoCard
-                          key={`${item.subject.type}:${item.subject.id}`}
-                          candidate={item}
-                          variant="grid"
-                        />
-                      ))}
-                    </div>
-                  </div>
-                ))}
-                {savedHasMore ? (
-                  <div ref={savedSentinelRef} className="flex justify-center py-2">
-                    {savedLoadingMore ? (
-                      <Icon name="hourglass_top" size={20} className="animate-pulse text-primary" />
-                    ) : null}
-                  </div>
-                ) : null}
-              </div>
-            )}
+          {/* Saved — now a dedicated page at /saved with its own AppHeader.
+              The bottom-nav Saved tab points there. */}
+          <section className="flex flex-col gap-4 px-5">
+            <a
+              href="/saved"
+              className="flex w-full items-center justify-between p-4 text-left"
+            >
+              <span className="flex items-center gap-4">
+                <span className="flex h-10 w-10 items-center justify-center rounded-full bg-primary-container/10 text-primary">
+                  <Icon name="bookmark" />
+                </span>
+                <span className="text-body-lg text-primary">Saved</span>
+              </span>
+              <Icon name="chevron_right" className="text-on-surface-variant" />
+            </a>
           </section>
 
           {/* Account Settings */}
@@ -472,6 +372,14 @@ export default function ProfilePage() {
             </Card>
             <p className="px-1 text-label-sm text-on-surface-variant">
               &quot;Sign out&quot; signs you out of your Fomo account on this device.
+            </p>
+            <p className="flex items-center gap-3 px-1 text-label-sm text-on-surface-variant">
+              <Link href="/privacy" className="underline underline-offset-2">
+                Privacy
+              </Link>
+              <Link href="/terms" className="underline underline-offset-2">
+                Terms
+              </Link>
             </p>
           </section>
         </>

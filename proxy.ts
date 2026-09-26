@@ -59,12 +59,12 @@ import { safeNext } from "@/lib/auth/safe-next";
  */
 
 /**
- * Pages that need an account: chat, profile/saved, and the leftover setup
- * screens. Everything else — Feed, Deals, Free, Explore, detail pages and
+ * Pages that need an account: chat, profile, and the leftover setup
+ * screens. Everything else — Feed, Deals, Free, Explore, Saved, detail pages and
  * shared links — is browsable signed out (user decision 2026-09-15, re-confirmed 2026-09-26 for PMF); sign-in
  * is asked for only when Save, Notify me or Ask Fomo is tapped.
  */
-const SIGNED_IN_PAGE_PREFIXES = ["/fomo", "/profile", "/saved", "/setup", "/kit"];
+const SIGNED_IN_PAGE_PREFIXES = ["/fomo", "/profile", "/setup", "/kit"];
 
 function matchesPrefix(pathname: string, prefix: string): boolean {
   return pathname === prefix || pathname.startsWith(`${prefix}/`);
@@ -208,7 +208,7 @@ export async function proxy(request: NextRequest) {
   }
 
   // 3. No user. Public pages are served as-is; only account pages (chat,
-  // profile, saved) send the visitor through /welcome to sign in.
+  // profile) send the visitor through /welcome to sign in.
   if (!user) {
     // /signin is where a signed-out visitor is SUPPOSED to end up (either
     // straight from a deep link's redirect, or via /welcome's own
