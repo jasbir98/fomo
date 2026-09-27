@@ -217,7 +217,7 @@ export default function ProfilePage() {
     } catch (err) {
       console.error("[profile] sign out failed", err);
     }
-    router.push("/welcome");
+    router.push("/");
   }
 
   return (

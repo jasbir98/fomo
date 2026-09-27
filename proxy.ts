@@ -1,6 +1,7 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { safeNext } from "@/lib/auth/safe-next";
+import type { SigninReason } from "@/lib/auth/signin-reason";
 
 /**
  * Open browsing, account-only actions. This proxy both refreshes the Supabase
@@ -12,7 +13,7 @@ import { safeNext } from "@/lib/auth/safe-next";
  *                      read-only catalogue APIs in PUBLIC_API_PREFIXES
  *      passive-public (/welcome, /auth/callback, /offline) → always pass
  *      no user        → public pages pass; account pages (SIGNED_IN_PAGE_PREFIXES)
- *                      302 /welcome?next=... (unless already on /signin)
+ *                      302 /signin?next=...&reason=... (unless already on /signin)
  *      user, on /signin or under the retired /onboarding → 302 ?next or /
  *
  * Two documented footguns, both worth re-reading before touching this file:
@@ -43,14 +44,15 @@ import { safeNext } from "@/lib/auth/safe-next";
  * removed in the Fomo pivot, so `user_metadata.onboarded_at` is no longer
  * read here — a signed-in user goes straight to the page they asked for.
  *
- * WELCOME VS SIGNIN. Proxy has no visibility into localStorage (it
- * runs at the edge), so it can't itself tell "first visit" from "seen the
- * intro already" — that check lives client-side in app/welcome/page.tsx
- * (localStorage `fomo_seen_intro`), which self-redirects to `/signin` the
- * instant it mounts for a repeat visitor. Proxy therefore always sends
- * a signed-out visitor to `/welcome?next=...` (never straight to /signin),
- * and treats `/welcome` as a passive-public page that's fine to view in any
- * auth state rather than something to bounce a signed-in user away from.
+ * WELCOME VS SIGNIN. The 3-slide intro (app/welcome/page.tsx) isn't on the
+ * account-gate path any more (pre-launch fix, 2026-09) — hitting a
+ * gated page signed out goes straight to /signin?next=...&reason=...
+ * (lib/auth/signin-reason.ts), which reads faster for a returning visitor
+ * and gives Ask Fomo/Profile a one-line reason instead of an unrelated
+ * intro. /welcome itself is untouched and still reachable by direct link;
+ * it remains a passive-public page (fine to view in any auth state) and
+ * still self-redirects to /signin (localStorage `fomo_seen_intro`) once
+ * its own "Skip"/finish flow has been seen.
  *
  * FILE NAME. This was `middleware.ts` until the Next.js 16 rename (the
  * `middleware` file convention is deprecated in favor of `proxy` — same
@@ -66,12 +68,30 @@ import { safeNext } from "@/lib/auth/safe-next";
  */
 const SIGNED_IN_PAGE_PREFIXES = ["/fomo", "/profile", "/setup", "/kit"];
 
+/**
+ * Which `reason` (lib/auth/signin-reason.ts) explains why a signed-out
+ * visitor landed on /signin, keyed by the account-gated prefix above. A
+ * prefix with no entry here just redirects with no `reason` — /signin
+ * shows its plain form.
+ */
+const SIGNIN_REASON_BY_PREFIX: Partial<Record<string, SigninReason>> = {
+  "/fomo": "fomo",
+  "/profile": "profile",
+};
+
 function matchesPrefix(pathname: string, prefix: string): boolean {
   return pathname === prefix || pathname.startsWith(`${prefix}/`);
 }
 
 function needsAccount(pathname: string): boolean {
   return SIGNED_IN_PAGE_PREFIXES.some((prefix) => matchesPrefix(pathname, prefix));
+}
+
+function signinReasonForPath(pathname: string): SigninReason | null {
+  for (const prefix of SIGNED_IN_PAGE_PREFIXES) {
+    if (matchesPrefix(pathname, prefix)) return SIGNIN_REASON_BY_PREFIX[prefix] ?? null;
+  }
+  return null;
 }
 
 /**
@@ -83,7 +103,6 @@ function needsAccount(pathname: string): boolean {
 const PUBLIC_API_PREFIXES = [
   "/api/feed",
   "/api/happenings",
-  "/api/events",
   "/api/explore",
   "/api/weather",
   "/api/now",
@@ -94,25 +113,38 @@ const PUBLIC_API_PREFIXES = [
   "/api/unsubscribe",
 ];
 const PUBLIC_PLACE_OFFERS = /^\/api\/places\/[^/]+\/offers$/;
+// Only the .ics download off a single event is public — NOT bare
+// /api/events?destination=… (used by nothing in the app), which would
+// otherwise let anyone trigger paid Mapbox geocoding + Ticketmaster/
+// Skiddle calls + service-role cache writes with an arbitrary destination
+// string. See app/api/events/[id]/ics/route.ts's doc comment.
+const PUBLIC_EVENT_ICS = /^\/api\/events\/[^/]+\/ics$/;
 
 /**
  * POST endpoints servable with no session, kept as a SEPARATE allowlist from
  * `PUBLIC_API_PREFIXES` on purpose — that list is GET/HEAD-only by design
  * (read-only catalogue reads), and widening its method check would silently
- * open every route in it to unauthenticated writes. Only /api/subscribe
- * (email capture for the "Fomo Friday" digest, app/api/subscribe/route.ts)
- * /api/tips (community-sourced deal/event tips, app/api/tips/route.ts), and
+ * open every route in it to unauthenticated writes. /api/subscribe (email
+ * capture for the "Fomo Friday" digest, app/api/subscribe/route.ts),
+ * /api/tips (community-sourced deal/event tips, app/api/tips/route.ts),
  * /api/unsubscribe (RFC 8058 one-click unsubscribe — the mail client itself
  * POSTs this, with no session and no page load; see app/api/unsubscribe/
- * route.ts) need this — none of them have a session to gate on at all.
+ * route.ts), and /api/resend/webhook (Resend's own server delivers
+ * send/bounce/complaint events here — see app/api/resend/webhook/route.ts,
+ * which verifies the Svix signature itself since there's no session to
+ * gate on) need this — none of them have a session to gate on at all.
  */
-const PUBLIC_POST_PREFIXES = ["/api/subscribe", "/api/tips", "/api/unsubscribe"];
+const PUBLIC_POST_PREFIXES = ["/api/subscribe", "/api/tips", "/api/unsubscribe", "/api/resend/webhook"];
 
 function isPublicApi(request: NextRequest): boolean {
   const { pathname } = request.nextUrl;
   if (request.method === "POST") return PUBLIC_POST_PREFIXES.some((prefix) => matchesPrefix(pathname, prefix));
   if (request.method !== "GET" && request.method !== "HEAD") return false;
-  return PUBLIC_PLACE_OFFERS.test(pathname) || PUBLIC_API_PREFIXES.some((prefix) => matchesPrefix(pathname, prefix));
+  return (
+    PUBLIC_PLACE_OFFERS.test(pathname) ||
+    PUBLIC_EVENT_ICS.test(pathname) ||
+    PUBLIC_API_PREFIXES.some((prefix) => matchesPrefix(pathname, prefix))
+  );
 }
 
 /** Pages that are always servable regardless of auth/onboarding state. */
@@ -208,15 +240,19 @@ export async function proxy(request: NextRequest) {
   }
 
   // 3. No user. Public pages are served as-is; only account pages (chat,
-  // profile) send the visitor through /welcome to sign in.
+  // profile) send the visitor to /signin.
   if (!user) {
-    // /signin is where a signed-out visitor is SUPPOSED to end up (either
-    // straight from a deep link's redirect, or via /welcome's own
-    // client-side skip-if-seen-intro check) — serve it directly rather than
-    // bouncing back through /welcome.
+    // /signin is where a signed-out visitor is SUPPOSED to end up — serve it
+    // directly rather than bouncing back through /welcome. Account-gated
+    // pages (Ask Fomo, Profile, ...) go straight to /signin too, each with a
+    // `reason` (lib/auth/signin-reason.ts) explaining why, instead of the
+    // 3-slide intro — /welcome is no longer on this path (see its own file
+    // header) but stays reachable directly for anyone who lands on it.
     if (isSignin || !needsAccount(pathname)) return response;
-    const url = new URL("/welcome", request.url);
+    const url = new URL("/signin", request.url);
     url.searchParams.set("next", pathWithSearch(request));
+    const reason = signinReasonForPath(pathname);
+    if (reason) url.searchParams.set("reason", reason);
     return withCookies(NextResponse.redirect(url), response);
   }
 

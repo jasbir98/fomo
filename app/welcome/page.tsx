@@ -5,6 +5,8 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Button, FomoLogo, ProgressDots } from "@/components/ui";
 import { BookEarlyScene, DealsScene, WhatsOnScene } from "@/components/onboarding/Characters";
 import { safeNext } from "@/lib/auth/safe-next";
+import { publicNextOrHome } from "@/lib/auth/public-next";
+import { NOTIFY_ME_ENABLED } from "@/lib/happenings/book-early";
 
 /** Hand-drawn orange underline for the word each headline hangs on. */
 function Scribble({ children }: { children: ReactNode }) {
@@ -37,6 +39,27 @@ type Slide = {
   title: ReactNode;
   body: ReactNode;
 };
+
+/**
+ * Slide 3's body promises push notifications — only true when web push is
+ * actually wired up (NEXT_PUBLIC_VAPID_PUBLIC_KEY set; see
+ * lib/happenings/book-early.ts's NOTIFY_ME_ENABLED, which every "Notify me"
+ * control in the app already gates on). Falls back to copy about Saved,
+ * which is true regardless.
+ */
+const BOOK_EARLY_BODY = NOTIFY_ME_ENABLED ? (
+  <>
+    Get told when tickets go live —
+    <br />
+    plus Ask Fomo for ideas.
+  </>
+) : (
+  <>
+    Save the good stuff — it&rsquo;s all
+    <br />
+    in one place when you need it.
+  </>
+);
 
 const SLIDES: Slide[] = [
   {
@@ -85,13 +108,7 @@ const SLIDES: Slide[] = [
         it <Scribble>sells out</Scribble>
       </>
     ),
-    body: (
-      <>
-        Get told when tickets go live —
-        <br />
-        plus Ask Fomo for ideas.
-      </>
-    ),
+    body: BOOK_EARLY_BODY,
   },
 ];
 
@@ -120,6 +137,19 @@ function WelcomeContent() {
 
   function signinHref() {
     return next !== "/" ? `/signin?next=${encodeURIComponent(next)}` : "/signin";
+  }
+
+  // "Not now" — a dead end otherwise (no browser back inside the installed
+  // iOS PWA): drops straight back to browsing instead of funnelling through
+  // sign-in like Skip/"Get started" do. Back to whatever `next` was pointing
+  // at if a signed-out visitor can actually see it, else Home.
+  function notNow() {
+    try {
+      window.localStorage.setItem(SEEN_INTRO_KEY, "1");
+    } catch {
+      // ignore — see `finish()`'s identical try/catch above.
+    }
+    router.push(publicNextOrHome(searchParams.get("next")));
   }
 
   function finish() {
@@ -250,6 +280,13 @@ function WelcomeContent() {
         <Button variant="orange" fullWidth size="md" onClick={goNext}>
           {isLast ? "Get started" : "Next"}
         </Button>
+        <button
+          type="button"
+          onClick={notNow}
+          className="text-label-md font-medium text-on-surface-variant underline underline-offset-2"
+        >
+          Not now — keep browsing
+        </button>
       </div>
     </div>
   );

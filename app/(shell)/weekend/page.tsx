@@ -8,7 +8,7 @@ import { weekendDates } from "@/lib/happenings/format";
 import { isFreeCard } from "@/lib/happenings/price-label";
 import { useCachedJson } from "@/lib/http/clientCache";
 import { useProgressiveReveal } from "@/lib/useProgressiveReveal";
-import { Chip, ErrorState, Icon, PageHeader, ShareButton, StickyFilterBar } from "@/components/ui";
+import { Chip, ErrorState, FeedbackLink, Icon, PageHeader, ShareButton, StickyFilterBar } from "@/components/ui";
 import { FeedListCard, SubscribeCard } from "@/components/happenings";
 import { FomoSpot } from "@/components/fomo/FomoSpot";
 import { cardOnDay } from "@/components/happenings/DateFilterRow";
@@ -160,6 +160,25 @@ function WeekendPageInner() {
             {revealCount < cards.length ? <div ref={revealSentinelRef} className="h-1" /> : null}
           </div>
         )}
+
+      {/* Footer */}
+      <div className="flex flex-col gap-3 border-t border-outline-variant px-4 pt-6 pb-4">
+        <div className="flex flex-col gap-1">
+          <p className="text-label-md font-semibold text-on-surface">Help us improve</p>
+          <p className="text-body-sm text-on-surface-variant">Missing something? Have feedback?</p>
+        </div>
+        <div className="flex gap-2">
+          <Link
+            href="/tip"
+            className="flex-1 flex items-center justify-center rounded-lg bg-primary px-3 py-2 text-label-md font-semibold text-on-primary transition-opacity hover:opacity-90"
+          >
+            Tip us off
+          </Link>
+          <div className="flex-1">
+            <FeedbackLink className="w-full justify-center" />
+          </div>
+        </div>
+      </div>
 
         <SubscribeCard source="weekend" />
       </div>

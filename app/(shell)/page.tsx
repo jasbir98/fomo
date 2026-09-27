@@ -14,7 +14,7 @@ import type { FeedCardData, FeedResponse, FeedWindow } from "@/lib/happenings/fe
 import { NOTIFY_ME_ENABLED } from "@/lib/happenings/book-early";
 import type { WeatherCondition } from "@/lib/weather";
 import { WEATHER_THEME } from "@/lib/weatherUi";
-import { CityPicker, ErrorState, FomoLogo, Icon, SeeAllButton, SegmentedControl } from "@/components/ui";
+import { CityPicker, ErrorState, FeedbackLink, FomoLogo, Icon, SeeAllButton, SegmentedControl } from "@/components/ui";
 import { FomoCard } from "@/components/fomo/Card";
 import { FomoSpot } from "@/components/fomo/FomoSpot";
 import { FeedHero, FeedListCard, FreeAnyTimeList, BookEarlyCard, SubscribeCard } from "@/components/happenings";
@@ -721,6 +721,15 @@ export default function HomePage() {
           ) : null}
         </div>
 
+        {/* Link to /weekend */}
+        <Link
+          href="/weekend"
+          className="flex items-center gap-2 rounded-lg border border-hairline bg-surface-container-low px-4 py-3 transition-opacity hover:opacity-80"
+        >
+          <span className="flex-1 text-label-md font-semibold text-on-surface">This weekend in Edinburgh</span>
+          <Icon name="event" size={18} className="text-primary" />
+        </Link>
+
         {showHappeningHero && feed?.hero ? (
           // `key`'d + slid the same direction as the content below it — the
           // hero used to be the SAME card regardless of tab (GET /api/feed's
@@ -979,6 +988,25 @@ export default function HomePage() {
             the one tab short enough that "here's what's always free" still
             earns its place at the bottom rather than padding out the scroll. */}
         {feedWindow === "now" ? <FreeAnyTimeList items={freeAnyTime} /> : null}
+
+        {/* Footer — Missing something? */}
+        <div className="flex flex-col gap-3 rounded-lg bg-surface-container-low px-4 py-4">
+          <div className="flex flex-col gap-1">
+            <p className="text-label-md font-semibold text-on-surface">Missing something?</p>
+            <p className="text-body-sm text-on-surface-variant">Know a deal we don&rsquo;t?</p>
+          </div>
+          <div className="flex gap-2">
+            <Link
+              href="/tip"
+              className="flex-1 flex items-center justify-center rounded-lg bg-primary px-3 py-2 text-label-md font-semibold text-on-primary transition-opacity hover:opacity-90"
+            >
+              Tip us off
+            </Link>
+            <div className="flex-1">
+              <FeedbackLink className="w-full justify-center" />
+            </div>
+          </div>
+        </div>
 
         <SubscribeCard source="home" />
       </div>

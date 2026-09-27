@@ -1,8 +1,11 @@
 /**
- * Fomo Weather — real forecast data for a trip destination (server-only).
+ * Fomo Weather — real forecast data for the app's one city (server-only).
  *
  * GET /api/weather?destination=<string>&date=<YYYY-MM-DD>
- *   destination: required, e.g. "Tokyo, Japan" (same string trips/items use).
+ *   destination: required, must match CITY.name (case-insensitive) — see
+ *                below. Fomo is a one-city app (lib/city.ts); every caller
+ *                in the app (app/(shell)/explore/page.tsx,
+ *                app/(shell)/page.tsx) always sends CITY.name.
  *   date:        optional; picks that day's forecast, else defaults to today.
  *
  * Pipeline: Mapbox-geocode the destination (`lib/places/geocode.ts`) → fetch
@@ -11,6 +14,15 @@
  * usable body; degrades with a `degraded` reason string on failure (matches
  * the pattern in `app/api/places/route.ts`) rather than letting an
  * unhandled exception reach the client.
+ *
+ * DESTINATION IS LOCKED TO CITY.name: this route is public (proxy.ts's
+ * PUBLIC_API_PREFIXES) and Mapbox geocoding is billed per call, so an
+ * arbitrary `destination` string would let anyone rack up paid Mapbox
+ * requests through an unauthenticated endpoint. Since nothing in the app
+ * ever asks for anywhere but Edinburgh, a 400 on any other value costs
+ * nothing real and closes that hole. Revisit if Fomo ever goes multi-city
+ * (see lib/city.ts's SUPPORTED_CITIES doc comment) — swap the equality
+ * check for a lookup against that list.
  */
 import "server-only";
 import { NextResponse } from "next/server";
@@ -21,6 +33,7 @@ import {
 } from "@/lib/weather";
 import type { Center } from "@/lib/places/geocode";
 import { cachedJson, CACHE_LONG, CACHE_SHORT } from "@/lib/http/cache";
+import { CITY } from "@/lib/city";
 
 export const runtime = "nodejs";
 
@@ -39,6 +52,16 @@ export async function GET(request: Request) {
   if (!destination) {
     return NextResponse.json(
       { error: "missing required 'destination' query param" },
+      { status: 400 }
+    );
+  }
+  if (destination.toLowerCase() !== CITY.name.toLowerCase()) {
+    // Don't geocode arbitrary strings on a public, unauthenticated route —
+    // see the file header. Not "degraded" (200) like a provider failure:
+    // this is a caller error, so it gets a 400 same as the missing-param
+    // case above.
+    return NextResponse.json(
+      { error: `unsupported destination — this app only serves ${CITY.name}` },
       { status: 400 }
     );
   }

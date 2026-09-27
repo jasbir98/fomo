@@ -6,7 +6,7 @@ import { usePathname } from "next/navigation";
 import { supabaseBrowserAuth } from "@/lib/supabase/client";
 import { buildAskFomoHref } from "@/lib/chat-seed";
 import { getPlace, listPlacePhotos } from "@/lib/db";
-import { isSaved, saveItem, unsaveItem } from "@/lib/db/saved";
+import { useSaved } from "@/lib/useSaved";
 import { buildDirectionsUrl } from "@/lib/maps/links";
 import type { Place, PlacePhoto } from "@/lib/types";
 import { Button, FomoLoader, Icon, PageHeader, PhotoCarousel, ShareButton, StatusPill } from "@/components/ui";
@@ -89,13 +89,12 @@ export default function PlaceDetailPage({ params }: { params: Promise<{ id: stri
   const { id } = use(params);
   const db = supabaseBrowserAuth();
   const pathname = usePathname();
+  const { isSaved: checkSaved, toggle: toggleSaved } = useSaved();
 
   const [place, setPlace] = useState<Place | null>(null);
   const [photos, setPhotos] = useState<PlacePhoto[]>([]);
   const [offers, setOffers] = useState<Happening[]>([]);
   const [loading, setLoading] = useState(true);
-  const [saved, setSaved] = useState(false);
-  const [savePending, setSavePending] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -125,36 +124,6 @@ export default function PlaceDetailPage({ params }: { params: Promise<{ id: stri
       cancelled = true;
     };
   }, [id]);
-
-  useEffect(() => {
-    let cancelled = false;
-    isSaved(db, "place", id)
-      .then((value) => {
-        if (!cancelled) setSaved(value);
-      })
-      .catch((err) => console.error("Failed to check saved status", err));
-    return () => {
-      cancelled = true;
-    };
-  }, [db, id]);
-
-  async function handleToggleSave() {
-    if (savePending) return;
-    setSavePending(true);
-    try {
-      if (saved) {
-        await unsaveItem(db, "place", id);
-        setSaved(false);
-      } else {
-        await saveItem(db, { subject_type: "place", subject_id: id, note: null });
-        setSaved(true);
-      }
-    } catch (err) {
-      console.error("Failed to update saved status", err);
-    } finally {
-      setSavePending(false);
-    }
-  }
 
   if (loading) {
     return (
@@ -452,12 +421,11 @@ export default function PlaceDetailPage({ params }: { params: Promise<{ id: stri
             <Icon name="chat" size={20} />
           </Link>
           <Button
-            variant={saved ? "danger" : "outline"}
-            leadingIcon={saved ? "bookmark" : "bookmark_border"}
-            onClick={handleToggleSave}
-            disabled={savePending}
+            variant={checkSaved("place", id) ? "danger" : "outline"}
+            leadingIcon={checkSaved("place", id) ? "bookmark" : "bookmark_border"}
+            onClick={() => void toggleSaved("place", id)}
           >
-            {saved ? "Saved" : "Save"}
+            {checkSaved("place", id) ? "Saved" : "Save"}
           </Button>
         </div>
       </div>

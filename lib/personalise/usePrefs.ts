@@ -142,7 +142,9 @@ function subscribe(listener: () => void): () => void {
 }
 
 const getSnapshot = () => state;
-const getServerSnapshot = (): PrefsState => ({ prefs: DEFAULT_PREFS, signedIn: null });
+// One shared object: useSyncExternalStore requires a referentially stable server snapshot.
+const SERVER_SNAPSHOT: PrefsState = { prefs: DEFAULT_PREFS, signedIn: null };
+const getServerSnapshot = (): PrefsState => SERVER_SNAPSHOT;
 
 /** `null` when the account's `user_metadata` carries none of this feature's fields yet — the caller then merges in whatever was gathered locally pre-sign-in instead of starting the account blank. */
 function parseAccountPrefs(userMetadata: unknown): FomoPrefs | null {

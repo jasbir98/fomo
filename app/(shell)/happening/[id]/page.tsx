@@ -827,7 +827,7 @@ export default function HappeningDetailPage({ params }: { params: Promise<{ id: 
               <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-secondary">
                 <Icon name="check_circle" size={14} className="text-on-secondary" />
               </div>
-              <span className="truncate text-body-sm font-bold text-on-surface">{happening.source_name}</span>
+              <span className="truncate text-body-sm font-bold text-on-surface">Source: {happening.source_name}</span>
             </div>
             <span className="shrink-0 rounded-full bg-surface-container px-2.5 py-0.5 text-label-sm font-bold text-secondary">
               {checkedLabel(happening.verified_at)}

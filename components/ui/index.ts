@@ -54,3 +54,5 @@ export { FomoLogo } from "./FomoLogo";
 export type { FomoLogoProps } from "./FomoLogo";
 export { FomoLoader } from "./FomoLoader";
 export type { FomoLoaderProps } from "./FomoLoader";
+export { FeedbackLink } from "./FeedbackLink";
+export type { FeedbackLinkProps } from "./FeedbackLink";

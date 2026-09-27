@@ -7,11 +7,14 @@
  * lib/happenings/ics.ts, which both builders share) — `Content-Disposition:
  * inline` so iOS Safari opens the native "Add Event" sheet directly.
  *
- * Public: proxy.ts's PUBLIC_API_PREFIXES already contains "/api/events"
- * (GET/HEAD only), which matches any "/api/events/*" path including this
- * one — verified, no proxy.ts change needed. No cache headers, same
- * reasoning as the happenings ics route: fetched once per tap, not
- * repeatedly, so there's nothing for a cache to usefully save here.
+ * Public: proxy.ts matches this one path with a dedicated PUBLIC_EVENT_ICS
+ * regex (GET/HEAD only) — bare /api/events (the destination-search route,
+ * one directory up) stays behind a session, since it triggers paid Mapbox
+ * geocoding + Ticketmaster/Skiddle calls + service-role writes for an
+ * arbitrary caller-supplied destination and nothing in the app actually
+ * calls it. No cache headers, same reasoning as the happenings ics route:
+ * fetched once per tap, not repeatedly, so there's nothing for a cache to
+ * usefully save here.
  */
 import "server-only";
 import { NextResponse } from "next/server";

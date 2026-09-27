@@ -7,7 +7,9 @@ import { useCachedJson } from "@/lib/http/clientCache";
 import { useProgressiveReveal } from "@/lib/useProgressiveReveal";
 import { ErrorState, StickyFilterBar } from "@/components/ui";
 import { AppHeader } from "@/components/shell/AppHeader";
+import Link from "next/link";
 import { FeedListCard, VenueDealCard, DealFilters } from "@/components/happenings";
+import { FeedbackLink } from "@/components/ui";
 import { FomoSpot } from "@/components/fomo/FomoSpot";
 import { usePrefs } from "@/lib/personalise/usePrefs";
 import { personalBoost, reorderWithBoost, type BoostPrefs } from "@/lib/personalise/score";
@@ -166,7 +168,26 @@ export default function DealsPage() {
             {visibleCount < dealItems.length ? <div ref={revealSentinelRef} className="h-1" /> : null}
           </div>
         )}
+      
+      {/* Footer */}
+      <div className="flex flex-col gap-3 border-t border-outline-variant px-4 pt-6 pb-4">
+        <div className="flex flex-col gap-1">
+          <p className="text-label-md font-semibold text-on-surface">How can we help?</p>
+          <p className="text-body-sm text-on-surface-variant">Missing a deal? Have an idea?</p>
+        </div>
+        <div className="flex gap-2">
+          <Link
+            href="/tip"
+            className="flex-1 flex items-center justify-center rounded-lg bg-primary px-3 py-2 text-label-md font-semibold text-on-primary transition-opacity hover:opacity-90"
+          >
+            Tip us off
+          </Link>
+          <div className="flex-1">
+            <FeedbackLink className="w-full justify-center" />
+          </div>
+        </div>
       </div>
+</div>
     </div>
   );
 }

@@ -24,17 +24,22 @@
  *
  * All tips are stored with status 'new' and go to review before publishing.
  *
- * NO RATE LIMIT: lib/rate-limit.ts's `consumeRateLimit` can't be reused for
- * a route with no session at all. An IP-keyed limiter would need a new
- * table/function; skipped for now (the honeypot plus the review gate are
- * the abuse guards) — worth adding if this route sees real spam volume.
+ * RATE LIMITED: 10/hour/IP via `consumeAnonRateLimit` (lib/rate-limit.ts →
+ * `consume_anon_rate_limit`, supabase/add_anon_rate_limits.sql) — same
+ * scheme as /api/subscribe, since this route also has no session to key a
+ * per-user limit on. Checked after the honeypot, before field validation.
+ * Fails open until that migration is applied — see lib/rate-limit.ts's file
+ * header.
  */
 import "server-only";
 import { NextResponse } from "next/server";
 import { supabaseServer } from "@/lib/supabase/server";
 import type { Db } from "@/lib/supabase/types";
+import { consumeAnonRateLimit, anonRateLimitedResponse } from "@/lib/rate-limit";
 
 export const runtime = "nodejs";
+
+const RATE_LIMIT = { limit: 10, windowSeconds: 60 * 60 };
 
 interface TipBody {
   title?: unknown;
@@ -96,6 +101,11 @@ export async function POST(request: Request) {
   // success with nothing written, no matter what else is wrong.
   if (isNonEmptyString(body.website)) {
     return NextResponse.json({ ok: true });
+  }
+
+  const rate = await consumeAnonRateLimit(request, "tips", RATE_LIMIT);
+  if (!rate.allowed) {
+    return anonRateLimitedResponse("Too many tips from this connection — try again later.", RATE_LIMIT.windowSeconds);
   }
 
   // Title is required, others optional.

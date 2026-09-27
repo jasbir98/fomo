@@ -3,18 +3,26 @@
 import { Suspense, useEffect, useRef, useState } from "react";
 import Script from "next/script";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import type { AuthError } from "@supabase/supabase-js";
 import { Button, FomoLogo, Input } from "@/components/ui";
 import { FomoPeek, SigninSkyline } from "@/components/onboarding/Characters";
 import { supabaseBrowserAuth } from "@/lib/supabase/client";
 import { safeNext } from "@/lib/auth/safe-next";
+import { publicNextOrHome } from "@/lib/auth/public-next";
+import { signinReasonCopy } from "@/lib/auth/signin-reason";
 import { generateNonce, sha256Hex } from "@/lib/auth/google-identity";
 
 // Set in .env.local / Vercel — see this file's Google sign-in block below.
 // Left unset, the Google button falls back to the existing
 // `signInWithOAuth` redirect flow unchanged (see `signInWithProvider`).
 const GOOGLE_CLIENT_ID = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
+
+// Apple sign-in isn't configured in Supabase yet — showing the button would
+// send users into a raw "provider is not enabled" error. Flip this back to
+// `true` once Supabase has Apple set up; the button/handler code underneath
+// is untouched, just gated on this constant.
+const APPLE_SIGNIN_ENABLED = false;
 
 // Supabase's raw AuthError messages are usually fine, but a few common OTP
 // failures read as backend jargon — friendlier copy for those, message text
@@ -71,8 +79,14 @@ function AppleLogo() {
 }
 
 function SigninContent() {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const nextParam = safeNext(searchParams.get("next"));
+  const reasonCopy = signinReasonCopy(searchParams.get("reason"));
+
+  function handleNotNow() {
+    router.push(publicNextOrHome(searchParams.get("next")));
+  }
 
   const [step, setStep] = useState<Step>("email");
   const [email, setEmail] = useState("");
@@ -325,6 +339,9 @@ function SigninContent() {
           <div className="absolute -top-[61px] left-1/2 h-[68px] w-28 -translate-x-1/2">
             <FomoPeek mood={step === "email" ? "grin" : "wow"} />
           </div>
+          {reasonCopy && step === "email" ? (
+            <p className="text-center text-label-md font-medium text-secondary">{reasonCopy}</p>
+          ) : null}
           <p className="text-center text-body-md text-on-surface-variant">
             {step === "email"
               ? "One-time code by email. No password."
@@ -457,15 +474,17 @@ function SigninContent() {
               {oauthLoading === "google" ? "Redirecting…" : "Continue with Google"}
             </button>
           )}
-          <button
-            type="button"
-            onClick={() => signInWithProvider("apple")}
-            disabled={oauthLoading !== null}
-            className="inline-flex h-12 w-full items-center justify-center gap-3 rounded-xl bg-black text-label-md font-medium text-white shadow-sm transition-all hover:bg-[#1f1f1f] active:bg-[#333] disabled:pointer-events-none disabled:opacity-40"
-          >
-            <AppleLogo />
-            {oauthLoading === "apple" ? "Redirecting…" : "Continue with Apple"}
-          </button>
+          {APPLE_SIGNIN_ENABLED ? (
+            <button
+              type="button"
+              onClick={() => signInWithProvider("apple")}
+              disabled={oauthLoading !== null}
+              className="inline-flex h-12 w-full items-center justify-center gap-3 rounded-xl bg-black text-label-md font-medium text-white shadow-sm transition-all hover:bg-[#1f1f1f] active:bg-[#333] disabled:pointer-events-none disabled:opacity-40"
+            >
+              <AppleLogo />
+              {oauthLoading === "apple" ? "Redirecting…" : "Continue with Apple"}
+            </button>
+          ) : null}
         </div>
 
         <p className="mt-2 text-center text-label-sm text-on-surface-variant">
@@ -479,6 +498,14 @@ function SigninContent() {
           </Link>
           .
         </p>
+
+        <button
+          type="button"
+          onClick={handleNotNow}
+          className="mt-1 text-center text-label-md font-medium text-on-surface-variant underline underline-offset-2"
+        >
+          Not now — keep browsing
+        </button>
         </div>
       </main>
     </div>

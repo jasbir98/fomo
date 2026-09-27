@@ -7,7 +7,7 @@ import { supabaseBrowserAuth } from "@/lib/supabase/client";
 import { buildAskFomoHref } from "@/lib/chat-seed";
 import { directionsUrlFor } from "@/lib/maps/links";
 import { getEvent } from "@/lib/db";
-import { isSaved, saveItem, unsaveItem } from "@/lib/db/saved";
+import { useSaved } from "@/lib/useSaved";
 import { categoryDefaultImage } from "@/lib/happenings/category-style";
 import { formatEventPrice, formatEventWhen, isDateOnlyStart } from "@/lib/events/format";
 import type { EventItem } from "@/lib/types";
@@ -58,12 +58,13 @@ function eventGoogleCalendarUrl(event: EventItem): string {
  * PhotoCarousel, StatusPill), so every card that used to fetch-then-open a
  * sheet for an event now navigates here instead, exactly like a place card
  * navigates to /place/[id]. Fomo has no trips anymore — the secondary action
- * is a save/bookmark toggle (lib/db/saved.ts) instead of add-to-itinerary.
+ * is a save/bookmark toggle (lib/useSaved.ts) instead of add-to-itinerary.
  */
 export default function EventDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const db = supabaseBrowserAuth();
   const pathname = usePathname();
+  const { isSaved: checkSaved, toggle: toggleSaved } = useSaved();
 
   const [event, setEvent] = useState<EventItem | null>(null);
   const [loading, setLoading] = useState(true);
@@ -73,8 +74,6 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
   // former and never fires for the latter.
   const [error, setError] = useState(false);
   const [reloadTick, setReloadTick] = useState(0);
-  const [saved, setSaved] = useState(false);
-  const [savePending, setSavePending] = useState(false);
   // A card's click-time write to lib/events/preview-cache.ts, if there is
   // one — plain synchronous read (not effect+setState; see the happening
   // page's own doc comment on the same pattern for why), `useMemo`-keyed on
@@ -107,36 +106,6 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
       cancelled = true;
     };
   }, [db, id, reloadTick]);
-
-  useEffect(() => {
-    let cancelled = false;
-    isSaved(db, "event", id)
-      .then((value) => {
-        if (!cancelled) setSaved(value);
-      })
-      .catch((err) => console.error("Failed to check saved status", err));
-    return () => {
-      cancelled = true;
-    };
-  }, [db, id]);
-
-  async function handleToggleSave() {
-    if (savePending) return;
-    setSavePending(true);
-    try {
-      if (saved) {
-        await unsaveItem(db, "event", id);
-        setSaved(false);
-      } else {
-        await saveItem(db, { subject_type: "event", subject_id: id, note: null });
-        setSaved(true);
-      }
-    } catch (err) {
-      console.error("Failed to update saved status", err);
-    } finally {
-      setSavePending(false);
-    }
-  }
 
   if (loading) {
     // No preview at all (a shared link opened directly, a fresh reload) —
@@ -410,12 +379,11 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
             <Icon name="chat" size={20} />
           </Link>
           <Button
-            variant={saved ? "danger" : "outline"}
-            leadingIcon={saved ? "bookmark" : "bookmark_border"}
-            onClick={handleToggleSave}
-            disabled={savePending}
+            variant={checkSaved("event", id) ? "danger" : "outline"}
+            leadingIcon={checkSaved("event", id) ? "bookmark" : "bookmark_border"}
+            onClick={() => void toggleSaved("event", id)}
           >
-            {saved ? "Saved" : "Save"}
+            {checkSaved("event", id) ? "Saved" : "Save"}
           </Button>
         </div>
       </div>

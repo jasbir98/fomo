@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
+import { useSearchParams } from "next/navigation";
 import { Icon, PageHeader } from "@/components/ui";
 
 type FormStatus = "idle" | "sending" | "done" | "error";
@@ -17,6 +18,14 @@ type TipFormData = {
 };
 
 export default function TipPage() {
+  const searchParams = useSearchParams();
+  const isFeedback = searchParams.get("type") === "feedback";
+  
+  const pageTitle = isFeedback ? "Send feedback" : "Tip us off";
+  const introText = isFeedback
+    ? "Help us improve Fomo. Tell us what you think, what's missing, or what could be better."
+    : "Know a free event or a deal in Edinburgh we're missing? Tell us and we'll check it out.";
+
   const [formData, setFormData] = useState<TipFormData>({
     title: "",
     url: "",
@@ -46,7 +55,8 @@ export default function TipPage() {
       const res = await fetch("/api/tips", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify(formData),
+        // Feedback shares the tips inbox; the prefix keeps it sortable from real tips in review.
+        body: JSON.stringify(isFeedback ? { ...formData, title: `[Feedback] ${formData.title}`.slice(0, 200) } : formData),
       });
 
       const body = (await res.json().catch(() => null)) as { ok?: boolean; error?: string } | null;
@@ -77,13 +87,17 @@ export default function TipPage() {
   if (status === "done") {
     return (
       <main className="mx-auto flex max-w-[480px] flex-col gap-6 pb-8">
-        <PageHeader title="Tip us off" showBack />
+        <PageHeader title={pageTitle} showBack />
         <div className="flex flex-col items-center gap-4 px-5 py-8">
           <Icon name="check_circle" size={48} className="text-primary" filled />
           <div className="flex flex-col gap-2 text-center">
-            <h2 className="text-headline-md font-bold text-on-surface">Thanks for the tip</h2>
+            <h2 className="text-headline-md font-bold text-on-surface">
+              {isFeedback ? "Thanks for your feedback" : "Thanks for the tip"}
+            </h2>
             <p className="text-body-md text-on-surface-variant">
-              We check every tip before it goes live. If it&apos;s a cracker, you&apos;ll see it on Fomo soon.
+              {isFeedback
+                ? "We read every message. Thanks for helping make Fomo better."
+                : "We check every tip before it goes live. If it's a cracker, you'll see it on Fomo soon."}
             </p>
           </div>
         </div>
@@ -93,22 +107,22 @@ export default function TipPage() {
 
   return (
     <main className="mx-auto flex max-w-[480px] flex-col gap-6 pb-8">
-      <PageHeader title="Tip us off" showBack />
+      <PageHeader title={pageTitle} showBack />
 
       <div className="flex flex-col gap-4 px-5">
         {/* Intro */}
         <div className="flex flex-col gap-2">
           <p className="text-body-md text-on-surface-variant">
-            Know a free event or a deal in Edinburgh we&apos;re missing? Tell us and we&apos;ll check it out.
+            {introText}
           </p>
         </div>
 
         {/* Form */}
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-          {/* What is it? */}
+          {/* What is it? / Subject (for feedback) */}
           <div className="flex flex-col gap-1.5">
             <label htmlFor="title" className="text-label-md font-medium text-on-surface">
-              What is it? <span className="text-error">*</span>
+              {isFeedback ? "What's on your mind?" : "What is it?"} <span className="text-error">*</span>
             </label>
             <input
               id="title"
@@ -116,7 +130,7 @@ export default function TipPage() {
               name="title"
               required
               maxLength={200}
-              placeholder="e.g. Free brunch at The Meadows"
+              placeholder={isFeedback ? "e.g. Add a wishlist feature" : "e.g. Free brunch at The Meadows"}
               value={formData.title}
               onChange={handleInputChange}
               disabled={status === "sending"}
@@ -124,70 +138,76 @@ export default function TipPage() {
             />
           </div>
 
-          {/* Link */}
-          <div className="flex flex-col gap-1.5">
-            <label htmlFor="url" className="text-label-md font-medium text-on-surface">
-              Link
-            </label>
-            <input
-              id="url"
-              type="url"
-              name="url"
-              maxLength={1000}
-              placeholder="https://example.com"
-              value={formData.url}
-              onChange={handleInputChange}
-              disabled={status === "sending"}
-              className="min-h-11 rounded-lg border border-outline-variant bg-surface-container-lowest px-3 text-body-md text-on-surface placeholder:text-outline focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30 disabled:opacity-70"
-            />
-          </div>
+          {/* Link — only shown if not feedback */}
+          {!isFeedback ? (
+            <div className="flex flex-col gap-1.5">
+              <label htmlFor="url" className="text-label-md font-medium text-on-surface">
+                Link
+              </label>
+              <input
+                id="url"
+                type="url"
+                name="url"
+                maxLength={1000}
+                placeholder="https://example.com"
+                value={formData.url}
+                onChange={handleInputChange}
+                disabled={status === "sending"}
+                className="min-h-11 rounded-lg border border-outline-variant bg-surface-container-lowest px-3 text-body-md text-on-surface placeholder:text-outline focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30 disabled:opacity-70"
+              />
+            </div>
+          ) : null}
 
-          {/* When? */}
-          <div className="flex flex-col gap-1.5">
-            <label htmlFor="when_text" className="text-label-md font-medium text-on-surface">
-              When?
-            </label>
-            <input
-              id="when_text"
-              type="text"
-              name="when_text"
-              maxLength={200}
-              placeholder="e.g. Every Saturday, 10am–12pm"
-              value={formData.when_text}
-              onChange={handleInputChange}
-              disabled={status === "sending"}
-              className="min-h-11 rounded-lg border border-outline-variant bg-surface-container-lowest px-3 text-body-md text-on-surface placeholder:text-outline focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30 disabled:opacity-70"
-            />
-          </div>
+          {/* When? — only shown if not feedback */}
+          {!isFeedback ? (
+            <div className="flex flex-col gap-1.5">
+              <label htmlFor="when_text" className="text-label-md font-medium text-on-surface">
+                When?
+              </label>
+              <input
+                id="when_text"
+                type="text"
+                name="when_text"
+                maxLength={200}
+                placeholder="e.g. Every Saturday, 10am–12pm"
+                value={formData.when_text}
+                onChange={handleInputChange}
+                disabled={status === "sending"}
+                className="min-h-11 rounded-lg border border-outline-variant bg-surface-container-lowest px-3 text-body-md text-on-surface placeholder:text-outline focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30 disabled:opacity-70"
+              />
+            </div>
+          ) : null}
 
-          {/* Price/deal */}
-          <div className="flex flex-col gap-1.5">
-            <label htmlFor="price_text" className="text-label-md font-medium text-on-surface">
-              Price/deal
-            </label>
-            <input
-              id="price_text"
-              type="text"
-              name="price_text"
-              maxLength={100}
-              placeholder="e.g. £5 entry, students free"
-              value={formData.price_text}
-              onChange={handleInputChange}
-              disabled={status === "sending"}
-              className="min-h-11 rounded-lg border border-outline-variant bg-surface-container-lowest px-3 text-body-md text-on-surface placeholder:text-outline focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30 disabled:opacity-70"
-            />
-          </div>
+          {/* Price/deal — only shown if not feedback */}
+          {!isFeedback ? (
+            <div className="flex flex-col gap-1.5">
+              <label htmlFor="price_text" className="text-label-md font-medium text-on-surface">
+                Price/deal
+              </label>
+              <input
+                id="price_text"
+                type="text"
+                name="price_text"
+                maxLength={100}
+                placeholder="e.g. £5 entry, students free"
+                value={formData.price_text}
+                onChange={handleInputChange}
+                disabled={status === "sending"}
+                className="min-h-11 rounded-lg border border-outline-variant bg-surface-container-lowest px-3 text-body-md text-on-surface placeholder:text-outline focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30 disabled:opacity-70"
+              />
+            </div>
+          ) : null}
 
           {/* Details */}
           <div className="flex flex-col gap-1.5">
             <label htmlFor="details" className="text-label-md font-medium text-on-surface">
-              Details
+              {isFeedback ? "Tell us more" : "Details"}
             </label>
             <textarea
               id="details"
               name="details"
               maxLength={2000}
-              placeholder="Add anything else we should know…"
+              placeholder={isFeedback ? "Any additional context or ideas…" : "Add anything else we should know…"}
               value={formData.details}
               onChange={handleInputChange}
               disabled={status === "sending"}
@@ -196,26 +216,28 @@ export default function TipPage() {
             />
           </div>
 
-          {/* I&apos;m a… */}
-          <div className="flex flex-col gap-1.5">
-            <label htmlFor="submitter_kind" className="text-label-md font-medium text-on-surface">
-              I&apos;m a…
-            </label>
-            <select
-              id="submitter_kind"
-              name="submitter_kind"
-              value={formData.submitter_kind}
-              onChange={handleInputChange}
-              disabled={status === "sending"}
-              className="min-h-11 rounded-lg border border-outline-variant bg-surface-container-lowest px-3 text-body-md text-on-surface focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30 disabled:opacity-70"
-            >
-              <option value="">Pick one (optional)</option>
-              <option value="student">Student</option>
-              <option value="local">Local</option>
-              <option value="venue">Venue owner/staff</option>
-              <option value="other">Other</option>
-            </select>
-          </div>
+          {/* I'm a… — only shown if not feedback */}
+          {!isFeedback ? (
+            <div className="flex flex-col gap-1.5">
+              <label htmlFor="submitter_kind" className="text-label-md font-medium text-on-surface">
+                I&rsquo;m a…
+              </label>
+              <select
+                id="submitter_kind"
+                name="submitter_kind"
+                value={formData.submitter_kind}
+                onChange={handleInputChange}
+                disabled={status === "sending"}
+                className="min-h-11 rounded-lg border border-outline-variant bg-surface-container-lowest px-3 text-body-md text-on-surface focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30 disabled:opacity-70"
+              >
+                <option value="">Pick one (optional)</option>
+                <option value="student">Student</option>
+                <option value="local">Local</option>
+                <option value="venue">Venue owner/staff</option>
+                <option value="other">Other</option>
+              </select>
+            </div>
+          ) : null}
 
           {/* Email */}
           <div className="flex flex-col gap-1.5">
@@ -269,7 +291,7 @@ export default function TipPage() {
                 Sending…
               </>
             ) : (
-              "Send tip"
+              isFeedback ? "Send feedback" : "Send tip"
             )}
           </button>
         </form>

@@ -73,6 +73,13 @@ export default function TermsPage() {
           </p>
         </Section>
 
+        <Section title="Content removal">
+          <p>
+            If you own content listed on Fomo and want it changed or removed, email support@askfomo.com and
+            we&rsquo;ll act within 48 hours.
+          </p>
+        </Section>
+
         <Section title="Acceptable use">
           <p>
             Use Fomo lawfully and don&rsquo;t try to disrupt it, scrape it at scale, or abuse the tip

@@ -5,7 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { supabaseBrowserAuth } from "@/lib/supabase/client";
 import { getExperience } from "@/lib/db";
-import { isSaved, saveItem, unsaveItem } from "@/lib/db/saved";
+import { useSaved } from "@/lib/useSaved";
 import type { Experience } from "@/lib/types";
 import { formatExperiencePrice, formatExperienceRating } from "@/lib/experiences/format";
 import { Button, FomoLoader, Icon, PageHeader, PhotoCarousel, ShareButton, StatusPill } from "@/components/ui";
@@ -23,11 +23,10 @@ export default function ExperienceDetailPage({ params }: { params: Promise<{ id:
   const { id } = use(params);
   const db = supabaseBrowserAuth();
   const pathname = usePathname();
+  const { isSaved: checkSaved, toggle: toggleSaved } = useSaved();
 
   const [experience, setExperience] = useState<Experience | null>(null);
   const [loading, setLoading] = useState(true);
-  const [saved, setSaved] = useState(false);
-  const [savePending, setSavePending] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -44,36 +43,6 @@ export default function ExperienceDetailPage({ params }: { params: Promise<{ id:
       cancelled = true;
     };
   }, [db, id]);
-
-  useEffect(() => {
-    let cancelled = false;
-    isSaved(db, "experience", id)
-      .then((value) => {
-        if (!cancelled) setSaved(value);
-      })
-      .catch((err) => console.error("Failed to check saved status", err));
-    return () => {
-      cancelled = true;
-    };
-  }, [db, id]);
-
-  async function handleToggleSave() {
-    if (savePending) return;
-    setSavePending(true);
-    try {
-      if (saved) {
-        await unsaveItem(db, "experience", id);
-        setSaved(false);
-      } else {
-        await saveItem(db, { subject_type: "experience", subject_id: id, note: null });
-        setSaved(true);
-      }
-    } catch (err) {
-      console.error("Failed to update saved status", err);
-    } finally {
-      setSavePending(false);
-    }
-  }
 
   function handleBookNow() {
     if (experience?.booking_url) {
@@ -196,12 +165,11 @@ export default function ExperienceDetailPage({ params }: { params: Promise<{ id:
             Book Now
           </Button>
           <Button
-            variant={saved ? "danger" : "outline"}
-            leadingIcon={saved ? "bookmark" : "bookmark_border"}
-            onClick={handleToggleSave}
-            disabled={savePending}
+            variant={checkSaved("experience", id) ? "danger" : "outline"}
+            leadingIcon={checkSaved("experience", id) ? "bookmark" : "bookmark_border"}
+            onClick={() => void toggleSaved("experience", id)}
           >
-            {saved ? "Saved" : "Save"}
+            {checkSaved("experience", id) ? "Saved" : "Save"}
           </Button>
         </div>
       </div>

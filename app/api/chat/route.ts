@@ -20,7 +20,7 @@
 import "server-only";
 import { getAnthropic, CHAT_MODEL } from "@/lib/ai/anthropic";
 import { supabaseServer } from "@/lib/supabase/server";
-import { consumeRateLimit, rateLimitedResponse } from "@/lib/rate-limit";
+import { consumeRateLimit, rateLimitedResponse, consumeGlobalRateLimit, anonRateLimitedResponse } from "@/lib/rate-limit";
 import { CITY } from "@/lib/city";
 import { listLiveHappenings } from "@/lib/db/happenings";
 import { listUpcomingEvents } from "@/lib/db/events";
@@ -36,13 +36,38 @@ export const runtime = "nodejs";
 
 // Pre-public-deploy abuse guards (rate limiting + input caps) — see
 // lib/rate-limit.ts and supabase/add_rate_limits.sql. Two windows checked
-// per request: a short burst cap and a generous daily cap.
+// per signed-in user: a short burst cap and a generous daily cap.
 const CHAT_RATE_LIMIT_BURST = { limit: 30, windowSeconds: 10 * 60 };
 const CHAT_RATE_LIMIT_DAILY = { limit: 150, windowSeconds: 24 * 60 * 60 };
+
+/**
+ * Site-wide daily cap across every user, on top of the per-user caps above —
+ * a backstop against the aggregate Anthropic bill if per-user limits alone
+ * ever prove too generous (e.g. a large batch of accounts all near their own
+ * caps). Uses consumeGlobalRateLimit (lib/rate-limit.ts), the same
+ * anon/service-role-backed limiter as /api/subscribe and /api/tips, keyed on
+ * the fixed string "global" rather than an IP — see supabase/
+ * add_anon_rate_limits.sql. Same fail-open behaviour until that migration
+ * is applied.
+ */
+const CHAT_GLOBAL_DAILY_LIMIT = { limit: 1500, windowSeconds: 24 * 60 * 60 };
 
 /** Matches the client's own cap (app/(shell)/fomo/page.tsx sends 12) but enforced here too, since this route has no way to know a request came from that UI. */
 const MAX_HISTORY_TURNS = 20;
 const MAX_MESSAGE_CHARS = 2000;
+/** Per-turn cap on history content — a direct API call could otherwise send a handful of enormous "history" turns to blow up the prompt/token cost despite the 20-turn count cap. */
+const MAX_HISTORY_MESSAGE_CHARS = 2000;
+/** Cap on client-supplied strings interpolated into the system prompt (seed.name) — short by nature (a place/event/happening title), so a much longer value is either abuse or garbage either way. */
+const MAX_SEED_STRING_CHARS = 200;
+const VALID_SEED_TYPES = new Set<CardSubjectType>([
+  "place",
+  "event",
+  "experience",
+  "itinerary_item",
+  "reel",
+  "practicality",
+  "happening",
+]);
 
 /** How far ahead the catalogue looks, and how many provider events it carries. */
 const CATALOGUE_DAYS = 7;
@@ -337,9 +362,12 @@ export async function POST(req: Request): Promise<Response> {
     return jsonError("Invalid request body.", 400);
   }
 
-  // Drop malformed entries (wrong shape/types) and cap to the most recent
-  // turns — a defensive re-application of the client's own cap, since a
-  // direct API call bypasses app/(shell)/fomo/page.tsx entirely.
+  // Drop malformed entries (wrong shape/types), cap to the most recent
+  // turns, and truncate each turn's own text — a defensive re-application
+  // of the client's own caps, since a direct API call bypasses
+  // app/(shell)/fomo/page.tsx entirely and could otherwise send a handful
+  // of oversized "history" turns to inflate the prompt regardless of the
+  // 20-turn count cap.
   const history: HistoryTurn[] = body.history
     .filter(
       (turn): turn is HistoryTurn =>
@@ -348,21 +376,53 @@ export async function POST(req: Request): Promise<Response> {
         (turn.role === "user" || turn.role === "assistant") &&
         typeof turn.text === "string"
     )
-    .slice(-MAX_HISTORY_TURNS);
+    .slice(-MAX_HISTORY_TURNS)
+    .map((turn) => ({ ...turn, text: turn.text.slice(0, MAX_HISTORY_MESSAGE_CHARS) }));
+
+  // Cap/validate the client-supplied seed context before it's ever
+  // interpolated into the system prompt — see MAX_SEED_STRING_CHARS. An
+  // unknown `type` (client bug, or a direct API call sending garbage) drops
+  // the seed entirely rather than passing it through.
+  const seed: ChatSeedContext | null =
+    body.seed && typeof body.seed === "object" && VALID_SEED_TYPES.has(body.seed.type) && typeof body.seed.name === "string"
+      ? {
+          type: body.seed.type,
+          name: body.seed.name.slice(0, MAX_SEED_STRING_CHARS),
+          city: typeof body.seed.city === "string" ? body.seed.city.slice(0, MAX_SEED_STRING_CHARS) : null,
+        }
+      : null;
+
+  // This route is gated by proxy.ts's default "/api/* needs a session"
+  // rule too, but that's an infrastructure-level backstop, not something
+  // this handler should assume — verify directly so the route is safe even
+  // if proxy.ts's config ever changes or is bypassed in some environment.
+  const db = await supabaseServer();
+  const {
+    data: { user },
+  } = await db.auth.getUser();
+  if (!user) return jsonError("Sign in to use Ask Fomo.", 401);
+  const who = parseWhoGroups(user.user_metadata);
+
+  // Site-wide backstop before the per-user checks — see
+  // CHAT_GLOBAL_DAILY_LIMIT's doc comment. Checked first since it's the
+  // cheapest possible reason to reject (no per-user identity needed) and
+  // protects the aggregate bill even if every individual user is well
+  // within their own limits.
+  const global = await consumeGlobalRateLimit("chat:global-day", CHAT_GLOBAL_DAILY_LIMIT);
+  if (!global.allowed) {
+    return anonRateLimitedResponse(
+      "Fomo's really busy right now — please try again tomorrow.",
+      CHAT_GLOBAL_DAILY_LIMIT.windowSeconds
+    );
+  }
 
   // Rate limit — burst window first, then daily; either exceeded denies the
   // request. Fails open (lets the request through) until
   // supabase/add_rate_limits.sql has been run — see lib/rate-limit.ts.
-  const db = await supabaseServer();
   const burst = await consumeRateLimit(db, "chat:burst", CHAT_RATE_LIMIT_BURST);
   if (!burst.allowed) return rateLimitedResponse(burst);
   const daily = await consumeRateLimit(db, "chat:day", CHAT_RATE_LIMIT_DAILY);
   if (!daily.allowed) return rateLimitedResponse(daily);
-
-  const {
-    data: { user },
-  } = await db.auth.getUser();
-  const who = parseWhoGroups(user?.user_metadata);
 
   const now = new Date();
   let catalogue: Catalogue;
@@ -374,7 +434,7 @@ export async function POST(req: Request): Promise<Response> {
     catalogue = { lines: [], items: new Map() };
   }
 
-  const system = buildSystemPrompt(catalogue, now, who, body.seed);
+  const system = buildSystemPrompt(catalogue, now, who, seed);
   const messages = [
     ...history.map((turn) => ({ role: turn.role, content: turn.text })),
     { role: "user" as const, content: body.userText },

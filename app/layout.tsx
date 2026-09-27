@@ -21,9 +21,15 @@ export const metadata: Metadata = {
     locale: "en_GB",
     title: "Fomo — free, cheap and deals in Edinburgh",
     description: "Never miss the £4 cinema weekend again. What's on in Edinburgh, free, cheap or discounted.",
-    images: ["/icons/icon-512.png"],
+    // No static `images` here — app/opengraph-image.tsx (next/og) is
+    // picked up automatically per-route as the branded default and
+    // supersedes the old static icon-512.png link-preview image. A route
+    // that needs its own image still wins by either defining its own
+    // opengraph-image.tsx (e.g. app/(shell)/weekend/) or an explicit
+    // `openGraph.images` in its own metadata/generateMetadata (e.g.
+    // happening/event detail layouts).
   },
-  twitter: { card: "summary" },
+  twitter: { card: "summary_large_image" },
   manifest: "/manifest.json",
   appleWebApp: {
     capable: true,

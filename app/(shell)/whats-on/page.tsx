@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { Suspense, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { FeedCardData, FeedResponse, FeedWindow } from "@/lib/happenings/feed-types";
@@ -8,7 +9,7 @@ import { isFreeCard } from "@/lib/happenings/price-label";
 import { distinctCategoryFacets, matchesCategoryFilter, type CategoryFacetKey } from "@/lib/happenings/whats-on-filters";
 import { useCachedJson } from "@/lib/http/clientCache";
 import { useProgressiveReveal } from "@/lib/useProgressiveReveal";
-import { Chip, ErrorState, PageHeader, SegmentedControl, StickyFilterBar } from "@/components/ui";
+import { Chip, ErrorState, FeedbackLink, PageHeader, SegmentedControl, StickyFilterBar } from "@/components/ui";
 import { DateFilterRow, FeedListCard } from "@/components/happenings";
 import { FomoSpot } from "@/components/fomo/FomoSpot";
 import { cardOnDay, cardPillDate } from "@/components/happenings/DateFilterRow";
@@ -324,6 +325,25 @@ function WhatsOnPageInner() {
             {revealCount < visibleCards.length ? <div ref={revealSentinelRef} className="h-1" /> : null}
           </div>
         )}
+      {/* Footer */}
+      <div className="flex flex-col gap-3 border-t border-outline-variant px-4 pt-6 pb-4">
+        <div className="flex flex-col gap-1">
+          <p className="text-label-md font-semibold text-on-surface">Help us improve</p>
+          <p className="text-body-sm text-on-surface-variant">Missing something? Have feedback?</p>
+        </div>
+        <div className="flex gap-2">
+          <Link
+            href="/tip"
+            className="flex-1 flex items-center justify-center rounded-lg bg-primary px-3 py-2 text-label-md font-semibold text-on-primary transition-opacity hover:opacity-90"
+          >
+            Tip us off
+          </Link>
+          <div className="flex-1">
+            <FeedbackLink className="w-full justify-center" />
+          </div>
+        </div>
+      </div>
+
       </div>
     </div>
   );

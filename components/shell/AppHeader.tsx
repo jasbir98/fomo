@@ -98,7 +98,18 @@ export function AppHeader({ title, className = "" }: AppHeaderProps) {
           >
             <Icon name="bookmark" size={22} />
           </Link>
-          {signedIn === false ? (
+          {signedIn === null ? (
+            // Auth state hasn't resolved yet — a neutral, non-interactive
+            // placeholder (same footprint as the resolved states below)
+            // instead of a Profile icon that would send a signed-out tap to
+            // the account-gated /profile route a beat before we know better.
+            <span
+              aria-hidden="true"
+              className="flex h-10 w-10 items-center justify-center"
+            >
+              <span className="h-8 w-8 animate-pulse rounded-full bg-surface-container" />
+            </span>
+          ) : signedIn === false ? (
             <Link
               href="/signin"
               className="ml-1 flex h-9 items-center rounded-full bg-primary px-3.5 text-label-md font-bold text-on-primary"

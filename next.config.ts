@@ -97,6 +97,8 @@ const nextConfig: NextConfig = {
     // small art never rides on a needlessly large generated file.
     deviceSizes: [360, 414, 640, 750, 828, 1080, 1200, 1920],
     imageSizes: [64, 96, 128, 160, 200, 256, 384],
+    // Next 16 only accepts listed qualities; SmartImage requests 70 (see components/ui/SmartImage.tsx).
+    qualities: [70, 75],
     // Built from lib/image/cdn.ts's REMOTE_IMAGE_HOSTNAMES instead of a
     // second hardcoded list here, so this config and that module's own
     // `isKnownImageHost` can't silently drift apart.

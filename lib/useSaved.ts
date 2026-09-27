@@ -92,7 +92,7 @@ function ensureInitialized(): void {
 
 function sendToSignIn(): void {
   const next = `${window.location.pathname}${window.location.search}`;
-  window.location.assign(`/signin?next=${encodeURIComponent(next)}`);
+  window.location.assign(`/signin?next=${encodeURIComponent(next)}&reason=save`);
 }
 
 /**

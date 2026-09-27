@@ -237,8 +237,8 @@ export function HappeningHero({ happening, occurrence, variant = "fomo_pick", re
               small elements — the CTA fills the rest of the width instead. */}
           <span
             className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-surface-container text-accent"
-            title={`${happening.source_name} · ${checkedLabel(happening.verified_at, now)}`}
-            aria-label={`Verified by ${happening.source_name}, ${checkedLabel(happening.verified_at, now).toLowerCase()}`}
+            title={`Source: ${happening.source_name} · ${checkedLabel(happening.verified_at, now)}`}
+            aria-label={`Source: ${happening.source_name}, checked ${checkedLabel(happening.verified_at, now).toLowerCase()}`}
           >
             <Icon name="verified" size={15} />
           </span>

@@ -1,7 +1,7 @@
 import { FomoSpot } from "@/components/fomo/FomoSpot";
 
 export const metadata = {
-  title: "Offline — Fomo",
+  title: "Offline",
 };
 
 export default function OfflinePage() {

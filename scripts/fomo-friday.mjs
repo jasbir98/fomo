@@ -111,6 +111,31 @@ async function rest(path) {
 // --- date / subject ----------------------------------------------------
 
 const todayIso = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/London" }).format(new Date());
+// UTM campaign name for every askfomo.com link in this send — Europe/London
+// date so it matches the digest's own "which Friday is this" identity
+// rather than whatever UTC date the send job happens to run under.
+const UTM_CAMPAIGN = `fomo-friday-${todayIso}`;
+
+/**
+ * Appends utm_source=email&utm_medium=newsletter&utm_campaign=<UTM_CAMPAIGN>
+ * to an askfomo.com URL. Non-askfomo.com URLs (shouldn't occur — every link
+ * in this template is our own, see weekly-picks.mjs) pass through
+ * unchanged rather than risk tagging a third party's URL. Uses
+ * URLSearchParams.set, so it composes with an existing query string (e.g.
+ * the unsubscribe link's `?token=...`) instead of clobbering it.
+ */
+function withUtm(url) {
+  try {
+    const u = new URL(url);
+    if (!/(^|\.)askfomo\.com$/i.test(u.hostname)) return url;
+    u.searchParams.set("utm_source", "email");
+    u.searchParams.set("utm_medium", "newsletter");
+    u.searchParams.set("utm_campaign", UTM_CAMPAIGN);
+    return u.toString();
+  } catch {
+    return url;
+  }
+}
 
 function subjectFor(picks) {
   // Only claims what the data proves: unknown-price picks are not "cheap".
@@ -144,7 +169,7 @@ function itemRowHtml(item) {
         <tr>
           ${img}
           <td style="vertical-align:top;">
-            <a href="${escapeHtml(item.url)}" style="color:${NAVY};text-decoration:none;font-weight:700;font-size:16px;line-height:1.3;">${escapeHtml(item.title)}</a>
+            <a href="${escapeHtml(withUtm(item.url))}" style="color:${NAVY};text-decoration:none;font-weight:700;font-size:16px;line-height:1.3;">${escapeHtml(item.title)}</a>
             <div style="color:#5b6472;font-size:13px;margin-top:4px;">${meta}</div>
           </td>
           <td width="72" style="vertical-align:top;text-align:right;white-space:nowrap;">
@@ -194,14 +219,14 @@ function renderHtml({ picks, deals, unsubscribeUrl }) {
   ${dealsSection}
   <tr>
     <td style="padding:28px 24px 8px;text-align:center;">
-      <a href="https://askfomo.com/weekend" style="display:inline-block;background:${NAVY};color:#ffffff;text-decoration:none;font-weight:700;font-size:14px;padding:12px 22px;border-radius:999px;">See the full list</a>
+      <a href="${escapeHtml(withUtm("https://askfomo.com/weekend"))}" style="display:inline-block;background:${NAVY};color:#ffffff;text-decoration:none;font-weight:700;font-size:14px;padding:12px 22px;border-radius:999px;">See the full list</a>
     </td>
   </tr>
   <tr>
     <td style="padding:24px 24px 28px;text-align:center;color:#8b93a3;font-size:11px;line-height:1.6;">
       You're getting this because you signed up for the Fomo Friday digest at askfomo.com.<br />
       {{SENDER_ADDRESS}}<br />
-      <a href="${escapeHtml(unsubscribeUrl)}" style="color:#8b93a3;text-decoration:underline;">Unsubscribe</a>
+      <a href="${escapeHtml(withUtm(unsubscribeUrl))}" style="color:#8b93a3;text-decoration:underline;">Unsubscribe</a>
     </td>
   </tr>
 </table>
@@ -229,11 +254,11 @@ function renderText({ picks, deals, unsubscribeUrl }) {
     }
   }
   lines.push("");
-  lines.push("Full list: https://askfomo.com/weekend");
+  lines.push(`Full list: ${withUtm("https://askfomo.com/weekend")}`);
   lines.push("");
   lines.push("You're getting this because you signed up for the Fomo Friday digest at askfomo.com.");
   lines.push("{{SENDER_ADDRESS}}");
-  lines.push(`Unsubscribe: ${unsubscribeUrl}`);
+  lines.push(`Unsubscribe: ${withUtm(unsubscribeUrl)}`);
   return lines.join("\n");
 }
 
@@ -255,7 +280,19 @@ async function resendSendBatch(messages) {
   return res.json();
 }
 
-function buildMessage({ to, subject, html, text }) {
+/**
+ * `apiUnsubscribeUrl` — RFC 8058 one-click unsubscribe: the mail client
+ * itself POSTs this URL directly with no page load and no user keystroke
+ * beyond clicking "Unsubscribe" in the mail UI, so it must be the API
+ * route (app/api/unsubscribe/route.ts, which handles POST with `token` in
+ * the query string), never the human-facing /unsubscribe PAGE — a POST to
+ * the page would just 404/405. This used to be regex-extracted from the
+ * rendered `html`'s visible footer link, which pointed at the page and was
+ * therefore wrong for this header; now passed in explicitly so the two
+ * links (page for a human click, API for the mail client's automated
+ * POST) can never accidentally collapse into the same URL again.
+ */
+function buildMessage({ to, subject, html, text, apiUnsubscribeUrl }) {
   return {
     from: FOMO_FROM_EMAIL,
     reply_to: FOMO_REPLY_TO,
@@ -264,7 +301,7 @@ function buildMessage({ to, subject, html, text }) {
     html,
     text,
     headers: {
-      "List-Unsubscribe": `<${html.match(/href="([^"]*unsubscribe[^"]*)"/i)?.[1] ?? "https://askfomo.com/unsubscribe"}>`,
+      "List-Unsubscribe": `<${apiUnsubscribeUrl}>`,
       "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
     },
   };
@@ -309,10 +346,15 @@ async function main() {
     for (let i = 0; i < subscribers.length; i += BATCH_SIZE) {
       const batch = subscribers.slice(i, i + BATCH_SIZE);
       const messages = batch.map((s) => {
+        // Two distinct URLs for the same token: the PAGE (visible footer
+        // link, a human clicks it) vs. the API route (List-Unsubscribe
+        // header, the mail client POSTs it directly) — see buildMessage's
+        // doc comment.
         const unsubscribeUrl = `https://askfomo.com/unsubscribe?token=${s.unsubscribe_token}`;
+        const apiUnsubscribeUrl = `https://askfomo.com/api/unsubscribe?token=${s.unsubscribe_token}`;
         const html = renderHtml({ picks, deals, unsubscribeUrl }).replace(/\{\{SENDER_ADDRESS\}\}/g, SENDER_ADDRESS);
         const text = renderText({ picks, deals, unsubscribeUrl }).replace(/\{\{SENDER_ADDRESS\}\}/g, SENDER_ADDRESS);
-        return buildMessage({ to: s.email, subject, html, text });
+        return buildMessage({ to: s.email, subject, html, text, apiUnsubscribeUrl });
       });
       await resendSendBatch(messages);
       sent += batch.length;
@@ -356,6 +398,7 @@ async function main() {
       subject,
       html: html.replace(/\{\{SENDER_ADDRESS\}\}/g, SENDER_ADDRESS),
       text: text.replace(/\{\{SENDER_ADDRESS\}\}/g, SENDER_ADDRESS),
+      apiUnsubscribeUrl: previewUnsubscribeUrl.replace("/unsubscribe?", "/api/unsubscribe?"),
     });
     await resendSendBatch([message]);
     console.log(`[fomo-friday] Test email sent to ${TEST_TO}`);
