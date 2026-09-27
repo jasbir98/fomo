@@ -26,6 +26,17 @@ import type { EventItem } from "@/lib/types";
  *  what "still running" means. */
 export const DEFAULT_EVENT_DURATION_MS = 2 * 60 * 60 * 1000;
 
+/** True when `iso` is a date-only event stored as midnight UTC — a heuristic
+ *  for "we don't actually know the time" (mirroring scripts/lib/describe.mjs's
+ *  `isMidnightUtcSentinel`). Real UK events essentially never start at the
+ *  literal top of the UTC hour with zero minutes/seconds, so this is safe. */
+export function isDateOnlyStart(iso: string): boolean {
+  if (typeof iso !== "string") return false;
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return false;
+  return d.getUTCHours() === 0 && d.getUTCMinutes() === 0 && d.getUTCSeconds() === 0;
+}
+
 /** Events at/after this local hour read as "Tonight"; earlier same-day ones
  *  read as "Today". Previously ANY same-day event said "Tonight" — a 12:30
  *  lunch slot included. */
@@ -99,16 +110,17 @@ export function eventDayLabel(
 }
 
 /** "7:30 PM" in `timeZone` (defaults to CITY.timezone) — never the device's
- *  own zone. */
+ *  own zone. Returns "" for date-only events (those stored as midnight UTC). */
 export function formatEventTime(starts_at: string, timeZone: string = CITY.timezone): string {
+  if (isDateOnlyStart(starts_at)) return "";
   const d = new Date(starts_at);
   if (Number.isNaN(d.getTime())) return "";
   return d.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", timeZone });
 }
 
 /**
- * "Today · 12:30 PM" / "Tonight · 7:30 PM" / "Sat 8 Aug · 8:00 PM". `ends_at`
- * is accepted for signature symmetry with the rest of the module (a future
+ * "Today · 12:30 PM" / "Tonight · 7:30 PM" / "Sat 8 Aug · 8:00 PM" / "Today" (date-only).
+ * `ends_at` is accepted for signature symmetry with the rest of the module (a future
  * "Tonight · 7:30–10 PM" span format could use it) but isn't rendered yet.
  */
 export function formatEventWhen(
@@ -119,7 +131,9 @@ export function formatEventWhen(
   void ends_at;
   const d = new Date(starts_at);
   if (Number.isNaN(d.getTime())) return "";
-  return `${formatEventDate(starts_at, timeZone)} · ${formatEventTime(starts_at, timeZone)}`;
+  const date = formatEventDate(starts_at, timeZone);
+  const time = formatEventTime(starts_at, timeZone);
+  return time ? `${date} · ${time}` : date;
 }
 
 /**
@@ -144,14 +158,15 @@ export function formatEventDate(starts_at: string, timeZone: string = CITY.timez
 
 /**
  * "7:30 PM" or "7:30 PM – 10:30 PM" when ends_at is present and on the same
- * (`timeZone`) calendar day. Reuses the formatting style of formatEventTime
- * for consistency.
+ * (`timeZone`) calendar day. Returns "" for date-only events (no time display).
+ * Reuses the formatting style of formatEventTime for consistency.
  */
 export function formatEventTimeSpan(
   starts_at: string,
   ends_at?: string | null,
   timeZone: string = CITY.timezone
 ): string {
+  if (isDateOnlyStart(starts_at)) return "";
   const startTime = formatEventTime(starts_at, timeZone);
   if (!startTime || !ends_at) return startTime;
 

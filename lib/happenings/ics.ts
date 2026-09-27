@@ -26,6 +26,7 @@
 
 import type { Happening, Occurrence } from "./types";
 import type { EventItem } from "@/lib/types";
+import { isDateOnlyStart } from "@/lib/events/format";
 
 const CRLF = "\r\n";
 const FOLD_LIMIT_OCTETS = 75;
@@ -164,16 +165,25 @@ export function buildHappeningIcs(happening: Happening, occurrence: Occurrence, 
 }
 
 /** Builds a complete `VCALENDAR` (one `VEVENT`) for a provider event
- *  (Skiddle/Ticketmaster, the `events` table) — always timed, since
- *  `starts_at` is a non-nullable real timestamp on that table, unlike a
- *  happening's occurrence, which can be an all-day calendar-day rule. */
+ *  (Skiddle/Ticketmaster, the `events` table). Date-only events (starts_at
+ *  at exactly midnight UTC) become all-day entries; timed events stay timed. */
 export function buildEventIcs(event: EventItem, now: Date = new Date()): string {
+  const isDateOnly = isDateOnlyStart(event.starts_at);
   const start = new Date(event.starts_at);
-  const end = event.ends_at ? new Date(event.ends_at) : null;
   const detailUrl = `https://askfomo.com/event/${event.id}`;
   const location = [event.venue_name, event.address].filter(Boolean).join(", ") || null;
   const description = [event.description, detailUrl].filter(Boolean).join("\n\n");
 
+  if (isDateOnly) {
+    // Date-only: convert to all-day event (ends next day)
+    const dayEnd = new Date(start.getTime() + 86_400_000);
+    return buildIcsCalendar(
+      { uid: `${event.id}@askfomo.com`, title: event.name, start, end: dayEnd, allDay: true, location, description, url: detailUrl },
+      now
+    );
+  }
+
+  const end = event.ends_at ? new Date(event.ends_at) : null;
   return buildIcsCalendar(
     { uid: `${event.id}@askfomo.com`, title: event.name, start, end, allDay: false, location, description, url: detailUrl },
     now

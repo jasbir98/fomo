@@ -9,7 +9,7 @@ import { directionsUrlFor } from "@/lib/maps/links";
 import { getEvent } from "@/lib/db";
 import { isSaved, saveItem, unsaveItem } from "@/lib/db/saved";
 import { categoryDefaultImage } from "@/lib/happenings/category-style";
-import { formatEventPrice, formatEventWhen } from "@/lib/events/format";
+import { formatEventPrice, formatEventWhen, isDateOnlyStart } from "@/lib/events/format";
 import type { EventItem } from "@/lib/types";
 import { Button, ErrorState, FomoLoader, Icon, PageHeader, PhotoCarousel, ShareButton, StatusPill } from "@/components/ui";
 import type { CarouselPhoto } from "@/components/ui";
@@ -17,13 +17,29 @@ import { getEventPreview, takePrefetchedEvent, type EventPreview } from "@/lib/e
 
 /**
  * Google Calendar "add event" link — mirrors the happening detail page's
- * own `googleCalendarUrl` (app/(shell)/happening/[id]/page.tsx), just off
- * an `EventItem`'s plain `starts_at`/`ends_at` instead of an `Occurrence`:
- * a provider event always has a real timed start (the `events` table
- * column is non-nullable), so there's no all-day branch to handle here.
+ * own `googleCalendarUrl` (app/(shell)/happening/[id]/page.tsx). Date-only
+ * events (starts_at at midnight UTC) use all-day format (YYYYMMDD/YYYYMMDD+1);
+ * timed events use the full timestamp format.
  */
 function eventGoogleCalendarUrl(event: EventItem): string {
   const start = new Date(event.starts_at);
+
+  if (isDateOnlyStart(event.starts_at)) {
+    // All-day format: YYYYMMDD/YYYYMMDD (next day, exclusive end)
+    const [year, month, day] = start.toISOString().slice(0, 10).split("-");
+    const nextDay = new Date(start.getTime() + 86_400_000);
+    const [nextYear, nextMonth, nextDay_str] = nextDay.toISOString().slice(0, 10).split("-");
+    const dateStr = `${year}${month}${day}/${nextYear}${nextMonth}${nextDay_str}`;
+    const params = new URLSearchParams({
+      action: "TEMPLATE",
+      text: event.name,
+      dates: dateStr,
+      details: [event.description, event.ticket_url].filter(Boolean).join("\n\n"),
+      location: [event.venue_name, event.address].filter(Boolean).join(", ") || event.city || "Edinburgh",
+    });
+    return `https://calendar.google.com/calendar/render?${params.toString()}`;
+  }
+
   const end = event.ends_at ? new Date(event.ends_at) : new Date(start.getTime() + 2 * 3_600_000);
   const stamp = (d: Date) => d.toISOString().replace(/[-:]/g, "").replace(/\.\d{3}/, "");
   const params = new URLSearchParams({
