@@ -1,14 +1,20 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { Icon, NavCard, SmartImage } from "@/components/ui";
 import { WHO_GROUP_LABEL, type DealWhoGroup } from "@/lib/happenings/groups";
+import { savingBadgeLabel } from "@/lib/happenings/format";
 import { priceLabelForHappening, type PriceLabel } from "@/lib/happenings/price-label";
 import { PriceTag } from "@/components/happenings/PriceTag";
 import type { DealCardData } from "@/lib/happenings/feed-types";
 
 export interface VenueDealCardProps {
-  placeId: string;
+  /** `null` when this group has no resolvable `places` row (a normalised-
+   *  venue-name fallback match — see lib/happenings/feed-types.ts's
+   *  `VenueDealGroup` doc comment). There's then no `/place/[id]` to link
+   *  to, so the card expands inline instead of navigating. */
+  placeId: string | null;
   placeName: string;
   placeImageUrl: string | null;
   district: string | null;
@@ -37,56 +43,127 @@ function bestSaving(offers: DealCardData[]): PriceLabel | null {
   return priceLabelForHappening(pick.happening);
 }
 
-/**
- * One card per venue with multiple live deals (Home restructure task 3) —
- * venue photo, name, district, "N offers", best saving badge, a summary of
- * which WHO groups its offers cover. Taps through to `/place/[id]`, which
- * lists every offer at that venue in full (its own "Offers here" section).
- */
-export function VenueDealCard({ placeId, placeName, placeImageUrl, district, offers }: VenueDealCardProps) {
+function VenueThumbnail({ placeImageUrl }: { placeImageUrl: string | null }) {
   const [imgError, setImgError] = useState(false);
   const showImage = placeImageUrl && !imgError;
-  const priceLabel = bestSaving(offers);
+  return (
+    <div className="h-16 w-16 shrink-0 overflow-hidden rounded-lg border border-hairline bg-surface-container">
+      {showImage ? (
+        <SmartImage
+          src={placeImageUrl}
+          alt=""
+          width={64}
+          height={64}
+          className="h-full w-full object-cover"
+          onError={() => setImgError(true)}
+        />
+      ) : (
+        <div className="flex h-full w-full items-center justify-center">
+          <Icon name="storefront" size={22} className="text-outline" />
+        </div>
+      )}
+    </div>
+  );
+}
+
+function VenueDealSummary({
+  placeName,
+  district,
+  offers,
+  priceLabel,
+}: {
+  placeName: string;
+  district: string | null;
+  offers: DealCardData[];
+  priceLabel: PriceLabel | null;
+}) {
   const whoLabels = Array.from(
     new Set(offers.map((o) => o.who).filter((w): w is DealWhoGroup => w != null))
   ).map((w) => WHO_GROUP_LABEL[w]);
 
   return (
-    <NavCard
-      href={`/place/${placeId}`}
-      ariaLabel={placeName}
-      className="flex cursor-pointer items-center gap-3.5 rounded-2xl bg-surface-container-lowest p-3.5 shadow-level-1 transition-shadow hover:shadow-level-2"
+    <div className="flex min-w-0 flex-1 flex-col justify-center gap-0.5">
+      <div className="flex items-center justify-between gap-1">
+        <h5 className="truncate text-label-lg font-bold text-on-surface">{placeName}</h5>
+        <PriceTag label={priceLabel} variant="compact" />
+      </div>
+      <span className="text-label-sm text-on-surface-variant">
+        {offers.length} offer{offers.length === 1 ? "" : "s"}
+        {district ? ` · ${district}` : ""}
+      </span>
+      {whoLabels.length > 0 ? (
+        <span className="truncate text-label-sm text-secondary">{whoLabels.join(" · ")}</span>
+      ) : null}
+    </div>
+  );
+}
+
+/**
+ * One row per offer inside an expanded, place-less venue group — each links
+ * straight to its own `/happening/[id]` (there's no `/place/[id]` for this
+ * venue to gather them on, see the module doc above).
+ */
+function ExpandedOfferRow({ offer }: { offer: DealCardData }) {
+  const badge = savingBadgeLabel(offer.happening);
+  return (
+    <Link
+      href={`/happening/${offer.happening.id}`}
+      className="flex items-center justify-between gap-2 rounded-lg px-2 py-2 text-body-sm text-on-surface hover:bg-surface-container"
     >
-      <div className="h-16 w-16 shrink-0 overflow-hidden rounded-lg border border-hairline bg-surface-container">
-        {showImage ? (
-          <SmartImage
-            src={placeImageUrl}
-            alt=""
-            width={64}
-            height={64}
-            className="h-full w-full object-cover"
-            onError={() => setImgError(true)}
-          />
-        ) : (
-          <div className="flex h-full w-full items-center justify-center">
-            <Icon name="storefront" size={22} className="text-outline" />
-          </div>
-        )}
-      </div>
-      <div className="flex min-w-0 flex-1 flex-col justify-center gap-0.5">
-        <div className="flex items-center justify-between gap-1">
-          <h5 className="truncate text-label-lg font-bold text-on-surface">{placeName}</h5>
-          <PriceTag label={priceLabel} variant="compact" />
+      <span className="truncate">{offer.happening.title}</span>
+      {badge ? <span className="shrink-0 text-label-sm font-bold text-primary">{badge}</span> : null}
+    </Link>
+  );
+}
+
+/**
+ * One card per venue with multiple live deals (Home restructure task 3) —
+ * venue photo, name, district, "N offers", best saving badge, a summary of
+ * which WHO groups its offers cover.
+ *
+ * Taps through to `/place/[id]` when `placeId` resolved to a real place,
+ * which lists every offer there in full (its own "Offers here" section).
+ * When it didn't (a normalised-venue-name fallback group — see
+ * `VenueDealCardProps`'s doc comment), there's nowhere to send the tap, so
+ * the card expands in place instead, listing each offer with its own link.
+ */
+export function VenueDealCard({ placeId, placeName, placeImageUrl, district, offers }: VenueDealCardProps) {
+  const [expanded, setExpanded] = useState(false);
+  const priceLabel = bestSaving(offers);
+
+  if (placeId) {
+    return (
+      <NavCard
+        href={`/place/${placeId}`}
+        ariaLabel={placeName}
+        className="flex cursor-pointer items-center gap-3.5 rounded-2xl bg-surface-container-lowest p-3.5 shadow-level-1 transition-shadow hover:shadow-level-2"
+      >
+        <VenueThumbnail placeImageUrl={placeImageUrl} />
+        <VenueDealSummary placeName={placeName} district={district} offers={offers} priceLabel={priceLabel} />
+      </NavCard>
+    );
+  }
+
+  return (
+    <div className="flex flex-col gap-1 rounded-2xl bg-surface-container-lowest p-3.5 shadow-level-1">
+      <button
+        type="button"
+        aria-expanded={expanded}
+        onClick={() => setExpanded((v) => !v)}
+        className="flex w-full cursor-pointer items-center gap-3.5 text-left"
+      >
+        <VenueThumbnail placeImageUrl={placeImageUrl} />
+        <VenueDealSummary placeName={placeName} district={district} offers={offers} priceLabel={priceLabel} />
+        <Icon name={expanded ? "expand_less" : "expand_more"} size={20} className="shrink-0 text-outline" />
+      </button>
+      {expanded ? (
+        <div className="flex flex-col divide-y divide-hairline border-t border-hairline pt-1">
+          {offers.map((offer) => (
+            <ExpandedOfferRow key={offer.happening.id} offer={offer} />
+          ))}
         </div>
-        <span className="text-label-sm text-on-surface-variant">
-          {offers.length} offer{offers.length === 1 ? "" : "s"}
-          {district ? ` · ${district}` : ""}
-        </span>
-        {whoLabels.length > 0 ? (
-          <span className="truncate text-label-sm text-secondary">{whoLabels.join(" · ")}</span>
-        ) : null}
-      </div>
-    </NavCard>
+      ) : null}
+    </div>
   );
 }
 

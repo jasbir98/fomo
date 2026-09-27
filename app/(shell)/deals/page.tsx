@@ -129,7 +129,7 @@ export default function DealsPage() {
             {dealItems.slice(0, visibleCount).map((item) =>
               item.kind === "venue" ? (
                 <VenueDealCard
-                  key={`venue-${item.group.placeId}`}
+                  key={`venue-${item.group.placeId ?? item.group.placeName}`}
                   placeId={item.group.placeId}
                   placeName={item.group.placeName}
                   placeImageUrl={item.group.placeImageUrl}

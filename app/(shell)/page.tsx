@@ -20,10 +20,16 @@ import { FomoSpot } from "@/components/fomo/FomoSpot";
 import { FeedHero, FeedListCard, FreeAnyTimeList, BookEarlyCard, SubscribeCard } from "@/components/happenings";
 import { TodaysDealsStrip } from "@/components/happenings/TodaysDealsStrip";
 import { todaysDeals } from "@/lib/happenings/today-deals";
+import { AmbientWeather } from "@/components/weather/AmbientWeather";
 
 interface HomeWeather {
   condition: WeatherCondition;
   tempC: number | null;
+  // Carried through only for AmbientWeather's rain-intensity split — not
+  // shown anywhere as text, so unlike `condition`/`tempC` there's no chip
+  // copy relying on these.
+  precipitationProbabilityMax: number | null;
+  windSpeedMaxKmh: number | null;
 }
 
 // Staleness windows for lib/http/clientCache.ts's `useCachedJson` — chosen to
@@ -133,8 +139,22 @@ async function fetchFeed(window: FeedWindow, signal?: AbortSignal): Promise<Feed
  *  worth a Retry button over). */
 async function fetchWeather(cityName: string, signal?: AbortSignal): Promise<HomeWeather | null> {
   const res = await fetch(`/api/weather?destination=${encodeURIComponent(cityName)}`, { signal });
-  const json = (await res.json()) as { day?: { condition: WeatherCondition; tempMaxC: number | null } | null };
-  return json.day ? { condition: json.day.condition, tempC: json.day.tempMaxC } : null;
+  const json = (await res.json()) as {
+    day?: {
+      condition: WeatherCondition;
+      tempMaxC: number | null;
+      precipitationProbabilityMax: number | null;
+      windSpeedMaxKmh: number | null;
+    } | null;
+  };
+  return json.day
+    ? {
+        condition: json.day.condition,
+        tempC: json.day.tempMaxC,
+        precipitationProbabilityMax: json.day.precipitationProbabilityMax,
+        windSpeedMaxKmh: json.day.windSpeedMaxKmh,
+      }
+    : null;
 }
 
 /** Returns the raw id list, not a `Set` — a `Set` doesn't round-trip through
@@ -219,6 +239,14 @@ export default function HomePage() {
   // the very first render never plays an entrance animation anyway (nothing
   // is keyed/remounted until `feedWindow` actually changes).
   const [switchDirection, setSwitchDirection] = useState<1 | -1>(1);
+  // Brief "Showing N coming up ↓" pill under the control after a tab switch
+  // — a second, ~2s-lived signal that something changed, for the case where
+  // the new hero/list happens to render at roughly the same height as the
+  // old one and the motion alone is easy to miss. Tap scrolls to the list
+  // (same target the auto-scroll effect uses) and dismisses it early.
+  const [switchToast, setSwitchToast] = useState<{ label: string } | null>(null);
+  const switchToastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pendingToastRef = useRef(false);
   const whatsOnSectionRef = useRef<HTMLDivElement>(null);
   const bookEarlySectionRef = useRef<HTMLDivElement>(null);
   // Content height of the last successfully-rendered What's on list, kept as
@@ -295,16 +323,27 @@ export default function HomePage() {
   });
   const alertHappeningIds = useMemo(() => new Set(alertsResult.data ?? []), [alertsResult.data]);
 
-  // Mark a scroll-into-view as owed the instant the window actually changes
-  // (not on a same-window revalidation) — the second effect below fires it
-  // once `feed` for the new window is actually populated, whether that's
-  // this tick (cache hit) or several ticks later (cold fetch).
+  // Mark a scroll-into-view (and the switch toast below) as owed the instant
+  // the window actually changes (not on a same-window revalidation) — the
+  // effects below fire once `feed` for the new window is actually
+  // populated, whether that's this tick (cache hit) or several ticks later
+  // (cold fetch).
   useEffect(() => {
     if (prevFeedWindowRef.current !== feedWindow) {
       pendingScrollRef.current = true;
+      pendingToastRef.current = true;
       prevFeedWindowRef.current = feedWindow;
     }
   }, [feedWindow]);
+
+  // Timer cleanup on unmount only — a fresh switch clears/replaces its own
+  // pending timer inline (see the toast effect below), this just stops a
+  // stray one firing after the page itself is gone.
+  useEffect(() => {
+    return () => {
+      if (switchToastTimerRef.current) clearTimeout(switchToastTimerRef.current);
+    };
+  }, []);
 
   useEffect(() => {
     if (!pendingScrollRef.current || feed === null) return;
@@ -389,6 +428,7 @@ export default function HomePage() {
   function cardKey(card: FeedCardData): string {
     if (card.kind === "happening") return `happening-${card.happening.id}`;
     if (card.kind === "series") return `series-${card.key}`;
+    if (card.kind === "recurring") return `recurring-${card.key}`;
     return `event-${card.event.id}`;
   }
 
@@ -410,6 +450,33 @@ export default function HomePage() {
     if (!data) return null;
     return w === "book_early" ? data.bookEarly.length : (data.whatsOn[0]?.cards.length ?? 0);
   }
+
+  function toastLabelFor(w: FeedWindow, count: number): string {
+    const noun = w === "book_early" ? `${count === 1 ? "thing" : "things"} to book early` : w === "coming_up" ? "coming up" : "on now";
+    return `Showing ${count} ${noun} ↓`;
+  }
+
+  // Fires once the newly-active window's own data is actually in (see the
+  // window-change effect above, which arms `pendingToastRef`) — a fresh
+  // switch always replaces any still-pending timer from a rapid previous
+  // one, so only the latest toast is ever showing.
+  useEffect(() => {
+    if (!pendingToastRef.current || feed === null) return;
+    pendingToastRef.current = false;
+    const count = countFor(feedWindow);
+    if (count == null) return;
+    const label = toastLabelFor(feedWindow, count);
+    if (switchToastTimerRef.current) clearTimeout(switchToastTimerRef.current);
+    // `setSwitchToast` deliberately isn't called synchronously in the effect
+    // body — this effect is genuinely reacting to an external event (the new
+    // window's data arriving) and also owns a real side effect (arming the
+    // dismiss timer), not deriving render-time state, but the
+    // react-hooks/set-state-in-effect rule can't tell the two apart
+    // structurally; queueing it is the standard escape hatch.
+    queueMicrotask(() => setSwitchToast({ label }));
+    switchToastTimerRef.current = setTimeout(() => setSwitchToast(null), 2000);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [feed, feedWindow]);
 
   // Segment labels grow a "· N" count once that tab's data has actually
   // loaded (this tab, or an idle-prefetched other one) — omitted rather than
@@ -463,7 +530,23 @@ export default function HomePage() {
   const windowSlideClass = switchDirection === 1 ? "feed-slide-in-right" : "feed-slide-in-left";
 
   return (
-    <div className="flex flex-col gap-6 pb-6">
+    <div className="relative flex flex-col gap-6 pb-6">
+      {/* Ambient weather decoration — behind the header/hero region only
+          (fixed height, not the whole page). `-z-10` (this `div` is now the
+          positioned ancestor, via `relative` above) — drawn OVER the hero and
+          deals strip (pointer-events-none, faint) because behind them it only
+          showed in the thin gaps between opaque cards; the sticky header's
+          own z-index still keeps it under the app bar.
+          `weather` (not `weatherResult.data`) is already the resolved-or-null
+          value used by the chip below, so the two never disagree about
+          what's currently showing. */}
+      <AmbientWeather
+        condition={weather?.condition ?? null}
+        precipitationProbabilityMax={weather?.precipitationProbabilityMax}
+        windSpeedMaxKmh={weather?.windSpeedMaxKmh}
+        className="z-[5] h-[520px]"
+      />
+
       {/* NOT `glass-surface` here (72% opaque) — sticky, it let scrolled
           section headings show through underneath it. A sticky app bar needs
           to actually occlude what scrolls behind it; the shared glass-surface
@@ -584,11 +667,61 @@ export default function HomePage() {
         <div className="flex flex-col gap-1.5">
           <SegmentedControl value={feedWindow} options={windowOptions} onChange={handleWindowChange} />
           <p className="px-1 text-label-sm text-on-surface-variant">{windowSummary()}</p>
+          {switchToast ? (
+            <button
+              type="button"
+              onClick={() => {
+                const el = feedWindow === "book_early" ? bookEarlySectionRef.current : whatsOnSectionRef.current;
+                if (el && typeof window !== "undefined") {
+                  const reduceMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+                  el.scrollIntoView({ behavior: reduceMotion ? "auto" : "smooth", block: "start" });
+                }
+                setSwitchToast(null);
+              }}
+              className="switch-toast self-start rounded-full bg-inverse-surface px-3 py-1.5 text-label-sm font-semibold text-inverse-on-surface shadow-level-2"
+            >
+              {switchToast.label}
+            </button>
+          ) : null}
         </div>
 
         {showHappeningHero && feed?.hero ? (
-          <FeedHero card={feed.hero} variant={heroKind} />
-        ) : heroKind === "book_early" ? null : now?.hero ? (
+          // `key`'d + slid the same direction as the content below it — the
+          // hero used to be the SAME card regardless of tab (GET /api/feed's
+          // `hero` was picked window-agnostically; see app/api/feed/route.ts),
+          // which was the biggest reason a tab switch read as "nothing
+          // changed" with the viewport scrolled to the top. It's now scoped
+          // to the active window server-side, so this remount is a genuine
+          // hero change, not just a replay.
+          <div key={`hero-${feedWindow}`} className={windowSlideClass}>
+            <FeedHero card={feed.hero} variant={heroKind} />
+          </div>
+        ) : heroKind === "book_early" ? null : feed !== null ? (
+          // This window's own feed HAS loaded and genuinely has no hero
+          // candidate (see `pickHero`'s doc comment on `windowRange`) — a
+          // compact preview of its own first few cards instead of falling
+          // back to the unrelated, window-agnostic /api/now pick below,
+          // which would show the same thing on every tab and defeat the
+          // point of scoping the hero at all.
+          whatsOnCards.length > 0 ? (
+            <div key={`hero-preview-${feedWindow}`} className={`${windowSlideClass} flex flex-col gap-2`}>
+              {whatsOnCards.slice(0, 3).map((card) => (
+                <FeedListCard key={cardKey(card)} card={card} />
+              ))}
+            </div>
+          ) : (
+            <div
+              key={`hero-empty-${feedWindow}`}
+              className={`${windowSlideClass} flex flex-col items-center gap-2 rounded-lg border border-dashed border-hairline-strong p-6 text-center`}
+            >
+              <Icon name="explore" size={28} className="text-outline" />
+              <p className="text-body-md text-on-surface-variant">{whatsOnEmptyMessage()}</p>
+            </div>
+          )
+        ) : now?.hero ? (
+          // Still loading THIS window's own feed — fall back to the
+          // existing /api/now pick (window-agnostic, but already warm from
+          // first paint) rather than a blank slot while it settles.
           <FomoCard candidate={now.hero} variant="hero" onDismiss={() => nowResult.revalidate()} onPrimary={handlePrimary} />
         ) : nowError ? (
           // A real /api/now failure — as opposed to "still loading" or "no

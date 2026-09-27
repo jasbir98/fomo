@@ -31,6 +31,7 @@ function isWhatsOnWindow(value: string | null): value is Exclude<FeedWindow, "bo
 function cardKey(card: FeedCardData): string {
   if (card.kind === "happening") return `happening-${card.happening.id}`;
   if (card.kind === "series") return `series-${card.key}`;
+  if (card.kind === "recurring") return `recurring-${card.key}`;
   return `event-${card.event.id}`;
 }
 
@@ -86,18 +87,34 @@ function WhatsOnPageInner() {
     router.replace(`/whats-on?${params.toString()}`, { scroll: false });
   }
 
-  // Cached (and shared with Home, see fetchFeed's doc comment) per window —
+  // Both windows, always — not just the active tab's. `now`/`coming_up` are
+  // disjoint by construction (occurrenceWindowRange in app/api/feed/route.ts
+  // starts `coming_up` the day after `now` ends), so "This weekend" straddles
+  // both windows on a Fri/Sat/Sun visit (Fri: only Sun matches; Sat/Sun: only
+  // today's own window has today's own weekend day) — same fix as
+  // app/(shell)/weekend/page.tsx, whose merge-and-dedupe this mirrors. Same
+  // cache keys Home/`fetchFeed` already use, so whichever window the visitor
+  // arrived on (via `?window=`) is very often already warm.
+  const nowFeed = useCachedJson<FeedResponse>("feed:now", (signal) => fetchFeed("now", signal), {
+    staleMs: FEED_STALE_MS,
+  });
+  const comingUpFeed = useCachedJson<FeedResponse>("feed:coming_up", (signal) => fetchFeed("coming_up", signal), {
+    staleMs: FEED_STALE_MS,
+  });
   // `error` only means "nothing cached for this window and the last attempt
   // failed", never a background revalidation hiccup with a cached window
   // still showing.
-  const feedResult = useCachedJson<FeedResponse>(`feed:${feedWindow}`, (signal) => fetchFeed(feedWindow, signal), {
-    staleMs: FEED_STALE_MS,
-  });
+  const feedResult = feedWindow === "now" ? nowFeed : comingUpFeed;
   const cards = useMemo(
     () => (feedResult.data ? (feedResult.data.whatsOn[0]?.cards ?? []) : null),
     [feedResult.data]
   );
   const error = feedResult.error != null && feedResult.data === undefined;
+  // Same "nothing cached and the last attempt failed" contract as `error`
+  // above, but over both windows — what "This weekend" actually needs.
+  const weekendError =
+    (nowFeed.error != null && nowFeed.data === undefined) ||
+    (comingUpFeed.error != null && comingUpFeed.data === undefined);
 
   function setFeedWindow(next: Exclude<FeedWindow, "book_early">) {
     setFeedWindowState(next);
@@ -120,14 +137,38 @@ function WhatsOnPageInner() {
 
   const { saturday: weekendSaturday, sunday: weekendSunday } = weekendDates();
 
+  // "This weekend" merges BOTH windows (see the `nowFeed`/`comingUpFeed`
+  // doc comment above) — unlike "All dates" and the specific-date pills,
+  // which stay scoped to the active window's own `cards` because `dates`
+  // (the pills themselves) is derived from that same list, so there's no
+  // window to straddle there. `null` while either window is still loading;
+  // deduped by `cardKey` in case a card were ever eligible in both (it
+  // shouldn't be, windows are disjoint, but a merge should never double-list
+  // one regardless).
+  const weekendCards = useMemo(() => {
+    if (!nowFeed.data || !comingUpFeed.data) return null;
+    const seen = new Set<string>();
+    const out: FeedCardData[] = [];
+    for (const card of [...(nowFeed.data.whatsOn[0]?.cards ?? []), ...(comingUpFeed.data.whatsOn[0]?.cards ?? [])]) {
+      const key = cardKey(card);
+      if (seen.has(key) || !(cardOnDay(card, weekendSaturday) || cardOnDay(card, weekendSunday))) continue;
+      seen.add(key);
+      out.push(card);
+    }
+    return out;
+  }, [nowFeed.data, comingUpFeed.data, weekendSaturday, weekendSunday]);
+
   const dateFilteredCards = useMemo(() => {
+    if (dateFilter === "weekend") return weekendCards ?? [];
     if (!cards) return [];
     if (dateFilter === "all") return cards;
-    if (dateFilter === "weekend") {
-      return cards.filter((c) => cardOnDay(c, weekendSaturday) || cardOnDay(c, weekendSunday));
-    }
     return cards.filter((c) => cardOnDay(c, dateFilter));
-  }, [cards, dateFilter, weekendSaturday, weekendSunday]);
+  }, [cards, dateFilter, weekendCards]);
+
+  // "This weekend" is ready once its own merged list resolves; every other
+  // filter rides the active window's own `cards`/`error` as before.
+  const listReady = dateFilter === "weekend" ? weekendCards !== null : cards !== null;
+  const listError = dateFilter === "weekend" ? weekendError : error;
 
   const categoryOptions = useMemo(() => distinctCategoryFacets(dateFilteredCards), [dateFilteredCards]);
 
@@ -149,11 +190,14 @@ function WhatsOnPageInner() {
   });
 
   function emptyMessage(): string {
-    if (cards && cards.length > 0 && visibleCards.length === 0) {
-      if (dateFilter !== "all" && dateFilteredCards.length === 0) return "Nothing on that day — try another date.";
+    if (listReady && visibleCards.length === 0 && (dateFilter === "weekend" ? (weekendCards?.length ?? 0) > 0 : (cards?.length ?? 0) > 0)) {
+      if (dateFilter !== "all" && dateFilteredCards.length === 0) {
+        return dateFilter === "weekend" ? "Nothing this weekend — try another date." : "Nothing on that day — try another date.";
+      }
       if (freeOnly) return "Nothing free matches — turn off Free only.";
       return "Nothing matches — try a different filter.";
     }
+    if (dateFilter === "weekend") return "Nothing lined up for this weekend yet — check back soon.";
     return feedWindow === "now"
       ? "Nothing lined up for today & tomorrow yet — try Coming up."
       : "Nothing lined up yet — check back soon.";
@@ -201,16 +245,25 @@ function WhatsOnPageInner() {
           <h2 className="text-headline-sm font-extrabold tracking-tight text-on-surface">
             {feedWindow === "now" ? "Today & tomorrow" : "Coming up"}
           </h2>
-          {cards !== null && !error ? (
+          {listReady && !listError ? (
             <span className="rounded-full border border-hairline-strong bg-surface-container px-2.5 py-0.5 text-label-sm font-extrabold text-primary">
               {visibleCards.length}
             </span>
           ) : null}
         </div>
 
-        {error ? (
-          <ErrorState title="Couldn't load what's on" onRetry={() => feedResult.revalidate()} />
-        ) : cards === null ? (
+        {listError ? (
+          <ErrorState
+            title="Couldn't load what's on"
+            onRetry={() => {
+              feedResult.revalidate();
+              if (dateFilter === "weekend") {
+                nowFeed.revalidate();
+                comingUpFeed.revalidate();
+              }
+            }}
+          />
+        ) : !listReady ? (
           <div className="flex flex-col gap-3 pt-2" role="status" aria-live="polite">
             <span className="sr-only">Loading what&rsquo;s on…</span>
             {[0, 1, 2].map((i) => (
@@ -219,7 +272,11 @@ function WhatsOnPageInner() {
           </div>
         ) : visibleCards.length === 0 ? (
           <div className="flex flex-col items-center gap-2 rounded-2xl border border-dashed border-hairline-strong p-8 text-center">
-            <FomoSpot mood={cards.length > 0 ? "hmm" : "meh"} pose="shrug" className="h-20 w-20" />
+            <FomoSpot
+              mood={(dateFilter === "weekend" ? (weekendCards?.length ?? 0) : (cards?.length ?? 0)) > 0 ? "hmm" : "meh"}
+              pose="shrug"
+              className="h-20 w-20"
+            />
             <p className="text-body-md text-on-surface-variant">{emptyMessage()}</p>
           </div>
         ) : (

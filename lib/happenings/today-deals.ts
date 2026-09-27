@@ -24,6 +24,7 @@ import {
   weekdayOf,
 } from "@/lib/happenings/occurrence";
 import { whoGroupForEligibility, type DealWhoGroup } from "@/lib/happenings/groups";
+import { groupDealsByVenue, type RankedDealItem } from "@/lib/happenings/venue-deals";
 import type { DealCardData, DealsSection } from "@/lib/happenings/feed-types";
 
 export interface TodaysDealsOptions {
@@ -34,14 +35,22 @@ export interface TodaysDealsOptions {
   limit?: number;
 }
 
-/** Never returned with fewer than this many items — tiers 1+2 are topped up with `always` deals until this many, so the strip never reads as "just one thing". */
+/** Never returned with fewer than this many items — tiers 1+2 are topped up with `always` deals until this many, so the strip never reads as "just one thing". Measured in CARDS before venue-grouping (see `todaysDeals`'s own doc comment on why grouping runs last), matching the pre-grouping topup this always did. */
 const TOPUP_TARGET = 3;
 
-/** Below this, the whole strip is pointless (a single card doesn't read as "today's deals") — the caller renders nothing. */
+/** Below this, the whole strip is pointless (a single card doesn't read as "today's deals") — the caller renders nothing. Measured in rendered ITEMS (post-grouping): a venue's 3 deals collapsed to 1 card still reads fine alongside one more, but a single lone card never does. */
 const MIN_RENDER_COUNT = 2;
 
 const DEFAULT_LIMIT = 10;
 
+/** Flattened, NOT grouped — every individual deal card, so the tier/
+ *  eligibility ranking below can see and rank each one on its own merits.
+ *  Venue grouping happens once, at the very end, over the final ranked
+ *  list — see `todaysDeals`'s own doc comment and lib/happenings/
+ *  venue-deals.ts's module doc for why re-grouping a pre-grouped section
+ *  here would be wrong (this function may only pick SOME of a venue's
+ *  deals into today's list, or drop its highest tier while keeping a
+ *  lower one). */
 function dealsList(deals: DealsSection): DealCardData[] {
   return [...deals.venueGroups.flatMap((g) => g.offers), ...deals.singles];
 }
@@ -72,11 +81,16 @@ function rankQualifyingFirst(list: DealCardData[], who: readonly DealWhoGroup[])
  *     single card.
  *
  * Within each tier, eligible ("You qualify") deals rank first without
- * hiding ineligible ones. Capped at `limit` (default 10). Returns `[]` when
- * the final list would have fewer than MIN_RENDER_COUNT items — the caller
- * hides the strip entirely rather than rendering a token single card.
+ * hiding ineligible ones. Capped at `limit` (default 10) BEFORE venue
+ * grouping (see `groupDealsByVenue`'s call below) — venue grouping runs
+ * LAST, over this final ranked/capped list, so a venue with several deals
+ * collapses into one card at the position of its best-ranked offer rather
+ * than rendering once per deal (the "Camera Obscura ×3" bug this fixes —
+ * see lib/happenings/venue-deals.ts's module doc). Returns `[]` when the
+ * final grouped list would have fewer than MIN_RENDER_COUNT items — the
+ * caller hides the strip entirely rather than rendering a token single card.
  */
-export function todaysDeals(deals: DealsSection, at: Date, options: TodaysDealsOptions = {}): DealCardData[] {
+export function todaysDeals(deals: DealsSection, at: Date, options: TodaysDealsOptions = {}): RankedDealItem[] {
   const timeZone = options.timeZone ?? CITY.timezone;
   const who = options.who ?? [];
   const limit = options.limit ?? DEFAULT_LIMIT;
@@ -126,6 +140,7 @@ export function todaysDeals(deals: DealsSection, at: Date, options: TodaysDealsO
   }
 
   result = result.slice(0, limit);
-  if (result.length < MIN_RENDER_COUNT) return [];
-  return result;
+  const grouped = groupDealsByVenue(result);
+  if (grouped.length < MIN_RENDER_COUNT) return [];
+  return grouped;
 }

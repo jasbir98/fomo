@@ -96,7 +96,31 @@ export interface SeriesCardData {
   occurrence: Occurrence;
 }
 
-export type FeedCardData = HappeningCardData | EventCardData | SeriesCardData;
+/**
+ * A collapsed RECURRENCE card — "Tue 29 Sep + 3 more dates" — for the same
+ * title at the same venue showing up as several separate `happening`/`event`
+ * rows, one per date (a per-date-entered exhibition, a weekly Ticketmaster/
+ * Skiddle listing). NOT the same problem `SeriesCardData` solves: a series
+ * is one THING at several different LOCATIONS (the three parkruns); this is
+ * one thing at the SAME location on several different DATES. See
+ * lib/happenings/recurring.ts for the grouping rule — exact normalised-title
+ * + venue match only, computed AFTER `whatsOn`'s own chronological sort so
+ * the group lands at its earliest (best-ranked) member's position, same
+ * principle as the Deals section's venue grouping.
+ * `lead` is the earliest-dated member's own full card — every display field
+ * (image, price, venue, category) is borrowed from it, exactly like a
+ * series borrows from its lead. `dates` is every member's day, deduped and
+ * sorted ascending; the card always links to the lead's own detail page.
+ */
+export interface RecurringCardData {
+  kind: "recurring";
+  key: string;
+  title: string;
+  lead: HappeningCardData | EventCardData;
+  dates: string[];
+}
+
+export type FeedCardData = HappeningCardData | EventCardData | SeriesCardData | RecurringCardData;
 
 /**
  * The hero slot's card — a happening or a provider event, decorated with a
@@ -156,9 +180,17 @@ export interface DealCardData {
  * deals with its own facets, so the client can recompute the visible count
  * and best-saving badge locally when a filter is applied (task 4's "the
  * count reflects matches").
+ *
+ * `placeId` is `string` when the group resolved to a real `places` row (it
+ * opens `/place/[id]`, which lists every offer there) and `null` when it's a
+ * same-`venue_name` fallback group with no resolvable place — e.g. a deal
+ * whose `place_id` didn't resolve, grouped purely on a normalised venue-name
+ * match against another deal at the same spot (see app/api/feed/route.ts's
+ * `buildDealsSection`). A `null`-`placeId` group has nowhere to link to, so
+ * its card (components/happenings/VenueDealCard.tsx) expands inline instead.
  */
 export interface VenueDealGroup {
-  placeId: string;
+  placeId: string | null;
   placeName: string;
   placeImageUrl: string | null;
   district: string | null;

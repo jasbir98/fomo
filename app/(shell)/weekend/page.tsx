@@ -19,6 +19,7 @@ const FEED_STALE_MS = 60_000;
 function cardKey(card: FeedCardData): string {
   if (card.kind === "happening") return `happening-${card.happening.id}`;
   if (card.kind === "series") return `series-${card.key}`;
+  if (card.kind === "recurring") return `recurring-${card.key}`;
   return `event-${card.event.id}`;
 }
 

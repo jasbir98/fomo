@@ -8,14 +8,15 @@ import {
   eligibilityLine,
   happeningTimeLabel,
   happeningTypeTag,
+  monthShort,
   occurrenceRangeLabel,
   oneLinerSummary,
   savingBadgeLabel,
 } from "@/lib/happenings/format";
 import { categoryDefaultImage, categoryStyle, kindStyle } from "@/lib/happenings/category-style";
-import { priceLabelForEvent, priceLabelForHappening } from "@/lib/happenings/price-label";
+import { priceLabelForCard, priceLabelForEvent, priceLabelForHappening } from "@/lib/happenings/price-label";
 import { PriceTag } from "@/components/happenings/PriceTag";
-import type { FeedCardData, SeriesCardData } from "@/lib/happenings/feed-types";
+import type { FeedCardData, RecurringCardData, SeriesCardData } from "@/lib/happenings/feed-types";
 import type { Happening, HappeningKind, Occurrence } from "@/lib/happenings/types";
 import type { EventItem } from "@/lib/types";
 import { whoGroupForEligibility } from "@/lib/happenings/groups";
@@ -238,6 +239,77 @@ function SeriesRow({ card }: { card: SeriesCardData }) {
   );
 }
 
+/** "Tue 29 Sep" — no year, unlike lib/happenings/format.ts's own
+ *  `occurrenceDateLabel` (that one's for a happening's own detail page,
+ *  which has room to be explicit); this is a compact meta-line/pill label. */
+function shortDayLabel(dayDate: string): string {
+  const [y, m, d] = dayDate.split("-").map(Number);
+  const weekday = new Intl.DateTimeFormat("en-GB", { weekday: "short", timeZone: "UTC" }).format(
+    new Date(Date.UTC(y, m - 1, d))
+  );
+  return `${weekday} ${d} ${monthShort(dayDate)}`;
+}
+
+/**
+ * A collapsed RECURRING card (lib/happenings/recurring.ts) — the same title
+ * at the same venue on several dates, "Tue 29 Sep + 3 more dates" instead of
+ * one row per date. Borrows every display field from `card.lead` (the
+ * earliest member's own full card, happening OR event), exactly like
+ * SeriesRow borrows from its lead; tapping it goes to the lead's own detail
+ * page — that occurrence's actual booking link/details.
+ */
+function RecurringRow({ card }: { card: RecurringCardData }) {
+  const { lead, dates } = card;
+  const extraCount = dates.length - 1;
+  const dateLabel = `${shortDayLabel(dates[0])}${extraCount > 0 ? ` + ${extraCount} more date${extraCount === 1 ? "" : "s"}` : ""}`;
+  const priceLabel = priceLabelForCard(lead);
+  const venue = lead.kind === "happening" ? (lead.happening.venue_name ?? lead.happening.district) : lead.event.venue_name;
+  const thumbnail =
+    lead.kind === "happening"
+      ? (lead.happening.image_url ?? categoryDefaultImage(lead.happening.category))
+      : (lead.event.image_url ?? categoryDefaultImage(null));
+  const oneLiner = lead.kind === "happening" ? oneLinerSummary(lead.happening.summary) : oneLinerSummary(lead.event.description);
+  const href = lead.kind === "happening" ? `/happening/${lead.happening.id}` : `/event/${lead.event.id}`;
+
+  return (
+    <CardShell
+      href={href}
+      onPointerDown={() => (lead.kind === "happening" ? prefetchHappening(lead.happening.id) : prefetchEvent(lead.event.id))}
+      onNavigate={() =>
+        lead.kind === "happening"
+          ? setHappeningPreview(lead.happening.id, happeningToPreview(lead.happening, { priceLabel: savingBadgeLabel(lead.happening), whenLabel: dateLabel }))
+          : setEventPreview(lead.event.id, eventToPreview(lead.event, { priceLabel: formatEventPrice(lead.event), whenLabel: dateLabel }))
+      }
+    >
+      <div className="flex items-start justify-between gap-3">
+        <Thumbnail src={thumbnail} alt="" />
+        <div className="flex min-w-0 flex-1 flex-col">
+          <div className="mb-1 flex items-center gap-1.5 text-[11px] font-medium text-on-surface-variant">
+            <TypeTag tag={lead.kind === "event" ? "EVENT" : happeningTypeTag(lead.happening, lead.occurrence.exact)} kind={lead.kind === "happening" ? lead.happening.kind : "event"} />
+            <span className="font-bold text-accent">{dateLabel}</span>
+          </div>
+          <h4 className="line-clamp-2 text-headline-sm font-bold leading-snug text-on-surface">{card.title}</h4>
+          {venue ? <p className="truncate text-[11px] text-on-surface-variant">{venue}</p> : null}
+        </div>
+        <PriceTag label={priceLabel} />
+      </div>
+
+      <div className="flex items-center justify-between gap-2">
+        {oneLiner ? (
+          <p className="line-clamp-1 text-body-sm leading-relaxed text-on-surface-variant">{oneLiner}</p>
+        ) : (
+          <span />
+        )}
+        {lead.kind === "happening" ? (
+          <SaveButton subjectType="happening" subjectId={lead.happening.id} className="-my-2 -mr-2" />
+        ) : (
+          <SaveButton subjectType="event" subjectId={lead.event.id} className="-my-2 -mr-2" />
+        )}
+      </div>
+    </CardShell>
+  );
+}
+
 function FestivalRow({ happening }: { happening: Happening }) {
   const priceLabel = priceLabelForHappening(happening);
   const ctaHref = happening.booking_url ?? happening.source_url;
@@ -389,6 +461,7 @@ function EventRow({ event }: { event: EventItem }) {
  */
 export function FeedListCard({ card }: FeedListCardProps) {
   if (card.kind === "series") return <SeriesRow card={card} />;
+  if (card.kind === "recurring") return <RecurringRow card={card} />;
   if (card.kind === "happening") {
     if (card.happening.kind === "festival") return <FestivalRow happening={card.happening} />;
     return <HappeningRow happening={card.happening} occurrence={card.occurrence} />;

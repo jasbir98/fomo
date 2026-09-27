@@ -5,15 +5,22 @@
  * comment for the full before/after). Home is now five sections instead of
  * a hero + date buckets + a flat "standing deals" list:
  *
- *   hero        — the single best live happening, independent of `window`,
- *                 scored over the full dated pool (any kind — What's on,
- *                 Deals, or Book Early candidates all compete for this slot;
- *                 whichever wins is excluded from its own section below so
- *                 nothing renders twice). EXCEPT on `window=book_early`: that
- *                 tab's hero is instead the top-ranked Book Early
- *                 `kind: "happening"` card (or null, never the global pick),
- *                 flagged via `heroKind: "book_early"` so the client knows to
- *                 render the Book Early presentation instead of Fomo Pick's.
+ *   hero        — the best live happening whose own occurrence actually
+ *                 falls inside the request's `window` (any kind — What's on
+ *                 or Deals candidates compete for this slot; whichever wins
+ *                 is excluded from its own section below so nothing renders
+ *                 twice). Scoped to `window` since 2026-09-27 — previously
+ *                 scored over the full dated pool regardless of `window`,
+ *                 which is how e.g. a "today only" happening ended up as the
+ *                 hero on `coming_up` too; see `pickHero`'s own doc comment.
+ *                 `null` when nothing in that window clears the hero bar —
+ *                 the client falls back to a compact preview of the window's
+ *                 own first few cards rather than leaving the slot empty.
+ *                 EXCEPT on `window=book_early`: that tab's hero is instead
+ *                 the top-ranked Book Early `kind: "happening"` card (or
+ *                 null, never the global pick), flagged via
+ *                 `heroKind: "book_early"` so the client knows to render the
+ *                 Book Early presentation instead of Fomo Pick's.
  *   whatsOn     — one chronologically sorted bucket for `now`/`coming_up`
  *                 (was two — "This weekend" then "Later on" — for
  *                 `coming_up`; a single client-side date filter row replaces
@@ -93,7 +100,8 @@ import { happeningRecommendationScore, eventRecommendationScore } from "@/lib/ha
 import { categoryStyle } from "@/lib/happenings/category-style";
 import { dealFacets, isGenuineDeal } from "@/lib/happenings/groups";
 import { groupHappeningsIntoSeries, seriesLookup, type HappeningSeriesGroup } from "@/lib/happenings/series";
-import { dedupeProviderEvents, mergeProviderEventsIntoCards, type MergeableCard } from "@/lib/happenings/merge-events";
+import { dedupeProviderEvents, mergeProviderEventsIntoCards, normalizeText, type MergeableCard } from "@/lib/happenings/merge-events";
+import { groupRecurringCards } from "@/lib/happenings/recurring";
 import {
   buildBookEarlyEventCard,
   buildBookEarlyHappeningCard,
@@ -226,6 +234,7 @@ function isDated(h: Pick<Happening, "recurrence">): boolean {
  */
 function cardHasEnded(card: FeedCardData, now: Date, timeZone: string): boolean {
   if (card.kind === "event") return eventHasEnded(card.event, now);
+  if (card.kind === "recurring") return cardHasEnded(card.lead, now, timeZone);
   const happening = card.kind === "series" ? card.lead : card.happening;
   return happeningHasEnded(happening, now, timeZone);
 }
@@ -294,8 +303,7 @@ function pickSeriesLeads(groups: HappeningSeriesGroup[], now: Date, timeZone: st
 }
 
 /**
- * Picks the single best hero card, independent of the request's own window
- * — see the route's doc comment. Two candidate pools compete for the slot:
+ * Picks the single best hero card. Two candidate pools compete for the slot:
  * every dated happening (any kind, incl. deals) within `HERO_LOOKAHEAD_DAYS`,
  * and every free-or-cheap provider event (lib/now/price.ts's
  * `priceSignalForEvent`) starting within `HERO_EVENT_LOOKAHEAD_DAYS` — an
@@ -305,16 +313,34 @@ function pickSeriesLeads(groups: HappeningSeriesGroup[], now: Date, timeZone: st
  * Scoring itself lives in lib/happenings/hero.ts, which also produces the
  * short `reason` string carried on the winning card. Ties (equal score) go
  * to whichever candidate's own start time is sooner.
+ *
+ * `windowRange`, when given, further restricts BOTH pools to occurrences
+ * that actually fall inside it — the intersection of the window and the
+ * usual `HERO_*_LOOKAHEAD_DAYS` cap, never wider than either alone. This is
+ * what makes the hero reflect the active tab: on `window=now` a happening
+ * whose next occurrence is next week no longer wins the slot just because it
+ * scores well, and on `window=coming_up` today/tomorrow's occurrences (the
+ * `now` tab's own territory) are excluded from the running rather than
+ * winning there too, which is how the exact same "today only" hero used to
+ * show up on Coming up before this. `null` (the route's own `book_early`
+ * request) keeps the unrestricted, `now`-anchored search — that result is
+ * only ever used to compute the ids excluded from What's on/Book Early, not
+ * shown as a hero, since Book Early has its own hero pick downstream.
  */
 function pickHero(
   happenings: Happening[],
   events: EventItem[],
   now: Date,
   timeZone: string,
-  who: readonly DealWhoGroup[] = []
+  who: readonly DealWhoGroup[] = [],
+  windowRange: { from: Date; to: Date } | null = null
 ): FeedHeroCard | null {
-  const happeningTo = new Date(now.getTime() + HERO_LOOKAHEAD_DAYS * 86_400_000);
-  const eventCutoff = now.getTime() + HERO_EVENT_LOOKAHEAD_DAYS * 86_400_000;
+  const cappedHappeningTo = new Date(now.getTime() + HERO_LOOKAHEAD_DAYS * 86_400_000);
+  const cappedEventCutoff = now.getTime() + HERO_EVENT_LOOKAHEAD_DAYS * 86_400_000;
+  const happeningFrom = windowRange ? windowRange.from : now;
+  const happeningTo = windowRange && windowRange.to.getTime() < cappedHappeningTo.getTime() ? windowRange.to : cappedHappeningTo;
+  const eventFrom = windowRange ? windowRange.from.getTime() : now.getTime();
+  const eventCutoff = windowRange ? Math.min(windowRange.to.getTime(), cappedEventCutoff) : cappedEventCutoff;
 
   // Every candidate's score/reason/tiebreak start time, computed up front —
   // deliberately NOT reduced to a running "best so far" via a mutated outer
@@ -328,7 +354,7 @@ function pickHero(
 
   for (const h of happenings) {
     if (!isDated(h)) continue;
-    const occurrence = nextOccurrence(h, now, happeningTo, timeZone);
+    const occurrence = nextOccurrence(h, happeningFrom, happeningTo, timeZone);
     if (!occurrence) continue;
     const { score, reason } = happeningRecommendationScore(h, occurrence, now, timeZone, who);
     // London midnight, not UTC midnight — a dateless occurrence's tie-break
@@ -344,7 +370,7 @@ function pickHero(
 
   for (const e of events) {
     const startMs = new Date(e.starts_at).getTime();
-    if (Number.isNaN(startMs) || startMs < now.getTime() || startMs > eventCutoff) continue;
+    if (Number.isNaN(startMs) || startMs < eventFrom || startMs > eventCutoff) continue;
     if (priceSignalForEvent(e) !== "cheap") continue; // free-or-cheap only, never a guessed-cheap sports exemption
     const { score, reason } = eventRecommendationScore(e, now, timeZone);
     candidates.push({ card: { kind: "event", event: e, reason }, score, startMs });
@@ -535,7 +561,21 @@ function buildDealCards(happenings: Happening[], now: Date, timeZone: string): D
   return cards;
 }
 
-/** Groups deal cards by resolvable `place_id` into venue cards (task 3); everything else (city/region/national scope, or a `place_id` that didn't resolve to a live `places` row) stays a single card (task's own "offers without a venue" rule). */
+/**
+ * Groups deal cards by resolvable `place_id` into venue cards (task 3);
+ * everything else (city/region/national scope, or a `place_id` that didn't
+ * resolve to a live `places` row) stays a single card (task's own "offers
+ * without a venue" rule) — UNLESS it shares a normalised `venue_name` with
+ * another deal (either another place-id-less single, or one that DID
+ * resolve to a place). That second pass is what keeps e.g. Camera Obscura's
+ * three deals as ONE group of three: two of them share a `place_id` and
+ * grouped above, but the third has no `place_id` at all — without this, it
+ * rendered as a second, separate "Camera Obscura" card right next to the
+ * venue group (reported bug). Matched against `normalizeText`
+ * (lib/happenings/merge-events.ts) — the same normalisation the provider-
+ * event dedupe already uses, so "Camera Obscura & World of Illusions" and a
+ * differently-punctuated variant of the same name still line up.
+ */
 async function buildDealsSection(db: Db, dealCards: DealCardData[]): Promise<DealsSection> {
   const placeIds = Array.from(new Set(dealCards.filter((c) => c.happening.place_id).map((c) => c.happening.place_id as string)));
   let placesById = new Map<string, Place>();
@@ -561,31 +601,73 @@ async function buildDealsSection(db: Db, dealCards: DealCardData[]): Promise<Dea
     }
   }
 
-  const venueGroups: VenueDealGroup[] = Array.from(byPlace.entries())
-    .map(([placeId, offers]) => {
-      const place = placesById.get(placeId)!;
-      return {
-        placeId,
-        placeName: place.name ?? "Edinburgh venue",
-        placeImageUrl: place.image_url,
-        district: districtFromAddress(place.address),
-        offers,
-      };
-    })
-    .sort((a, b) => {
-      const countCmp = b.offers.length - a.offers.length;
-      if (countCmp !== 0) return countCmp;
-      const savingCmp = (b.offers[0]?.happening.saving_amount ?? 0) - (a.offers[0]?.happening.saving_amount ?? 0);
-      return savingCmp;
-    });
+  const venueGroups: VenueDealGroup[] = Array.from(byPlace.entries()).map(([placeId, offers]) => {
+    const place = placesById.get(placeId)!;
+    return {
+      placeId: placeId as string | null,
+      placeName: place.name ?? "Edinburgh venue",
+      placeImageUrl: place.image_url,
+      district: districtFromAddress(place.address),
+      offers,
+    };
+  });
 
-  singles.sort((a, b) => {
+  // Second pass over what's left, keyed by normalised venue_name: fold a
+  // place-id-less single into an EXISTING (place-resolved) group when its
+  // venue name matches one, else bucket it with any other place-id-less
+  // singles that share a venue name — 2+ of those become a fresh,
+  // `placeId: null` group of their own (see the module doc above).
+  const groupByNormName = new Map<string, VenueDealGroup>();
+  for (const g of venueGroups) groupByNormName.set(normalizeText(g.placeName), g);
+
+  const remainingSingles: DealCardData[] = [];
+  const fallbackBuckets = new Map<string, DealCardData[]>();
+  for (const card of singles) {
+    const venueName = card.happening.venue_name;
+    if (!venueName) {
+      remainingSingles.push(card);
+      continue;
+    }
+    const norm = normalizeText(venueName);
+    const existing = groupByNormName.get(norm);
+    if (existing) {
+      existing.offers.push(card);
+      continue;
+    }
+    const bucket = fallbackBuckets.get(norm) ?? [];
+    bucket.push(card);
+    fallbackBuckets.set(norm, bucket);
+  }
+
+  for (const cards of fallbackBuckets.values()) {
+    if (cards.length < 2) {
+      remainingSingles.push(...cards);
+      continue;
+    }
+    const first = cards[0].happening;
+    venueGroups.push({
+      placeId: null,
+      placeName: first.venue_name ?? "Edinburgh venue",
+      placeImageUrl: cards.find((c) => c.happening.image_url)?.happening.image_url ?? null,
+      district: first.district ?? null,
+      offers: cards,
+    });
+  }
+
+  venueGroups.sort((a, b) => {
+    const countCmp = b.offers.length - a.offers.length;
+    if (countCmp !== 0) return countCmp;
+    const savingCmp = (b.offers[0]?.happening.saving_amount ?? 0) - (a.offers[0]?.happening.saving_amount ?? 0);
+    return savingCmp;
+  });
+
+  remainingSingles.sort((a, b) => {
     const priorityCmp = (b.happening.priority ?? 50) - (a.happening.priority ?? 50);
     if (priorityCmp !== 0) return priorityCmp;
     return (b.happening.saving_amount ?? -1) - (a.happening.saving_amount ?? -1);
   });
 
-  return { venueGroups, singles };
+  return { venueGroups, singles: remainingSingles };
 }
 
 /**
@@ -726,7 +808,15 @@ export async function GET(request: Request) {
       limit: 100,
     });
 
-    const hero = pickHero(happenings, bookEarlyEvents, now, timeZone, who);
+    // Computed up front (not just down at the `whatsOn` block, which only
+    // runs for `window !== "book_early"`) because `pickHero` itself now
+    // needs it to scope the hero to the requested tab — see `pickHero`'s own
+    // doc comment. `null` on `window=book_early`, which has no date window
+    // of its own and keeps `pickHero`'s unrestricted search (its result is
+    // only used for What's on/Book Early exclusion on that request, never
+    // shown — see below).
+    const heroWindowRange = window !== "book_early" ? occurrenceWindowRange(window, range, now, timeZone) : null;
+    const hero = pickHero(happenings, bookEarlyEvents, now, timeZone, who, heroWindowRange);
     const heroHappeningId = hero?.kind === "happening" ? hero.happening.id : null;
     const heroEventId = hero?.kind === "event" ? hero.event.id : null;
 
@@ -840,12 +930,22 @@ export async function GET(request: Request) {
       // today", not by the original start day that's since scrolled off the
       // calendar. Only ever moves a card FORWARD to today, never further
       // back or into the future — a genuinely future day is returned as-is.
+      // Both helpers are only ever called on `allCards` (happening/series/
+      // event — recurring grouping runs later, over their sorted output, see
+      // `groupedCards` below), but are typed against the broader
+      // `FeedCardData` union; the `recurring` branch is dead code today,
+      // kept only so this stays exhaustive if that ever changes.
       const dayDateOf = (c: FeedCardData): string => {
-        const raw = c.kind === "event" ? localDayDate(new Date(c.event.starts_at), timeZone) : c.occurrence.dayDate;
+        const raw =
+          c.kind === "event"
+            ? localDayDate(new Date(c.event.starts_at), timeZone)
+            : c.kind === "recurring"
+              ? c.dates[0]
+              : c.occurrence.dayDate;
         return raw < todayStr ? todayStr : raw;
       };
       const startAtOf = (c: FeedCardData): string =>
-        c.kind === "event" ? c.event.starts_at : c.occurrence.startsAt ?? "";
+        c.kind === "event" ? c.event.starts_at : c.kind === "recurring" ? "" : c.occurrence.startsAt ?? "";
 
       // Single chronological bucket, sorted day then start time — "This
       // weekend" sitting above "Later on" as two separate buckets read as the
@@ -870,10 +970,19 @@ export async function GET(request: Request) {
           return startAtOf(a).localeCompare(startAtOf(b));
         });
 
-      if (cards.length > 0) {
+      // Collapses the same title-at-the-same-venue-on-several-dates pattern
+      // (a per-date-entered exhibition, a weekly Ticketmaster/Skiddle
+      // listing — "The Comedy Cellar Edinburgh Live Stand-Up Comedy" turned
+      // up 46 times in `coming_up` before this) into one "Tue 29 Sep + N
+      // more dates" card. Run LAST, over the already ranked/sorted list, so
+      // a group lands at its earliest (best-ranked) member's own position —
+      // see lib/happenings/recurring.ts's module doc.
+      const groupedCards = groupRecurringCards(cards, timeZone);
+
+      if (groupedCards.length > 0) {
         const title = window === "now" ? "Happening Today & Tomorrow" : "Coming Up";
-        const meta = window === "now" ? `${cards.length} active` : null;
-        whatsOn = [{ key: bucketKey, title, meta, cards }];
+        const meta = window === "now" ? `${groupedCards.length} active` : null;
+        whatsOn = [{ key: bucketKey, title, meta, cards: groupedCards }];
       }
     }
 
@@ -925,7 +1034,13 @@ export async function GET(request: Request) {
       } else {
         // No happening-kind Book Early candidate to lead with — never fall
         // back to the global Fomo Pick or the /api/now hero on this tab.
+        // `heroKind` still needs to read "book_early" here (not fall through
+        // to the `?? "fomo_pick"` default below) — otherwise the client
+        // can't tell "no Book Early candidate" apart from "no `window` param
+        // at all" and shows the unrelated /api/now pick on this tab, which
+        // is exactly what this branch's own comment says never to do.
         responseHero = null;
+        heroKind = "book_early";
       }
     }
 

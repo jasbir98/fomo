@@ -351,6 +351,162 @@ body {
   }
 }
 
+/* "Showing N coming up ↓" pill (app/(shell)/page.tsx's `switchToast`) — a
+   brief drop-and-fade entrance so it reads as a notification, not static
+   page furniture; it has no exit animation, it's simply unmounted after
+   ~2s or on tap. */
+@keyframes switch-toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.switch-toast {
+  animation: switch-toast-in 200ms ease-out;
+}
+@media (prefers-reduced-motion: reduce) {
+  .switch-toast {
+    animation: none;
+  }
+}
+
+/* ---- Ambient weather (components/weather/AmbientWeather.tsx) ----
+   Apple-Weather-style low-opacity decoration behind Home's header/hero
+   region, themed off the same `WeatherCondition` the header's weather chip
+   reads. Every particle is a plain `<span>` positioned by the component's
+   inline `left`/`top`/`animation-delay`/`animation-duration`; only the
+   keyframes and per-type static look live here. `data-paused="true"` (set
+   while the tab is hidden) pauses every particle in one rule rather than the
+   component having to touch each `<span>` itself. Reduced-motion is handled
+   entirely in the component (renders nothing), not here — there's no partial
+   "static decoration" version worth keeping for that case. */
+.ambient-weather[data-paused="true"] * {
+  animation-play-state: paused !important;
+}
+
+.ambient-raindrop {
+  position: absolute;
+  top: 0;
+  width: 1.5px;
+  height: 24px;
+  border-radius: 1px;
+  background: linear-gradient(to bottom, transparent, var(--color-primary));
+  opacity: 0.28;
+  /* Slight slant, like wind-blown rain; transform-only so it stays on the compositor. */
+  transform: translate3d(0, -40px, 0) rotate(12deg);
+  animation-name: ambient-rain-fall;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+  will-change: transform;
+}
+@keyframes ambient-rain-fall {
+  from {
+    transform: translate3d(0, -40px, 0) rotate(12deg);
+  }
+  to {
+    transform: translate3d(-100px, 500px, 0) rotate(12deg);
+  }
+}
+
+.ambient-sun-glow {
+  position: absolute;
+  top: -18%;
+  right: -10%;
+  width: 55%;
+  height: 65%;
+  border-radius: 9999px;
+  background: radial-gradient(circle, var(--color-secondary) 0%, transparent 70%);
+  opacity: 0.1;
+  animation: ambient-glow-pulse 6s ease-in-out infinite;
+  filter: blur(4px);
+}
+@keyframes ambient-glow-pulse {
+  0%,
+  100% {
+    opacity: 0.08;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.16;
+    transform: scale(1.06);
+  }
+}
+
+.ambient-star {
+  position: absolute;
+  width: 2px;
+  height: 2px;
+  border-radius: 9999px;
+  background: var(--color-on-surface);
+  opacity: 0.25;
+  animation-name: ambient-star-twinkle;
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: infinite;
+}
+@keyframes ambient-star-twinkle {
+  0%,
+  100% {
+    opacity: 0.12;
+  }
+  50% {
+    opacity: 0.45;
+  }
+}
+
+.ambient-cloud {
+  position: absolute;
+  left: -20%;
+  width: 45%;
+  height: 32%;
+  border-radius: 9999px;
+  background: var(--color-on-surface-variant);
+  opacity: 0.06;
+  filter: blur(18px);
+  animation-name: ambient-cloud-drift;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+}
+@keyframes ambient-cloud-drift {
+  from {
+    left: -25%;
+  }
+  to {
+    left: 105%;
+  }
+}
+
+.ambient-wind-streak {
+  position: absolute;
+  left: -10%;
+  width: 15%;
+  height: 1px;
+  background: linear-gradient(to right, transparent, var(--color-tertiary), transparent);
+  opacity: 0.18;
+  animation-name: ambient-wind-streak;
+  animation-timing-function: ease-in;
+  animation-iteration-count: infinite;
+}
+@keyframes ambient-wind-streak {
+  from {
+    left: -15%;
+    opacity: 0;
+  }
+  10% {
+    opacity: 0.18;
+  }
+  90% {
+    opacity: 0.18;
+  }
+  to {
+    left: 105%;
+    opacity: 0;
+  }
+}
+
 /* ---- Welcome cast (components/onboarding/Characters.tsx) ----
    Idle loops for the SVG characters. fill-box + centre origin makes each
    transform pivot on the drawn shape rather than the SVG canvas origin. Plain

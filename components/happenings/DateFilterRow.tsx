@@ -12,11 +12,18 @@ import type { FeedCardData } from "@/lib/happenings/feed-types";
  *  sorts/groups server-side; this re-derives the same day string purely for
  *  filtering the list the caller already has, not for re-bucketing it). */
 export function cardDayDate(card: FeedCardData): string {
-  return card.kind === "event" ? localDayDate(new Date(card.event.starts_at)) : card.occurrence.dayDate;
+  if (card.kind === "event") return localDayDate(new Date(card.event.starts_at));
+  if (card.kind === "recurring") return card.dates[0];
+  return card.occurrence.dayDate;
 }
 
-/** Last day a card is on — a multi-day run's `lastDayDate`, else its one day. */
+/** Last day a card is on — a multi-day run's `lastDayDate`, else its one day.
+ *  For a recurring card (lib/happenings/recurring.ts) this is its LAST
+ *  occurrence date, but see `cardOnDay`'s own override below — its
+ *  occurrences aren't a contiguous run, so this range alone would wrongly
+ *  match days in between two dates it doesn't actually run on. */
 function cardLastDayDate(card: FeedCardData): string {
+  if (card.kind === "recurring") return card.dates[card.dates.length - 1];
   return card.kind === "event" ? cardDayDate(card) : card.occurrence.lastDayDate;
 }
 
@@ -29,8 +36,12 @@ export function cardPillDate(card: FeedCardData, today: string = localDayDate(ne
   return day < today ? null : day;
 }
 
-/** Whether a card is on `day` — inside its run for multi-day happenings. */
+/** Whether a card is on `day` — inside its run for multi-day happenings, or
+ *  (a recurring card) one of its exact occurrence dates — its dates aren't
+ *  necessarily contiguous (e.g. every Tuesday), so this checks membership
+ *  rather than a `first <= day <= last` range. */
 export function cardOnDay(card: FeedCardData, day: string): boolean {
+  if (card.kind === "recurring") return card.dates.includes(day);
   return cardDayDate(card) <= day && day <= cardLastDayDate(card);
 }
 

@@ -7,10 +7,11 @@ import { savingBadgeLabel, shortStartTimeFromNote } from "@/lib/happenings/forma
 import { weekdayOf, localDayDate } from "@/lib/happenings/occurrence";
 import { CITY } from "@/lib/city";
 import type { DealCardData } from "@/lib/happenings/feed-types";
+import type { DealVenueGroup, RankedDealItem } from "@/lib/happenings/venue-deals";
 import { happeningToPreview, prefetchHappening, setHappeningPreview } from "@/lib/happenings/preview-cache";
 
 export interface TodaysDealsStripProps {
-  deals: DealCardData[];
+  deals: RankedDealItem[];
   /** Defaults to `new Date()` — accepted so a caller (or a test) can pin "today" rather than this component reading the clock itself. */
   at?: Date;
 }
@@ -58,6 +59,54 @@ function TodaysDealCard({ card }: { card: DealCardData }) {
   );
 }
 
+/** The offer to headline a venue group with — largest `saving_amount`, else
+ *  the first offer. Mirrors VenueDealCard's own `bestSaving` picker (kept as
+ *  a separate small copy rather than a shared import — this one only ever
+ *  needs the winning offer itself, not a full `PriceLabel`). */
+function bestOffer(offers: DealCardData[]): DealCardData {
+  const withAmount = offers.filter((o) => o.happening.saving_amount != null);
+  if (withAmount.length === 0) return offers[0];
+  return withAmount.reduce((best, o) => ((o.happening.saving_amount ?? 0) > (best.happening.saving_amount ?? 0) ? o : best));
+}
+
+/** Same card shape as `TodaysDealCard` (task: "keep card shape the same") —
+ *  headlined by the venue's best offer, with a count chip instead of the
+ *  usual price badge when there's more than one. Tapping it opens the
+ *  venue's own grouped view: `/place/[id]` when the group resolved to a real
+ *  place, else `/deals` (this strip is a fixed-width horizontal scroller, no
+ *  room to expand a group inline the way VenueDealCard does on `/deals`). */
+function TodaysDealGroupCard({ group }: { group: DealVenueGroup }) {
+  const headline = bestOffer(group.offers);
+  const { happening } = headline;
+  const style = categoryStyle(happening.category);
+  const thumbnail = group.placeImageUrl ?? happening.image_url ?? categoryDefaultImage(happening.category);
+  const time = shortStartTimeFromNote(happening.time_note);
+  const href = group.placeId ? `/place/${group.placeId}` : "/deals";
+
+  return (
+    <NavCard
+      href={href}
+      ariaLabel={`${group.placeName} · ${group.offers.length} deals`}
+      className="flex w-40 shrink-0 cursor-pointer flex-col gap-2 rounded-2xl bg-surface-container-lowest p-3 shadow-level-1 transition-shadow hover:shadow-level-2"
+    >
+      <div className="relative h-20 w-full shrink-0 overflow-hidden rounded-xl border border-hairline bg-surface-container">
+        <SmartImage src={thumbnail} alt="" width={144} height={80} className="h-full w-full object-cover" />
+        <span className="absolute right-1 top-1 rounded-full border border-hairline-strong bg-surface-container-lowest/95 px-2 py-0.5 text-[10px] font-extrabold text-primary shadow-xs">
+          {group.offers.length} deals
+        </span>
+      </div>
+      <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+        <div className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-wide">
+          <Icon name={style.icon} size={11} className={style.textClass} />
+          {time ? <span className="text-accent">{time}</span> : null}
+        </div>
+        <h5 className="line-clamp-2 text-label-md font-bold leading-snug text-on-surface">{group.placeName}</h5>
+        <p className="truncate text-[11px] text-on-surface-variant">{happening.title}</p>
+      </div>
+    </NavCard>
+  );
+}
+
 /**
  * "Today's deals" — a horizontal strip surfacing deals valid TODAY in
  * Edinburgh time (lib/happenings/today-deals.ts's `todaysDeals`), placed on
@@ -89,9 +138,13 @@ export function TodaysDealsStrip({ deals, at = new Date() }: TodaysDealsStripPro
       </div>
 
       <div className="-mx-4 flex gap-3 overflow-x-auto px-4 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-        {deals.map((card) => (
-          <TodaysDealCard key={happeningKey(card)} card={card} />
-        ))}
+        {deals.map((item) =>
+          item.kind === "group" ? (
+            <TodaysDealGroupCard key={`group-${item.key}`} group={item} />
+          ) : (
+            <TodaysDealCard key={happeningKey(item.card)} card={item.card} />
+          )
+        )}
       </div>
     </section>
   );

@@ -45,6 +45,7 @@ function facetFromStyle(key: HappeningCategory, style: CategoryStyle): CategoryF
 export function categoryFacetForCard(card: FeedCardData): CategoryFacet {
   if (card.kind === "happening") return facetFromStyle(card.happening.category ?? "other", CATEGORY_STYLE[card.happening.category ?? "other"]);
   if (card.kind === "series") return facetFromStyle(card.lead.category ?? "other", CATEGORY_STYLE[card.lead.category ?? "other"]);
+  if (card.kind === "recurring") return categoryFacetForCard(card.lead);
   const raw = card.event.category;
   if (raw && isHappeningCategory(raw)) return facetFromStyle(raw, CATEGORY_STYLE[raw]);
   return EVENTS_FACET;

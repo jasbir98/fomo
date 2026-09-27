@@ -51,6 +51,7 @@ export function isFreeEvent(e: Pick<EventItem, "is_free">): boolean {
 /** Shared by `priceLabelForCard` and every page's "Free only" toggle — the toggle and the FREE label can never disagree about what counts as free because both read this one function. */
 export function isFreeCard(card: FeedCardData): boolean {
   if (card.kind === "event") return isFreeEvent(card.event);
+  if (card.kind === "recurring") return isFreeCard(card.lead);
   const happening = card.kind === "series" ? card.lead : card.happening;
   return isFreeHappening(happening);
 }
@@ -75,6 +76,7 @@ export function priceLabelForEvent(e: EventPriceFields): PriceLabel | null {
 /** One entry point for every `FeedCardData` shape (happening / series / event) — the card renderer's single source for its price pill. */
 export function priceLabelForCard(card: FeedCardData): PriceLabel | null {
   if (card.kind === "event") return priceLabelForEvent(card.event);
+  if (card.kind === "recurring") return priceLabelForCard(card.lead);
   const happening = card.kind === "series" ? card.lead : card.happening;
   return priceLabelForHappening(happening);
 }
