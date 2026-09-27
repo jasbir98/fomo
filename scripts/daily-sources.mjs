@@ -76,6 +76,17 @@
  * same reasoning as scripts/promote-japan-places.mjs and
  * scripts/sweep-happenings.mjs.
  *
+ * DESCRIPTIONS. Every row's description is cleaned by
+ * scripts/lib/describe.mjs's cleanDescription() (strips HTML/URLs/emoji,
+ * drops ticket-sale/legal boilerplate, trims to ~1-2 sentences). Whatever's
+ * still empty/short after that goes through a backfill phase
+ * (backfillDescriptions(), after cross-source merge, before upsert): fetches
+ * the row's own ticket_url through the same politeFetch() as the JSON-LD
+ * adapters and reads JSON-LD description -> og:description -> meta
+ * description, capped at 150 fetches/run. Still-empty rows get a
+ * last-resort factual fallbackDescription() built only from fields already
+ * on the row. See docs/daily-sources.md's "Descriptions" section.
+ *
  * Usage:
  *   node --env-file=.env.local scripts/daily-sources.mjs                # dry run, all sources
  *   node --env-file=.env.local scripts/daily-sources.mjs --write        # actually upsert
@@ -89,6 +100,13 @@
  * adapters; each is skipped with a log line (not a failure) when its key is
  * absent, in both dry-run and --write.
  */
+
+import {
+  cleanDescription,
+  fallbackDescription,
+  isMidnightUtcSentinel,
+  extractMetaDescription,
+} from "./lib/describe.mjs";
 
 if (process.argv.includes("--help") || process.argv.includes("-h")) {
   console.log(`Usage: node --env-file=.env.local scripts/daily-sources.mjs [options]
@@ -618,7 +636,7 @@ function mapJsonLdEvent(obj, { provider, pageUrl, destination, now }) {
     provider,
     provider_event_id: providerEventId,
     name,
-    description: typeof obj.description === "string" ? obj.description.trim().slice(0, 2000) : null,
+    description: cleanDescription(obj.description, { title: name, venueName }),
     category: categoryFromTypes(types),
     image_url: pickImage(obj.image),
     ticket_url: eventUrl,
@@ -1103,7 +1121,7 @@ function mapVenueRssItem(item, { provider, feedUrl, destination, now, venue, cat
     provider,
     provider_event_id: providerEventId,
     name,
-    description: item.description ? item.description.slice(0, 2000) : null,
+    description: cleanDescription(item.description, { title: name, venueName: venue.venue_name }),
     category: mappedCategory,
     image_url: null, // RSS <item> carries no reliable photo (no enclosure/media tag on this feed)
     ticket_url: eventUrl,
@@ -1319,7 +1337,7 @@ function mapSkiddleEvent(event, { destination, now }) {
     provider: "skiddle",
     provider_event_id: id,
     name: event.eventname,
-    description: event.description ?? null,
+    description: cleanDescription(event.description, { title: event.eventname, venueName: event.venue?.name }),
     category: categoryFromSkiddleCode(event.eventcode),
     image_url: realSkiddleImage(event.largeimageurl) ?? realSkiddleImage(event.imageurl),
     ticket_url: event.link ?? event.admin?.link ?? null,
@@ -1454,6 +1472,26 @@ function pickTmImage(images) {
   return widest?.url ?? null;
 }
 
+/**
+ * Ticketmaster events almost never carry a real `description` (empty string
+ * on essentially every live row checked) — the closest things to "what is
+ * this event" are `info` (doors/start/curfew times, then ticket-limit legal
+ * text) and `pleaseNote` (almost entirely age-restriction/ticket-limit
+ * legal text), and `promoter.description` is actually just the promoter's
+ * company-registration string ("KMJ ENTERTAINMENT LTD / NTL / GBR"), not a
+ * description of the event. Try each field in this priority order through
+ * cleanDescription (which strips exactly that kind of boilerplate) and use
+ * the first that survives cleaning.
+ */
+function bestTicketmasterDescription(event, { title }) {
+  const candidates = [event.info, event.pleaseNote, event.description, event.promoter?.description];
+  for (const candidate of candidates) {
+    const cleaned = cleanDescription(candidate, { title });
+    if (cleaned) return cleaned;
+  }
+  return null;
+}
+
 /** Mirrors lib/events/ticketmaster.ts's mapEvent() exactly — provider_event_id is event.id, untransformed. */
 function mapTicketmasterEvent(event, { destination, now }) {
   const id = event.id;
@@ -1473,7 +1511,7 @@ function mapTicketmasterEvent(event, { destination, now }) {
     provider: "ticketmaster",
     provider_event_id: id,
     name: event.name,
-    description: event.info ?? event.pleaseNote ?? null,
+    description: bestTicketmasterDescription(event, { title: event.name }),
     category: categoryFromTicketmasterSegment(segmentName),
     image_url: pickTmImage(event.images),
     ticket_url: event.url ?? null,
@@ -1754,6 +1792,131 @@ function dedupeAcrossSources(rows) {
   return { rows: Array.from(best.values()), collapses };
 }
 
+// --- description backfill (fetch the event's own page) -----------------------
+//
+// Runs after cross-source merge, on whatever the adapters + cleanDescription
+// didn't already fill: for each row with an empty/short description, fetch
+// its own ticket_url page (through the same politeFetch — robots.txt,
+// per-host rate limit, 20s timeout, challenge detection, all identical to
+// the JSON-LD adapters above) and read, in order: the page's own JSON-LD
+// Event `description` -> `og:description` -> `<meta name="description">`.
+// Capped at MAX_BACKFILL_FETCHES fetches per run so one run can't spiral
+// into hundreds of extra requests against dozens of hosts.
+//
+// Opportunistically also fixes the "date-only source -> stored as midnight
+// UTC -> displays as 01:00 during BST" issue (see isMidnightUtcSentinel):
+// when a row's starts_at looks like that sentinel and the fetched page's own
+// JSON-LD gives a startDate with a real time component for the same
+// Europe/London calendar date, the more precise time replaces it.
+const MAX_BACKFILL_FETCHES = 150;
+const DESCRIPTION_MIN_LENGTH = 40; // matches the measurement threshold: "empty or very short (<40 chars)"
+
+function needsBackfill(row) {
+  return !row.description || row.description.trim().length < DESCRIPTION_MIN_LENGTH;
+}
+
+/** Best-effort {description, startDate} from the first schema.org Event object found on an already-fetched page. */
+function extractEventJsonLdFields(html) {
+  for (const block of extractJsonLdBlocks(html)) {
+    let parsed;
+    try {
+      parsed = JSON.parse(block);
+    } catch {
+      continue;
+    }
+    for (const obj of iterJsonObjects(parsed)) {
+      const typeValue = obj["@type"];
+      const types = Array.isArray(typeValue) ? typeValue : [typeValue];
+      if (!types.some((t) => EVENT_TYPES.has(t))) continue;
+      return {
+        description: typeof obj.description === "string" ? obj.description : null,
+        startDate: typeof obj.startDate === "string" ? obj.startDate : null,
+      };
+    }
+  }
+  return { description: null, startDate: null };
+}
+
+/** True if a JSON-LD startDate string carries an explicit time component (not just "YYYY-MM-DD"). */
+function startDateHasTime(value) {
+  return typeof value === "string" && /^\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}/.test(value.trim());
+}
+
+async function backfillDescriptions(rows, now) {
+  const stats = {
+    candidates: 0,
+    fetched: 0,
+    fetchFailed: 0,
+    robotsBlocked: 0,
+    foundOnPage: 0,
+    datesFixed: 0,
+    fallbackUsed: 0,
+    alreadyOk: 0,
+  };
+  const samples = [];
+
+  let fetchesUsed = 0;
+  for (const row of rows) {
+    if (!needsBackfill(row)) {
+      stats.alreadyOk += 1;
+      continue;
+    }
+    stats.candidates += 1;
+
+    if (row.ticket_url && fetchesUsed < MAX_BACKFILL_FETCHES) {
+      fetchesUsed += 1;
+      const before = row.description;
+      const result = await politeFetch(row.ticket_url);
+      if (!result.ok) {
+        stats.fetchFailed += 1;
+        if (result.reason === "robots_disallowed" || result.reason === "robots_unavailable") {
+          stats.robotsBlocked += 1;
+        }
+      } else {
+        stats.fetched += 1;
+        const { description: ldDescription, startDate: ldStartDate } = extractEventJsonLdFields(result.html);
+        const pageDescription =
+          cleanDescription(ldDescription, { title: row.name, venueName: row.venue_name }) ??
+          cleanDescription(extractMetaDescription(result.html), { title: row.name, venueName: row.venue_name });
+        if (pageDescription) {
+          row.description = pageDescription;
+          stats.foundOnPage += 1;
+        }
+
+        // Opportunistic date-only -> real-time fix, only when the fetched
+        // page's own startDate is for the same Europe/London calendar date
+        // (never trust a different date off an unrelated JSON-LD block).
+        if (isMidnightUtcSentinel(row.starts_at) && startDateHasTime(ldStartDate)) {
+          const fixed = new Date(ldStartDate);
+          if (!Number.isNaN(fixed.getTime()) && londonDateKey(fixed.toISOString()) === londonDateKey(row.starts_at)) {
+            row.starts_at = fixed.toISOString();
+            stats.datesFixed += 1;
+          }
+        }
+
+        if (samples.length < 10 && row.description !== before) {
+          samples.push({ provider: row.provider, name: row.name, before, after: row.description });
+        }
+      }
+    }
+
+    // Only the last resort: a short-but-real description found above (>=15
+    // chars via cleanDescription, even if under the 40-char "backfill
+    // worth attempting" trigger) is kept as-is, never replaced by the
+    // fallback — the fallback is for rows with truly nothing, not for
+    // trimming a legitimately short real description.
+    if (!row.description) {
+      row.description = fallbackDescription(row);
+      stats.fallbackUsed += 1;
+      if (samples.length < 10) {
+        samples.push({ provider: row.provider, name: row.name, before: null, after: row.description, fallback: true });
+      }
+    }
+  }
+
+  return { stats, samples };
+}
+
 async function upsertEvents(rows) {
   if (rows.length === 0) return { ok: 0, failed: 0 };
   // Same clobber guard as lib/events/getForDestination.ts: image_url must be
@@ -1854,6 +2017,27 @@ async function main() {
   const afterStr = Object.entries(CATEGORY_STATS.after).sort((a, b) => b[1] - a[1]).map(([k, v]) => `${k}=${v}`).join(" ");
   console.log(`\n[daily-sources] category distribution BEFORE keyword classifier: ${beforeStr || "(none)"}`);
   console.log(`[daily-sources] category distribution AFTER keyword classifier:  ${afterStr || "(none)"}`);
+
+  const blankBefore = merged.filter((r) => !r.description).length;
+  const { stats: backfillStats, samples: backfillSamples } = await backfillDescriptions(merged, now);
+  const blankAfter = merged.filter((r) => !r.description).length;
+
+  console.log(
+    `\n[daily-sources] descriptions: blank-before-backfill=${blankBefore} candidates=${backfillStats.candidates} ` +
+      `fetched=${backfillStats.fetched} fetchFailed=${backfillStats.fetchFailed} robotsBlocked=${backfillStats.robotsBlocked} ` +
+      `foundOnPage=${backfillStats.foundOnPage} datesFixed=${backfillStats.datesFixed} fallbackUsed=${backfillStats.fallbackUsed} ` +
+      `blank-after=${blankAfter}`
+  );
+  if (backfillSamples.length > 0) {
+    console.log(`[daily-sources] description samples (before -> after):`);
+    for (const s of backfillSamples) {
+      console.log(
+        `    [${s.provider}] "${s.name}"${s.fallback ? " (fallback)" : ""}\n` +
+          `      before: ${s.before ? JSON.stringify(s.before) : "(empty)"}\n` +
+          `      after:  ${JSON.stringify(s.after)}`
+      );
+    }
+  }
 
   if (DRY_RUN) {
     console.log("[daily-sources] DRY RUN — pass --write to actually upsert. Nothing written.");

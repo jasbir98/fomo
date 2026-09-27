@@ -78,8 +78,8 @@ jobs:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL || secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           RESEND_API_KEY: ${{ secrets.RESEND_API_KEY || '' }}
-          FOMO_FROM_EMAIL: ${{ secrets.FOMO_FROM_EMAIL || '' }}
-          SENDER_ADDRESS: ${{ secrets.SENDER_ADDRESS || '' }}
+          FOMO_FROM_EMAIL: ${{ vars.FOMO_FROM_EMAIL || secrets.FOMO_FROM_EMAIL || '' }}
+          SENDER_ADDRESS: ${{ vars.SENDER_ADDRESS || secrets.SENDER_ADDRESS || '' }}
           EVENT_NAME: ${{ github.event_name }}
           ACTION: ${{ inputs.action }}
         run: |

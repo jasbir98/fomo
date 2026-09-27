@@ -76,6 +76,61 @@ ticket-url present) — and, independently, at feed-read time
 script writes and a row a live user request writes for the same event just
 co-exist as two provider rows until the feed collapses them.
 
+## Descriptions
+
+Every row's `description` goes through `scripts/lib/describe.mjs`'s
+`cleanDescription()`: HTML entities decoded, tags/URLs/emoji stripped,
+whitespace collapsed, boilerplate dropped (ticket-sale CTAs, age/ID and
+ticket-limit legal text, cookie notices, Ticketmaster's `promoter.description`
+company-registration strings, a candidate that just repeats the event's own
+name/venue), trimmed to ~220 chars on a sentence boundary (else a word
+boundary + "…"). Ticketmaster's `description` field is essentially always
+empty on live rows — `bestTicketmasterDescription()` instead tries `info`,
+`pleaseNote`, `description`, then `promoter.description` in that order and
+keeps whatever survives cleaning first (`info` usually has the useful
+doors/start/curfew line before its own legal boilerplate).
+
+Whatever's still empty/short (<40 chars) after adapter mapping goes through a
+**backfill phase** (`backfillDescriptions()`, runs in both dry-run and
+`--write`, after cross-source merge, before upsert): fetch the row's own
+`ticket_url` through the same `politeFetch()` as the JSON-LD adapters
+(robots.txt, per-host rate limit, 20s timeout, challenge detection), and try
+the page's own JSON-LD `Event.description`, then `og:description`, then
+`<meta name="description">` — capped at 150 fetches/run
+(`MAX_BACKFILL_FETCHES`). Anything still blank after that gets a last-resort
+factual one-liner from `fallbackDescription()` (category + venue + doors time
++ price, e.g. "Live music at Sneaky Pete's · doors 19:00 · from £8") — never
+invented facts, only fields already on the row. No extra marking is needed
+to let a later run replace a fallback with a real description once one
+becomes available: unlike `image_url`, `description` has no "omit when
+null" clobber guard in `upsertEvents()`, so every run's upsert always
+overwrites it with whatever this run computed.
+
+### Date-only sources (the "01:00 in BST" bug)
+
+`eventbrite`, `songkick` and `allevents` (JSON-LD sources) sometimes give a
+date-only `startDate` (`"2026-10-09"`, no time) — verified live against all
+three. `isoFromJsonLd()` stores that as `T00:00:00+00:00`, which is correct
+UTC but renders as 01:00 in the UI during BST since nothing distinguishes
+"genuinely midnight" from "we don't know the time". The backfill phase
+opportunistically fixes this for free when it fetches the event's own page
+for a description anyway: if the row's `starts_at` looks like that midnight-UTC
+sentinel (`isMidnightUtcSentinel()`) and the fetched page's own JSON-LD gives
+a `startDate` with a real time component for the same Europe/London calendar
+date, the precise time replaces it (`datesFixed` in the run summary). This
+doesn't cover every date-only row — only ones this run happened to fetch a
+page for (capped at 150/run, shared with the description backfill) and whose
+own event page states a time the listing page didn't.
+
+For whatever's left with no real time: no DB schema change was made (per the
+existing no-schema-change stance below). The **proposed** flag, for whoever
+owns the UI, is the same heuristic `isMidnightUtcSentinel()` already uses —
+`starts_at` landing exactly on `T00:00:00.000Z` — since a real UK event
+starting at the literal top of the UTC hour is vanishingly unlikely.
+Formatting code can special-case that as "date only, hide the time" without a
+migration; a future proper fix would add a nullable `starts_at_precision`
+(`'date' | 'time'`) column set by whichever ingest path derived the value.
+
 No DB schema change was needed: `events.provider` has no `CHECK` constraint
 and no app code switches on specific provider strings for icons/formatting —
 every place that mentions "Skiddle/Ticketmaster" in a comment treats
@@ -148,6 +203,18 @@ per-run page cap (never an unbounded pagination loop).
 - Never deletes anything; only upserts.
 
 ## Known gaps / follow-ups
+
+- Date-only source rows this run didn't happen to fetch a page for (backfill
+  is capped at 150 fetches/run, shared between description-backfill and the
+  date fix) keep the `T00:00:00Z` midnight-UTC sentinel — see "Date-only
+  sources" above for the proposed UI-side flag.
+- The description backfill fetches each qualifying row's `ticket_url` once
+  per run, every run — there's no "already tried, skip next time" cache, so
+  a genuinely description-less page (e.g. a bare listing with no per-event
+  page content) gets re-fetched and re-fails daily rather than being marked
+  permanently unknown. Low cost at current volume (≤150 fetches/run,
+  well under the per-host politeness budget) but worth a small cache if
+  volume grows.
 
 - Category assignment still falls back to `other` for rows with no
   source-specific type/segment/eventcode signal *and* no keyword match in
