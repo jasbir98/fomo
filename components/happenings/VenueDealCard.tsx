@@ -7,6 +7,7 @@ import { WHO_GROUP_LABEL, type DealWhoGroup } from "@/lib/happenings/groups";
 import { savingBadgeLabel } from "@/lib/happenings/format";
 import { priceLabelForHappening, type PriceLabel } from "@/lib/happenings/price-label";
 import { PriceTag } from "@/components/happenings/PriceTag";
+import { useEffectiveWho } from "@/lib/personalise/useEffectiveWho";
 import type { DealCardData } from "@/lib/happenings/feed-types";
 
 export interface VenueDealCardProps {
@@ -77,9 +78,16 @@ function VenueDealSummary({
   offers: DealCardData[];
   priceLabel: PriceLabel | null;
 }) {
+  const who = useEffectiveWho();
   const whoLabels = Array.from(
     new Set(offers.map((o) => o.who).filter((w): w is DealWhoGroup => w != null))
   ).map((w) => WHO_GROUP_LABEL[w]);
+  // "You qualify" (task brief §3) — true when ANY of this venue's offers
+  // matches the visitor's own eligibility set (lib/useSaved.ts's `who`,
+  // derived from lib/personalise/usePrefs.ts) — a group card headlines one
+  // offer but can hold several, so a qualifying offer buried in the
+  // collapsed count still earns the badge.
+  const qualifies = offers.some((o) => o.who != null && who.includes(o.who));
 
   return (
     <div className="flex min-w-0 flex-1 flex-col justify-center gap-0.5">
@@ -91,7 +99,12 @@ function VenueDealSummary({
         {offers.length} offer{offers.length === 1 ? "" : "s"}
         {district ? ` · ${district}` : ""}
       </span>
-      {whoLabels.length > 0 ? (
+      {qualifies ? (
+        <span className="inline-flex w-fit items-center gap-1 rounded-full bg-secondary-container/25 px-2 py-0.5 text-[11px] font-bold text-primary">
+          <Icon name="check_circle" filled size={12} />
+          You qualify
+        </span>
+      ) : whoLabels.length > 0 ? (
         <span className="truncate text-label-sm text-secondary">{whoLabels.join(" · ")}</span>
       ) : null}
     </div>

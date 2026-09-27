@@ -9,6 +9,9 @@ import { ErrorState, StickyFilterBar } from "@/components/ui";
 import { AppHeader } from "@/components/shell/AppHeader";
 import { FeedListCard, VenueDealCard, DealFilters } from "@/components/happenings";
 import { FomoSpot } from "@/components/fomo/FomoSpot";
+import { usePrefs } from "@/lib/personalise/usePrefs";
+import { personalBoost, reorderWithBoost, type BoostPrefs } from "@/lib/personalise/score";
+import { useEffectiveWho } from "@/lib/personalise/useEffectiveWho";
 
 type DealListItem =
   | { kind: "venue"; group: VenueDealGroup }
@@ -52,6 +55,12 @@ export default function DealsPage() {
   const error = dealsResult.error != null && deals === null;
   const [dealWhat, setDealWhat] = useState<DealWhatGroup | null>(null);
   const [dealWho, setDealWho] = useState<DealWhoGroup | null>(null);
+  const who = useEffectiveWho();
+  const prefs = usePrefs();
+  const boostPrefs: BoostPrefs = useMemo(
+    () => ({ interests: prefs.interests, budget: prefs.budget, who }),
+    [prefs.interests, prefs.budget, who]
+  );
 
   const filteredVenueGroups = useMemo(() => {
     if (!deals) return [];
@@ -65,12 +74,23 @@ export default function DealsPage() {
     return deals.singles.filter((c) => matchesDealFilters(c, dealWhat, dealWho));
   }, [deals, dealWhat, dealWho]);
 
-  const dealItems: DealListItem[] = useMemo(
+  const unrankedDealItems: DealListItem[] = useMemo(
     () => [
       ...filteredVenueGroups.map((group): DealListItem => ({ kind: "venue", group })),
       ...filteredSingles.map((card): DealListItem => ({ kind: "single", card })),
     ],
     [filteredVenueGroups, filteredSingles]
+  );
+
+  // Personalisation ranking boost (lib/personalise/score.ts, task brief §3)
+  // — a gentle nudge over the filtered list, never a re-filter; a venue
+  // group's own best-ranked offer stands in for the whole card.
+  const dealItems = useMemo(
+    () =>
+      reorderWithBoost(unrankedDealItems, (item) =>
+        personalBoost(item.kind === "venue" ? item.group.offers[0] : item.card, boostPrefs)
+      ),
+    [unrankedDealItems, boostPrefs]
   );
 
   const totalBeforeFilters = (deals?.venueGroups.length ?? 0) + (deals?.singles.length ?? 0);

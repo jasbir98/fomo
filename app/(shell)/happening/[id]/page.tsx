@@ -25,6 +25,7 @@ import { NOTIFY_ME_ENABLED } from "@/lib/happenings/book-early";
 import { NotifyMeButton } from "@/components/happenings";
 import { ensurePushSubscribed, pushReasonMessage } from "@/lib/push/client";
 import { getHappeningPreview, takePrefetchedHappening, type HappeningPreview } from "@/lib/happenings/preview-cache";
+import { interestForHappeningCategory } from "@/lib/personalise/interests";
 
 // Throws on a network error or non-2xx status (GET /api/happenings/[id]
 // returns 401/500 for those — see that route's own doc comment) so the
@@ -381,8 +382,17 @@ export default function HappeningDetailPage({ params }: { params: Promise<{ id: 
         showBack
         action={
           <div className="flex items-center gap-1">
-            <SaveButton subjectType="happening" subjectId={happening.id} />
-            <ShareButton title={happening.title} text={shareText} url={shareUrl} />
+            <SaveButton
+              subjectType="happening"
+              subjectId={happening.id}
+              interestHint={interestForHappeningCategory(happening.category)}
+            />
+            <ShareButton
+              title={happening.title}
+              text={shareText}
+              url={shareUrl}
+              interestHint={interestForHappeningCategory(happening.category)}
+            />
           </div>
         }
       />

@@ -2,6 +2,8 @@
 
 import type { ReactNode } from "react";
 import { BottomNav } from "./BottomNav";
+import { MakeFomoYours } from "@/components/personalise/MakeFomoYours";
+import { closeMakeFomoYours, useMakeFomoYoursOpen } from "@/lib/personalise/trigger";
 
 export type AppShellProps = {
   children: ReactNode;
@@ -21,10 +23,17 @@ export type AppShellProps = {
  * inset so this always equals the nav's true rendered height.
  */
 export function AppShell({ children }: AppShellProps) {
+  // "Make Fomo yours" (components/personalise/MakeFomoYours.tsx) is mounted
+  // once here, controlled by the global open/close store
+  // (lib/personalise/trigger.ts), rather than owned by whichever page
+  // triggers it — it can be opened from a SaveButton on almost any screen,
+  // not just Home/Profile.
+  const makeFomoYoursOpen = useMakeFomoYoursOpen();
   return (
     <div className="min-h-dvh">
       <div className="pb-[calc(88px+env(safe-area-inset-bottom))]">{children}</div>
       <BottomNav />
+      <MakeFomoYours open={makeFomoYoursOpen} onClose={closeMakeFomoYours} />
     </div>
   );
 }

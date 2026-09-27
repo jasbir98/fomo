@@ -21,6 +21,11 @@ import { FeedHero, FeedListCard, FreeAnyTimeList, BookEarlyCard, SubscribeCard }
 import { TodaysDealsStrip } from "@/components/happenings/TodaysDealsStrip";
 import { todaysDeals } from "@/lib/happenings/today-deals";
 import { AmbientWeather } from "@/components/weather/AmbientWeather";
+import { usePrefs } from "@/lib/personalise/usePrefs";
+import { openMakeFomoYours } from "@/lib/personalise/trigger";
+import { personalBoost, reorderWithBoost, type BoostPrefs } from "@/lib/personalise/score";
+import { useEffectiveWho } from "@/lib/personalise/useEffectiveWho";
+import type { RankedDealItem } from "@/lib/happenings/venue-deals";
 
 interface HomeWeather {
   condition: WeatherCondition;
@@ -266,7 +271,14 @@ export default function HomePage() {
   const pendingScrollRef = useRef(false);
   const prevFeedWindowRef = useRef<FeedWindow>(feedWindow);
   const { coords, status: geoStatus } = useGeolocation();
-  const { signedIn, who: dealWho } = useSaved();
+  const { signedIn } = useSaved();
+  const prefs = usePrefs();
+  // Signed-in AND signed-out visitors both need a "who" — a signed-out
+  // visitor who answered "Make Fomo yours" has their eligibility in
+  // localStorage (lib/personalise/usePrefs.ts), which lib/useSaved.ts's own
+  // `who` can't see; useEffectiveWho reconciles the two. See its own doc
+  // comment for why this can't just live in lib/useSaved.ts.
+  const dealWho = useEffectiveWho();
   const { city, source: citySource, shouldPrompt: shouldPromptCity } = useSelectedCity();
   const [cityPickerOpen, setCityPickerOpen] = useState(false);
 
@@ -423,7 +435,31 @@ export default function HomePage() {
   // (the render below slices its first SECTION_CAP); no per-day/category
   // filtering left on Home at all — that lives on /whats-on now (reached via
   // the "See all N" link below), which fetches this same window itself.
-  const whatsOnCards = whatsOnBucket?.cards ?? [];
+  const whatsOnCards = useMemo(() => whatsOnBucket?.cards ?? [], [whatsOnBucket]);
+
+  // Personalisation ranking boost (lib/personalise/score.ts) — nudges, never
+  // filters: every card above still renders, `reorderWithBoost` just moves a
+  // matching one up by at most a few positions so the time-ordered feel of
+  // What's on survives (task brief §3). `dealWho` (not `prefs`'s own toggle
+  // fields) is the actual persisted eligibility set — lib/personalise/
+  // usePrefs.ts writes it through lib/useSaved.ts's `setWhoGroups`, which is
+  // what every "You qualify" badge already reads too, so the boost and the
+  // badge can never disagree about who qualifies.
+  const boostPrefs: BoostPrefs = useMemo(
+    () => ({ interests: prefs.interests, budget: prefs.budget, who: dealWho }),
+    [prefs.interests, prefs.budget, dealWho]
+  );
+  const boostedWhatsOnCards = useMemo(
+    () => reorderWithBoost(whatsOnCards, (card) => personalBoost(card, boostPrefs)),
+    [whatsOnCards, boostPrefs]
+  );
+  const boostedTodaysDeals = useMemo(
+    () =>
+      reorderWithBoost(todaysDealsList, (item: RankedDealItem) =>
+        personalBoost(item.kind === "group" ? item.offers[0] : item.card, boostPrefs)
+      ),
+    [todaysDealsList, boostPrefs]
+  );
 
   function cardKey(card: FeedCardData): string {
     if (card.kind === "happening") return `happening-${card.happening.id}`;
@@ -754,7 +790,34 @@ export default function HomePage() {
             than disappearing on Coming up/Book early. Renders nothing of
             its own accord when the day's selection is too thin (see
             TodaysDealsStrip/todaysDeals). */}
-        <TodaysDealsStrip deals={todaysDealsList} />
+        <TodaysDealsStrip deals={boostedTodaysDeals} />
+
+        {/* Slim, dismissible "Make Fomo yours" banner (task brief §2) —
+            shown to anyone, signed in or out, who hasn't completed or
+            skipped the card yet; hidden the instant `prefs.done` flips,
+            whether that's from this banner, the first-save trigger
+            (components/ui/SaveButton.tsx), or Profile's own Edit. */}
+        {!prefs.done ? (
+          <div className="flex items-center gap-2 rounded-xl border border-hairline bg-surface-container-low px-3 py-2">
+            <button
+              type="button"
+              onClick={() => openMakeFomoYours()}
+              className="flex min-h-[44px] flex-1 items-center gap-1.5 text-left text-label-md font-semibold text-primary"
+            >
+              <Icon name="tune" size={16} />
+              Make Fomo yours
+              <Icon name="chevron_right" size={16} />
+            </button>
+            <button
+              type="button"
+              aria-label="Dismiss"
+              onClick={() => void prefs.dismiss()}
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-on-surface-variant hover:bg-surface-container"
+            >
+              <Icon name="close" size={16} />
+            </button>
+          </div>
+        ) : null}
 
         {/* What's on — window-driven, one chronological list (see
             app/api/feed/route.ts's doc comment on `whatsOn`). Hidden entirely
@@ -836,7 +899,7 @@ export default function HomePage() {
                   </div>
                 ) : (
                   <>
-                    {whatsOnCards.slice(0, SECTION_CAP).map((card) => (
+                    {boostedWhatsOnCards.slice(0, SECTION_CAP).map((card) => (
                       <FeedListCard key={cardKey(card)} card={card} />
                     ))}
                     <SeeAllButton

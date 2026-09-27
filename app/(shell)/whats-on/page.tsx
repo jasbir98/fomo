@@ -12,6 +12,9 @@ import { Chip, ErrorState, PageHeader, SegmentedControl, StickyFilterBar } from 
 import { DateFilterRow, FeedListCard } from "@/components/happenings";
 import { FomoSpot } from "@/components/fomo/FomoSpot";
 import { cardOnDay, cardPillDate } from "@/components/happenings/DateFilterRow";
+import { usePrefs } from "@/lib/personalise/usePrefs";
+import { personalBoost, type BoostPrefs } from "@/lib/personalise/score";
+import { useEffectiveWho } from "@/lib/personalise/useEffectiveWho";
 
 /** Only these two windows are date windows at all — `book_early` is a
  *  separate tab with its own dedicated page (/book-early), never reachable
@@ -78,6 +81,18 @@ function WhatsOnPageInner() {
   // `?window=`) so an IG link like askfomo.com/whats-on?free=1 lands
   // pre-filtered — same URL-as-state principle as `feedWindow` above.
   const [freeOnly, setFreeOnlyState] = useState(searchParams.get("free") === "1");
+  // "For you" (task brief §3) — unlike every other filter on this page, this
+  // is purely a display sort, never applied to `/whats-on`'s own date
+  // ordering by default (the brief: "Not on /whats-on full list date
+  // ordering (leave chronological)... DO add a 'For you' chip there that
+  // sorts by boost"), so it's a plain client toggle with no URL state.
+  const [forYou, setForYou] = useState(false);
+  const who = useEffectiveWho();
+  const prefs = usePrefs();
+  const boostPrefs: BoostPrefs = useMemo(
+    () => ({ interests: prefs.interests, budget: prefs.budget, who }),
+    [prefs.interests, prefs.budget, who]
+  );
 
   function setFreeOnly(next: boolean) {
     setFreeOnlyState(next);
@@ -172,13 +187,28 @@ function WhatsOnPageInner() {
 
   const categoryOptions = useMemo(() => distinctCategoryFacets(dateFilteredCards), [dateFilteredCards]);
 
-  const visibleCards = useMemo(
+  const filteredCards = useMemo(
     () =>
       dateFilteredCards.filter(
         (c) => matchesCategoryFilter(c, categoryFilter) && (!freeOnly || isFreeCard(c))
       ),
     [dateFilteredCards, categoryFilter, freeOnly]
   );
+
+  // "For you" (task brief §3) — a genuine re-sort by `personalBoost`, not
+  // the gentle few-positions nudge lib/personalise/score.ts's
+  // `reorderWithBoost` gives Home/Deals: this chip's whole point is "show me
+  // my kind of thing first", so it's a plain stable sort, descending by
+  // score, highest first; ties keep their original (chronological) order.
+  // Off, `visibleCards` is exactly `filteredCards` — untouched chronological
+  // order, per the brief's "leave chronological" for the page's default.
+  const visibleCards = useMemo(() => {
+    if (!forYou) return filteredCards;
+    return filteredCards
+      .map((card, index) => ({ card, index, score: personalBoost(card, boostPrefs) }))
+      .sort((a, b) => b.score - a.score || a.index - b.index)
+      .map((entry) => entry.card);
+  }, [filteredCards, forYou, boostPrefs]);
 
   // Renders in chunks of 20 rather than mounting the whole (potentially
   // large, uncapped — see the pagination audit in the caller's report) list
@@ -222,6 +252,13 @@ function WhatsOnPageInner() {
                 leadingIcon="check_circle"
                 selected={freeOnly}
                 onClick={() => setFreeOnly(!freeOnly)}
+              />
+              <Chip
+                label="For you"
+                leadingIcon="auto_awesome"
+                selected={forYou}
+                aria-pressed={forYou}
+                onClick={() => setForYou((v) => !v)}
               />
               {categoryOptions.length > 1 ? (
                 <>

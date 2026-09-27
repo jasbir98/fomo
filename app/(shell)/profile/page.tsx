@@ -7,11 +7,12 @@ import Link from "next/link";
 import { supabaseBrowserAuth } from "@/lib/supabase/client";
 import { getProfile, upsertProfile, uploadAvatar } from "@/lib/db";
 import type { Profile } from "@/lib/types";
-import { Button, BottomSheet, Card, Chip, Icon, PageHeader, SmartImage, Toggle } from "@/components/ui";
-import { WHO_GROUP_LABEL, WHO_GROUP_ORDER, type DealWhoGroup } from "@/lib/happenings/groups";
-import { useDealProfile } from "@/lib/useSaved";
+import { Button, BottomSheet, Card, Icon, PageHeader, SmartImage, Toggle } from "@/components/ui";
 import { NOTIFY_ME_ENABLED } from "@/lib/happenings/book-early";
 import { ensurePushSubscribed, pushReasonMessage, pushSupportReason } from "@/lib/push/client";
+import { MakeFomoYours } from "@/components/personalise/MakeFomoYours";
+import { INTEREST_LABEL } from "@/lib/personalise/interests";
+import { usePrefs } from "@/lib/personalise/usePrefs";
 
 const AvatarCropModal = dynamic(() => import("@/components/fomo/AvatarCropModal").then((mod) => mod.AvatarCropModal), {
   ssr: false,
@@ -25,8 +26,8 @@ export default function ProfilePage() {
   const [resetOpen, setResetOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
   const [securityOpen, setSecurityOpen] = useState(false);
-  const { who, setWho } = useDealProfile();
-  const [whoError, setWhoError] = useState<string | null>(null);
+  const prefs = usePrefs();
+  const [mfyOpen, setMfyOpen] = useState(false);
   // "Big on-sale alerts" (supabase/add_push_alerts.sql) — a top-level
   // profiles column, not part of notification_settings (see that
   // migration's own doc comment for why). Toggling it on ensures a push
@@ -187,13 +188,24 @@ export default function ProfilePage() {
 
   const displayName = profile?.display_name ?? accountEmail?.split("@")[0] ?? "You";
 
-  function toggleWho(group: DealWhoGroup) {
-    setWhoError(null);
-    const next = who.includes(group) ? who.filter((g) => g !== group) : [...who, group];
-    setWho(next).catch((err) => {
-      console.error("[profile] save deals profile failed", err);
-      setWhoError("Couldn't save that — try again.");
-    });
+  /** "Student · under 26 · EH · into comedy, gigs · under £10" (task brief §2's
+   *  own example) — built from whichever pieces are actually set, in that
+   *  order, comma-joining the interests but dot-joining everything else
+   *  (matches the brief's example literally). `null` (never answered at
+   *  all) renders a plain "Not set up yet" instead of an empty summary. */
+  function prefsSummary(): string {
+    const parts: string[] = [];
+    if (prefs.status === "student") parts.push("Student");
+    else if (prefs.status === "working") parts.push("Working");
+    if (prefs.under26) parts.push("under 26");
+    if (prefs.residents) parts.push("EH");
+    if (prefs.over60) parts.push("over 60");
+    if (prefs.interests.length > 0) {
+      parts.push(`into ${prefs.interests.map((i) => INTEREST_LABEL[i].toLowerCase()).join(", ")}`);
+    }
+    if (prefs.budget === "free") parts.push("free only");
+    else if (prefs.budget === "under10") parts.push("under £10");
+    return parts.length > 0 ? parts.join(" · ") : "Not set up yet — tell Fomo what you're into.";
   }
 
   async function handleResetConfirm() {
@@ -289,35 +301,29 @@ export default function ProfilePage() {
           </section>
 
           <div className="flex flex-col gap-4 px-5">
-            {/* Deals for you — which concessions this person can use. Drives
-                the "You qualify" badges on feed cards, the Home pick, and
-                Ask Fomo (lib/useSaved.ts, lib/happenings/hero.ts). */}
+            {/* Make Fomo yours — replaces the old 4-chip "Deals for you"
+                selector (task brief). Drives the "You qualify" badges on
+                feed cards, the Home pick, Ask Fomo AND the ranking boost
+                (lib/personalise/score.ts) — see lib/personalise/usePrefs.ts
+                for the full shape; `who` (lib/useSaved.ts's `fomo_who`) is
+                still what the badges themselves read, derived from this. */}
             <Card>
-              <h3 className="mb-1 flex items-center gap-2 text-headline-sm text-primary">
-                <Icon name="sell" className="text-secondary" />
-                Deals for you
-              </h3>
-              <p className="mb-4 text-body-md text-on-surface-variant">
-                Pick any that apply. Fomo flags offers you qualify for and puts them first.
-              </p>
-              <div className="flex flex-wrap gap-2">
-                {WHO_GROUP_ORDER.map((group) => {
-                  const selected = who.includes(group);
-                  return (
-                    <Chip
-                      key={group}
-                      label={WHO_GROUP_LABEL[group]}
-                      selected={selected}
-                      leadingIcon={selected ? "check" : undefined}
-                      aria-pressed={selected}
-                      onClick={() => toggleWho(group)}
-                    />
-                  );
-                })}
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex min-w-0 flex-col gap-1">
+                  <h3 className="flex items-center gap-2 text-headline-sm text-primary">
+                    <Icon name="tune" className="text-secondary" />
+                    Make Fomo yours
+                  </h3>
+                  <p className="text-body-md text-on-surface-variant">{prefsSummary()}</p>
+                </div>
+                <Button variant="outline" size="sm" onClick={() => setMfyOpen(true)} className="shrink-0">
+                  Edit
+                </Button>
               </div>
-              {whoError ? <p className="mt-3 text-label-sm text-error">{whoError}</p> : null}
             </Card>
           </div>
+
+          <MakeFomoYours open={mfyOpen} onClose={() => setMfyOpen(false)} />
 
           {/* Saved — now a dedicated page at /saved with its own AppHeader.
               The bottom-nav Saved tab points there. */}

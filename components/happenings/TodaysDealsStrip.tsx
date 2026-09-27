@@ -6,6 +6,7 @@ import { categoryDefaultImage, categoryStyle } from "@/lib/happenings/category-s
 import { savingBadgeLabel, shortStartTimeFromNote } from "@/lib/happenings/format";
 import { weekdayOf, localDayDate } from "@/lib/happenings/occurrence";
 import { CITY } from "@/lib/city";
+import { useEffectiveWho } from "@/lib/personalise/useEffectiveWho";
 import type { DealCardData } from "@/lib/happenings/feed-types";
 import type { DealVenueGroup, RankedDealItem } from "@/lib/happenings/venue-deals";
 import { happeningToPreview, prefetchHappening, setHappeningPreview } from "@/lib/happenings/preview-cache";
@@ -24,12 +25,17 @@ const WEEKDAY_LABEL = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "
  *  thumbnail language (savingBadgeLabel, categoryDefaultImage) so it reads
  *  as the same app, just condensed. */
 function TodaysDealCard({ card }: { card: DealCardData }) {
-  const { happening } = card;
+  const { happening, who: cardWho } = card;
   const badge = savingBadgeLabel(happening);
   const style = categoryStyle(happening.category);
   const thumbnail = happening.image_url ?? categoryDefaultImage(happening.category);
   const time = shortStartTimeFromNote(happening.time_note);
   const venue = happening.venue_name ?? happening.district;
+  // "You qualify" (task brief §3) — same eligibility check as
+  // FeedListCard's HappeningRow and VenueDealCard, reading the precomputed
+  // `who` facet this card already carries rather than re-deriving it.
+  const who = useEffectiveWho();
+  const qualifies = cardWho != null && who.includes(cardWho);
 
   return (
     <NavCard
@@ -44,6 +50,12 @@ function TodaysDealCard({ card }: { card: DealCardData }) {
         {badge ? (
           <span className="absolute right-1 top-1 rounded-full border border-hairline-strong bg-surface-container-lowest/95 px-2 py-0.5 text-[10px] font-extrabold text-primary shadow-xs">
             {badge}
+          </span>
+        ) : null}
+        {qualifies ? (
+          <span className="absolute bottom-1 left-1 flex items-center gap-0.5 rounded-full bg-secondary-container/90 px-1.5 py-0.5 text-[9px] font-bold text-primary shadow-xs">
+            <Icon name="check_circle" filled size={10} />
+            You qualify
           </span>
         ) : null}
       </div>
@@ -82,6 +94,11 @@ function TodaysDealGroupCard({ group }: { group: DealVenueGroup }) {
   const thumbnail = group.placeImageUrl ?? happening.image_url ?? categoryDefaultImage(happening.category);
   const time = shortStartTimeFromNote(happening.time_note);
   const href = group.placeId ? `/place/${group.placeId}` : "/deals";
+  // Same "You qualify" rule as VenueDealCard's own group summary — true when
+  // ANY offer at this venue matches the visitor's eligibility set, not just
+  // the headline offer this card otherwise borrows every other field from.
+  const who = useEffectiveWho();
+  const qualifies = group.offers.some((o) => o.who != null && who.includes(o.who));
 
   return (
     <NavCard
@@ -94,6 +111,12 @@ function TodaysDealGroupCard({ group }: { group: DealVenueGroup }) {
         <span className="absolute right-1 top-1 rounded-full border border-hairline-strong bg-surface-container-lowest/95 px-2 py-0.5 text-[10px] font-extrabold text-primary shadow-xs">
           {group.offers.length} deals
         </span>
+        {qualifies ? (
+          <span className="absolute bottom-1 left-1 flex items-center gap-0.5 rounded-full bg-secondary-container/90 px-1.5 py-0.5 text-[9px] font-bold text-primary shadow-xs">
+            <Icon name="check_circle" filled size={10} />
+            You qualify
+          </span>
+        ) : null}
       </div>
       <div className="flex min-w-0 flex-1 flex-col gap-0.5">
         <div className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-wide">

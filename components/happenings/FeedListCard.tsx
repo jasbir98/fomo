@@ -20,7 +20,8 @@ import type { FeedCardData, RecurringCardData, SeriesCardData } from "@/lib/happ
 import type { Happening, HappeningKind, Occurrence } from "@/lib/happenings/types";
 import type { EventItem } from "@/lib/types";
 import { whoGroupForEligibility } from "@/lib/happenings/groups";
-import { useDealProfile } from "@/lib/useSaved";
+import { interestForHappeningCategory } from "@/lib/personalise/interests";
+import { useEffectiveWho } from "@/lib/personalise/useEffectiveWho";
 import { happeningToPreview, prefetchHappening, setHappeningPreview } from "@/lib/happenings/preview-cache";
 import { eventToPreview, prefetchEvent, setEventPreview } from "@/lib/events/preview-cache";
 
@@ -111,7 +112,7 @@ function HappeningRow({ happening, occurrence }: { happening: Happening; occurre
   const venue = happening.venue_name ?? happening.district;
   const priceLabel = priceLabelForHappening(happening);
   const eligibility = eligibilityLine(happening);
-  const { who } = useDealProfile();
+  const who = useEffectiveWho();
   const whoGroup = whoGroupForEligibility(happening.eligibility);
   const qualifies = whoGroup != null && who.includes(whoGroup);
   const oneLiner = oneLinerSummary(happening.summary);
@@ -171,7 +172,12 @@ function HappeningRow({ happening, occurrence }: { happening: Happening; occurre
         ) : (
           <span />
         )}
-        <SaveButton subjectType="happening" subjectId={happening.id} className="-my-2 -mr-2" />
+        <SaveButton
+          subjectType="happening"
+          subjectId={happening.id}
+          interestHint={interestForHappeningCategory(happening.category)}
+          className="-my-2 -mr-2"
+        />
       </div>
 
       <span className="text-[10px] text-on-surface-variant/70">{checkedLabel(happening.verified_at)}</span>
@@ -231,7 +237,12 @@ function SeriesRow({ card }: { card: SeriesCardData }) {
         ) : (
           <span />
         )}
-        <SaveButton subjectType="happening" subjectId={lead.id} className="-my-2 -mr-2" />
+        <SaveButton
+          subjectType="happening"
+          subjectId={lead.id}
+          interestHint={interestForHappeningCategory(lead.category)}
+          className="-my-2 -mr-2"
+        />
       </div>
 
       <span className="text-[10px] text-on-surface-variant/70">{checkedLabel(lead.verified_at)}</span>
@@ -301,7 +312,12 @@ function RecurringRow({ card }: { card: RecurringCardData }) {
           <span />
         )}
         {lead.kind === "happening" ? (
-          <SaveButton subjectType="happening" subjectId={lead.happening.id} className="-my-2 -mr-2" />
+          <SaveButton
+            subjectType="happening"
+            subjectId={lead.happening.id}
+            interestHint={interestForHappeningCategory(lead.happening.category)}
+            className="-my-2 -mr-2"
+          />
         ) : (
           <SaveButton subjectType="event" subjectId={lead.event.id} className="-my-2 -mr-2" />
         )}

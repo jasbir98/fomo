@@ -2,6 +2,8 @@
 
 import { useEffect, useRef, useState, type MouseEvent } from "react";
 import { Icon } from "./Icon";
+import { recordAffinity } from "@/lib/personalise/affinity";
+import type { InterestKey } from "@/lib/personalise/interests";
 
 export type ShareButtonProps = {
   /** Native share sheet title. */
@@ -13,6 +15,8 @@ export type ShareButtonProps = {
   /** Icon-only circular button (default, matches PageHeader's back button) or an icon+label pill. */
   variant?: "icon" | "labelled";
   className?: string;
+  /** This card's personalisation interest (lib/personalise/interests.ts) — feeds the implicit-learning affinity counter (lib/personalise/affinity.ts) on a completed share, same signal SaveButton's own `interestHint` records on a save. Omit where the interest isn't readily available. */
+  interestHint?: InterestKey | null;
 };
 
 /**
@@ -29,7 +33,7 @@ export type ShareButtonProps = {
  * rejection (e.g. no registered share targets) falls back to clipboard
  * rather than leaving the tap dead.
  */
-export function ShareButton({ title, text, url, variant = "icon", className = "" }: ShareButtonProps) {
+export function ShareButton({ title, text, url, variant = "icon", className = "", interestHint = null }: ShareButtonProps) {
   const [copied, setCopied] = useState(false);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -59,6 +63,7 @@ export function ShareButton({ title, text, url, variant = "icon", className = ""
     if (typeof navigator !== "undefined" && typeof navigator.share === "function") {
       try {
         await navigator.share({ title, text, url });
+        recordAffinity(interestHint);
         return;
       } catch (err) {
         if (err instanceof Error && err.name === "AbortError") return;
@@ -67,6 +72,7 @@ export function ShareButton({ title, text, url, variant = "icon", className = ""
       }
     }
     await copyToClipboard();
+    recordAffinity(interestHint);
   }
 
   if (variant === "labelled") {
