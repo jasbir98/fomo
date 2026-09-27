@@ -1,14 +1,16 @@
 "use client";
 
 import { Icon, NavCard, SaveButton, SmartImage } from "@/components/ui";
-import { formatEventDate, formatEventTimeSpan } from "@/lib/events/format";
+import { formatEventDate, formatEventPrice, formatEventTimeSpan, formatEventWhen } from "@/lib/events/format";
 import {
   ELIGIBILITY_ICON,
   checkedLabel,
   eligibilityLine,
   happeningTimeLabel,
   happeningTypeTag,
+  occurrenceRangeLabel,
   oneLinerSummary,
+  savingBadgeLabel,
 } from "@/lib/happenings/format";
 import { categoryDefaultImage, categoryStyle, kindStyle } from "@/lib/happenings/category-style";
 import { priceLabelForEvent, priceLabelForHappening } from "@/lib/happenings/price-label";
@@ -18,6 +20,8 @@ import type { Happening, HappeningKind, Occurrence } from "@/lib/happenings/type
 import type { EventItem } from "@/lib/types";
 import { whoGroupForEligibility } from "@/lib/happenings/groups";
 import { useDealProfile } from "@/lib/useSaved";
+import { happeningToPreview, prefetchHappening, setHappeningPreview } from "@/lib/happenings/preview-cache";
+import { eventToPreview, prefetchEvent, setEventPreview } from "@/lib/events/preview-cache";
 
 export interface FeedListCardProps {
   card: FeedCardData;
@@ -73,10 +77,26 @@ function CategoryDot({ category }: { category: Happening["category"] }) {
 /** No outer border — a soft shadow (--shadow-level-1, strengthening to
  *  -level-2 on hover) does the separating job instead, matching the mockup's
  *  glass-panel treatment (app/globals.css's elevation doc comment). */
-function CardShell({ href, children }: { href: string; children: React.ReactNode }) {
+function CardShell({
+  href,
+  children,
+  onPointerDown,
+  onNavigate,
+}: {
+  href: string;
+  children: React.ReactNode;
+  /** Card→detail instant-preview hand-off (task: happening detail page
+   *  load) — see lib/happenings/preview-cache.ts. Undefined for a row that
+   *  doesn't link to a happening (EventRow), which just gets Link's normal
+   *  behaviour. */
+  onPointerDown?: () => void;
+  onNavigate?: () => void;
+}) {
   return (
     <NavCard
       href={href}
+      onPointerDown={onPointerDown}
+      onNavigate={onNavigate}
       className="flex cursor-pointer flex-col gap-2 rounded-2xl bg-surface-container-lowest p-4 shadow-level-1 transition-shadow hover:shadow-level-2"
     >
       {children}
@@ -107,7 +127,16 @@ function HappeningRow({ happening, occurrence }: { happening: Happening; occurre
   // Nd ago" is the one exception, restored here in as small a footprint as
   // possible (a bare timestamp line, not the full source_name too).
   return (
-    <CardShell href={`/happening/${happening.id}`}>
+    <CardShell
+      href={`/happening/${happening.id}`}
+      onPointerDown={() => prefetchHappening(happening.id)}
+      onNavigate={() =>
+        setHappeningPreview(
+          happening.id,
+          happeningToPreview(happening, { priceLabel: savingBadgeLabel(happening), whenLabel: occurrenceRangeLabel(occurrence) })
+        )
+      }
+    >
       <div className="flex items-start justify-between gap-3">
         <Thumbnail src={thumbnail} alt="" />
         <div className="flex min-w-0 flex-1 flex-col">
@@ -170,7 +199,16 @@ function SeriesRow({ card }: { card: SeriesCardData }) {
   const priceLabel = priceLabelForHappening(lead);
 
   return (
-    <CardShell href={`/happening/${lead.id}`}>
+    <CardShell
+      href={`/happening/${lead.id}`}
+      onPointerDown={() => prefetchHappening(lead.id)}
+      onNavigate={() =>
+        setHappeningPreview(
+          lead.id,
+          happeningToPreview(lead, { priceLabel: savingBadgeLabel(lead), whenLabel: occurrenceRangeLabel(occurrence) })
+        )
+      }
+    >
       <div className="flex items-start justify-between gap-3">
         <Thumbnail src={thumbnail} alt="" />
         <div className="flex min-w-0 flex-1 flex-col">
@@ -216,6 +254,8 @@ function FestivalRow({ happening }: { happening: Happening }) {
     <NavCard
       href={`/happening/${happening.id}`}
       ariaLabel={happening.title}
+      onPointerDown={() => prefetchHappening(happening.id)}
+      onNavigate={() => setHappeningPreview(happening.id, happeningToPreview(happening, { priceLabel: savingBadgeLabel(happening) }))}
       className="flex cursor-pointer flex-col overflow-hidden rounded-3xl bg-surface-container-lowest shadow-level-2"
     >
       {/* Full-width banner — the feed's max container is 480px (see e.g.
@@ -292,7 +332,16 @@ function EventRow({ event }: { event: EventItem }) {
   const thumbnail = event.image_url ?? categoryDefaultImage(null);
 
   return (
-    <CardShell href={`/event/${event.id}`}>
+    <CardShell
+      href={`/event/${event.id}`}
+      onPointerDown={() => prefetchEvent(event.id)}
+      onNavigate={() =>
+        setEventPreview(
+          event.id,
+          eventToPreview(event, { priceLabel: formatEventPrice(event), whenLabel: formatEventWhen(event.starts_at, event.ends_at) })
+        )
+      }
+    >
       <div className="flex items-start justify-between gap-3">
         <Thumbnail src={thumbnail} alt="" />
         <div className="flex min-w-0 flex-1 flex-col">

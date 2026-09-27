@@ -19,7 +19,7 @@ import { listPlacesByIds } from "@/lib/db/places";
 import { groupHappeningsIntoSeries } from "@/lib/happenings/series";
 import type { Happening } from "@/lib/happenings/types";
 import type { Place } from "@/lib/types";
-import { cachedJson, CACHE_PRIVATE_NO_STORE } from "@/lib/http/cache";
+import { cachedJson, CACHE_MEDIUM, CACHE_PRIVATE_NO_STORE } from "@/lib/http/cache";
 
 /**
  * Same fallback as GET /api/feed's own `withPlaceImageFallback`: a happening
@@ -88,9 +88,25 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
         }
       }
     }
-    return cachedJson<HappeningResponse>({ happening, siblings }, CACHE_PRIVATE_NO_STORE);
+    // CACHE_MEDIUM, not CACHE_PRIVATE_NO_STORE: this response never depends
+    // on the caller (RLS grants `read_all` to anon, and nothing here reads
+    // `db`'s session). It's still `private` (browser-cache only), never
+    // `public`/`s-maxage` — lib/http/cache.ts's own file-header doc comment
+    // explains why that's unsafe for ANY /api/* route in this app
+    // regardless of the data itself: proxy.ts refreshes the session cookie
+    // on every request and force-merges it onto whatever the route handler
+    // returns, so a `public` response here could get cached at a shared
+    // edge/CDN layer carrying a signed-in visitor's session cookie and
+    // replayed to the next visitor who hits the same URL. `private,
+    // max-age=…` still gets the real win for this page (the browser's own
+    // disk cache serving the card→detail hop, and back-navigation) without
+    // that risk.
+    return cachedJson<HappeningResponse>({ happening, siblings }, CACHE_MEDIUM);
   } catch (err) {
     console.error("[api/happenings/:id] failed", err);
+    // The 500 branch stays CACHE_PRIVATE_NO_STORE (never CACHE_MEDIUM) — a
+    // transient failure must not get cached, even browser-side, or a retry
+    // a moment later would just replay the same empty response.
     return cachedJson<HappeningResponse>({ happening: null, siblings: [] }, CACHE_PRIVATE_NO_STORE, {
       status: 500,
     });

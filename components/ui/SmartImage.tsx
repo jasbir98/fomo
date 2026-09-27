@@ -112,6 +112,7 @@ export function SmartImage({
   if (retina) {
     const standard = cdnResize(httpsSrc, { width, quality: QUALITY }) ?? retina;
     const srcSet = `${standard} 1x, ${retina} 2x`;
+    const isGoogleImage = httpsSrc.includes(".googleusercontent.com");
     return (
       // eslint-disable-next-line @next/next/no-img-element
       <img
@@ -125,6 +126,7 @@ export function SmartImage({
         loading={priority ? "eager" : "lazy"}
         fetchPriority={priority ? "high" : "auto"}
         decoding="async"
+        referrerPolicy={isGoogleImage ? "no-referrer" : undefined}
         onError={handleError}
       />
     );
@@ -163,6 +165,7 @@ export function SmartImage({
     );
   }
 
+  const isGoogleImage = httpsSrc.includes(".googleusercontent.com");
   return (
     // eslint-disable-next-line @next/next/no-img-element
     <img
@@ -174,6 +177,7 @@ export function SmartImage({
       loading={priority ? "eager" : "lazy"}
       fetchPriority={priority ? "high" : "auto"}
       decoding="async"
+      referrerPolicy={isGoogleImage ? "no-referrer" : undefined}
       onError={handleError}
     />
   );

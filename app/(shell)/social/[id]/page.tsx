@@ -6,7 +6,7 @@ import { getSocialPost, listPlaces, listReels, listSocialPosts } from "@/lib/db"
 import { supabaseBrowserAuth } from "@/lib/supabase/client";
 import type { Db } from "@/lib/supabase/types";
 import type { Place, SocialPost } from "@/lib/types";
-import { Icon, PageHeader } from "@/components/ui";
+import { FomoLoader, Icon, PageHeader } from "@/components/ui";
 import { ReelViewer } from "@/components/social/ReelViewer";
 
 type ViewerData = { reels: SocialPost[]; startIndex: number; places: Place[] };
@@ -70,7 +70,7 @@ export default function SocialReelDetailPage({ params }: { params: Promise<{ id:
   if (loading) {
     return (
       <div className="flex min-h-dvh items-center justify-center">
-        <Icon name="auto_awesome" size={32} className="animate-pulse text-primary" />
+        <FomoLoader />
       </div>
     );
   }

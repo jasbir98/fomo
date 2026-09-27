@@ -49,6 +49,7 @@ export default function ProfilePage() {
   const [accountEmail, setAccountEmail] = useState<string | null>(null);
   const [accountId, setAccountId] = useState<string | null>(null);
   const [accountIdCopied, setAccountIdCopied] = useState(false);
+  const [googlePhotoUrl, setGooglePhotoUrl] = useState<string | null>(null);
   const [avatarOpen, setAvatarOpen] = useState(false);
   const [avatarUploading, setAvatarUploading] = useState(false);
   const [avatarError, setAvatarError] = useState<string | null>(null);
@@ -165,6 +166,11 @@ export default function ProfilePage() {
         setAccountEmail(userData.user?.email ?? null);
         setAccountId(userData.user?.id ?? null);
         setBigOnsaleAlerts(profileRow?.big_onsale_alerts ?? false);
+        // Extract Google profile photo from Supabase user_metadata if available
+        // Supabase stores it in avatar_url or picture depending on the OAuth flow
+        const metadata = userData.user?.user_metadata;
+        const googlePhoto = (metadata?.avatar_url || metadata?.picture) as string | null;
+        setGooglePhotoUrl(googlePhoto ?? null);
       })
       .catch((err) => {
         // Fresh device / Supabase not configured yet shouldn't crash the
@@ -231,6 +237,19 @@ export default function ProfilePage() {
                       // back to the placeholder instead of a blank circle.
                       setAvatarError("Couldn't load your photo — try uploading it again.");
                       setProfile((prev) => (prev ? { ...prev, avatar_url: null } : prev));
+                    }}
+                  />
+                ) : googlePhotoUrl ? (
+                  <SmartImage
+                    src={googlePhotoUrl}
+                    alt={displayName}
+                    width={112}
+                    height={112}
+                    priority
+                    className="h-full w-full object-cover"
+                    onError={() => {
+                      // Couldn't load Google profile photo — just show placeholder
+                      setGooglePhotoUrl(null);
                     }}
                   />
                 ) : (

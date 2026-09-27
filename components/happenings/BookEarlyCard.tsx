@@ -8,6 +8,8 @@ import { categoryDefaultImage } from "@/lib/happenings/category-style";
 import { NOTIFY_ME_ENABLED, type BookEarlyCardData } from "@/lib/happenings/book-early";
 import { ensurePushSubscribed, pushReasonMessage } from "@/lib/push/client";
 import { NotifyMeButton } from "./NotifyMeButton";
+import { happeningToPreview, prefetchHappening, setHappeningPreview } from "@/lib/happenings/preview-cache";
+import { eventToPreview, prefetchEvent, setEventPreview } from "@/lib/events/preview-cache";
 
 /** Leading thumbnail — same convention as FeedListCard's: the subject's own
  *  `image_url`, else a bundled per-category default. Larger than the list
@@ -103,6 +105,8 @@ export function BookEarlyCard({ card, initialSubscribed = false }: BookEarlyCard
       <NavCard
         href={`/event/${event.id}`}
         ariaLabel={event.name}
+        onPointerDown={() => prefetchEvent(event.id)}
+        onNavigate={() => setEventPreview(event.id, eventToPreview(event, { priceLabel: price, whenLabel: card.dateLabel }))}
         className="flex cursor-pointer gap-3 rounded-2xl bg-surface-container-lowest p-4 shadow-level-1 transition-shadow hover:shadow-level-2"
       >
         <Thumbnail src={thumbnail} alt="" />
@@ -149,6 +153,8 @@ export function BookEarlyCard({ card, initialSubscribed = false }: BookEarlyCard
     <NavCard
       href={`/happening/${happening.id}`}
       ariaLabel={happening.title}
+      onPointerDown={() => prefetchHappening(happening.id)}
+      onNavigate={() => setHappeningPreview(happening.id, happeningToPreview(happening, { priceLabel: priceBadge, whenLabel: card.dateLabel }))}
       className="flex cursor-pointer gap-3 rounded-2xl bg-surface-container-lowest p-4 shadow-level-1 transition-shadow hover:shadow-level-2"
     >
       <Thumbnail src={thumbnail} alt="" />

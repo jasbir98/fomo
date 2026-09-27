@@ -7,6 +7,7 @@ import { savingBadgeLabel, shortStartTimeFromNote } from "@/lib/happenings/forma
 import { weekdayOf, localDayDate } from "@/lib/happenings/occurrence";
 import { CITY } from "@/lib/city";
 import type { DealCardData } from "@/lib/happenings/feed-types";
+import { happeningToPreview, prefetchHappening, setHappeningPreview } from "@/lib/happenings/preview-cache";
 
 export interface TodaysDealsStripProps {
   deals: DealCardData[];
@@ -33,6 +34,8 @@ function TodaysDealCard({ card }: { card: DealCardData }) {
     <NavCard
       href={`/happening/${happening.id}`}
       ariaLabel={happening.title}
+      onPointerDown={() => prefetchHappening(happening.id)}
+      onNavigate={() => setHappeningPreview(happening.id, happeningToPreview(happening, { priceLabel: badge, whenLabel: time }))}
       className="flex w-40 shrink-0 cursor-pointer flex-col gap-2 rounded-2xl bg-surface-container-lowest p-3 shadow-level-1 transition-shadow hover:shadow-level-2"
     >
       <div className="relative h-20 w-full shrink-0 overflow-hidden rounded-xl border border-hairline bg-surface-container">

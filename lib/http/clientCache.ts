@@ -355,3 +355,23 @@ export function useCachedJson<T>(
     revalidate,
   };
 }
+
+/**
+ * Read-only, no-fetch sibling of `useCachedJson` — subscribes to a key's
+ * cache entry (re-rendering when it changes, e.g. once a `prefetchJson`
+ * elsewhere resolves) but never fetches on its own account. For a caller
+ * that wants "this key's data if someone else has already loaded it" — e.g.
+ * Home's segmented-control counts for the two tabs the visitor isn't
+ * currently on, warmed by its own idle prefetch — without minting a second,
+ * competing fetch for the same key `useCachedJson` already owns.
+ */
+export function usePeekCachedJson<T>(key: string | null): T | undefined {
+  const subscribeForKey = useCallback(
+    (onStoreChange: () => void) => (key ? subscribe(key, onStoreChange) : () => {}),
+    [key]
+  );
+  const getSnapshotForKey = useCallback(() => (key ? getEntry(key) : EMPTY_ENTRY), [key]);
+  const getServerSnapshot = useCallback(() => EMPTY_ENTRY, []);
+  const entry = useSyncExternalStore(subscribeForKey, getSnapshotForKey, getServerSnapshot) as CacheEntry<T>;
+  return entry.data;
+}

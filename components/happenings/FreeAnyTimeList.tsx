@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Icon, NavCard, SmartImage } from "@/components/ui";
+import { Icon, NavCard, SeeAllButton, SmartImage } from "@/components/ui";
 import { categoryDefaultImage } from "@/lib/happenings/category-style";
 import { PriceTag } from "@/components/happenings/PriceTag";
 import type { PriceLabel } from "@/lib/happenings/price-label";
@@ -128,6 +128,8 @@ export function FreeAnyTimeList({ items }: FreeAnyTimeListProps) {
           <FreeAnyTimeRow key={`${item.kind}-${item.id}`} item={item} />
         ))}
       </div>
+
+      <SeeAllButton href="/free" total={items.length} shown={INITIAL_COUNT} />
     </section>
   );
 }

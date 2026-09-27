@@ -8,6 +8,17 @@ export type NavCardProps = {
   children: ReactNode;
   className?: string;
   ariaLabel?: string;
+  /** Fires on pointerdown/touchstart, before the click that actually
+   *  navigates — for a card that wants to kick off `href`'s data fetch a
+   *  beat early (see lib/happenings/preview-cache.ts's `prefetchHappening`).
+   *  Never blocks navigation; a slow/failed prefetch just means the
+   *  destination fetches for itself, same as if this weren't here. */
+  onPointerDown?: () => void;
+  /** Fires synchronously right before `router.push(href)` — for a card to
+   *  hand the destination page something it already knows (e.g. writing a
+   *  preview into lib/happenings/preview-cache.ts) so the destination can
+   *  paint instantly instead of starting blank. */
+  onNavigate?: () => void;
 };
 
 /**
@@ -29,7 +40,7 @@ export type NavCardProps = {
  * itself — acceptable here since the card's own real links (the CTA) still
  * support those natively.
  */
-export function NavCard({ href, children, className = "", ariaLabel }: NavCardProps) {
+export function NavCard({ href, children, className = "", ariaLabel, onPointerDown, onNavigate }: NavCardProps) {
   const router = useRouter();
 
   function handleClick() {
@@ -39,6 +50,7 @@ export function NavCard({ href, children, className = "", ariaLabel }: NavCardPr
     // synthetic event system honors stopPropagation the same way the DOM
     // does) — so by the time this runs, nothing downstream claimed the
     // click, and it's safe to always navigate.
+    onNavigate?.();
     router.push(href);
   }
 
@@ -57,6 +69,7 @@ export function NavCard({ href, children, className = "", ariaLabel }: NavCardPr
       aria-label={ariaLabel}
       onClick={handleClick}
       onKeyDown={handleKeyDown}
+      onPointerDown={onPointerDown}
       className={`${className} focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary`}
     >
       {children}

@@ -1,6 +1,6 @@
 "use client";
 
-import { use, useEffect, useState } from "react";
+import { use, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { districtFromAddress } from "@/lib/city";
 import { directionsUrlFor } from "@/lib/maps/links";
@@ -19,11 +19,12 @@ import {
 import { categoryDefaultImage } from "@/lib/happenings/category-style";
 import type { HappeningResponse } from "@/app/api/happenings/[id]/route";
 import type { Happening, Occurrence } from "@/lib/happenings/types";
-import { Button, ErrorState, Icon, PageHeader, PhotoCarousel, SaveButton, ShareButton, StatusPill } from "@/components/ui";
+import { Button, ErrorState, FomoLoader, Icon, PageHeader, PhotoCarousel, SaveButton, ShareButton, StatusPill } from "@/components/ui";
 import type { CarouselPhoto } from "@/components/ui";
 import { NOTIFY_ME_ENABLED } from "@/lib/happenings/book-early";
 import { NotifyMeButton } from "@/components/happenings";
 import { ensurePushSubscribed, pushReasonMessage } from "@/lib/push/client";
+import { getHappeningPreview, takePrefetchedHappening, type HappeningPreview } from "@/lib/happenings/preview-cache";
 
 // Throws on a network error or non-2xx status (GET /api/happenings/[id]
 // returns 401/500 for those — see that route's own doc comment) so the
@@ -60,10 +61,19 @@ function googleCalendarUrl(h: Happening, occ: Occurrence): string {
   return `https://calendar.google.com/calendar/render?${params.toString()}`;
 }
 
+// Reuses a card's early prefetch (started at pointerdown/touchstart, see
+// lib/happenings/preview-cache.ts) when one is in flight for this id,
+// instead of firing a second, redundant GET — the whole point of starting
+// that fetch before the click even lands.
 async function fetchHappening(id: string): Promise<{ happening: Happening | null; siblings: Happening[] }> {
-  const res = await fetch(`/api/happenings/${id}`);
-  if (!res.ok) throw new Error(`GET /api/happenings/${id} ${res.status}`);
-  const json = (await res.json()) as HappeningResponse;
+  const prefetched = takePrefetchedHappening(id);
+  const json: HappeningResponse = prefetched
+    ? await prefetched
+    : await (async () => {
+        const res = await fetch(`/api/happenings/${id}`);
+        if (!res.ok) throw new Error(`GET /api/happenings/${id} ${res.status}`);
+        return (await res.json()) as HappeningResponse;
+      })();
   return { happening: json.happening, siblings: json.siblings ?? [] };
 }
 
@@ -96,6 +106,15 @@ export default function HappeningDetailPage({ params }: { params: Promise<{ id: 
   const [imgError, setImgError] = useState(false);
   const [notifySubscribed, setNotifySubscribed] = useState(false);
   const [notifyError, setNotifyError] = useState<string | null>(null);
+  // A card's click-time write to lib/happenings/preview-cache.ts, if there
+  // is one — a plain synchronous read, not effect+setState (the cache is
+  // local, not an external system to "synchronize" with), so `useMemo`
+  // keyed on `id` covers both the very first paint AND an `id` change (a
+  // Locations-section tap to a sibling, which reuses this same page
+  // instance rather than remounting it). Powers the instant hero below
+  // while `loading` is still true; `null` just means this page was opened
+  // directly (a shared link, a fresh reload) with nothing to show yet.
+  const preview = useMemo<HappeningPreview | null>(() => getHappeningPreview(id), [id]);
 
   useEffect(() => {
     let cancelled = false;
@@ -187,10 +206,55 @@ export default function HappeningDetailPage({ params }: { params: Promise<{ id: 
   }
 
   if (loading) {
+    // No preview at all (a shared link opened directly, a fresh reload) —
+    // nothing to paint yet, so the full-page mascot loader.
+    if (!preview) {
+      return (
+        <div className="flex min-h-dvh items-center justify-center">
+          <FomoLoader />
+        </div>
+      );
+    }
+    // A card already handed us the hero fields (see lib/happenings/
+    // preview-cache.ts) — paint them immediately instead of a blank
+    // full-page loader, with skeleton rows standing in for everything the
+    // preview doesn't have (promo code, eligibility, full "When" section,
+    // provenance, the CTA — all of it needs the real happening row).
+    const previewImage = preview.imageUrl ?? categoryDefaultImage(preview.category);
     return (
-      <div className="flex min-h-dvh items-center justify-center" role="status" aria-live="polite">
-        <Icon name="auto_awesome" size={32} className="animate-pulse text-primary" />
-        <span className="sr-only">Loading…</span>
+      <div className="flex flex-col gap-6 pb-6">
+        <PageHeader title={preview.title} showBack />
+        <section className="relative h-64 w-full overflow-hidden">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={previewImage} alt="" className="h-full w-full object-cover" />
+          <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 h-20 bg-gradient-to-t from-background/90 to-transparent" />
+          <div className="absolute bottom-4 left-5 z-20 flex items-center gap-2">
+            {preview.whenLabel ? <StatusPill label={preview.whenLabel} tone="info" icon="schedule" /> : null}
+            {preview.priceLabel ? <StatusPill label={preview.priceLabel} tone="success" icon="local_offer" /> : null}
+          </div>
+        </section>
+        <div className="flex flex-col gap-6 px-5">
+          <section className="rounded-2xl bg-surface-container-lowest p-5 shadow-level-1">
+            <h1 className="text-headline-lg font-extrabold leading-snug text-on-surface">{preview.title}</h1>
+            {preview.venueName || preview.district ? (
+              <div className="mt-4 flex items-start gap-2.5 border-t border-outline-variant/30 pt-4 text-on-surface-variant">
+                <Icon name="storefront" className="mt-0.5 shrink-0 text-primary" />
+                <div className="flex min-w-0 flex-col">
+                  {preview.venueName ? (
+                    <p className="text-body-md font-medium text-on-surface">{preview.venueName}</p>
+                  ) : null}
+                  {preview.district ? <p className="text-label-sm text-secondary">{preview.district}</p> : null}
+                </div>
+              </div>
+            ) : null}
+          </section>
+          <div className="flex flex-col gap-3" role="status" aria-live="polite">
+            <span className="sr-only">Loading the rest of this deal…</span>
+            {[0, 1, 2].map((i) => (
+              <div key={i} className="h-20 animate-pulse rounded-2xl bg-surface-container" />
+            ))}
+          </div>
+        </div>
       </div>
     );
   }
@@ -261,6 +325,15 @@ export default function HappeningDetailPage({ params }: { params: Promise<{ id: 
   const spanDays = primaryOccurrence
     ? (Date.parse(primaryOccurrence.lastDayDate) - Date.parse(primaryOccurrence.dayDate)) / 86_400_000
     : Infinity;
+  // Primary link: the .ics route (app/api/happenings/[id]/ics/route.ts) —
+  // a plain <a href>, no target="_blank", so iOS Safari opens the native
+  // Add Event sheet directly instead of a new tab. Google Calendar's own
+  // link stays as a secondary option for anyone who specifically wants that
+  // app (task B).
+  const icsUrl =
+    primaryOccurrence && !isAlways && !isSeries && !ended && spanDays <= 3
+      ? `/api/happenings/${happening.id}/ics`
+      : null;
   const calendarUrl =
     primaryOccurrence && !isAlways && !isSeries && !ended && spanDays <= 3
       ? googleCalendarUrl(happening, primaryOccurrence)
@@ -498,16 +571,34 @@ export default function HappeningDetailPage({ params }: { params: Promise<{ id: 
               <Icon name="calendar_month" size={19} />
               When
             </h2>
-            {calendarUrl ? (
-              <a
-                href={calendarUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex min-h-10 items-center gap-1 rounded-full border border-hairline-strong px-3 text-label-sm font-bold text-primary hover:bg-surface-container"
-              >
-                <Icon name="event_available" size={16} />
-                Add to calendar
-              </a>
+            {icsUrl ? (
+              <div className="flex items-center gap-2">
+                {/* Primary: the .ics route, plain <a href> with no
+                    target="_blank" — that's what makes iOS Safari open the
+                    native Add Event sheet instead of just downloading the
+                    file to a new tab. Works the same on Android (opens the
+                    device's calendar app's own import). */}
+                <a
+                  href={icsUrl}
+                  className="flex min-h-10 items-center gap-1 rounded-full border border-hairline-strong px-3 text-label-sm font-bold text-primary hover:bg-surface-container"
+                >
+                  <Icon name="event_available" size={16} />
+                  Add to calendar
+                </a>
+                {/* Secondary: unchanged Google Calendar web link, for anyone
+                    who specifically wants that app over the device's native
+                    one. */}
+                {calendarUrl ? (
+                  <a
+                    href={calendarUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-label-sm font-medium text-on-surface-variant underline-offset-2 hover:underline"
+                  >
+                    Google Calendar
+                  </a>
+                ) : null}
+              </div>
             ) : null}
           </div>
           {isSeries ? (

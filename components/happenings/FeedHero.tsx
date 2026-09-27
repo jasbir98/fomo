@@ -3,11 +3,12 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Icon, NavCard, SmartImage } from "@/components/ui";
-import { formatEventDate, formatEventPrice, formatEventTimeSpan } from "@/lib/events/format";
+import { formatEventDate, formatEventPrice, formatEventTimeSpan, formatEventWhen } from "@/lib/events/format";
 import { categoryDefaultImage } from "@/lib/happenings/category-style";
 import { HappeningHero } from "./HappeningHero";
 import type { FeedHeroCard } from "@/lib/happenings/feed-types";
 import type { EventItem } from "@/lib/types";
+import { eventToPreview, prefetchEvent, setEventPreview } from "@/lib/events/preview-cache";
 
 export interface FeedHeroProps {
   card: FeedHeroCard;
@@ -44,6 +45,10 @@ function EventHero({ event, reason }: { event: EventItem; reason: string | null 
 
   function goToEvent(e: React.MouseEvent | React.KeyboardEvent) {
     e.stopPropagation();
+    // This button calls `stopPropagation`, so the click never reaches the
+    // NavCard's own `onNavigate` below — write the preview here too, same
+    // as that would have.
+    setEventPreview(event.id, eventToPreview(event, { priceLabel: price, whenLabel: formatEventWhen(event.starts_at, event.ends_at) }));
     router.push(`/event/${event.id}`);
   }
 
@@ -51,6 +56,10 @@ function EventHero({ event, reason }: { event: EventItem; reason: string | null 
     <NavCard
       href={`/event/${event.id}`}
       ariaLabel={event.name}
+      onPointerDown={() => prefetchEvent(event.id)}
+      onNavigate={() =>
+        setEventPreview(event.id, eventToPreview(event, { priceLabel: price, whenLabel: formatEventWhen(event.starts_at, event.ends_at) }))
+      }
       className="relative flex flex-col overflow-hidden rounded-3xl bg-surface-container-lowest shadow-level-3 cursor-pointer"
     >
       <div className="relative h-40 w-full shrink-0 overflow-hidden bg-surface-container">

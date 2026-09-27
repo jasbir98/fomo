@@ -8,13 +8,13 @@ import { refreshGeolocation, useGeolocation } from "@/lib/geo";
 import { useSaved } from "@/lib/useSaved";
 import { chooseCity, dismissCityPrompt, useSelectedCity } from "@/lib/useSelectedCity";
 import { rememberUserLocation, forgetUserLocation } from "@/lib/now/location";
-import { prefetchJson, useCachedJson } from "@/lib/http/clientCache";
+import { prefetchJson, useCachedJson, usePeekCachedJson } from "@/lib/http/clientCache";
 import type { CardKind, NowResponse } from "@/lib/now/types";
 import type { FeedCardData, FeedResponse, FeedWindow } from "@/lib/happenings/feed-types";
 import { NOTIFY_ME_ENABLED } from "@/lib/happenings/book-early";
 import type { WeatherCondition } from "@/lib/weather";
 import { WEATHER_THEME } from "@/lib/weatherUi";
-import { CityPicker, ErrorState, FomoLogo, Icon, SegmentedControl } from "@/components/ui";
+import { CityPicker, ErrorState, FomoLogo, Icon, SeeAllButton, SegmentedControl } from "@/components/ui";
 import { FomoCard } from "@/components/fomo/Card";
 import { FomoSpot } from "@/components/fomo/FomoSpot";
 import { FeedHero, FeedListCard, FreeAnyTimeList, BookEarlyCard, SubscribeCard } from "@/components/happenings";
@@ -212,7 +212,15 @@ function SeeAllLink({ href, total }: { href: string; total: number }) {
 export default function HomePage() {
   const db = supabaseBrowserAuth();
   const [feedWindow, setWindow] = useState<FeedWindow>("now");
+  // Which way the content swap below the segmented control should slide in
+  // from — derived from the tapped tab's index relative to the previous one
+  // (right-of-current tab tapped ⇒ new content enters from the right, and
+  // vice versa), consumed by `windowSlideClass` below. Not reset on mount:
+  // the very first render never plays an entrance animation anyway (nothing
+  // is keyed/remounted until `feedWindow` actually changes).
+  const [switchDirection, setSwitchDirection] = useState<1 | -1>(1);
   const whatsOnSectionRef = useRef<HTMLDivElement>(null);
+  const bookEarlySectionRef = useRef<HTMLDivElement>(null);
   // Content height of the last successfully-rendered What's on list, kept as
   // a plain ref (not state — writing it must never itself trigger a render)
   // so an uncached window switch can hold the section at that height while
@@ -293,7 +301,7 @@ export default function HomePage() {
   // this tick (cache hit) or several ticks later (cold fetch).
   useEffect(() => {
     if (prevFeedWindowRef.current !== feedWindow) {
-      pendingScrollRef.current = feedWindow !== "book_early";
+      pendingScrollRef.current = true;
       prevFeedWindowRef.current = feedWindow;
     }
   }, [feedWindow]);
@@ -301,11 +309,13 @@ export default function HomePage() {
   useEffect(() => {
     if (!pendingScrollRef.current || feed === null) return;
     pendingScrollRef.current = false;
-    // Make the change unmissable when What's on isn't currently in view —
-    // only scrolls when its top is below the fold (never yanks the page for
-    // a section already on screen, and never scrolls upward).
+    // Make the change unmissable when the newly-active section isn't
+    // currently in view — only scrolls when its top is below the fold
+    // (never yanks the page for a section already on screen, and never
+    // scrolls upward). Book early gets its own ref (its section renders
+    // further down the page than What's on's).
     requestAnimationFrame(() => {
-      const el = whatsOnSectionRef.current;
+      const el = feedWindow === "book_early" ? bookEarlySectionRef.current : whatsOnSectionRef.current;
       if (!el || typeof window === "undefined") return;
       const top = el.getBoundingClientRect().top;
       if (top > window.innerHeight) {
@@ -385,6 +395,72 @@ export default function HomePage() {
   function whatsOnEmptyMessage(): string {
     return `Nothing lined up for ${WHATS_ON_WINDOW_LABEL[feedWindow].toLowerCase()} yet — try another tab.`;
   }
+
+  // Peek (never fetch) the other two windows' feed cache so the segmented
+  // control can show every tab's count, not just the active one — warmed by
+  // the idle-prefetch effect above once the visitor has loaded any window
+  // this session. `null` (unknown) until that prefetch resolves; the active
+  // window always has its own count immediately via `feed` itself.
+  const peekedNow = usePeekCachedJson<FeedResponse>("feed:now");
+  const peekedComingUp = usePeekCachedJson<FeedResponse>("feed:coming_up");
+  const peekedBookEarly = usePeekCachedJson<FeedResponse>("feed:book_early");
+
+  function countFor(w: FeedWindow): number | null {
+    const data = w === feedWindow ? feed : w === "now" ? peekedNow : w === "coming_up" ? peekedComingUp : peekedBookEarly;
+    if (!data) return null;
+    return w === "book_early" ? data.bookEarly.length : (data.whatsOn[0]?.cards.length ?? 0);
+  }
+
+  // Segment labels grow a "· N" count once that tab's data has actually
+  // loaded (this tab, or an idle-prefetched other one) — omitted rather than
+  // shown as 0/blank while unknown, so a slow prefetch just reads as "no
+  // count yet" instead of a flash of "0".
+  const windowOptions = useMemo(
+    () =>
+      WINDOW_OPTIONS.map((opt) => {
+        const count = countFor(opt.value);
+        return count != null ? { ...opt, label: `${opt.label} · ${count}` } : opt;
+      }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [feed, feedWindow, peekedNow, peekedComingUp, peekedBookEarly]
+  );
+
+  // One-line, plain-words description of what the active tab's count
+  // actually represents — read literally off WHATS_ON_WINDOW_LABEL/the
+  // Book early copy above rather than inventing separate wording, so it
+  // can't drift out of sync with what the section heading itself says.
+  function windowSummary(): string {
+    const count = countFor(feedWindow);
+    if (feedWindow === "book_early") {
+      return count != null
+        ? `${count} ${count === 1 ? "thing" : "things"} worth booking before they sell out`
+        : "Big dates worth booking before they sell out";
+    }
+    if (feedWindow === "now") {
+      return count != null
+        ? `${count} ${count === 1 ? "thing" : "things"} on today & tomorrow`
+        : "What's on today & tomorrow";
+    }
+    // coming_up — COMING_UP_LOOKAHEAD_DAYS in app/api/feed/route.ts is 90
+    // days; "next few months" is the honest, human-readable rounding of that
+    // rather than restating the exact day count.
+    return count != null
+      ? `${count} ${count === 1 ? "thing" : "things"} in the next few months`
+      : "Everything coming up over the next few months";
+  }
+
+  // Tapping a tab to the right of the current one slides new content in from
+  // the right (and vice versa) — mirrors how the sliding indicator itself
+  // moves, so the two motions read as one gesture rather than two unrelated
+  // animations.
+  function handleWindowChange(next: FeedWindow) {
+    const fromIndex = WINDOW_OPTIONS.findIndex((o) => o.value === feedWindow);
+    const toIndex = WINDOW_OPTIONS.findIndex((o) => o.value === next);
+    setSwitchDirection(toIndex >= fromIndex ? 1 : -1);
+    setWindow(next);
+  }
+
+  const windowSlideClass = switchDirection === 1 ? "feed-slide-in-right" : "feed-slide-in-left";
 
   return (
     <div className="flex flex-col gap-6 pb-6">
@@ -500,8 +576,15 @@ export default function HomePage() {
       />
 
       <div className="flex flex-col gap-6 px-4">
-        {/* Window control — drives What's on, and on Book early the hero too (see `heroKind`). */}
-        <SegmentedControl value={feedWindow} options={WINDOW_OPTIONS} onChange={setWindow} />
+        {/* Window control — drives What's on, and on Book early the hero too
+            (see `heroKind`). Labels grow their own count once known
+            (`windowOptions`); the plain-words line underneath restates the
+            active tab's window so the abrupt content swap below it always
+            comes with a reason, not just new cards. */}
+        <div className="flex flex-col gap-1.5">
+          <SegmentedControl value={feedWindow} options={windowOptions} onChange={handleWindowChange} />
+          <p className="px-1 text-label-sm text-on-surface-variant">{windowSummary()}</p>
+        </div>
 
         {showHappeningHero && feed?.hero ? (
           <FeedHero card={feed.hero} variant={heroKind} />
@@ -608,16 +691,27 @@ export default function HomePage() {
               // Cached or freshly-loaded data — rendered as soon as it's
               // available, which for a cache hit is the very same tick the
               // segmented control changes (no dim needed). `key={feedWindow}`
-              // only remounts (and replays `feed-fade-in`) on an actual
-              // window switch, not on a same-window background revalidation.
-              <div key={feedWindow} ref={whatsOnContentRef} className="feed-fade-in flex flex-col gap-3">
+              // only remounts (and replays the slide-in) on an actual window
+              // switch, not on a same-window background revalidation;
+              // `windowSlideClass` picks the entrance direction to match
+              // which side of the current tab was tapped.
+              <div key={feedWindow} ref={whatsOnContentRef} className={`${windowSlideClass} flex flex-col gap-3`}>
                 {whatsOnCards.length === 0 ? (
                   <div className="flex flex-col items-center gap-2 px-1 text-center">
                     <FomoSpot mood="meh" pose="shrug" className="h-16 w-16" />
                     <p className="text-body-sm text-on-surface-variant">{whatsOnEmptyMessage()}</p>
                   </div>
                 ) : (
-                  whatsOnCards.slice(0, SECTION_CAP).map((card) => <FeedListCard key={cardKey(card)} card={card} />)
+                  <>
+                    {whatsOnCards.slice(0, SECTION_CAP).map((card) => (
+                      <FeedListCard key={cardKey(card)} card={card} />
+                    ))}
+                    <SeeAllButton
+                      href={`/whats-on?window=${feedWindow}`}
+                      total={whatsOnCards.length}
+                      shown={SECTION_CAP}
+                    />
+                  </>
                 )}
               </div>
             )}
@@ -635,7 +729,11 @@ export default function HomePage() {
             timing/category/month filters and Ask Fomo button (see that
             page's own doc comment). */}
         {feedWindow === "book_early" ? (
-          <section className="flex flex-col gap-3">
+          // The whole section only ever mounts on arrival at this tab (the
+          // conditional above unmounts it entirely on the way out), so the
+          // slide-in plays on mount here rather than needing its own
+          // `key={feedWindow}` the way What's on's inner content does above.
+          <section ref={bookEarlySectionRef} className={`${windowSlideClass} flex scroll-mt-20 flex-col gap-3`}>
             <div className="flex items-start justify-between gap-2 px-1">
               <div className="flex flex-col gap-0.5">
                 <div className="flex items-center gap-2">
@@ -673,6 +771,7 @@ export default function HomePage() {
                     initialSubscribed={card.kind === "happening" && alertHappeningIds.has(card.happening.id)}
                   />
                 ))}
+                <SeeAllButton href="/book-early" total={bookEarlyAll.length} shown={SECTION_CAP} />
               </div>
             )}
           </section>

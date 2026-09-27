@@ -1,6 +1,6 @@
 "use client";
 
-import { use, useEffect, useState } from "react";
+import { use, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { supabaseBrowserAuth } from "@/lib/supabase/client";
@@ -8,10 +8,33 @@ import { buildAskFomoHref } from "@/lib/chat-seed";
 import { directionsUrlFor } from "@/lib/maps/links";
 import { getEvent } from "@/lib/db";
 import { isSaved, saveItem, unsaveItem } from "@/lib/db/saved";
+import { categoryDefaultImage } from "@/lib/happenings/category-style";
 import { formatEventPrice, formatEventWhen } from "@/lib/events/format";
 import type { EventItem } from "@/lib/types";
-import { Button, ErrorState, Icon, PageHeader, PhotoCarousel, ShareButton, StatusPill } from "@/components/ui";
+import { Button, ErrorState, FomoLoader, Icon, PageHeader, PhotoCarousel, ShareButton, StatusPill } from "@/components/ui";
 import type { CarouselPhoto } from "@/components/ui";
+import { getEventPreview, takePrefetchedEvent, type EventPreview } from "@/lib/events/preview-cache";
+
+/**
+ * Google Calendar "add event" link — mirrors the happening detail page's
+ * own `googleCalendarUrl` (app/(shell)/happening/[id]/page.tsx), just off
+ * an `EventItem`'s plain `starts_at`/`ends_at` instead of an `Occurrence`:
+ * a provider event always has a real timed start (the `events` table
+ * column is non-nullable), so there's no all-day branch to handle here.
+ */
+function eventGoogleCalendarUrl(event: EventItem): string {
+  const start = new Date(event.starts_at);
+  const end = event.ends_at ? new Date(event.ends_at) : new Date(start.getTime() + 2 * 3_600_000);
+  const stamp = (d: Date) => d.toISOString().replace(/[-:]/g, "").replace(/\.\d{3}/, "");
+  const params = new URLSearchParams({
+    action: "TEMPLATE",
+    text: event.name,
+    dates: `${stamp(start)}/${stamp(end)}`,
+    details: [event.description, event.ticket_url].filter(Boolean).join("\n\n"),
+    location: [event.venue_name, event.address].filter(Boolean).join(", ") || event.city || "Edinburgh",
+  });
+  return `https://calendar.google.com/calendar/render?${params.toString()}`;
+}
 
 /**
  * Event's own detail page (v1.1 W3) — mirrors app/(shell)/place/[id]/page.tsx's
@@ -36,10 +59,21 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
   const [reloadTick, setReloadTick] = useState(0);
   const [saved, setSaved] = useState(false);
   const [savePending, setSavePending] = useState(false);
+  // A card's click-time write to lib/events/preview-cache.ts, if there is
+  // one — plain synchronous read (not effect+setState; see the happening
+  // page's own doc comment on the same pattern for why), `useMemo`-keyed on
+  // `id` so it covers both first paint and an `id` change. Powers the
+  // instant hero below while `loading` is still true; `null` just means
+  // this page was opened directly (a shared link, a fresh reload).
+  const preview = useMemo<EventPreview | null>(() => getEventPreview(id), [id]);
 
   useEffect(() => {
     let cancelled = false;
-    getEvent(db, id)
+    // Reuses a card's early prefetch (started at pointerdown/touchstart,
+    // see lib/events/preview-cache.ts) when one's in flight for this id,
+    // instead of firing a second, redundant `getEvent` read.
+    const prefetched = takePrefetchedEvent(id);
+    (prefetched ?? getEvent(db, id))
       .then((data) => {
         if (!cancelled) {
           setEvent(data);
@@ -89,10 +123,54 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
   }
 
   if (loading) {
+    // No preview at all (a shared link opened directly, a fresh reload) —
+    // nothing to paint yet, so the full-page mascot loader.
+    if (!preview) {
+      return (
+        <div className="flex min-h-dvh items-center justify-center">
+          <FomoLoader />
+        </div>
+      );
+    }
+    // A card already handed us the hero fields (see lib/events/
+    // preview-cache.ts) — paint them immediately instead of a blank
+    // full-page loader, with skeleton rows standing in for the rest
+    // (description, When/Venue grid, directions, tickets — all of it needs
+    // the real event row).
+    const previewImage = preview.imageUrl ?? categoryDefaultImage(null);
     return (
-      <div className="flex min-h-dvh items-center justify-center" role="status" aria-live="polite">
-        <Icon name="auto_awesome" size={32} className="animate-pulse text-primary" />
-        <span className="sr-only">Loading…</span>
+      <div className="flex flex-col gap-6 pb-6">
+        <PageHeader title={preview.title} showBack />
+        <section className="relative h-64 w-full overflow-hidden">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={previewImage} alt="" className="h-full w-full object-cover" />
+          <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 h-20 bg-gradient-to-t from-background/90 to-transparent" />
+          <div className="absolute bottom-4 left-5 z-20 flex items-center gap-2">
+            {preview.whenLabel ? <StatusPill label={preview.whenLabel} tone="info" icon="schedule" /> : null}
+          </div>
+        </section>
+        <div className="flex flex-col gap-6 px-5">
+          <section className="rounded-xl border border-outline-variant/40 bg-surface-container-lowest p-5 shadow-sm">
+            <div className="mb-2 flex items-center justify-between gap-3">
+              <span />
+              {preview.priceLabel ? (
+                <span className="text-label-md font-semibold text-primary">{preview.priceLabel}</span>
+              ) : null}
+            </div>
+            {preview.venueName || preview.city ? (
+              <p className="mb-1 text-label-md font-medium text-secondary">
+                {[preview.venueName, preview.city].filter(Boolean).join(", ")}
+              </p>
+            ) : null}
+            <h1 className="text-headline-lg font-extrabold leading-snug text-on-surface">{preview.title}</h1>
+          </section>
+          <div className="flex flex-col gap-3" role="status" aria-live="polite">
+            <span className="sr-only">Loading the rest of this event…</span>
+            {[0, 1, 2].map((i) => (
+              <div key={i} className="h-20 animate-pulse rounded-2xl bg-surface-container" />
+            ))}
+          </div>
+        </div>
       </div>
     );
   }
@@ -198,6 +276,29 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
                 </p>
               </div>
             </div>
+          </div>
+
+          {/* Add to calendar — same pattern as the happening detail page's
+              own "When" section: primary is the .ics route (a plain <a
+              href>, no target="_blank", so iOS Safari opens the native Add
+              Event sheet instead of a new tab), Google Calendar's web link
+              stays as a secondary option. */}
+          <div className="flex items-center gap-2 border-t border-outline-variant/30 pt-4">
+            <a
+              href={`/api/events/${event.id}/ics`}
+              className="flex min-h-10 items-center gap-1 rounded-full border border-hairline-strong px-3 text-label-sm font-bold text-primary hover:bg-surface-container"
+            >
+              <Icon name="event_available" size={16} />
+              Add to calendar
+            </a>
+            <a
+              href={eventGoogleCalendarUrl(event)}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-label-sm font-medium text-on-surface-variant underline-offset-2 hover:underline"
+            >
+              Google Calendar
+            </a>
           </div>
         </section>
 

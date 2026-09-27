@@ -66,7 +66,7 @@ export function SegmentedControl<T extends string = string>({
       {indicator ? (
         <div
           aria-hidden="true"
-          className="absolute inset-y-1 left-0 rounded-full bg-primary shadow-sm transition-[left,width] duration-300 ease-out motion-reduce:transition-none"
+          className="absolute inset-y-1 left-0 rounded-full bg-primary shadow-sm transition-[left,width] duration-[250ms] ease-out motion-reduce:transition-none"
           style={{ left: indicator.left, width: indicator.width }}
         />
       ) : null}

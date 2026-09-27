@@ -309,28 +309,44 @@ body {
   min-height: calc(100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom));
 }
 
-/* ---- What's on window-switch feedback ----
-   Home's Now/Coming up control (app/(shell)/page.tsx) dims the
-   What's on section while the new window's data loads, then plays this
-   cross-fade+rise on the freshly-arrived buckets so the swap reads as a
-   clear "something changed" moment instead of a silent content swap.
-   Plain CSS (not an `@utility`) so the prefers-reduced-motion override below
-   is guaranteed to win regardless of Tailwind's own layer ordering. */
-@keyframes feed-fade-in {
+/* ---- What's on / Book early window-switch feedback ----
+   Home's Now/Coming up/Book early control (app/(shell)/page.tsx) dims the
+   active section while the new window's data loads, then slides the
+   freshly-arrived content in from the side the tapped tab sits on relative
+   to the previous one (`windowSlideClass`/`switchDirection`), so the swap
+   reads as one continuous motion with the sliding tab indicator rather than
+   a silent content swap. Plain CSS (not an `@utility`) so the
+   prefers-reduced-motion override below is guaranteed to win regardless of
+   Tailwind's own layer ordering. */
+@keyframes feed-slide-in-right {
   from {
     opacity: 0;
-    transform: translateY(6px);
+    transform: translateX(16px);
   }
   to {
     opacity: 1;
-    transform: translateY(0);
+    transform: translateX(0);
   }
 }
-.feed-fade-in {
-  animation: feed-fade-in 280ms ease-out;
+@keyframes feed-slide-in-left {
+  from {
+    opacity: 0;
+    transform: translateX(-16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+.feed-slide-in-right {
+  animation: feed-slide-in-right 220ms ease-out;
+}
+.feed-slide-in-left {
+  animation: feed-slide-in-left 220ms ease-out;
 }
 @media (prefers-reduced-motion: reduce) {
-  .feed-fade-in {
+  .feed-slide-in-right,
+  .feed-slide-in-left {
     animation: none;
   }
 }
@@ -338,7 +354,7 @@ body {
 /* ---- Welcome cast (components/onboarding/Characters.tsx) ----
    Idle loops for the SVG characters. fill-box + centre origin makes each
    transform pivot on the drawn shape rather than the SVG canvas origin. Plain
-   CSS for the same reduced-motion reason as feed-fade-in above. */
+   CSS for the same reduced-motion reason as feed-slide-in-right above. */
 @keyframes fomo-float {
   0%, 100% { transform: translateY(0); }
   50% { transform: translateY(-7px); }
@@ -411,6 +427,29 @@ body {
   .fomo-twinkle,
   .fomo-steam,
   .fomo-dash {
+    animation: none;
+  }
+}
+
+/* ---- FomoLoader (components/ui/FomoLoader.tsx) ----
+   Gentle bob+squash idle loop for the mascot — distinct from `.fomo-bob`
+   above (a rotate-only wobble tuned for the onboarding cast), this one
+   moves the whole mark up/down and squashes it on landing, the way a
+   loading mascot usually reads. Plain CSS, not a Tailwind `animate-*`
+   utility, for the same prefers-reduced-motion-must-win reason as every
+   other `fomo-*` loop in this file. */
+@keyframes fomo-loader-bounce {
+  0%, 100% { transform: translateY(0) scale(1, 1); }
+  30% { transform: translateY(-10px) scale(0.97, 1.03); }
+  50% { transform: translateY(0) scale(1.06, 0.92); }
+  70% { transform: translateY(-4px) scale(0.99, 1.01); }
+}
+.fomo-loader-bounce {
+  animation: fomo-loader-bounce 1.2s ease-in-out infinite;
+  transform-origin: center bottom;
+}
+@media (prefers-reduced-motion: reduce) {
+  .fomo-loader-bounce {
     animation: none;
   }
 }

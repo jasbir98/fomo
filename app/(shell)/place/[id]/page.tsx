@@ -9,7 +9,7 @@ import { getPlace, listPlacePhotos } from "@/lib/db";
 import { isSaved, saveItem, unsaveItem } from "@/lib/db/saved";
 import { buildDirectionsUrl } from "@/lib/maps/links";
 import type { Place, PlacePhoto } from "@/lib/types";
-import { Button, Icon, PageHeader, PhotoCarousel, ShareButton, StatusPill } from "@/components/ui";
+import { Button, FomoLoader, Icon, PageHeader, PhotoCarousel, ShareButton, StatusPill } from "@/components/ui";
 import type { CarouselPhoto } from "@/components/ui";
 import { FeedListCard } from "@/components/happenings";
 import { nextOccurrence, normalizeRecurrence } from "@/lib/happenings/occurrence";
@@ -159,7 +159,7 @@ export default function PlaceDetailPage({ params }: { params: Promise<{ id: stri
   if (loading) {
     return (
       <div className="flex min-h-dvh items-center justify-center">
-        <Icon name="auto_awesome" size={32} className="animate-pulse text-primary" />
+        <FomoLoader />
       </div>
     );
   }

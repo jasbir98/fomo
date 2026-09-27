@@ -10,12 +10,14 @@ import {
   checkedLabel,
   eligibilityLine,
   heroHeadline,
+  occurrenceRangeLabel,
   oneLinerSummary,
   savingBadgeLabel,
 } from "@/lib/happenings/format";
 import { bookEarlyLabelFor, bookEarlyTier } from "@/lib/happenings/book-early";
 import { categoryDefaultImage, categoryStyle } from "@/lib/happenings/category-style";
 import type { Happening, Occurrence } from "@/lib/happenings/types";
+import { happeningToPreview, prefetchHappening, setHappeningPreview } from "@/lib/happenings/preview-cache";
 
 export interface HappeningHeroProps {
   happening: Happening;
@@ -129,6 +131,10 @@ export function HappeningHero({ happening, occurrence, variant = "fomo_pick", re
     <NavCard
       href={`/happening/${happening.id}`}
       ariaLabel={happening.title}
+      onPointerDown={() => prefetchHappening(happening.id)}
+      onNavigate={() =>
+        setHappeningPreview(happening.id, happeningToPreview(happening, { priceLabel: badge, whenLabel: occurrenceRangeLabel(occurrence) }))
+      }
       className="relative flex flex-col overflow-hidden rounded-3xl bg-surface-container-lowest shadow-level-3 cursor-pointer"
     >
       <div className="relative h-40 w-full shrink-0 overflow-hidden bg-surface-container">

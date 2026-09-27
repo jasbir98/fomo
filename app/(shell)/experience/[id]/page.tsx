@@ -8,7 +8,7 @@ import { getExperience } from "@/lib/db";
 import { isSaved, saveItem, unsaveItem } from "@/lib/db/saved";
 import type { Experience } from "@/lib/types";
 import { formatExperiencePrice, formatExperienceRating } from "@/lib/experiences/format";
-import { Button, Icon, PageHeader, PhotoCarousel, ShareButton, StatusPill } from "@/components/ui";
+import { Button, FomoLoader, Icon, PageHeader, PhotoCarousel, ShareButton, StatusPill } from "@/components/ui";
 import type { CarouselPhoto } from "@/components/ui";
 
 /** Human-readable badge for a provider slug ("viator" | "getyourguide"). */
@@ -84,7 +84,7 @@ export default function ExperienceDetailPage({ params }: { params: Promise<{ id:
   if (loading) {
     return (
       <div className="flex min-h-dvh items-center justify-center">
-        <Icon name="auto_awesome" size={32} className="animate-pulse text-primary" />
+        <FomoLoader />
       </div>
     );
   }
