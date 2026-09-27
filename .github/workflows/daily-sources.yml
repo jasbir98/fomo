@@ -11,6 +11,10 @@ on:
     # scheduling guide gives: avoids the top-of-hour pile-up on GitHub's
     # shared runners.
     - cron: "17 6 * * *"
+    # Second pass: GitHub drops scheduled runs under load (the first 06:17
+    # run on 2026-09-27 never fired). Upserts are idempotent, so a double run
+    # costs nothing.
+    - cron: "43 17 * * *"
   workflow_dispatch: {}
 
 jobs:
