@@ -36,7 +36,7 @@ export default function PrivacyPage() {
           <p>
             Fomo (askfomo.com) is operated by <strong>{"{{OPERATOR_NAME}}"}</strong>{" "}(&ldquo;we&rdquo;,
             &ldquo;us&rdquo;). For any question about this policy or your data, contact{" "}
-            <strong>{"{{CONTACT_EMAIL}}"}</strong>.
+            <strong><a href="mailto:support@askfomo.com">support@askfomo.com</a></strong>.
           </p>
           <p>
             We are the data controller for the personal data described below, and this policy is
@@ -142,7 +142,7 @@ export default function PrivacyPage() {
           </ul>
           <p>
             To delete your account or exercise any of these rights, email{" "}
-            <strong>{"{{CONTACT_EMAIL}}"}</strong>{" "}— there&rsquo;s no self-serve delete-account button
+            <strong><a href="mailto:support@askfomo.com">support@askfomo.com</a></strong>{" "}— there&rsquo;s no self-serve delete-account button
             in the app yet, so we&rsquo;ll do it for you by hand.
           </p>
         </Section>

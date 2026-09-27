@@ -66,8 +66,11 @@ const DRY_RUN = !SEND && !TEST_TO;
 const SUPABASE_URL = (process.env.NEXT_PUBLIC_SUPABASE_URL ?? "").replace(/\/$/, "");
 const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY ?? "";
 const RESEND_API_KEY = process.env.RESEND_API_KEY ?? "";
-const FOMO_FROM_EMAIL = process.env.FOMO_FROM_EMAIL ?? "";
+// A bare address shows its local part ("hello") as the sender name in inboxes.
+const RAW_FROM = (process.env.FOMO_FROM_EMAIL ?? "").trim();
+const FOMO_FROM_EMAIL = RAW_FROM && !RAW_FROM.includes("<") ? `Fomo <${RAW_FROM}>` : RAW_FROM;
 const SENDER_ADDRESS = process.env.SENDER_ADDRESS ?? "";
+const FOMO_REPLY_TO = process.env.FOMO_REPLY_TO || "support@askfomo.com";
 
 if (!SUPABASE_URL || !SERVICE_ROLE_KEY) {
   console.error(
@@ -255,6 +258,7 @@ async function resendSendBatch(messages) {
 function buildMessage({ to, subject, html, text }) {
   return {
     from: FOMO_FROM_EMAIL,
+    reply_to: FOMO_REPLY_TO,
     to: [to],
     subject,
     html,
