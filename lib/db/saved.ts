@@ -14,12 +14,9 @@ export async function listSavedItems(db: Db): Promise<SavedItem[]> {
 /**
  * One page of the caller's saved items, newest first — the /saved page
  * (app/(shell)/saved/page.tsx) reads through this via GET /api/saved for
- * lib/useInfiniteList.ts pagination, instead of listSavedItems' fetch-all
- * (which stays as-is for lib/now/context.ts's ranker read, where the whole
- * shortlist is small and needed in one shot). Deliberately NOT trip-scoped —
- * mirrors listSavedItems' own default and the `saved` rail's "any trip"
- * doc comment (lib/now/types.ts) — a saved item stays visible after the
- * traveler starts a new trip.
+ * lib/useInfiniteList.ts pagination, instead of listSavedItems' fetch-all.
+ * Deliberately NOT trip-scoped — mirrors listSavedItems' own default — a
+ * saved item stays visible after the traveler starts a new trip.
  */
 export async function listSavedItemsPage(
   db: Db,
@@ -52,13 +49,14 @@ export async function isSaved(
 
 /**
  * Save a card. Upserts on (user_id, subject_type, subject_id) — tapping Save
- * twice is a no-op, not a duplicate. `trip_id` is always written null —
- * Fomo has no trips anymore; the column stays in the DB, unused.
+ * twice is a no-op, not a duplicate. `trip_id` is never written — Fomo has
+ * no trips anymore; the column stays in the DB, unused, until
+ * supabase/drop_legacy.sql drops it.
  */
 export async function saveItem(db: Db, patch: SavedItemInsert): Promise<SavedItem> {
   const { data, error } = await db
     .from("saved_items")
-    .upsert({ ...patch, trip_id: null }, { onConflict: "user_id,subject_type,subject_id" })
+    .upsert(patch, { onConflict: "user_id,subject_type,subject_id" })
     .select("*")
     .single();
   if (error) throw error;

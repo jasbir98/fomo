@@ -98,9 +98,7 @@ function sendToSignIn(): void {
 /**
  * Shared optimistic save/unsave core: moves (subjectType, subjectId) to
  * `desired` (true = saved, false = unsaved). No-ops if already in that
- * state — this is what makes `ensureSaved` idempotent (a like never
- * un-saves) without a separate code path from `toggleSaved`. Signed out →
- * sign-in, then back here.
+ * state. Signed out → sign-in, then back here.
  */
 async function setSavedState(
   subjectType: CardSubjectType,
@@ -143,15 +141,6 @@ async function setSavedState(
 export async function toggleSaved(subjectType: CardSubjectType, subjectId: string): Promise<void> {
   const wasSaved = state.keys.has(keyOf(subjectType, subjectId));
   await setSavedState(subjectType, subjectId, !wasSaved);
-}
-
-/**
- * Save (subjectType, subjectId) if it isn't already saved — a no-op
- * otherwise. For gestures that should only ever add to Saved, never remove
- * from it (ReelViewer's like-swipe/heart: a like is one-directional).
- */
-export async function ensureSaved(subjectType: CardSubjectType, subjectId: string): Promise<void> {
-  await setSavedState(subjectType, subjectId, true);
 }
 
 /**

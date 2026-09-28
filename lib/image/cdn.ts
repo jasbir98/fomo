@@ -4,8 +4,8 @@
  * Vercel's built-in image optimizer bills per unique transformed source
  * image and adds a round trip through Vercel's own image proxy. Most of the
  * third-party hosts this app hotlinks from (Unsplash, Google Places/
- * googleusercontent, GetYourGuide, Wikimedia Commons) already support
- * resizing natively via query params or a path segment — asking THEM to
+ * googleusercontent, Wikimedia Commons) already support resizing natively
+ * via query params or a path segment — asking THEM to
  * resize is both free and one less hop than routing through Next's
  * optimizer. `next/image` (and its Vercel-billed transforms) is kept as the
  * fallback for hosts with no documented *free* resize API — this includes
@@ -44,20 +44,10 @@ export const REMOTE_IMAGE_HOSTNAMES = [
   "**.supabase.co",
   "**.googleusercontent.com",
   "maps.googleapis.com",
-  "**.getyourguide.com",
-  "**.viator.com",
   "**.livenationinternational.com",
   "**.ticketm.net",
   "**.ticketmaster.*",
   "**.skiddle.com",
-  "**.tiktokcdn.com",
-  "**.tiktokcdn-eu.com",
-  "**.tiktokcdn-us.com",
-  "**.cdninstagram.com",
-  "**.fbcdn.net",
-  "**.ibyteimg.com",
-  "**.ttwstatic.com",
-  "**.muscdn.com",
   "upload.wikimedia.org",
   "commons.wikimedia.org",
 ] as const;
@@ -110,11 +100,9 @@ export function isKnownImageHost(hostname: string): boolean {
 /**
  * Upgrades a plain `http://` URL to `https://`, otherwise returns `src`
  * unchanged. Scraped source data occasionally stores a venue's image as
- * `http://` even though the host actually serves it over https (the same
- * class of bug already fixed once for the reel-thumbnail proxy — see
- * app/api/media-proxy/route.ts's `streamImage`, which upgrades before
- * fetching) — and this app's CSP `img-src` directive (next.config.ts) is
- * `'self' https: data: blob:`, which does NOT include plain `http:`. Left
+ * `http://` even though the host actually serves it over https — and this
+ * app's CSP `img-src` directive (next.config.ts) is `'self' https: data:
+ * blob:`, which does NOT include plain `http:`. Left
  * un-rewritten, the browser silently drops the request (a CSP violation, not
  * a network error), so `<img>`'s `onerror` never fires and SmartImage has no
  * signal to fall back on — it just renders a permanently broken image box.
@@ -130,7 +118,7 @@ export function toHttpsUrl(src: string): string {
 /**
  * Whether `src` is a genuine remote http(s) URL worth handing to an image
  * optimizer at all — false for `data:`/`blob:` URIs (already-local, in-memory
- * images) and same-origin relative paths like `/api/media-proxy?...`, both of
+ * images) and same-origin relative paths like `/_next/image?...`, both of
  * which must never be rewritten or sent through next/image's remote path.
  */
 export function isOptimizableRemote(src: string): boolean {
@@ -183,7 +171,7 @@ function wikimediaThumbWidth(width: number): number {
  * caller — SmartImage — then falls back to next/image, or renders the URL
  * as-is for a host next/image also can't optimize). Never throws: malformed
  * URLs, `data:`/`blob:` URIs, and same-origin relative paths (e.g. this
- * app's own `/api/media-proxy?...`) always return `null`.
+ * app's own `/_next/image?...`) always return `null`.
  */
 export function cdnResize(src: string, t: ImageTransform): string | null {
   if (!src || src.startsWith("data:") || src.startsWith("blob:") || src.startsWith("/")) {
@@ -250,15 +238,6 @@ export function cdnResize(src: string, t: ImageTransform): string | null {
     url.pathname = /=w\d+-h\d+(-[a-z0-9-]*)?$/i.test(url.pathname)
       ? url.pathname.replace(/=w\d+-h\d+(-[a-z0-9-]*)?$/i, sizeSegment)
       : `${url.pathname}${sizeSegment}`;
-    return url.toString();
-  }
-
-  // GetYourGuide — size is a documented `/{w}x{h}/` path segment when present
-  // (e.g. `/img/tour_img-xxx/68x68/...`); some GYG image paths carry no size
-  // segment at all, and those fall through to next/image instead of guessing.
-  if (host.endsWith(".getyourguide.com")) {
-    if (!/\/\d+x\d+\//.test(url.pathname)) return null;
-    url.pathname = url.pathname.replace(/\/\d+x\d+\//, `/${width}x${width}/`);
     return url.toString();
   }
 

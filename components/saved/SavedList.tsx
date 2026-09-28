@@ -3,7 +3,7 @@
 import { useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { supabaseBrowserAuth } from "@/lib/supabase/client";
-import type { Candidate } from "@/lib/now/types";
+import type { Candidate } from "@/lib/cards/types";
 import { useInfiniteList } from "@/lib/useInfiniteList";
 import { invalidate } from "@/lib/http/clientCache";
 import { Icon, Card, Button } from "@/components/ui";
@@ -21,10 +21,8 @@ interface SavedApiResponse {
 
 const SAVED_GROUP_LABELS: { type: Candidate["subject"]["type"]; label: string }[] = [
   { type: "happening", label: "Deals & things to do" },
-  { type: "reel", label: "Reels" },
   { type: "place", label: "Places" },
   { type: "event", label: "Events" },
-  { type: "experience", label: "Experiences" },
 ];
 
 function SignedOutSaved() {

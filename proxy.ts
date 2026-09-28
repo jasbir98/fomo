@@ -61,12 +61,12 @@ import type { SigninReason } from "@/lib/auth/signin-reason";
  */
 
 /**
- * Pages that need an account: chat, profile, and the leftover setup
- * screens. Everything else — Feed, Deals, Free, Explore, Saved, detail pages and
- * shared links — is browsable signed out (user decision 2026-09-15, re-confirmed 2026-09-26 for PMF); sign-in
- * is asked for only when Save, Notify me or Ask Fomo is tapped.
+ * Pages that need an account: chat and profile. Everything else — Feed,
+ * Deals, Free, Explore, Saved, detail pages and shared links — is browsable
+ * signed out (user decision 2026-09-15, re-confirmed 2026-09-26 for PMF);
+ * sign-in is asked for only when Save, Notify me or Ask Fomo is tapped.
  */
-const SIGNED_IN_PAGE_PREFIXES = ["/fomo", "/profile", "/setup", "/kit"];
+const SIGNED_IN_PAGE_PREFIXES = ["/fomo", "/profile"];
 
 /**
  * Which `reason` (lib/auth/signin-reason.ts) explains why a signed-out
@@ -97,27 +97,26 @@ function signinReasonForPath(pathname: string): SigninReason | null {
 /**
  * Read-only catalogue APIs the public pages call. GET/HEAD only; each serves
  * data RLS already grants `read_all` to anon, and handles a missing user
- * itself. Chat, translate, saved, push, alerts, geocode and places search
- * stay behind a session — they cost money per call or write per-user rows.
+ * itself. Chat, saved, push and alerts stay behind a session — they cost
+ * money per call or write per-user rows.
  */
 const PUBLIC_API_PREFIXES = [
   "/api/feed",
   "/api/happenings",
   "/api/explore",
   "/api/weather",
-  "/api/now",
-  "/api/media-proxy",
   // GET half of the Fomo Friday one-click unsubscribe link — the page
   // itself (app/unsubscribe/page.tsx) calls this on mount with no session.
   // The POST half (RFC 8058 one-click) is in PUBLIC_POST_PREFIXES below.
   "/api/unsubscribe",
 ];
 const PUBLIC_PLACE_OFFERS = /^\/api\/places\/[^/]+\/offers$/;
-// Only the .ics download off a single event is public — NOT bare
-// /api/events?destination=… (used by nothing in the app), which would
-// otherwise let anyone trigger paid Mapbox geocoding + Ticketmaster/
-// Skiddle calls + service-role cache writes with an arbitrary destination
-// string. See app/api/events/[id]/ics/route.ts's doc comment.
+// Only the .ics download off a single event is public — the bare
+// /api/events?destination=… route (which would otherwise let anyone trigger
+// paid Mapbox geocoding + Ticketmaster/Skiddle calls + service-role cache
+// writes with an arbitrary destination string) is gone entirely (2026-09
+// cleanup), not merely excluded here. See app/api/events/[id]/ics/route.ts's
+// doc comment.
 const PUBLIC_EVENT_ICS = /^\/api\/events\/[^/]+\/ics$/;
 
 /**

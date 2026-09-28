@@ -9,11 +9,11 @@
  * a new batch is safe.
  *
  * Uses the Supabase REST API directly (not @supabase/supabase-js), mirroring
- * promote-japan-places.mjs — that client's mandatory Realtime/WebSocket init
+ * promote-places.mjs — that client's mandatory Realtime/WebSocket init
  * throws under plain Node 20, so this repo's one-off promote scripts hit
  * PostgREST directly with plain `fetch` instead.
  *
- * ONE DELIBERATE DEVIATION from promote-japan-places.mjs: this script uses
+ * ONE DELIBERATE DEVIATION from promote-places.mjs: this script uses
  * SUPABASE_SERVICE_ROLE_KEY, not the anon key. `happenings`/
  * `happenings_staging`/`happening_sources` have no anon write policy by
  * design (see supabase/add_happenings.sql / supabase/harden_rls.sql) —
@@ -144,7 +144,7 @@ function buildHappeningRow(staging) {
 
 async function fetchApprovedUnpromotedStaging() {
   // PostgREST caps a single response at 1000 rows by default — page
-  // defensively (see promote-japan-places.mjs, which hit this cap for real
+  // defensively (see promote-places.mjs, which hit this cap for real
   // on the Scotland batch).
   const PAGE_SIZE = 1000;
   const rows = [];

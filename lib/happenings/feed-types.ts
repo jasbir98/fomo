@@ -3,7 +3,7 @@
  *
  * Client-safe (no `server-only`): both the route handler and the Home page
  * (a client component) need these. Same deliberate exclusion as
- * lib/happenings/types.ts and lib/now/types.ts's non-server-only siblings.
+ * lib/happenings/types.ts.
  *
  * RESHAPED for the Home restructure (see the task brief): the feed used to be
  * one hero + date buckets + a flat "standing deals" list + Free Any Time.
@@ -52,7 +52,7 @@ export type FeedRange = "all" | "month";
  * Price filter for What's on.
  *
  * "cheap" is the old hard-coded gate (free, or `price_from` <= £15 — see
- * lib/now/price.ts's priceSignalForEvent), which used to be applied
+ * lib/cards/price.ts's priceSignalForEvent), which used to be applied
  * unconditionally and silently. That dropped essentially every
  * Ticketmaster/Skiddle row, because those almost never carry a `price_from`
  * at all and so score `null` rather than "cheap" — the provider catalogue was
@@ -204,11 +204,11 @@ export interface DealsSection {
 }
 
 export interface FeedResponse {
-  /** The hero card, or null when none qualify — the page falls back to rendering the existing /api/now hero via FomoCard EXCEPT when `heroKind === "book_early"`, where null means show no hero at all (never the Fomo Pick/FomoCard fallback). Ordinarily (`heroKind` absent) this is the top-recommended candidate across every section — What's on, Book early, or a deal, AND free/cheap provider events (lib/happenings/hero.ts) — not just a dated happening. On `window=book_early` it's instead the top-ranked Book Early `kind: "happening"` card, with `reason: null` (see `heroKind`). */
+  /** The hero card, or null when none qualify — the page falls back to a compact preview of that window's own first few What's on cards EXCEPT when `heroKind === "book_early"`, where null means show no hero at all (never the preview either). Ordinarily (`heroKind` absent) this is the top-recommended candidate across every section — What's on, Book early, or a deal, AND free/cheap provider events (lib/happenings/hero.ts) — not just a dated happening. On `window=book_early` it's instead the top-ranked Book Early `kind: "happening"` card, with `reason: null` (see `heroKind`). */
   hero: FeedHeroCard | null;
   /** Which presentation `hero` should render with. Absent (the ordinary case) means the ranked-across-everything "Fomo Pick" card; `"book_early"` means `hero` is a Book Early candidate and the client should render HappeningHero's Book Early copy/CTA instead — only ever set on `window=book_early`. */
   heroKind?: "book_early";
-  /** Window-driven date-bucketed section: one chronologically sorted bucket for `now` (today + tomorrow) or `coming_up` (everything after, no weekend/later split — Home applies its own client-side date filter over this single list) — activities, tours, events, festivals, dated free_access, cheap Skiddle/Ticketmaster events, and sports events/happenings regardless of price (lib/now/price.ts's WHATS_ON_PRICE_EXEMPT_CATEGORIES). Excludes every `kind: "deal"` happening — those live in `deals` now, never duplicated here. */
+  /** Window-driven date-bucketed section: one chronologically sorted bucket for `now` (today + tomorrow) or `coming_up` (everything after, no weekend/later split — Home applies its own client-side date filter over this single list) — activities, tours, events, festivals, dated free_access, cheap Skiddle/Ticketmaster events, and sports events/happenings regardless of price (lib/cards/price.ts's WHATS_ON_PRICE_EXEMPT_CATEGORIES). Excludes every `kind: "deal"` happening — those live in `deals` now, never duplicated here. */
   whatsOn: FeedBucket[];
   /** Always-on, independent of `window` — see lib/happenings/book-early.ts for the ranking/label rules. */
   bookEarly: BookEarlyCardData[];

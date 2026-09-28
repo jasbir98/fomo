@@ -9,8 +9,7 @@
  *
  *   - `consumeRateLimit` — PER-USER, via `consume_rate_limit`
  *     (supabase/add_rate_limits.sql), scoped to `auth.uid()` inside the
- *     function itself. Only works for a signed-in caller (app/api/chat,
- *     app/api/translate).
+ *     function itself. Only works for a signed-in caller (app/api/chat).
  *   - `consumeAnonRateLimit` / `consumeGlobalRateLimit` — IP-scoped (or a
  *     fixed shared key) via `consume_anon_rate_limit`
  *     (supabase/add_anon_rate_limits.sql), for routes with no session at
@@ -113,9 +112,8 @@ function secondsUntil(resetAt: string | null): number {
 
 /**
  * Standard 429 response for a denied `RateLimitResult` — same JSON shape
- * and `Retry-After` header for both app/api/chat and app/api/translate so
- * the client-side handling in app/(shell)/fomo/page.tsx and
- * app/fomo/translator/page.tsx can share one code path.
+ * and `Retry-After` header app/api/chat always returns, so the client-side
+ * handling in app/(shell)/fomo/page.tsx has one shape to parse.
  */
 export function rateLimitedResponse(result: RateLimitResult): Response {
   const minutes = minutesUntil(result.resetAt);

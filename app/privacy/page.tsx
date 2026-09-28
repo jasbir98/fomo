@@ -55,7 +55,7 @@ export default function PrivacyPage() {
               yourself on your Profile.
             </li>
             <li>
-              <strong>Saved items.</strong>{" "}Deals, events, places, reels and experiences you save are
+              <strong>Saved items.</strong>{" "}Deals, events and places you save are
               stored against your account so they show up in your Saved list.
             </li>
             <li>

@@ -40,119 +40,6 @@ export type ProfileInsert = Partial<Omit<Profile, "user_id">>;
 export type ProfileUpdate = Partial<Omit<Profile, "user_id">>;
 
 // ============================================================================
-// TRAVEL PREFERENCES
-// ============================================================================
-export interface TravelPreferences {
-  user_id: string;
-  dietary: string[];
-  languages: string[];
-  // Person-scoped persona (Phase 4, supabase/add_person_persona.sql) — written
-  // by /onboarding/taste and /onboarding/rhythm (and their shared edit-mode
-  // wrapper, app/setup/travel-dna). All nullable/optional: every onboarding
-  // screen after /where is skippable, and Phase 5's ranker treats a null the
-  // same as "no signal", never as a default.
-  budget_band: string | null; // shoestring | middle | treat
-  walk_tolerance: string | null; // high | medium | low
-  interest_tags: string[];
-  cuisine_tags: string[];
-  day_rhythm: string | null; // early | steady | night
-  pace: string | null; // packed | balanced | slow
-}
-
-export type TravelPreferencesInsert = Partial<Omit<TravelPreferences, "user_id">>;
-export type TravelPreferencesUpdate = Partial<Omit<TravelPreferences, "user_id">>;
-
-// ============================================================================
-// FOMO RULES
-// ============================================================================
-export interface FomoRules {
-  user_id: string;
-  rules_text: string | null;
-  quick_chips: string[];
-}
-
-export type FomoRulesInsert = Partial<Omit<FomoRules, "user_id">>;
-export type FomoRulesUpdate = Partial<Omit<FomoRules, "user_id">>;
-
-// ============================================================================
-// TRIPS
-// ============================================================================
-export interface Trip {
-  id: string;
-  user_id: string;
-  name: string | null;
-  destination: string | null;
-  start_date: string | null; // date, e.g. "2026-03-28"
-  end_date: string | null;
-  status: string | null;
-  cover_image_url: string | null;
-  created_at: string;
-  // Geo capture (Phase 3, supabase/add_trip_persona.sql) — resolved once at
-  // trip-creation time via POST /api/trips/resolve from the `destination`
-  // string. All optional/nullable: Mapbox/Open-Meteo can fail per-destination,
-  // and pre-Phase-3 trips won't have these backfilled until
-  // scripts/backfill-trip-geo.mjs is run.
-  lat: number | null;
-  lng: number | null;
-  country_code: string | null;
-  timezone: string | null;
-  place_label: string | null;
-  // Trip-scoped persona (Phase 4, supabase/add_trip_persona.sql) — written by
-  // /onboarding/stage (plan_stage) and /onboarding/party (party_type,
-  // party_size, kid_ages, first_time). `purpose` and `pace_override` have no
-  // writer yet (reserved for a later phase). All nullable/optional: onboarding
-  // is skippable, and pre-Phase-4 trips won't have these until backfilled.
-  plan_stage: string | null; // booked | rough | open
-  purpose: string | null; // holiday | work | visiting | event
-  party_type: string | null; // solo | couple | friends | family
-  party_size: number | null;
-  kid_ages: string[]; // under5 | 5to12 | teen
-  first_time: boolean | null;
-  pace_override: string | null;
-}
-
-export type TripInsert = Partial<Omit<Trip, "id" | "user_id" | "created_at">>;
-export type TripUpdate = Partial<Omit<Trip, "id" | "user_id" | "created_at">>;
-
-// ============================================================================
-// ITINERARY ITEMS
-// ============================================================================
-export interface ItineraryItem {
-  id: string;
-  trip_id: string;
-  user_id: string;
-  day_date: string | null;
-  time_label: string | null;
-  category: string | null;
-  title: string | null;
-  location: string | null;
-  weather_alert: boolean;
-  color_tag: string | null;
-  created_at: string;
-  // add_itinerary_place_id.sql — links back to the `places` row this item
-  // was created from, so the item detail view can show a photo/description.
-  // Null for manually-created items (no underlying place to reference).
-  place_id: string | null;
-  // add_experiences.sql — links back to the `experiences` row this item was
-  // booked/created from (a bookable Viator/GetYourGuide tour). Mutually
-  // exclusive with place_id in practice, but both are nullable at the DB
-  // level since manually-created items reference neither.
-  experience_id: string | null;
-  // add_itinerary_times.sql — best-effort parsed clock time, backfilled from
-  // time_label + day_date. Null for items whose time_label didn't parse
-  // (treated as unscheduled by the ranker — never guessed). See lib/now/.
-  starts_at: string | null;
-  duration_minutes: number | null;
-}
-
-export type ItineraryItemInsert = Partial<
-  Omit<ItineraryItem, "id" | "user_id" | "created_at">
-> & { trip_id: string };
-export type ItineraryItemUpdate = Partial<
-  Omit<ItineraryItem, "id" | "user_id" | "trip_id" | "created_at">
->;
-
-// ============================================================================
 // CHAT MESSAGES
 // ============================================================================
 export type ChatRole = "user" | "assistant";
@@ -209,12 +96,12 @@ export interface Place {
   description: string | null;
   last_verified_at: string | null;
   hours_status: "known" | "unknown" | "stale" | null;
-  // add_places_ranking_signals.sql — see lib/now/ (the "right now" ranker).
-  // Structured hours: [{ day: 0-6 (0=Sunday), open: "HH:MM", close: "HH:MM" }].
+  // add_places_ranking_signals.sql — structured hours:
+  // [{ day: 0-6 (0=Sunday), open: "HH:MM", close: "HH:MM" }].
   opening_hours: OpeningHoursPeriod[] | null;
-  // Reel-mention count, the v1 Best-of-the-City floor (see local_pick in
-  // lib/now/generators.ts). Populated by the mention-crossref script, not
-  // hand-edited.
+  // Mention count from the (now-removed) reels pipeline's place linkage.
+  // Populated by the mention-crossref script, not hand-edited; no longer
+  // grows post-2026-09 cleanup since social_posts is gone.
   mention_count: number;
   mention_sources: unknown; // jsonb array of { type, id }
   // Cached, pipeline-written one-line opinion ("Queue starts at nine").
@@ -248,36 +135,10 @@ export interface PlacePhoto {
 }
 
 // ============================================================================
-// SOCIAL POSTS (shared, read-only, no user_id)
-// ============================================================================
-export interface SocialPost {
-  id: string;
-  author_handle: string | null;
-  avatar_url: string | null;
-  image_url: string | null;
-  caption: string | null;
-  likes: number | null;
-  location: string | null;
-  // Reel fields (added by add_social_video_columns.sql) — populated by the
-  // offline Playwright scraper (scraper/), null for the original seed rows.
-  platform: string | null;
-  video_url: string | null;
-  thumbnail_url: string | null;
-  destination: string | null;
-  place_id: string | null;
-}
-
-// ============================================================================
-// EXPERIENCES (add_experiences.sql) — shared, read-only-to-clients cache of
-// bookable tours/activities (Viator, GetYourGuide), no user_id. Mirrors
-// `places`' shared-cache shape: rows are upserted by provider fetch/sync
-// code, deduped on (provider, provider_product_id).
-// ============================================================================
-// ============================================================================
 // EVENTS (add_events.sql) — shared, read-only-to-clients cache of live
-// time-bound events (Skiddle, Ticketmaster), no user_id. Mirrors
-// `experiences`' shared-cache shape: rows are upserted by provider fetch
-// code, deduped on (provider, provider_event_id).
+// time-bound events (Skiddle, Ticketmaster), no user_id. Mirrors `places`'
+// shared-cache shape: rows are upserted by provider fetch code, deduped on
+// (provider, provider_event_id).
 //
 // Named `EventItem`, not `Event`, deliberately: a global DOM `Event`
 // interface already exists, and shadowing it inside client components that
@@ -315,64 +176,26 @@ export type EventItemUpdate = Partial<
   Omit<EventItem, "id" | "provider" | "provider_event_id" | "created_at">
 >;
 
-export interface Experience {
-  id: string;
-  provider: string;
-  provider_product_id: string;
-  title: string;
-  category: string | null;
-  rating: number | null;
-  review_count: number | null;
-  price_from: number | null;
-  currency: string | null;
-  duration_label: string | null;
-  image_url: string | null;
-  description: string | null;
-  destination: string | null;
-  city: string | null;
-  country: string | null;
-  lat: number | null;
-  lng: number | null;
-  booking_url: string | null;
-  source: string | null;
-  fetched_at: string | null;
-  created_at: string;
-}
-
 // ============================================================================
-// CARD SIGNALS (add_now_ranker_tables.sql) — user-scoped. The ranker's
-// only feedback channel: every shown/opened/dismissed("Nah")/saved/planned
-// event on a ranked card. See lib/now/.
+// CARD SUBJECT TYPES — what a saved item or card can point at. Trimmed to
+// the kinds Fomo actually renders (2026-09 cleanup dropped `experience`,
+// `reel`, `itinerary_item` and `practicality` along with the features that
+// produced them) — see lib/db/saved.ts's GET /api/saved resolver, which
+// still safely skips any leftover row of one of those old types until
+// supabase/drop_legacy.sql removes them.
 // ============================================================================
-export type CardSubjectType = "place" | "event" | "experience" | "itinerary_item" | "reel" | "practicality" | "happening";
-export type CardSignalAction = "shown" | "opened" | "dismissed" | "saved" | "planned";
-
-export interface CardSignal {
-  id: string;
-  user_id: string;
-  trip_id: string | null;
-  card_type: string; // generator name, e.g. "closing_soon"
-  subject_type: CardSubjectType;
-  subject_id: string;
-  action: CardSignalAction;
-  created_at: string;
-}
-
-// user_id is filled by the `default auth.uid()` column default — never
-// required from the caller (recordCardSignal is called from client
-// components, which never know the raw uuid, only the session).
-// `trip_id` is also omitted here — Fomo has no trips anymore. The column
-// stays in the DB (nullable, unused); lib/db/signals.ts's recordCardSignal
-// is the one place that still writes it, always null.
-export type CardSignalInsert = Omit<CardSignal, "id" | "created_at" | "user_id" | "trip_id">;
+export type CardSubjectType = "place" | "event" | "happening";
 
 // ============================================================================
 // SAVED ITEMS (add_now_ranker_tables.sql) — user-scoped shortlist. The
-// recall mechanism a ranked, ephemeral Home needs (plan-v1-home-pivot.md §8).
+// recall mechanism a ranked, ephemeral Home needs.
 // ============================================================================
 export interface SavedItem {
   id: string;
   user_id: string;
+  // Fomo has no trips anymore — the column stays in the DB (nullable,
+  // unused; supabase/drop_legacy.sql drops it), but lib/db/saved.ts's
+  // saveItem no longer writes it.
   trip_id: string | null;
   subject_type: CardSubjectType;
   subject_id: string;
@@ -380,84 +203,4 @@ export interface SavedItem {
   created_at: string;
 }
 
-// `trip_id` is also omitted here — Fomo has no trips anymore. The column
-// stays in the DB (nullable, unused); lib/db/saved.ts's saveItem is the one
-// place that still writes it, always null.
 export type SavedItemInsert = Omit<SavedItem, "id" | "created_at" | "user_id" | "trip_id">;
-
-// ============================================================================
-// USER LOCATION (add_now_ranker_tables.sql; renamed from `device_location` in
-// add_auth_identity.sql — see plan-v1.2-accounts.md §A.5) — coarse
-// last-known location, one row per user. Not a tracking table — see the
-// comment in the migration. Written/deleted by lib/now/location.ts.
-// ============================================================================
-export interface DeviceLocation {
-  user_id: string;
-  lat: number | null;
-  lng: number | null;
-  updated_at: string;
-}
-
-// ============================================================================
-// ARRIVAL TIPS (add_now_ranker_tables.sql) — shared, hand-authored,
-// read-only. Superseded as of Phase 7 (plan-v1.2-accounts.md §E) by
-// `country_practicalities` below — lib/db/arrivalTips.ts and every app-code
-// reader of this table are gone (lib/now/generators.ts's `arrival` generator
-// now reads from ctx.practicalities instead). The `arrival_tips` table and
-// supabase/seed_arrival_tips.sql are deliberately left in the DB/repo (no
-// drop migration shipped with this phase), so this type stays too, purely
-// for documentation/rollback reference — nothing imports it anymore.
-// ============================================================================
-export interface ArrivalTip {
-  id: string;
-  country: string;
-  city: string | null;
-  headline: string;
-  detail: string;
-  applies_hours_from: number;
-  applies_hours_to: number;
-}
-
-// ============================================================================
-// COUNTRY PRACTICALITIES (add_practicalities.sql) — shared, hand-authored,
-// read-only. Backs the "Before you land" / "Getting set up" Home rail
-// (plan-v1.2-accounts.md §E) and, via lib/now/generators.ts's `arrival`
-// generator, the day-1 Home hero copy. `topic` is a stable literal set — it
-// is the key `practicality_dismissals` dismisses on, so it must never drift
-// into free text anywhere in the app.
-// ============================================================================
-export type PracticalityTopic =
-  | "connectivity"
-  | "money"
-  | "transit"
-  | "power"
-  | "water"
-  | "tipping"
-  | "safety";
-
-export interface CountryPracticality {
-  id: string;
-  country_code: string; // ISO-2, joins trips.country_code
-  city: string | null; // null = country-wide
-  topic: PracticalityTopic;
-  headline: string; // <= 8 words
-  detail: string;
-  chat_seed: string | null; // pre-seeds the "Ask Fomo" chat hand-off
-  applies_from_days: number; // relative to trip start_date; negative = before landing
-  applies_to_days: number;
-  priority: number;
-  review_by: string | null; // date
-  updated_at: string;
-}
-
-// ============================================================================
-// PRACTICALITY DISMISSALS (add_practicalities.sql) — user-scoped. "Already
-// sorted" per topic, keyed on (user, country, topic) — deliberately NOT on
-// trip, so a dismissal survives into a later trip to the same country.
-// ============================================================================
-export interface PracticalityDismissal {
-  user_id: string;
-  country_code: string;
-  topic: PracticalityTopic;
-  dismissed_at: string;
-}

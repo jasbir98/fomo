@@ -73,7 +73,7 @@
  *
  * Uses the Supabase REST API directly (not @supabase/supabase-js) — that
  * client's mandatory Realtime/WebSocket init throws under plain Node 20,
- * same reasoning as scripts/promote-japan-places.mjs and
+ * same reasoning as scripts/promote-places.mjs and
  * scripts/sweep-happenings.mjs.
  *
  * DESCRIPTIONS. Every row's description is cleaned by

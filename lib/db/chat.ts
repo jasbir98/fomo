@@ -29,8 +29,8 @@ export async function addMessage(db: Db, message: ChatMessageInsert): Promise<Ch
 /**
  * Delete all of the signed-in caller's chat messages. RLS's `own_rows` policy
  * is what actually restricts this; the always-true `.not(...)` only satisfies
- * the database's safe-update check, which rejects a DELETE with no WHERE clause
- * (code 21000) — same convention as lib/db/location.ts's `deleteUserLocation`.
+ * the database's safe-update check, which rejects a DELETE with no WHERE
+ * clause (code 21000).
  */
 export async function clearMessages(db: Db): Promise<void> {
   const { error } = await db.from("chat_messages").delete().not("id", "is", null);

@@ -3,28 +3,23 @@
  *   Identity comes from the session cookie, not a query param — see
  *   plan-v1.2-accounts.md §A.5. No session -> immediate `degraded:
  *   "unauthorized"`, never a silent empty response.
- *   limit:  default 24, max 60 — mirrors /api/discover's clamp.
+ *   limit:  default 24, max 60.
  *   offset: default 0 — pagination for lib/useInfiniteList.ts, driving
  *           app/(shell)/saved/page.tsx.
  *
  * Reads one page of saved_items (user-scoped via RLS, NOT trip-scoped — see
  * lib/db/saved.ts's listSavedItemsPage doc comment), then resolves each row
- * into the same Candidate shape lib/now/generators.ts's savedPick builds for
- * the Home `saved` rail, by direct id lookup against places/events/
- * experiences/reels instead of a destination-scoped ranker pool. That means a
- * save from any trip or city surfaces here, unlike the rail's best-effort
- * version.
+ * into the same Candidate shape (lib/cards/types.ts) by direct id lookup
+ * against places/events/happenings.
  *
- * subject_type "reel" resolves via listSocialPostsByIds (lib/db/social.ts) —
- * added for bug 12 (ReelViewer's like-swipe now writes saved_items with this
- * subject_type; before, it silently went nowhere). A saved subject whose row
- * was since deleted, or whose subject_type is "itinerary_item" (no batch
- * id-lookup for that one yet — same gap savedPick's own doc comment calls
- * out), is silently dropped rather than rendered broken. That can make a
- * resolved page shorter than the underlying saved_items page, which can make
- * lib/useInfiniteList.ts's `rows.length >= pageSize` hasMore heuristic stop
- * one page early — an accepted best-effort limitation, not a bug to chase
- * down here.
+ * A saved subject whose row was since deleted, or whose subject_type is one
+ * of the removed kinds ("reel"/"experience"/"itinerary_item"/"practicality"
+ * — the 2026-09 cleanup dropped their features; rows of those types still
+ * exist in the DB until supabase/drop_legacy.sql runs), is silently dropped
+ * rather than rendered broken. That can make a resolved page shorter than
+ * the underlying saved_items page, which can make lib/useInfiniteList.ts's
+ * `rows.length >= pageSize` hasMore heuristic stop one page early — an
+ * accepted best-effort limitation, not a bug to chase down here.
  */
 import "server-only";
 import { supabaseServer } from "@/lib/supabase/server";
@@ -32,32 +27,15 @@ import { CITY } from "@/lib/city";
 import { listSavedItemsPage } from "@/lib/db/saved";
 import { listPlacesByIds } from "@/lib/db/places";
 import { listEventsByIds } from "@/lib/db/events";
-import { listExperiencesByIds } from "@/lib/db/experiences";
 import { listHappeningsByIds } from "@/lib/db/happenings";
-import { listSocialPostsByIds } from "@/lib/db/social";
 import { eventHasEnded } from "@/lib/events/format";
 import { happeningHasEnded } from "@/lib/happenings/occurrence";
-import { placeImage, placeCoords, eventHeadline, venueLabel } from "@/lib/now/generators";
-import { proxiedThumbnailUrl } from "@/lib/social/media-proxy";
-import type { Candidate } from "@/lib/now/types";
-import type { SavedItem, SocialPost } from "@/lib/types";
+import { placeImage, placeCoords, eventHeadline, venueLabel } from "@/lib/cards/place";
+import type { Candidate } from "@/lib/cards/types";
+import type { SavedItem } from "@/lib/types";
 import type { Db } from "@/lib/supabase/types";
 import { isUnauthorizedError } from "@/lib/supabase-error";
 import { cachedJson, CACHE_PRIVATE_NO_STORE } from "@/lib/http/cache";
-
-/** Mirrors ReelViewer.tsx's platformLabel — duplicated (not imported) because that file is a client component and this is a small pure formatter. */
-function reelPlatformLabel(platform: string | null): string | null {
-  if (!platform) return null;
-  const lower = platform.toLowerCase();
-  if (lower.includes("tiktok")) return "TikTok";
-  if (lower.includes("instagram") || lower === "ig") return "Instagram";
-  return platform;
-}
-
-/** A saved reel's headline: its caption, falling back to location/author/handle, same precedence ReelViewer uses for its place-bar title. */
-function reelHeadline(post: SocialPost): string {
-  return post.caption?.trim() || post.location || post.author_handle || "Saved reel";
-}
 
 export const runtime = "nodejs";
 
@@ -86,7 +64,7 @@ export async function GET(request: Request) {
 
   const { searchParams } = new URL(request.url);
 
-  // Same null-vs-0 guard as /api/discover and /api/places — searchParams.get
+  // Same null-vs-0 guard used across this app's GET routes — searchParams.get
   // is null when absent, and Number(null) is 0, which Number.isFinite treats
   // as real, so the raw string must be null-checked before converting.
   const rawLimitParam = searchParams.get("limit");
@@ -114,22 +92,16 @@ export async function GET(request: Request) {
 async function resolveCandidates(db: Db, saved: SavedItem[]): Promise<Candidate[]> {
   const placeIds = saved.filter((s) => s.subject_type === "place").map((s) => s.subject_id);
   const eventIds = saved.filter((s) => s.subject_type === "event").map((s) => s.subject_id);
-  const experienceIds = saved.filter((s) => s.subject_type === "experience").map((s) => s.subject_id);
   const happeningIds = saved.filter((s) => s.subject_type === "happening").map((s) => s.subject_id);
-  const reelIds = saved.filter((s) => s.subject_type === "reel").map((s) => s.subject_id);
 
-  const [places, events, experiences, happenings, reels] = await Promise.all([
+  const [places, events, happenings] = await Promise.all([
     listPlacesByIds(db, placeIds),
     listEventsByIds(db, eventIds),
-    listExperiencesByIds(db, experienceIds),
     listHappeningsByIds(db, happeningIds),
-    listSocialPostsByIds(db, reelIds),
   ]);
   const placeById = new Map(places.map((p) => [p.id, p]));
   const eventById = new Map(events.map((e) => [e.id, e]));
-  const experienceById = new Map(experiences.map((e) => [e.id, e]));
   const happeningById = new Map(happenings.map((h) => [h.id, h]));
-  const reelById = new Map(reels.map((r) => [r.id, r]));
 
   const now = new Date();
   const out: Candidate[] = [];
@@ -185,29 +157,6 @@ async function resolveCandidates(db: Db, saved: SavedItem[]): Promise<Candidate[
         railTitle: "You saved these",
         railMeta: "from your saves",
       });
-    } else if (s.subject_type === "experience") {
-      const exp = experienceById.get(s.subject_id);
-      if (!exp) continue;
-      out.push({
-        generator: "saved_pick",
-        baseScore: 50,
-        score: 50,
-        subject: { type: "experience", id: exp.id },
-        pill: "Saved",
-        why: "You saved this",
-        headline: exp.title,
-        detail: exp.price_from != null ? `From ${exp.currency ?? ""}${exp.price_from}` : exp.duration_label ?? "",
-        primaryAction: { label: "Book", kind: "book" },
-        image: { url: exp.image_url, quality: exp.image_url ? "thin" : "none" },
-        urgency: "low",
-        validFrom: now.toISOString(),
-        validUntil: new Date(now.getTime() + 48 * 3_600_000).toISOString(),
-        distanceKm: null,
-        subjectName: exp.title,
-        coords: placeCoords(exp),
-        railTitle: "You saved these",
-        railMeta: "from your saves",
-      });
     } else if (s.subject_type === "happening") {
       const h = happeningById.get(s.subject_id);
       if (!h) continue;
@@ -235,48 +184,11 @@ async function resolveCandidates(db: Db, saved: SavedItem[]): Promise<Candidate[
         railTitle: "You saved these",
         railMeta: "from your saves",
       });
-    } else if (s.subject_type === "reel") {
-      const reel = reelById.get(s.subject_id);
-      if (!reel) continue;
-      const headline = reelHeadline(reel);
-      const image = proxiedThumbnailUrl({
-        platform: reel.platform,
-        videoUrl: reel.video_url,
-        thumbnailUrl: reel.thumbnail_url ?? reel.image_url,
-      });
-      out.push({
-        generator: "saved_pick",
-        baseScore: 50,
-        score: 50,
-        subject: { type: "reel", id: reel.id },
-        pill: "Saved",
-        why: "You saved this",
-        headline,
-        detail: [reelPlatformLabel(reel.platform), reel.author_handle].filter((v): v is string => !!v).join(" • "),
-        primaryAction: { label: "Saved", kind: "add" },
-        image: { url: image, quality: image ? "thin" : "none" },
-        urgency: "low",
-        validFrom: now.toISOString(),
-        validUntil: new Date(now.getTime() + 24 * 3_600_000).toISOString(),
-        // No place join here (batch id lookup only) — unlike ReelViewer,
-        // which resolves the reel's linked place via resolvePlaceForReel,
-        // this route has no candidatePlaces pool to resolve against. Fine:
-        // Directions is gated on coords != null elsewhere, it just won't
-        // show for a saved reel row.
-        distanceKm: null,
-        subjectName: headline,
-        coords: null,
-        railTitle: "You saved these",
-        railMeta: "from your saves",
-      });
     }
-    // "itinerary_item" / "practicality" saves have no batch id-lookup pool
-    // here yet — same limitation lib/now/generators.ts's savedPick documents
-    // for the Home rail. Simply not resolvable into a card, so they're
-    // skipped (Phase 7 (plan §E.2) added "practicality" to CardSubjectType;
-    // this if/else chain already falls through to "skip" for any unhandled
-    // type, so no code change was needed here — confirmed by re-reading it,
-    // per the phase's own instruction to check this exact spot).
+    // Any other subject_type ("reel" / "experience" / "itinerary_item" /
+    // "practicality" — leftover rows from removed features, see this file's
+    // header) has no batch id-lookup pool here; this if/else chain simply
+    // falls through and skips it.
   }
 
   return out;

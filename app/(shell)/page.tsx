@@ -3,19 +3,14 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { cityBadge, SUPPORTED_CITIES } from "@/lib/city";
-import { supabaseBrowserAuth } from "@/lib/supabase/client";
-import { refreshGeolocation, useGeolocation } from "@/lib/geo";
 import { useSaved } from "@/lib/useSaved";
 import { chooseCity, dismissCityPrompt, useSelectedCity } from "@/lib/useSelectedCity";
-import { rememberUserLocation, forgetUserLocation } from "@/lib/now/location";
 import { prefetchJson, useCachedJson, usePeekCachedJson } from "@/lib/http/clientCache";
-import type { CardKind, NowResponse } from "@/lib/now/types";
 import type { FeedCardData, FeedResponse, FeedWindow } from "@/lib/happenings/feed-types";
 import { NOTIFY_ME_ENABLED } from "@/lib/happenings/book-early";
 import type { WeatherCondition } from "@/lib/weather";
 import { WEATHER_THEME } from "@/lib/weatherUi";
 import { CityPicker, ErrorState, FeedbackLink, FomoLogo, Icon, SeeAllButton, SegmentedControl } from "@/components/ui";
-import { FomoCard } from "@/components/fomo/Card";
 import { FomoSpot } from "@/components/fomo/FomoSpot";
 import { FeedHero, FeedListCard, FreeAnyTimeList, BookEarlyCard, SubscribeCard } from "@/components/happenings";
 import { TodaysDealsStrip } from "@/components/happenings/TodaysDealsStrip";
@@ -41,10 +36,9 @@ interface HomeWeather {
 // Staleness windows for lib/http/clientCache.ts's `useCachedJson` — chosen to
 // mirror the server's own browser-cache promises in lib/http/cache.ts (can't
 // import that file directly, it's `import "server-only"`) rather than
-// inventing new numbers: `now`/`feed` track CACHE_SHORT's 60s, weather tracks
+// inventing new numbers: `feed` tracks CACHE_SHORT's 60s, weather tracks
 // CACHE_LONG's 10min, alerts (a caller-scoped membership set, not a catalogue
 // that drifts minute to minute) gets a middle-ground 5min.
-const NOW_STALE_MS = 60_000;
 const FEED_STALE_MS = 60_000;
 const WEATHER_STALE_MS = 10 * 60_000;
 const ALERTS_STALE_MS = 5 * 60_000;
@@ -58,11 +52,6 @@ function scheduleIdle(cb: () => void): () => void {
   }
   const id = window.setTimeout(cb, 200);
   return () => window.clearTimeout(id);
-}
-
-/** Cache key for `/api/now` — folded into the key (not just passed as a fetch param) so a coords change is, from the cache's point of view, simply "a different key with no data yet," which `useCachedJson` already knows how to fetch and show a skeleton for. Rounded to ~11m so GPS jitter doesn't mint a fresh key on every read. */
-function nowCacheKey(coords: { lat: number; lng: number } | null): string {
-  return coords ? `now:${coords.lat.toFixed(4)},${coords.lng.toFixed(4)}` : "now:default";
 }
 
 /**
@@ -100,38 +89,17 @@ const WHATS_ON_WINDOW_LABEL: Record<FeedWindow, string> = {
   book_early: "Book early",
 };
 
-// Throws on abort (caller distinguishes that from a real failure) or a
-// non-2xx status — unlike the old version, which swallowed every failure to
-// `null`, indistinguishable from "genuinely nothing to show". Passed to
-// `useCachedJson` below, which turns a throw into `error` state without
-// discarding whatever was cached, so `nowError` only ever means "no /api/now
-// data at all, and the last attempt failed" — never "a background refresh
-// hiccuped".
-async function fetchNowResponse(
-  coords: { lat: number; lng: number } | null,
-  signal?: AbortSignal
-): Promise<NowResponse> {
-  const params = new URLSearchParams();
-  if (coords) {
-    params.set("lat", String(coords.lat));
-    params.set("lng", String(coords.lng));
-  }
-  const res = await fetch(`/api/now?${params.toString()}`, { signal });
-  if (!res.ok) throw new Error(`GET /api/now ${res.status}`);
-  return (await res.json()) as NowResponse;
-}
-
 /** `window` drives What's on (and, for `book_early`, swaps it out entirely
  *  and swaps the hero for that tab's own pick) — every other section (Deals,
  *  Free any time) is independent of it. The route also accepts `range`/
  *  `price` params (defaulting to "all" for both), but Home no longer has UI
  *  for either — see the removed Range/Price filter chips — so they're never
  *  sent. */
-// Same "throw, don't swallow" contract as fetchNowResponse above — a
-// non-2xx status (GET /api/feed's catch block now returns 401/500, not a
-// silent 200 with empty sections) becomes a thrown error here so `feedError`
-// below only fires for "nothing to show and the last attempt failed", not a
-// background revalidation hiccup with good data still on screen.
+// Throws on abort (caller distinguishes that from a real failure) or a
+// non-2xx status (GET /api/feed's catch block returns 401/500, not a silent
+// 200 with empty sections) — so `feedError` below only fires for "nothing to
+// show and the last attempt failed", not a background revalidation hiccup
+// with good data still on screen.
 async function fetchFeed(window: FeedWindow, signal?: AbortSignal): Promise<FeedResponse> {
   const params = new URLSearchParams({ window });
   const res = await fetch(`/api/feed?${params.toString()}`, { signal });
@@ -226,17 +194,16 @@ function SeeAllLink({ href, total }: { href: string; total: number }) {
  *
  * HERO: GET /api/feed's `hero` is ordinarily the best recommendation across
  * dated happenings and free/cheap provider events (lib/happenings/hero.ts),
- * rendered via FeedHero with its "why this" reason; null falls back to the
- * pre-existing /api/now hero via FomoCard, so the page is never blank while
- * the happenings pipeline catches up. On the Book early tab this is
+ * rendered via FeedHero with its "why this" reason; when it's null and the
+ * window's own feed has loaded, Home falls back to a compact preview of that
+ * window's first few What's on cards (or an empty-state message if there are
+ * none) — never a separate fallback hero. On the Book early tab this is
  * different — `heroKind === "book_early"` means `hero` is that tab's own top
  * pick instead (HappeningHero's `variant="book_early"`), and `hero: null`
- * there means no hero at all, never the Fomo Pick/FomoCard fallback (a
- * ranked-across-everything or /api/now pick has no business leading a
- * "book this ahead of time" list).
+ * there means no hero at all, not even the preview (a ranked-across-
+ * everything pick has no business leading a "book this ahead of time" list).
  */
 export default function HomePage() {
-  const db = supabaseBrowserAuth();
   const [feedWindow, setWindow] = useState<FeedWindow>("now");
   // Which way the content swap below the segmented control should slide in
   // from — derived from the tapped tab's index relative to the previous one
@@ -271,7 +238,6 @@ export default function HomePage() {
   // actually ready to show.
   const pendingScrollRef = useRef(false);
   const prevFeedWindowRef = useRef<FeedWindow>(feedWindow);
-  const { coords, status: geoStatus } = useGeolocation();
   const { signedIn } = useSaved();
   const prefs = usePrefs();
   // Signed-in AND signed-out visitors both need a "who" — a signed-out
@@ -282,25 +248,6 @@ export default function HomePage() {
   const dealWho = useEffectiveWho();
   const { city, source: citySource, shouldPrompt: shouldPromptCity } = useSelectedCity();
   const [cityPickerOpen, setCityPickerOpen] = useState(false);
-
-  // Coarse last-known location, for graceful degradation on a later cold open.
-  // Not used for this request, which sends the live reading directly.
-  // Signed-in only: it writes to the caller's own profile row.
-  useEffect(() => {
-    if (!signedIn) return;
-    if (geoStatus === "granted" && coords) void rememberUserLocation(db, coords.lat, coords.lng);
-    else if (geoStatus === "denied") void forgetUserLocation(db);
-  }, [db, geoStatus, coords, signedIn]);
-
-  // Today's pick — cached per (rounded) coordinate pair, see `nowCacheKey`.
-  // `nowError` only means "no data at all, and the last attempt failed" (see
-  // fetchNowResponse's doc comment) — a background revalidation failure
-  // keeps whatever pick was already showing.
-  const nowResult = useCachedJson<NowResponse>(nowCacheKey(coords), (signal) => fetchNowResponse(coords, signal), {
-    staleMs: NOW_STALE_MS,
-  });
-  const now = nowResult.data ?? null;
-  const nowError = nowResult.error != null && now === null;
 
   // What's on / Book early — one cache key per window, which is what makes
   // Now → Coming up feel instant: switching `feedWindow` just points
@@ -403,17 +350,6 @@ export default function HomePage() {
 
   function retryFeed() {
     feedResult.revalidate();
-  }
-
-  function handlePrimary(kind: CardKind) {
-    // Goes through the shared store (lib/geo.ts) rather than calling
-    // getCurrentPosition directly, so the result is cached/deduped like any
-    // other refresh; once the shared `coords` actually updates, `nowResult`
-    // above is already pointed at the new `nowCacheKey(coords)` and fetches
-    // it on its own (fixes a stale-closure bug where this used to call
-    // refreshNow() with the *old* coords immediately after asking for a new
-    // position).
-    if (kind === "location") void refreshGeolocation();
   }
 
   const showHappeningHero = feed?.hero != null;
@@ -747,10 +683,8 @@ export default function HomePage() {
         ) : heroKind === "book_early" ? null : feed !== null ? (
           // This window's own feed HAS loaded and genuinely has no hero
           // candidate (see `pickHero`'s doc comment on `windowRange`) — a
-          // compact preview of its own first few cards instead of falling
-          // back to the unrelated, window-agnostic /api/now pick below,
-          // which would show the same thing on every tab and defeat the
-          // point of scoping the hero at all.
+          // compact preview of its own first few cards, scoped to this
+          // window, rather than no hero at all.
           whatsOnCards.length > 0 ? (
             <div key={`hero-preview-${feedWindow}`} className={`${windowSlideClass} flex flex-col gap-2`}>
               {whatsOnCards.slice(0, 3).map((card, i) => (
@@ -766,34 +700,28 @@ export default function HomePage() {
               <p className="text-body-md text-on-surface-variant">{whatsOnEmptyMessage()}</p>
             </div>
           )
-        ) : now?.hero ? (
-          // Still loading THIS window's own feed — fall back to the
-          // existing /api/now pick (window-agnostic, but already warm from
-          // first paint) rather than a blank slot while it settles.
-          <FomoCard candidate={now.hero} variant="hero" onDismiss={() => nowResult.revalidate()} onPrimary={handlePrimary} />
-        ) : nowError ? (
-          // A real /api/now failure — as opposed to "still loading" or "no
-          // pick to show" below, neither of which are errors — so this is
-          // the one case that gets a Retry instead of leaving "Finding
-          // something worth your while…" on screen forever.
+        ) : feedError ? (
+          // A real GET /api/feed failure — as opposed to "still loading",
+          // which isn't an error — so this is the one case that gets a Retry
+          // instead of leaving the skeleton below on screen forever.
           <ErrorState
             title="Couldn't load today's pick"
             message="Check your connection and try again."
-            onRetry={() => nowResult.revalidate()}
+            onRetry={retryFeed}
             className="p-6"
           />
         ) : (
+          // Still loading this window's own feed (first paint, or an
+          // uncached window switch) — a skeleton instead of a blank slot
+          // while it settles. No fallback hero here any more: when the feed
+          // genuinely has none, the "feed !== null" branch above already
+          // renders the compact preview/empty state instead of this.
           <div
-            className="flex flex-col items-center gap-2 rounded-lg border border-dashed border-hairline-strong p-6 text-center"
-            role={now === null ? "status" : undefined}
-            aria-live={now === null ? "polite" : undefined}
+            className="h-52 animate-pulse rounded-lg bg-surface-container motion-reduce:animate-none"
+            role="status"
+            aria-live="polite"
           >
-            <Icon name="explore" size={28} className="text-outline" />
-            <p className="text-body-md text-on-surface-variant">
-              {now?.degraded === "no-coverage"
-                ? `Fomo doesn't know ${city.name} well enough yet — check the Map tab for live nearby places.`
-                : "Finding something worth your while…"}
-            </p>
+            <span className="sr-only">Finding something worth your while…</span>
           </div>
         )}
 

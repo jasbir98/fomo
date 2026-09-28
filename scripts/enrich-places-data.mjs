@@ -1,31 +1,32 @@
 #!/usr/bin/env node
 /**
  * enrich-places-data.mjs — one-off (but idempotent/re-runnable) enrichment
- * pass over `places` that backfills three columns added by
+ * pass over `places` that backfills two columns added by
  * `supabase/add_places_ranking_signals.sql` but never populated:
  *
  *   1. image_quality  ('ok' | 'thin' | 'none') — hero-eligibility gate.
  *      Card.tsx requires 'ok' before it will render a photo hero; with
  *      every row still null, the hero always falls back to the
  *      no-photo placeholder. See plan-v1-home-pivot.md §11.
- *   2. mention_count / mention_sources — aggregated from the *existing*
- *      `social_posts.place_id` linkage (485 linked rows / 143 distinct
- *      places). No scraping, no new data — just a rollup.
- *   3. detail_line — plain composed single-line fallback text (NOT the
+ *   2. detail_line — plain composed single-line fallback text (NOT the
  *      eventual LLM-authored voice-quality line — see plan §9.7) so no
  *      card ever renders a blank detail row.
+ *
+ * A third task used to backfill mention_count/mention_sources by rolling up
+ * the reels pipeline's `social_posts.place_id` linkage — removed in the
+ * 2026-09 cleanup along with Reels/social_posts itself. `mention_count` is
+ * now a frozen historical signal (whatever it was last set to), never
+ * updated by this script again.
  *
  * Uses the Supabase REST API directly (not @supabase/supabase-js) — that
  * client's mandatory Realtime/WebSocket init throws under plain Node 20
  * ("Node.js 20 detected without native WebSocket support"). Same approach
- * as scripts/promote-japan-places.mjs.
+ * as scripts/promote-places.mjs.
  *
- * Idempotent: recomputes and overwrites all three columns from source data
- * every run rather than accumulating/appending, so re-running mid-debug is
- * safe. Rows with no image_url stay 'none'; rows with no linked
- * social_posts are left at mention_count=0/mention_sources=null (not
- * touched); rows with no usable text are left detail_line=null (not
- * overwritten with junk).
+ * Idempotent: recomputes and overwrites both columns from source data every
+ * run rather than accumulating/appending, so re-running mid-debug is safe.
+ * Rows with no image_url stay 'none'; rows with no usable text are left
+ * detail_line=null (not overwritten with junk).
  *
  * Usage:
  *   node --env-file=.env.local scripts/enrich-places-data.mjs
@@ -75,7 +76,7 @@ async function rest(path, options = {}) {
 
 // PostgREST caps a single response at 1000 rows by default — page through
 // with limit/offset until a short page signals the end (same pattern as
-// promote-japan-places.mjs, which hit exactly this bug once already).
+// promote-places.mjs, which hit exactly this bug once already).
 async function fetchAll(pathWithQuery) {
   const PAGE_SIZE = 1000;
   const rows = [];
@@ -220,37 +221,6 @@ async function classifyImageQuality(place) {
 }
 
 // ---------------------------------------------------------------------
-// Task 2: mention_count / mention_sources
-// ---------------------------------------------------------------------
-
-const MAX_MENTION_SAMPLES = 10;
-
-async function buildMentionMap() {
-  const posts = await fetchAll(
-    "social_posts?select=id,place_id,author_handle,platform&place_id=not.is.null"
-  );
-  console.log(`[enrich] fetched ${posts.length} social_posts rows with place_id set`);
-
-  const byPlace = new Map();
-  for (const post of posts) {
-    if (!byPlace.has(post.place_id)) byPlace.set(post.place_id, []);
-    byPlace.get(post.place_id).push(post);
-  }
-
-  const mentionMap = new Map(); // place_id -> { count, sources }
-  for (const [placeId, list] of byPlace) {
-    const sources = list.slice(0, MAX_MENTION_SAMPLES).map((p) => ({
-      source: "social_posts",
-      post_id: p.id,
-      handle: p.author_handle ?? null,
-      platform: p.platform ?? null,
-    }));
-    mentionMap.set(placeId, { count: list.length, sources });
-  }
-  return mentionMap;
-}
-
-// ---------------------------------------------------------------------
 // Task 3: detail_line
 // ---------------------------------------------------------------------
 
@@ -264,7 +234,7 @@ function truncateAtWordBoundary(text, maxLen) {
   return (lastSpace > 40 ? slice.slice(0, lastSpace) : slice).trim();
 }
 
-function composeDetailLine(place, mention) {
+function composeDetailLine(place) {
   if (place.description && place.description.trim()) {
     return truncateAtWordBoundary(place.description, DETAIL_LINE_MAX_LEN);
   }
@@ -272,9 +242,6 @@ function composeDetailLine(place, mention) {
   const parts = [];
   if (place.category && place.category.trim()) parts.push(place.category.trim());
   if (typeof place.rating === "number") parts.push(`${place.rating}★`);
-  if (mention && mention.count > 0) {
-    parts.push(`mentioned in ${mention.count} post${mention.count === 1 ? "" : "s"}`);
-  }
   if (parts.length === 0) return null;
   return parts.join(" · ");
 }
@@ -289,10 +256,6 @@ async function main() {
     "places?select=id,image_url,description,category,rating"
   );
   console.log(`[enrich] fetched ${places.length} places rows`);
-
-  console.log("[enrich] building mention_count/mention_sources from social_posts...");
-  const mentionMap = await buildMentionMap();
-  console.log(`[enrich] ${mentionMap.size} distinct places have linked social_posts`);
 
   console.log(
     `[enrich] classifying image_quality for ${places.length} places (probe concurrency=${PROBE_CONCURRENCY})...`
@@ -316,11 +279,9 @@ async function main() {
   console.log("[enrich] composing detail_line + building patch payloads...");
   let detailLineCount = 0;
   let detailLineNullCount = 0;
-  let mentionWrittenCount = 0;
 
   const patches = places.map((place, i) => {
-    const mention = mentionMap.get(place.id);
-    const detail_line = composeDetailLine(place, mention);
+    const detail_line = composeDetailLine(place);
     if (detail_line) detailLineCount += 1;
     else detailLineNullCount += 1;
 
@@ -328,11 +289,6 @@ async function main() {
       image_quality: classifications[i],
       detail_line,
     };
-    if (mention) {
-      body.mention_count = mention.count;
-      body.mention_sources = mention.sources;
-      mentionWrittenCount += 1;
-    }
     return { id: place.id, body };
   });
 
@@ -362,7 +318,6 @@ async function main() {
   console.log(
     `  required a real dimension probe: ${qualityStats.probed} (probed->ok=${qualityStats.probedOk}, probed->thin(incl. fetch/parse failures)=${qualityStats.probedThin})`
   );
-  console.log(`mention_count/mention_sources written (non-default): ${mentionWrittenCount} (should be <= 143)`);
   console.log(`detail_line written (non-null): ${detailLineCount}`);
   console.log(`detail_line left null: ${detailLineNullCount}`);
   console.log(`PATCH errors: ${errors.length}`);

@@ -29,7 +29,7 @@ import { CITY } from "@/lib/city";
 import { localDayDate, daysUntilLastChance } from "@/lib/happenings/occurrence";
 import { bucketForDayDate, isStale, moneyLabel, savingBadgeLabel } from "@/lib/happenings/format";
 import { isGenuineDeal, whoGroupForEligibility, type DealWhoGroup } from "@/lib/happenings/groups";
-import { priceSignalForEvent } from "@/lib/now/price";
+import { priceSignalForEvent } from "@/lib/cards/price";
 import { eventDayLabel } from "@/lib/events/format";
 import type { Happening, HappeningEligibility, Occurrence } from "@/lib/happenings/types";
 import type { EventItem } from "@/lib/types";

@@ -39,16 +39,14 @@ export interface CityConfig {
    * City-proper bounding box — same padded City of Edinburgh council area
    * box the places geocoding pipeline uses (scraper/geocode_osm.py's
    * `CITY_VIEWBOXES`): Corstorphine/Ratho to Portobello, Leith to
-   * Fairmilehead. Drives the Reels "Edinburgh" location filter
-   * (lib/social/location-filter.ts) so it agrees with what the pipeline
-   * already considers "in Edinburgh".
+   * Fairmilehead.
    */
   bbox: { minLat: number; maxLat: number; minLng: number; maxLng: number };
   /**
-   * Radius (km, from `center`) for the Reels "Near Edinburgh" location
-   * filter — the commuter/day-trip belt (Leith, Musselburgh, North
-   * Berwick, Queensferry, Linlithgow, …). A superset of `bbox`, not a ring:
-   * "Near Edinburgh" means "within this radius", Edinburgh proper included.
+   * Radius (km, from `center`) covering the commuter/day-trip belt (Leith,
+   * Musselburgh, North Berwick, Queensferry, Linlithgow, …) — used by
+   * lib/useSelectedCity.ts to decide whether a geolocated visitor counts as
+   * "near" this city for the fallback-city picker.
    */
   nearRadiusKm: number;
   /** ISO-4217, for `happenings.currency` defaults and price formatting. */
@@ -111,14 +109,12 @@ export function cityBadge(city: CityConfig = CITY): string {
 
 /**
  * Cities the app can actually show. Just `CITY` today: the Home feed
- * (`/api/feed`, `/api/now`, `/api/happenings/[id]`, `/api/saved`) and the
- * Reels location filter (lib/db/social.ts) all query the curated Edinburgh
- * dataset directly with no destination/city parameter, so picking a
- * different city would silently keep showing Edinburgh on Home regardless —
- * worse than not offering the choice. (`/api/events`, `/api/experiences`,
- * `/api/places`, and `/api/weather` do geocode an arbitrary `destination`
- * string already, but that's not enough to make this a genuinely
- * multi-city app while its flagship feed isn't.)
+ * (`/api/feed`, `/api/happenings/[id]`, `/api/saved`) queries the curated
+ * Edinburgh dataset directly with no destination/city parameter, so picking
+ * a different city would silently keep showing Edinburgh on Home regardless
+ * — worse than not offering the choice. (`/api/weather` does geocode an
+ * arbitrary `destination` string already, but that's not enough to make
+ * this a genuinely multi-city app while its flagship feed isn't.)
  *
  * Exported as a list, not just the single `CITY` constant, so the client
  * city picker (lib/useSelectedCity.ts) has one real source of truth to

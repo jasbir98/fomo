@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-upsert_japan_places.py — upserts validated Japan place records into
+upsert_places.py — upserts validated place records (any country) into
 places_staging via Supabase REST. It does not write directly to `places`.
 
 WRITE KEY: places_staging has no anon/authenticated write policy (see
@@ -129,7 +129,7 @@ def upsert_staging(records: list[dict[str, Any]]) -> int:
 
 def main() -> None:
     if len(sys.argv) != 2:
-        print("Usage: python scraper/upsert_japan_places.py path/to/extracted.json", file=sys.stderr)
+        print("Usage: python scraper/upsert_places.py path/to/extracted.json", file=sys.stderr)
         sys.exit(1)
 
     json_path = Path(sys.argv[1])

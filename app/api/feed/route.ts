@@ -62,10 +62,10 @@
  * Identity comes from the session cookie (lib/supabase/server.ts) —
  * proxy.ts already 401s every /api/* call with no session before this
  * handler ever runs, but the explicit check below is kept for the same
- * belt-and-braces reason /api/now and /api/saved keep theirs.
+ * belt-and-braces reason /api/saved keeps its own.
  *
- * `at`: ISO timestamp override, for testing/scrubbing — same escape hatch as
- * GET /api/now. Defaults to the request's server time.
+ * `at`: ISO timestamp override, for testing/scrubbing. Defaults to the
+ * request's server time.
  *
  * ZERO-ROWS / MISSING-TABLE SAFETY — unchanged from the pre-restructure
  * route: `happenings` may not exist yet in every environment and has few
@@ -78,7 +78,7 @@ import { CITY, districtFromAddress } from "@/lib/city";
 import { listLiveHappenings } from "@/lib/db/happenings";
 import { listUpcomingEvents } from "@/lib/db/events";
 import { listPlacesByCity, listPlacesByIds } from "@/lib/db/places";
-import { priceSignalForEvent, WHATS_ON_PRICE_EXEMPT_CATEGORIES } from "@/lib/now/price";
+import { priceSignalForEvent, WHATS_ON_PRICE_EXEMPT_CATEGORIES } from "@/lib/cards/price";
 import {
   localDayDate,
   addDays,
@@ -305,7 +305,7 @@ function pickSeriesLeads(groups: HappeningSeriesGroup[], now: Date, timeZone: st
 /**
  * Picks the single best hero card. Two candidate pools compete for the slot:
  * every dated happening (any kind, incl. deals) within `HERO_LOOKAHEAD_DAYS`,
- * and every free-or-cheap provider event (lib/now/price.ts's
+ * and every free-or-cheap provider event (lib/cards/price.ts's
  * `priceSignalForEvent`) starting within `HERO_EVENT_LOOKAHEAD_DAYS` — an
  * unpriced-but-sports-exempt event (which `whatsOnHappeningPasses` lets into
  * What's on) is deliberately NOT a hero candidate, per the user's own call:
@@ -397,7 +397,7 @@ function pickHero(
  * final price) — so, per the task's own "unknown-price events excluded"
  * rule, only `is_free === true` events pass; everything else with unknown
  * pricing is excluded rather than guessed cheap. EXCEPT a category in
- * `WHATS_ON_PRICE_EXEMPT_CATEGORIES` (lib/now/price.ts) — sports fixtures
+ * `WHATS_ON_PRICE_EXEMPT_CATEGORIES` (lib/cards/price.ts) — sports fixtures
  * pass regardless of price, per the user's 2026-09-14 call; the card's own
  * price badge (savingBadgeLabel) still shows an honest figure or nothing.
  *
@@ -870,7 +870,7 @@ export async function GET(request: Request) {
       }
 
       // Every event in the window is a candidate now — the old hard-coded
-      // "cheap" ceiling (lib/now/price.ts's priceSignalForEvent) silently
+      // "cheap" ceiling (lib/cards/price.ts's priceSignalForEvent) silently
       // dropped almost the entire Ticketmaster/Skiddle catalogue, because
       // those rows essentially never carry a `price_from` and so score
       // `null`, not "cheap". `price === "cheap"` opts back into that exact
@@ -1033,12 +1033,12 @@ export async function GET(request: Request) {
         heroKind = "book_early";
       } else {
         // No happening-kind Book Early candidate to lead with — never fall
-        // back to the global Fomo Pick or the /api/now hero on this tab.
-        // `heroKind` still needs to read "book_early" here (not fall through
-        // to the `?? "fomo_pick"` default below) — otherwise the client
-        // can't tell "no Book Early candidate" apart from "no `window` param
-        // at all" and shows the unrelated /api/now pick on this tab, which
-        // is exactly what this branch's own comment says never to do.
+        // back to the global Fomo Pick hero on this tab. `heroKind` still
+        // needs to read "book_early" here (not fall through to the
+        // `?? "fomo_pick"` default below) — otherwise the client can't tell
+        // "no Book Early candidate" apart from "no `window` param at all"
+        // and renders the wrong hero treatment for this tab, which is
+        // exactly what this branch's own comment says never to do.
         responseHero = null;
         heroKind = "book_early";
       }

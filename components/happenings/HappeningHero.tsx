@@ -48,13 +48,12 @@ export interface HappeningHeroProps {
  * The Home hero card for a live happening — the top-ranked happening (see
  * app/api/feed/route.ts's `pickHero`), or, on the Book early tab, that tab's
  * own top pick (`variant="book_early"`, see `HappeningHeroProps`). Distinct
- * from components/fomo/Card.tsx's `FomoCard` hero variant: that one renders a
- * ranked `/api/now` Candidate (place/event/experience), this one renders a
- * happening's richer, happening-only fields (promo code, redemption note,
- * eligibility pill) that a Candidate has no room for. The Home page renders
- * whichever one applies — this when there's a live happening, FomoCard's hero
- * as the fallback when there isn't (see the page's own doc comment) — except
- * on Book early, which shows no hero at all rather than either fallback when
+ * from components/fomo/Card.tsx's `FomoCard`, which renders a saved-item
+ * Candidate (place/event/happening) — this one renders a happening's richer,
+ * happening-only fields (promo code, redemption note, eligibility pill) that
+ * a Candidate has no room for. The Home page renders this when there's a
+ * live happening, a compact card preview when there isn't (see the page's
+ * own doc comment) — except on Book early, which shows no hero at all when
  * it has no Book Early candidate to lead with.
  */
 export function HappeningHero({ happening, occurrence, variant = "fomo_pick", reason, surface }: HappeningHeroProps) {

@@ -17,12 +17,11 @@ forced tool-use JSON schema instead of free-text parsing.
 
 Before generating, pulls existing `(prefecture, city)` pairs already covered
 in `places` for this country (any source containing "seed", e.g.
-'seed-japan-pipeline' or a one-off batch tag like 'seed:jp-tokyo-2026-07-15')
-via the Supabase REST API — same pattern as scripts/promote-japan-places.mjs
-— and excludes them so already-curated cities (Kamakura, Hakone, Yokohama,
-the done Tokyo wards, etc.) don't get rediscovered. This is a best-effort
-dedupe: if the Supabase call fails or credentials are missing, this script
-logs a warning and continues with an empty exclusion set rather than
+'seed-scotland-pipeline' or a one-off batch tag like 'seed:gb-edinburgh-2026-07-15')
+via the Supabase REST API — same pattern as scripts/promote-places.mjs
+— and excludes them so already-curated cities don't get rediscovered. This is a
+best-effort dedupe: if the Supabase call fails or credentials are missing, this
+script logs a warning and continues with an empty exclusion set rather than
 hard-failing.
 
 Resumable like scrape_places_batch.py's --progress-file: progress (which

@@ -11,13 +11,11 @@
  * the same request shapes work against either — only the client's key, base
  * URL, and model differ.
  *
- * Verified live against DeepSeek on 2026-09-13, using the exact request shapes
- * this app sends:
- *   - chat (app/api/chat): messages.stream with `thinking: { type: "adaptive" }`,
- *     custom tools, and `tool_choice: { type: "auto" }` — streams text and
- *     returns real tool_use blocks.
- *   - translator (app/api/translate): base64 image input — read and translated
- *     sign text correctly.
+ * Verified live against DeepSeek on 2026-09-13, using the exact request shape
+ * this app sends: chat (app/api/chat) — messages.stream with
+ * `thinking: { type: "adaptive" }`, custom tools, and
+ * `tool_choice: { type: "auto" }` — streams text and returns real tool_use
+ * blocks.
  *
  * If a future caller forces a specific tool (`tool_choice: { type: "tool" }`),
  * it must also pass `thinking: { type: "disabled" }`: DeepSeek's thinking mode
@@ -32,7 +30,7 @@ const DEEPSEEK_BASE_URL = "https://api.deepseek.com/anthropic";
 const deepseekKey = process.env.DEEPSEEK_API_KEY?.trim();
 
 /**
- * The model Fomo uses for all chat + translation.
+ * The model Fomo uses for chat.
  *
  * Set explicitly per provider rather than relying on DeepSeek's alias mapping:
  * DeepSeek silently serves Claude Sonnet/Haiku names with `deepseek-flash`,

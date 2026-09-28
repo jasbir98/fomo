@@ -205,10 +205,10 @@ export async function searchPlaces(opts: {
     textQuery: buildTextQuery(destination, category, q),
     // Google Places (New) Text Search rejects maxResultCount above 20
     // (INVALID_ARGUMENT) — clamp here rather than trusting every caller to
-    // know that ceiling. Callers wanting a bigger candidate pool than one
-    // live call can provide (e.g. lib/now/context.ts's 40-item pool) should
-    // prefer the unbounded curated `places` table; this is the best-effort
-    // fallback for destinations with no curated coverage yet.
+    // know that ceiling. A caller wanting a bigger candidate pool than one
+    // live call can provide should prefer the unbounded curated `places`
+    // table; this is the best-effort fallback for destinations with no
+    // curated coverage yet.
     maxResultCount: Math.min(limit, 20),
   };
   if (center) {

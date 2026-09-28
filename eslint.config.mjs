@@ -9,9 +9,7 @@ const eslintConfig = defineConfig([
     rules: {
       // The codebase's established idiom for dropping a field before a rest
       // spread is `{ field: _field, ...rest }` — ignoreRestSiblings stops
-      // the discarded sibling from tripping no-unused-vars (used in
-      // app/api/places/route.ts, lib/events/getForDestination.ts,
-      // lib/experiences/getForDestination.ts).
+      // the discarded sibling from tripping no-unused-vars.
       "@typescript-eslint/no-unused-vars": ["warn", { ignoreRestSiblings: true }],
     },
   },

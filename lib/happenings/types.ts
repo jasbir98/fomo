@@ -1,9 +1,9 @@
 /**
  * Fomo Happenings — types.
  *
- * Module-local rather than in lib/types.ts, following the lib/now/types.ts
- * precedent: the recurrence union and its occurrence output are only meaningful
- * alongside the expansion logic next door.
+ * Module-local rather than in lib/types.ts: the recurrence union and its
+ * occurrence output are only meaningful alongside the expansion logic next
+ * door.
  *
  * Deliberately NOT `server-only` — the feed and every card need these, and they
  * are client components. Same exclusion as lib/events/format.ts.

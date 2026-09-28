@@ -5,8 +5,6 @@ import { usePathname } from "next/navigation";
 import type { ExplorePin } from "@/lib/explore/types";
 import { PIN_TYPE_STYLE, directionsUrlForPin, subjectTypeForPin } from "@/lib/explore/pin-style";
 import { CITY } from "@/lib/city";
-import { recordCardSignal } from "@/lib/db";
-import { supabaseBrowserAuth } from "@/lib/supabase/client";
 import { useSaved } from "@/lib/useSaved";
 import { buildAskFomoHref } from "@/lib/chat-seed";
 import { BottomSheet, Icon, SmartImage } from "@/components/ui";
@@ -42,27 +40,17 @@ function formatStartsAt(iso: string): string {
  * (`/happening/<id>`) pins all do.
  */
 export function ExploreSheet({ pin, onClose }: ExploreSheetProps) {
-  const db = supabaseBrowserAuth();
   const pathname = usePathname();
   // Shared saved store (lib/useSaved.ts): starts in the real state for every
   // pin, and a signed-out tap goes to sign-in and back.
-  const { signedIn, isSaved, toggle } = useSaved();
+  const { isSaved, toggle } = useSaved();
 
   const subjectType = pin ? subjectTypeForPin(pin) : null;
   const saved = pin && subjectType ? isSaved(subjectType, pin.id) : false;
 
   async function handleToggleSave() {
     if (!pin || !subjectType) return;
-    const wasSaved = saved;
     await toggle(subjectType, pin.id);
-    if (!wasSaved && signedIn) {
-      void recordCardSignal(db, {
-        card_type: "map",
-        subject_type: subjectType,
-        subject_id: pin.id,
-        action: "saved",
-      });
-    }
   }
 
   const askHref =
@@ -122,14 +110,6 @@ export function ExploreSheet({ pin, onClose }: ExploreSheetProps) {
             {askHref ? (
               <Link
                 href={askHref}
-                onClick={() =>
-                  void recordCardSignal(db, {
-                    card_type: "map",
-                    subject_type: subjectType as NonNullable<typeof subjectType>,
-                    subject_id: pin.id,
-                    action: "opened",
-                  })
-                }
                 className="flex min-h-[44px] flex-1 basis-[45%] items-center justify-center gap-2 rounded-xl border border-outline-variant px-4 text-label-md font-semibold text-primary transition-opacity hover:opacity-90"
               >
                 <Icon name="chat" size={18} />

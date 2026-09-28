@@ -133,8 +133,6 @@ function createPendingId(): string {
 const SEED_ICON: Partial<Record<ChatSeed["type"], string>> = {
   happening: "sell",
   event: "event",
-  experience: "confirmation_number",
-  reel: "movie",
 };
 
 export default function FomoChatPage() {

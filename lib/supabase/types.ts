@@ -43,8 +43,8 @@ export type Database = {
 };
 
 /**
- * Shared alias every `lib/db/*` function and `lib/now/*` builder takes as
- * its first parameter, in place of the old `deviceId: string`. Callers pass
+ * Shared alias every `lib/db/*` function takes as its first parameter, in
+ * place of the old `deviceId: string`. Callers pass
  * whichever client carries the right identity for the context:
  * `supabaseBrowserAuth()` (lib/supabase/client.ts) from client components,
  * `await supabaseServer()` (lib/supabase/server.ts) from route handlers/

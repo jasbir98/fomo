@@ -119,7 +119,7 @@ const SEEN_INTRO_KEY = "fomo_seen_intro";
 // etc.) can point `next` at — used only to decide whether to show the "Sign
 // in to see what was shared with you" hint below. Checked against the
 // already-`safeNext`-sanitized value, so this never sees an off-origin URL.
-const DETAIL_PAGE_PREFIXES = ["/happening/", "/event/", "/experience/", "/place/", "/social/"];
+const DETAIL_PAGE_PREFIXES = ["/happening/", "/event/", "/place/"];
 
 function isSharedDetailLink(next: string): boolean {
   return DETAIL_PAGE_PREFIXES.some((prefix) => next.startsWith(prefix));

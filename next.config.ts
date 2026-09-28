@@ -5,11 +5,10 @@ import { REMOTE_IMAGE_HOSTNAMES } from "./lib/image/cdn";
 // below — see each directive's inline reasoning for what it allows and why.
 //
 // Enforcing (not Report-Only): verified in dev against Supabase auth/realtime,
-// Mapbox GL tiles/workers, the TikTok/Instagram reel iframe embeds
-// (components/social/VideoEmbed.tsx), Google Fonts (Material Symbols +
-// Plus Jakarta Sans), and remote event/place photos — no CSP violations in
-// the console and every surface still renders. Re-check this list whenever a
-// new external host is added anywhere in the app.
+// Mapbox GL tiles/workers, Google Fonts (Material Symbols + Plus Jakarta
+// Sans), and remote event/place photos — no CSP violations in the console
+// and every surface still renders. Re-check this list whenever a new
+// external host is added anywhere in the app.
 // On Vercel preview deployments with Deployment Protection/SSO enabled,
 // same-origin requests (e.g. /manifest.json) get redirected through
 // https://vercel.com/sso-api?... before the visitor has an SSO session
@@ -30,13 +29,12 @@ const CSP_DIRECTIVES = [
   // from accounts.google.com/gsi/client — see Google's GIS CSP guidance.
   `script-src 'self' 'unsafe-inline'${isDev ? " 'unsafe-eval' https://va.vercel-scripts.com" : ""} https://accounts.google.com/gsi/client`,
   // Tailwind's compiled stylesheet is same-origin; 'unsafe-inline' covers the
-  // many inline style={{...}} attributes throughout components (e.g.
-  // ReelViewer's drag transforms) and Next's own inline <style> tags.
-  // accounts.google.com/gsi/style is GIS's own button stylesheet.
+  // many inline style={{...}} attributes throughout components and Next's
+  // own inline <style> tags. accounts.google.com/gsi/style is GIS's own
+  // button stylesheet.
   "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://accounts.google.com/gsi/style",
-  // Place/event/experience photos and reel posters are hotlinked from
-  // whatever CDN the source data points at (or proxied same-origin via
-  // /api/media-proxy) — no fixed allowlist of image hosts is possible here.
+  // Place/event photos are hotlinked from whatever CDN the source data
+  // points at — no fixed allowlist of image hosts is possible here.
   "img-src 'self' https: data: blob:",
   // Explicit rather than relying on the default-src fallback. On preview
   // deployments, Vercel's Deployment Protection SSO redirect turns the
@@ -47,12 +45,12 @@ const CSP_DIRECTIVES = [
   // Supabase (DB + realtime), Mapbox (geocoding/directions + telemetry +
   // tiles), GIS's own XHR/fetch calls (token/credential exchange happens
   // against accounts.google.com/gsi/ from the button's iframe). DeepSeek/
-  // Anthropic calls happen server-side only (app/api/chat, app/api/translate)
-  // so they never need a browser connect-src entry.
+  // Anthropic calls happen server-side only (app/api/chat) so they never
+  // need a browser connect-src entry.
   "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.mapbox.com https://events.mapbox.com https://*.tiles.mapbox.com https://accounts.google.com/gsi/",
-  // TikTok's player/v1 embed and Instagram's /embed iframe (VideoEmbed.tsx).
-  // accounts.google.com/gsi/ is GIS's own button/prompt iframe.
-  "frame-src https://www.tiktok.com https://www.instagram.com https://accounts.google.com/gsi/",
+  // accounts.google.com/gsi/ is GIS's own button/prompt iframe — the only
+  // thing this app frames.
+  "frame-src https://accounts.google.com/gsi/",
   // Mapbox GL workers are spun up from blob: URLs.
   "worker-src 'self' blob:",
   "child-src blob:",
@@ -77,11 +75,9 @@ const SECURITY_HEADERS = [
   // "same-origin") — GIS's `ux_mode: 'popup'` (app/signin/page.tsx) opens a
   // same-origin-initiated popup that needs `window.postMessage` back to this
   // page, which a stricter COOP value blocks.
-  // Only what the app actually uses: geolocation (lib/geo.ts, Home's "near
-  // me" sort) via the real Geolocation API. The translator's photo mode
-  // (app/fomo/translator/page.tsx) uses <input type="file" capture> — the
-  // OS camera picker, not getUserMedia — so it needs no camera grant here;
-  // same reasoning for microphone (no getUserMedia/mic usage anywhere).
+  // Only what the app actually uses: geolocation (lib/geo.ts, Explore's
+  // "near me" sort) via the real Geolocation API. No camera/microphone
+  // usage anywhere (getUserMedia or otherwise).
   { key: "Permissions-Policy", value: "geolocation=(self), camera=(), microphone=()" },
   { key: "Content-Security-Policy", value: CSP_DIRECTIVES },
 ];

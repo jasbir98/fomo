@@ -25,10 +25,9 @@ let adminClient: Db | undefined;
  * singleton is safe (unlike `lib/supabase/server.ts`) because this client
  * carries no per-user session, just a static service-role key.
  *
- * Consumers: catalog cache writes in `/api/places`, `lib/events/
- * getForDestination.ts`, `lib/experiences/getForDestination.ts` — the write
- * half of the three catalog tables `supabase/harden_rls.sql` moves off
- * anon-write policies (see plan-v1.2-accounts.md §A.6).
+ * Consumers: lib/rate-limit.ts and lib/db/push.ts's per-user writes, plus
+ * app/api/subscribe, app/api/unsubscribe and app/api/resend/webhook's
+ * session-less writes — routes with no signed-in caller to write as.
  */
 export function supabaseAdmin(): Db {
   if (!adminClient) {

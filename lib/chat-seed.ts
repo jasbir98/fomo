@@ -51,10 +51,6 @@ export function readChatSeed(searchParams: URLSearchParams): ChatSeed | null {
 const QUESTIONS_BY_TYPE: Record<CardSubjectType, string[]> = {
   place: ["Is it worth the wait?", "What do I order?", "How do I get there?"],
   event: ["What's it actually like?", "Do I need to book?", "What do people wear?"],
-  experience: ["Is it worth the price?", "What should I bring?", "How do I get there?"],
-  itinerary_item: ["Any tips for this?", "What's nearby after?", "How long should I plan for it?"],
-  reel: ["Where exactly is this?", "Is it worth visiting?", "How do I get there?"],
-  practicality: ["What do I actually need to do?", "Where do I sort this?", "Anything I should watch out for?"],
   happening: ["How do I claim this?", "Is it worth it?", "What else is on nearby?"],
 };
 
@@ -64,25 +60,17 @@ export function suggestedQuestionsFor(type: CardSubjectType): string[] {
 }
 
 /**
- * Which detail route (if any) a seed's own item resolves to, for the chat
- * page's seed card (pending divider or attached-to-message chip) to link to.
- * Only wired for types with a real, reliably-shaped `/type/<id>` detail
- * route today (a reel's is `/social/<id>`) — `itinerary_item` (trip era,
- * route removed) and `practicality` (no standalone detail page) fall
- * through to null and the chat page renders those non-interactively.
+ * Which detail route a seed's own item resolves to, for the chat page's seed
+ * card (pending divider or attached-to-message chip) to link to.
  */
 export function hrefForSeed(seed: Pick<ChatSeed, "type" | "id">): string | null {
   switch (seed.type) {
     case "place":
       return `/place/${seed.id}`;
-    case "reel":
-      return `/social/${seed.id}`;
     case "event":
       return `/event/${seed.id}`;
     case "happening":
       return `/happening/${seed.id}`;
-    case "experience":
-      return `/experience/${seed.id}`;
     default:
       return null;
   }

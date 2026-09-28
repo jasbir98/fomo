@@ -6,11 +6,10 @@ import { usePathname, useRouter } from "next/navigation";
 import { Icon, SmartImage } from "@/components/ui";
 import { buildAskFomoHref } from "@/lib/chat-seed";
 import { directionsUrlFor } from "@/lib/maps/links";
-import { recordCardSignal } from "@/lib/db/signals";
 import { saveItem, unsaveItem } from "@/lib/db/saved";
 import { describeSupabaseError } from "@/lib/db/errors";
 import { supabaseBrowserAuth } from "@/lib/supabase/client";
-import type { Candidate, CardKind } from "@/lib/now/types";
+import type { Candidate, CardKind } from "@/lib/cards/types";
 import type { CardSubjectType } from "@/lib/types";
 
 export type CardVariant = "hero" | "tile" | "grid";
@@ -22,8 +21,6 @@ export interface FomoCardProps {
   onDismiss?: () => void;
   /** Overrides the default handler for a primary action kind ("swap" needs Plan's own swap logic; "location" needs Home's permission-request flow). Receives the action's `kind` so one override can branch on it. */
   onPrimary?: (kind: CardKind) => void;
-  /** Phase 7 (plan §E.2) — fires after a successful `secondaryAction` (currently only the practicalities rail's "Already sorted" dismiss) POSTs to the server, same "card can't know the parent's list state" reasoning as `onAdded`. Home wires this to refetch /api/now so a dismissed topic doesn't reappear on the next render; a no-op for every card without a `secondaryAction`. */
-  onSecondaryAction?: () => void;
   /** Hero only: relaxes the photo bar from 'ok' to tile/grid's 'thin-or-better' — for rail-derived featured cards (Home's Celestial Glass redesign), which reuse the hero layout but shouldn't inherit the true page-hero's stricter photo requirement. Most candidates only ever have 'thin' photos; gating all of them on 'ok' collapses them onto the same generic gradient+glyph placeholder. */
   allowThinPhoto?: boolean;
   className?: string;
@@ -39,16 +36,12 @@ export interface FomoCardProps {
 const CATEGORY_GLYPH: Record<CardSubjectType, string> = {
   place: "location_on",
   event: "event",
-  experience: "confirmation_number",
-  itinerary_item: "bookmark",
-  reel: "movie",
-  practicality: "info",
   happening: "sell",
 };
 
 /**
- * One card, rendered identically everywhere — Home rail, Plan gaps, chip
- * discover grids, Reels. Geometry is fixed per variant (v1.1 W3,
+ * One card, rendered identically everywhere it appears — Home, Saved, chat's
+ * seeded item cards. Geometry is fixed per variant (v1.1 W3,
  * plan-v1.1-overhaul.md) rather than intrinsic, which is what previously
  * produced ragged rail/grid bottoms: `tile` is 168×204 (112 photo + 92 fixed
  * copy), `grid` is fluid-width×232 (128 photo + 104 fixed copy), `hero` is
@@ -73,16 +66,7 @@ export function FomoCard({
   const router = useRouter();
   const [saved, setSaved] = useState(false);
   const [busy, setBusy] = useState(false);
-  // Phase 7 (plan §E.2) — optimistic hide for the practicalities rail's
-  // "Already sorted" action: the card disappears the instant it's tapped,
-  // ahead of the POST resolving. `handleSecondaryAction`/`onSecondaryAction`
-  // (which used to flip this to true) were removed with the practicalities
-  // rail's secondaryAction feature, so `dismissed` is now always false — left
-  // in place since the render guard below is still correct, just dormant.
-  const [dismissed] = useState(false);
   const db = supabaseBrowserAuth();
-
-  if (dismissed) return null;
 
   const askHref = buildAskFomoHref({
     type: candidate.subject.type,
@@ -91,15 +75,6 @@ export function FomoCard({
     coords: candidate.coords,
     returnTo: pathname,
   });
-
-  function signal(action: "opened" | "saved" | "dismissed") {
-    void recordCardSignal(db, {
-      card_type: candidate.generator,
-      subject_type: candidate.subject.type,
-      subject_id: candidate.subject.id,
-      action,
-    });
-  }
 
   // handleAdd ("Add to today") lived here. Fomo has no itinerary, so a card's
   // primary "add" action now routes to handleSave — the shortlist is the only
@@ -120,7 +95,6 @@ export function FomoCard({
           note: null,
         });
         setSaved(true);
-        signal("saved");
       }
     } catch (err) {
       console.error(`[fomo] save toggle failed ${describeSupabaseError(err)}`);
@@ -131,34 +105,17 @@ export function FomoCard({
 
   // Tapping the card body (photo/headline/meta — everything except the
   // bookmark on tile/grid, or the action row on hero) opens the subject's
-  // own detail page. Every subject type now has a real route — including
-  // "event" (app/(shell)/event/[id]/page.tsx, new in v1.1 W3) — except
-  // "practicality" (Phase 7): the plan explicitly rules out a
-  // /practicalities detail page ("the rail is the whole feature"), so this
-  // stays null and handleOpenDetails below routes to Ask Fomo instead.
+  // own detail page. Every remaining subject type has one — place, event
+  // (app/(shell)/event/[id]/page.tsx) and happening.
   const detailHref =
     candidate.subject.type === "place"
       ? `/place/${candidate.subject.id}`
       : candidate.subject.type === "event"
         ? `/event/${candidate.subject.id}`
-        : candidate.subject.type === "experience"
-          ? `/experience/${candidate.subject.id}`
-          : candidate.subject.type === "reel"
-            ? `/social/${candidate.subject.id}`
-            : candidate.subject.type === "happening"
-              ? `/happening/${candidate.subject.id}`
-              : null;
+        : `/happening/${candidate.subject.id}`;
 
   function handleOpenDetails() {
-    signal("opened");
-    // Phase 7 — a practicality card has no detail page; tapping the body is
-    // the natural "tell me more" gesture, so it opens chat pre-seeded with
-    // this row's own chat_seed/headline instead of navigating nowhere.
-    if (candidate.subject.type === "practicality") {
-      router.push(askHref);
-      return;
-    }
-    if (detailHref) router.push(detailHref);
+    router.push(detailHref);
   }
 
   // handleSecondaryAction/handleSecondaryClick lived here, driving the
@@ -343,7 +300,6 @@ export function FomoCard({
             {showAskFomo ? (
               <Link
                 href={askHref}
-                onClick={() => signal("opened")}
                 className={`flex shrink-0 items-center gap-1 rounded-full border px-3 py-1.5 text-label-sm font-semibold transition-colors ${ghostButton}`}
               >
                 Ask Fomo
@@ -378,10 +334,7 @@ export function FomoCard({
           {onDismiss ? (
             <button
               type="button"
-              onClick={() => {
-                signal("dismissed");
-                onDismiss();
-              }}
+              onClick={onDismiss}
               className={`absolute right-2.5 top-2.5 rounded-full px-2.5 py-1 text-[11px] font-semibold backdrop-blur-sm transition-opacity hover:opacity-90 ${
                 dark ? "bg-on-primary/15 text-on-primary" : "bg-primary/70 text-on-primary"
               }`}

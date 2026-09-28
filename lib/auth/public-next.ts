@@ -11,7 +11,7 @@ import { safeNext } from "./safe-next";
  * can actually see that page, else Home — never back onto the very page
  * that would just bounce them here again.
  */
-const ACCOUNT_GATED_PREFIXES = ["/fomo", "/profile", "/setup", "/kit"];
+const ACCOUNT_GATED_PREFIXES = ["/fomo", "/profile"];
 
 function matchesPrefix(pathname: string, prefix: string): boolean {
   return pathname === prefix || pathname.startsWith(`${prefix}/`);

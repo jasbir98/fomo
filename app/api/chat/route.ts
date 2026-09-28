@@ -59,15 +59,7 @@ const MAX_MESSAGE_CHARS = 2000;
 const MAX_HISTORY_MESSAGE_CHARS = 2000;
 /** Cap on client-supplied strings interpolated into the system prompt (seed.name) — short by nature (a place/event/happening title), so a much longer value is either abuse or garbage either way. */
 const MAX_SEED_STRING_CHARS = 200;
-const VALID_SEED_TYPES = new Set<CardSubjectType>([
-  "place",
-  "event",
-  "experience",
-  "itinerary_item",
-  "reel",
-  "practicality",
-  "happening",
-]);
+const VALID_SEED_TYPES = new Set<CardSubjectType>(["place", "event", "happening"]);
 
 /** How far ahead the catalogue looks, and how many provider events it carries. */
 const CATALOGUE_DAYS = 7;

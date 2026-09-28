@@ -30,8 +30,8 @@ function isMissingTableError(err: unknown): boolean {
  * "Doors Open Days" never render on an Edinburgh page).
  *
  * Never throws for a missing table or zero rows — both degrade to `[]`, so
- * the feed route can always fall back to the /api/now hero, cheap events,
- * and Free Any Time places rather than erroring the whole page. Every other
+ * the feed route can always fall back to cheap provider events and Free Any
+ * Time places rather than erroring the whole page. Every other
  * Postgres error (a real outage, a permissions problem) still throws, same
  * as the rest of lib/db/*.
  */

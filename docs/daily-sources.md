@@ -158,7 +158,7 @@ Requires `NEXT_PUBLIC_SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` to
 skips cleanly (a log line, not a failure) when its key is absent. Uses the
 Supabase REST API directly, not `@supabase/supabase-js`, since that client's
 Realtime/WebSocket init crashes under plain Node 20 (same as
-`scripts/promote-japan-places.mjs` / `scripts/sweep-happenings.mjs`).
+`scripts/promote-places.mjs` / `scripts/sweep-happenings.mjs`).
 
 ## Scheduling
 

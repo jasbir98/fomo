@@ -49,7 +49,7 @@ import { NextResponse } from "next/server";
 /** Rapidly-changing data (short TTL, quick recovery from a bad response). Browser-cache only — see file header. */
 export const CACHE_SHORT = "private, max-age=60, stale-while-revalidate=300";
 
-/** Third-party catalogue data (events, experiences, places) — minutes-scale staleness is fine. Browser-cache only — see file header. */
+/** Third-party catalogue data (events, places) — minutes-scale staleness is fine. Browser-cache only — see file header. */
 export const CACHE_MEDIUM = "private, max-age=300, stale-while-revalidate=1800";
 
 /** Slow-changing data (weather forecasts). Browser-cache only — see file header. */

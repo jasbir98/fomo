@@ -37,9 +37,9 @@ export interface ForecastResult {
   /**
    * Seconds east of UTC for the destination's own timezone, as resolved by
    * Open-Meteo's `timezone=auto` (IANA lookup from the geocoded lat/lng).
-   * Callers building "local day" bounds (e.g. lib/now/dayplan.ts's 8am-10pm
-   * window) need this — building those bounds in UTC silently shifts them by
-   * the destination's offset. Null on failure/no destination.
+   * A caller building "local day" bounds needs this — building those bounds
+   * in UTC silently shifts them by the destination's offset. Null on
+   * failure/no destination.
    */
   utcOffsetSeconds: number | null;
   /**

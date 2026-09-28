@@ -1,11 +1,10 @@
 #!/usr/bin/env node
 /**
- * promote-japan-places.mjs — promotes approved `places_staging` rows into the
+ * promote-places.mjs — promotes approved `places_staging` rows into the
  * shared `places` table, records per-field provenance in `place_sources`, and
  * marks each staging row as promoted.
  *
- * Despite the filename (kept for backward compatibility with existing usage and
- * docs), this script is country-agnostic: it promotes approved staging rows for
+ * This script is country-agnostic: it promotes approved staging rows for
  * `--country-code` (default JP), tagging each new place with `--source`.
  *
  * Idempotent: only selects staging rows that are approved and not yet promoted,
@@ -45,9 +44,9 @@
  * Node 20.
  *
  * Usage:
- *   node --env-file=.env.local scripts/promote-japan-places.mjs
- *   node --env-file=.env.local scripts/promote-japan-places.mjs --country-code GB --source seed-scotland-pipeline
- *   node --env-file=.env.local scripts/promote-japan-places.mjs --country-code GB \
+ *   node --env-file=.env.local scripts/promote-places.mjs
+ *   node --env-file=.env.local scripts/promote-places.mjs --country-code GB --source seed-scotland-pipeline
+ *   node --env-file=.env.local scripts/promote-places.mjs --country-code GB \
  *     --source seed-edinburgh-local --destination-city Edinburgh --dry-run
  *
  * --dry-run reports what would be promoted, skipped and flagged, and writes nothing.
@@ -96,7 +95,7 @@ if (!supabaseUrl || !serviceRoleKey) {
   console.error(
     "[promote] Missing NEXT_PUBLIC_SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY. " +
       "places_staging and place_sources have no anon write policy, so the anon key " +
-      "will not work here. Run with: node --env-file=.env.local scripts/promote-japan-places.mjs"
+      "will not work here. Run with: node --env-file=.env.local scripts/promote-places.mjs"
   );
   process.exit(1);
 }

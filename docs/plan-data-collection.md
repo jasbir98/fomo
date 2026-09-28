@@ -158,8 +158,6 @@ no challenge solving), or read embedded `__NEXT_DATA__` where present.
   article text. "10 free things this weekend" articles are high-density.
 - **Reddit r/Edinburgh**: public JSON is ❌ 403; use the official Reddit API (free OAuth
   script app). Weekly "what's on" threads plus mentions ranked by upvotes = an "iconic" signal.
-- **Existing TikTok/IG reels pipeline** as a popularity signal: places and events that show up
-  in many reels get a `buzz_score` feeding the Top pick hero.
 - ❌ **Resident Advisor**: 403 to our UA. Skip unless we take a partner route.
 
 ## 4. Facebook & Instagram (where venues actually announce things)

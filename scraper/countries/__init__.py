@@ -7,11 +7,9 @@ Add a new country by creating `scraper/countries/<name>.py` with a
 from __future__ import annotations
 
 from .base import CountryConfig
-from .japan import JAPAN
 from .scotland import SCOTLAND
 
 COUNTRIES: dict[str, CountryConfig] = {
-    "japan": JAPAN,
     "scotland": SCOTLAND,
 }
 
@@ -25,4 +23,4 @@ def get_country(name: str) -> CountryConfig:
         ) from exc
 
 
-__all__ = ["CountryConfig", "COUNTRIES", "get_country", "JAPAN", "SCOTLAND"]
+__all__ = ["CountryConfig", "COUNTRIES", "get_country", "SCOTLAND"]

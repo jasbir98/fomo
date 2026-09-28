@@ -51,16 +51,12 @@ self.addEventListener("fetch", (event) => {
   // (see CSP_DIRECTIVES in next.config.ts). Widening `connect-src` isn't an
   // option: `img-src` is an open `https:` wildcard because event photos are
   // hotlinked from arbitrary CDNs. The remote images worth caching are
-  // already reachable same-origin via `/_next/image` and `/api/media-proxy`,
-  // which the image branch below still handles.
+  // already reachable same-origin via `/_next/image`, which the image branch
+  // below still handles.
   if (new URL(request.url).origin !== self.location.origin) return;
 
   // Images: stale-while-revalidate with LRU cap.
-  if (
-    request.destination === "image" ||
-    request.url.includes("/_next/image") ||
-    request.url.includes("/api/media-proxy")
-  ) {
+  if (request.destination === "image" || request.url.includes("/_next/image")) {
     event.respondWith(
       (async () => {
         const cache = await caches.open(IMG_CACHE);

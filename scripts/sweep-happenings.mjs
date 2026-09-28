@@ -25,7 +25,7 @@
  * source page, not something a cron job should decide unattended.
  *
  * Uses the Supabase REST API directly (not @supabase/supabase-js), same
- * reasoning as promote-japan-places.mjs (that client's mandatory
+ * reasoning as promote-places.mjs (that client's mandatory
  * Realtime/WebSocket init throws under plain Node 20). Uses the
  * service-role key, same as promote-happenings.mjs, since flipping
  * `status` on `happenings` has no anon write policy.
