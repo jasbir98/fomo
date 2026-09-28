@@ -1,5 +1,5 @@
-// Fomo v1.2 — DB types mirroring supabase/schema.sql + supabase/add_auth_identity.sql
-// + supabase/harden_rls.sql EXACTLY (snake_case). Every domain table row is
+// Fomo v1.2 — DB types mirroring supabase/archive/schema.sql + supabase/archive/add_auth_identity.sql
+// + supabase/archive/harden_rls.sql EXACTLY (snake_case). Every domain table row is
 // scoped by `user_id` (an auth.users id), not the old device_id — see
 // plan-v1.2-accounts.md §A.5. Nullable Postgres columns are typed `T | null`.
 // See lib/db/*.ts for typed CRUD built on these.
@@ -27,7 +27,7 @@ export interface Profile {
   created_at: string;
   notification_settings: NotificationSettings;
   privacy_settings: PrivacySettings;
-  /** "Big on-sale alerts" — see supabase/add_push_alerts.sql. When true,
+  /** "Big on-sale alerts" — see supabase/archive/add_push_alerts.sql. When true,
    *  the onsale-alerts Edge Function pushes this user for any high
    *  sellout_risk happening whose booking just opened, with no per-item
    *  opt-in required. */
@@ -35,7 +35,7 @@ export interface Profile {
 }
 
 // user_id is filled by the `default auth.uid()` column default (see
-// supabase/add_auth_identity.sql) — never required from the caller.
+// supabase/archive/add_auth_identity.sql) — never required from the caller.
 export type ProfileInsert = Partial<Omit<Profile, "user_id">>;
 export type ProfileUpdate = Partial<Omit<Profile, "user_id">>;
 
@@ -46,7 +46,7 @@ export type ChatRole = "user" | "assistant";
 
 export interface ChatMessage {
   id: string;
-  // Nullable + unused since supabase/decouple_chat_from_trips.sql dropped
+  // Nullable + unused since supabase/archive/decouple_chat_from_trips.sql dropped
   // its NOT NULL + FK to `trips` — Fomo has no trips anymore. The column is
   // left in the DB (not dropped), so it stays here for the mirror, but
   // nothing in app code reads or writes it; chat history is scoped by

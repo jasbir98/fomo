@@ -4,6 +4,7 @@ import { use, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { districtFromAddress } from "@/lib/city";
 import { directionsUrlFor } from "@/lib/maps/links";
+import { safeHttpUrl } from "@/lib/http/safe-url";
 import { happeningHasEnded, nextOccurrences, normalizeRecurrence } from "@/lib/happenings/occurrence";
 import {
   ELIGIBILITY_FALLBACK,
@@ -308,7 +309,11 @@ export default function HappeningDetailPage({ params }: { params: Promise<{ id: 
   const district = happening.district ?? districtFromAddress(happening.address);
   const eligibilityLabel = ELIGIBILITY_FALLBACK[happening.eligibility];
   const directionsUrl = directionsUrlFor({ lat: happening.lat, lng: happening.lng, query: happening.address ?? happening.venue_name });
-  const ctaHref = happening.booking_url ?? happening.source_url;
+  // booking_url/source_url come from scrapers/APIs — validate before ever
+  // handing them to window.open/location (see lib/http/safe-url.ts). A
+  // rejected value hides the CTA rather than navigating somewhere unsafe.
+  const ctaHref = safeHttpUrl(happening.booking_url ?? happening.source_url);
+  const safeSourceUrl = safeHttpUrl(happening.source_url);
   // Say what the button actually does — "Claim Offer" on a free museum was wrong.
   const ctaLabel =
     happening.cta_label ??
@@ -372,9 +377,9 @@ export default function HappeningDetailPage({ params }: { params: Promise<{ id: 
     // narrowing into a nested function body (it could, in principle, run
     // after a future re-render), so this satisfies the checker rather than
     // reflecting a real runtime possibility.
-    if (!happening) return;
-    trackOutboundClicked("happening", happening.id, happening.source_url, "source");
-    window.open(happening.source_url, "_blank", "noopener,noreferrer");
+    if (!happening || !safeSourceUrl) return;
+    trackOutboundClicked("happening", happening.id, safeSourceUrl, "source");
+    window.open(safeSourceUrl, "_blank", "noopener,noreferrer");
   }
 
   return (
@@ -839,31 +844,35 @@ export default function HappeningDetailPage({ params }: { params: Promise<{ id: 
               {checkedLabel(happening.verified_at)}
             </span>
           </div>
-          <button
-            type="button"
-            onClick={openSource}
-            className="mt-2.5 flex items-center gap-1 text-label-md font-bold text-primary hover:underline"
-          >
-            View official terms
-            <Icon name="north_east" size={15} />
-          </button>
+          {safeSourceUrl ? (
+            <button
+              type="button"
+              onClick={openSource}
+              className="mt-2.5 flex items-center gap-1 text-label-md font-bold text-primary hover:underline"
+            >
+              View official terms
+              <Icon name="north_east" size={15} />
+            </button>
+          ) : null}
         </section>
       </div>
 
       {/* Sticky bottom CTA */}
       <div className="sticky bottom-[calc(64px+env(safe-area-inset-bottom))] z-30 flex flex-col gap-2 border-t border-outline-variant/40 bg-surface-container-lowest/95 px-5 py-4 backdrop-blur-md shadow-[0_-4px_16px_rgba(3,22,50,0.08)]">
         <div className="flex items-center gap-2">
-          <Button
-            variant="orange"
-            fullWidth
-            trailingIcon="open_in_new"
-            onClick={() => {
-              trackOutboundClicked("happening", happening.id, ctaHref, "primary");
-              window.open(ctaHref, "_blank", "noopener,noreferrer");
-            }}
-          >
-            {ctaLabel}
-          </Button>
+          {ctaHref ? (
+            <Button
+              variant="orange"
+              fullWidth
+              trailingIcon="open_in_new"
+              onClick={() => {
+                trackOutboundClicked("happening", happening.id, ctaHref, "primary");
+                window.open(ctaHref, "_blank", "noopener,noreferrer");
+              }}
+            >
+              {ctaLabel}
+            </Button>
+          ) : null}
           {NOTIFY_ME_ENABLED && bookingNotOpenYet ? (
             <NotifyMeButton
               subscribed={notifySubscribed}

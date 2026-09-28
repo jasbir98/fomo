@@ -115,7 +115,7 @@ def safe_get(kind: str, url: str, **kwargs) -> requests.Response | None:
 
 def load_env() -> dict:
     # places and place_photos have no anon/authenticated write policy (see
-    # supabase/lock_pipeline_tables.sql / harden_rls.sql) — only the
+    # supabase/archive/lock_pipeline_tables.sql / harden_rls.sql) — only the
     # service-role key works here, so it's required with no anon fallback.
     env = {
         **dotenv_values(ROOT / "scraper" / ".env"),

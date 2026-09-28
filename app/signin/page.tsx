@@ -180,7 +180,7 @@ function SigninContent() {
           return;
         }
         // Same post-sign-in navigation as the OTP/OAuth paths — the
-        // `on_auth_user_created` DB trigger (supabase/add_auth_identity.sql)
+        // `on_auth_user_created` DB trigger (supabase/archive/add_auth_identity.sql)
         // creates the `profiles` row server-side on first sign-in, same as
         // for OAuth/OTP, so there's nothing else to replicate client-side.
         markPendingSignin("google");

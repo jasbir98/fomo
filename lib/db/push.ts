@@ -5,7 +5,7 @@ import type { Db } from "@/lib/supabase/types";
  *
  * All four functions take a user-scoped `Db` (supabaseServer() from a route
  * handler, or supabaseBrowserAuth() from a client component) so RLS's
- * `own_rows` policies (supabase/add_push_alerts.sql) do the actual identity
+ * `own_rows` policies (supabase/archive/add_push_alerts.sql) do the actual identity
  * scoping — same convention as lib/db/saved.ts. Never pass supabaseAdmin()
  * here; that's reserved for the sender Edge Function, which lives outside
  * this app and reads/writes with the service role directly.

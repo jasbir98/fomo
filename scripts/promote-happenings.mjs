@@ -16,7 +16,7 @@
  * ONE DELIBERATE DEVIATION from promote-places.mjs: this script uses
  * SUPABASE_SERVICE_ROLE_KEY, not the anon key. `happenings`/
  * `happenings_staging`/`happening_sources` have no anon write policy by
- * design (see supabase/add_happenings.sql / supabase/harden_rls.sql) —
+ * design (see supabase/archive/add_happenings.sql / supabase/archive/harden_rls.sql) —
  * unlike `places`/`places_staging`, which the anon role can write to
  * directly, promotion here needs to bypass RLS the same way
  * backfill-trip-geo.mjs does for `trips`.
@@ -28,6 +28,8 @@
  * Requires NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY
  * (server-only, see lib/supabase/admin.ts — never NEXT_PUBLIC_).
  */
+
+import { httpUrlOrNull } from "./lib/http-url.mjs";
 
 function parseArg(name) {
   const flag = `--${name}`;
@@ -132,10 +134,18 @@ const HAPPENINGS_COLUMNS = [
   "verified_at",
 ];
 
+// Staging rows are LLM-extracted from scraped pages — booking_url/source_url
+// aren't validated before landing in happenings_staging, so drop anything
+// that isn't a real http(s) URL here rather than promote it straight
+// through to a column the app hands to window.open/location (see
+// scripts/lib/http-url.mjs and lib/http/safe-url.ts, its app-side twin).
+const URL_COLUMNS = new Set(["booking_url", "source_url"]);
+
 function buildHappeningRow(staging) {
   const row = {};
   for (const col of HAPPENINGS_COLUMNS) {
-    if (staging[col] !== undefined && staging[col] !== null) row[col] = staging[col];
+    if (staging[col] === undefined || staging[col] === null) continue;
+    row[col] = URL_COLUMNS.has(col) ? httpUrlOrNull(staging[col]) : staging[col];
   }
   // A promoted row is, by definition, freshly verified right now.
   row.status = row.status ?? "live";

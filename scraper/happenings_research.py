@@ -148,7 +148,7 @@ MAX_SUBMIT_NUDGES = 2
 
 # Extended per the "What's on" / "Book early" Home sections contract: three
 # kinds added (activity/tour/event) and three categories (wellness/outdoors/
-# tours) — see supabase/add_happenings_booking.sql's vocab note. Still no DB
+# tours) — see supabase/archive/add_happenings_booking.sql's vocab note. Still no DB
 # CHECK; this tuple plus lib/happenings/types.ts's unions are the only
 # enforcement, so the two must be kept in sync by hand.
 KIND_ENUM = ("deal", "free_access", "festival", "activity", "tour", "event")
@@ -907,7 +907,7 @@ def build_full_record(
         print(f"[happenings-research] dropping {label!r}: invalid category {category!r}", file=sys.stderr)
         return None
 
-    # happenings.source_name is NOT NULL in supabase/add_happenings.sql (it's
+    # happenings.source_name is NOT NULL in supabase/archive/add_happenings.sql (it's
     # rendered on every card) even though submit_happenings' own schema
     # doesn't force the model to populate it — enforce it here instead of
     # letting a null slip through to a promotion-time DB error.

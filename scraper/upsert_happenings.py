@@ -18,12 +18,12 @@ Usage:
 
 Requires SUPABASE_URL (or NEXT_PUBLIC_SUPABASE_URL) / SUPABASE_SERVICE_ROLE_KEY
 — happenings_staging has no anon write policy, see
-supabase/lock_pipeline_tables.sql, so upsert_supabase._get_credentials() (reused
+supabase/archive/lock_pipeline_tables.sql, so upsert_supabase._get_credentials() (reused
 here) requires the service-role key and never falls back to anon. IMPORTANT: the
 `Prefer: resolution=merge-duplicates` upsert strategy relies on
 `(batch_id, slug)` having a UNIQUE constraint/index on `happenings_staging`
 in Postgres so PostgREST has an `ON CONFLICT` target (see
-supabase/add_happenings.sql). If you see upsert errors mentioning "there is
+supabase/archive/add_happenings.sql). If you see upsert errors mentioning "there is
 no unique or exclusion constraint", that index is missing.
 """
 

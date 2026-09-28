@@ -22,7 +22,7 @@
  * know that.
  *
  * RATE LIMITED: 5/hour/IP via `consumeAnonRateLimit` (lib/rate-limit.ts →
- * `consume_anon_rate_limit`, supabase/add_anon_rate_limits.sql) — the
+ * `consume_anon_rate_limit`, supabase/archive/add_anon_rate_limits.sql) — the
  * per-user `consumeRateLimit`/`consume_rate_limit` pair can't be reused
  * here since it's keyed on `auth.uid()` and this route has no session at
  * all. Checked after the honeypot (a caught bot never touches the limiter)
@@ -35,7 +35,7 @@
  * Uses the service-role admin client for the insert (not `supabaseServer()`)
  * so the `.select("unsubscribe_token")` after the insert actually returns a
  * row: `email_subscribers` has an INSERT policy but no SELECT policy (see
- * supabase/add_email_subscribers.sql — write-only mailbox by design), so an
+ * supabase/archive/add_email_subscribers.sql — write-only mailbox by design), so an
  * anon/authenticated-scoped insert+select would have the RETURNING clause
  * silently filtered to nothing by RLS. Sent via Resend's REST API directly
  * (RESEND_API_KEY, FOMO_FROM_EMAIL) — both read from `process.env` at call
@@ -201,7 +201,7 @@ function isNonEmptyString(v: unknown): v is string {
  * table doesn't exist" — same shape as lib/db/happenings.ts's
  * isMissingTableError: `42P01` is Postgres's undefined_table code,
  * `PGRST205` is PostgREST's "not found in schema cache" equivalent. The
- * migration (supabase/add_email_subscribers.sql) has to be run by hand in
+ * migration (supabase/archive/add_email_subscribers.sql) has to be run by hand in
  * the Supabase SQL editor, so this route must degrade clearly rather than
  * 500 until that's done.
  */
@@ -262,7 +262,7 @@ export async function POST(request: Request) {
   if (error) {
     if (isUniqueViolation(error)) return NextResponse.json({ ok: true });
     if (isMissingTableError(error)) {
-      console.warn("[api/subscribe] email_subscribers table missing — run supabase/add_email_subscribers.sql");
+      console.warn("[api/subscribe] email_subscribers table missing — run supabase/archive/add_email_subscribers.sql");
       return NextResponse.json(
         { error: "Signups aren't set up yet — try again later" },
         { status: 503 }

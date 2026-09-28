@@ -174,7 +174,36 @@ function pathWithSearch(request: NextRequest): string {
   return `${request.nextUrl.pathname}${request.nextUrl.search}`;
 }
 
+/**
+ * PostHog reverse proxy (instrumentation-client.ts's `api_host: "/ingest"`).
+ * Done here rather than as next.config rewrites so the browser's cookies —
+ * including the Supabase session tokens — are stripped before the request
+ * leaves for posthog.com; a config rewrite forwards every request header
+ * upstream. Returns before any Supabase work, so analytics calls never cost
+ * an auth round trip. EU cloud only (the account's data residency).
+ */
+const POSTHOG_UPSTREAMS: ReadonlyArray<readonly [prefix: string, upstream: string]> = [
+  ["/ingest/static/", "https://eu-assets.i.posthog.com/static/"],
+  ["/ingest/", "https://eu.i.posthog.com/"],
+];
+
+function posthogRewrite(request: NextRequest): NextResponse | null {
+  const { pathname, search } = request.nextUrl;
+  for (const [prefix, upstream] of POSTHOG_UPSTREAMS) {
+    if (!pathname.startsWith(prefix)) continue;
+    const headers = new Headers(request.headers);
+    headers.delete("cookie");
+    return NextResponse.rewrite(new URL(`${pathname.slice(prefix.length)}${search}`, upstream), {
+      request: { headers },
+    });
+  }
+  return null;
+}
+
 export async function proxy(request: NextRequest) {
+  const ingest = posthogRewrite(request);
+  if (ingest) return ingest;
+
   let response = NextResponse.next({ request });
 
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";

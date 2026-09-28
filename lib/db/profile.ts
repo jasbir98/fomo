@@ -1,14 +1,14 @@
 import type { Db } from "@/lib/supabase/types";
 import type { NotificationSettings, PrivacySettings, Profile, ProfileUpdate } from "@/lib/types";
 
-/** Mirrors the column default in supabase/add_profile_settings.sql. */
+/** Mirrors the column default in supabase/archive/add_profile_settings.sql. */
 export const DEFAULT_NOTIFICATION_SETTINGS: NotificationSettings = {
   trip_reminders: true,
   weekly_digest: false,
   ai_suggestions: true,
 };
 
-/** Mirrors the column default in supabase/add_profile_settings.sql. */
+/** Mirrors the column default in supabase/archive/add_profile_settings.sql. */
 export const DEFAULT_PRIVACY_SETTINGS: PrivacySettings = {
   personalized_recommendations: true,
   precise_location: true,
@@ -53,7 +53,7 @@ function safeExtension(file: File): string {
 
 /**
  * Upload the signed-in user's avatar to the `avatars` Storage bucket (see
- * supabase/add_avatars_storage.sql) and return its public URL. Caller is
+ * supabase/archive/add_avatars_storage.sql) and return its public URL. Caller is
  * responsible for saving the URL onto the profile via upsertProfile.
  *
  * The storage key is built entirely from the user id, a timestamp, and a
@@ -63,7 +63,7 @@ function safeExtension(file: File): string {
  * exports) would otherwise produce a broken public URL that silently fails
  * to load.
  *
- * The `${userId}/…` path prefix is what supabase/harden_rls.sql's
+ * The `${userId}/…` path prefix is what supabase/archive/harden_rls.sql's
  * `avatars_own_folder` storage policy checks against
  * `(storage.foldername(name))[1] = auth.uid()::text` — passing anything else
  * here will be rejected by RLS once that migration has run.

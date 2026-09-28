@@ -1,6 +1,6 @@
 // Fomo — onsale-alerts Supabase Edge Function.
 //
-// Invoked every 5 minutes by pg_cron + pg_net (supabase/schedule_onsale_alerts.sql).
+// Invoked every 5 minutes by pg_cron + pg_net (supabase/archive/schedule_onsale_alerts.sql).
 // Finds happenings whose booking just opened (or opens in ~24h) and pushes
 // the right users, per lib/happenings/book-early.ts's rules and this
 // folder's own select.ts (the pure part of this logic — read that file's
@@ -10,7 +10,7 @@
 // Auth: a shared secret header, not Supabase's own JWT verification — this
 // function is invoked by pg_net from inside the same project, not by an
 // end-user session, so there's no user JWT to check. See
-// supabase/schedule_onsale_alerts.sql for how CRON_SECRET is threaded
+// supabase/archive/schedule_onsale_alerts.sql for how CRON_SECRET is threaded
 // through.
 //
 // deno-lint-ignore-file no-explicit-any
@@ -205,7 +205,7 @@ Deno.serve(async (req: Request) => {
     }
 
     // Fast-path skip flag for next run — see the onsale_alerts table's own
-    // doc comment (supabase/add_push_alerts.sql). Best-effort: failing to
+    // doc comment (supabase/archive/add_push_alerts.sql). Best-effort: failing to
     // set this doesn't cause a re-send, since push_notification_log already
     // blocked it above.
     await Promise.all(

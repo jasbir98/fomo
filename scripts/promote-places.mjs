@@ -30,8 +30,8 @@
  * Pass --allow-live-duplicates to turn the guard off.
  *
  * WRITE KEY. `places`, `places_staging`, and `place_sources` all have no
- * anon/authenticated write policy (supabase/harden_rls.sql removed it from
- * `places`; supabase/lock_pipeline_tables.sql removes it from the other two).
+ * anon/authenticated write policy (supabase/archive/harden_rls.sql removed it from
+ * `places`; supabase/archive/lock_pipeline_tables.sql removes it from the other two).
  * SUPABASE_SERVICE_ROLE_KEY is therefore required — this script no longer
  * falls back to the anon key for writes.
  *

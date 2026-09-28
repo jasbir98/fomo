@@ -19,6 +19,7 @@ import { categoryDefaultImage, categoryStyle } from "@/lib/happenings/category-s
 import type { Happening, Occurrence } from "@/lib/happenings/types";
 import { happeningToPreview, prefetchHappening, setHappeningPreview } from "@/lib/happenings/preview-cache";
 import { track, priceBand, trackOutboundClicked } from "@/lib/analytics/track";
+import { safeHttpUrl } from "@/lib/http/safe-url";
 import type { FeedCardSurface } from "./FeedListCard";
 
 export interface HappeningHeroProps {
@@ -64,7 +65,9 @@ export function HappeningHero({ happening, occurrence, variant = "fomo_pick", re
   const badge = savingBadgeLabel(happening);
   const district = happening.district ?? districtFromAddress(happening.address);
   const eligibility = eligibilityLine(happening);
-  const ctaHref = happening.booking_url ?? happening.source_url;
+  // booking_url/source_url come from scrapers/APIs — validate before this
+  // ever reaches an <a href> (see lib/http/safe-url.ts). null hides the CTA.
+  const ctaHref = safeHttpUrl(happening.booking_url ?? happening.source_url);
   const ctaLabel = variant === "book_early" ? "Book now" : (happening.cta_label ?? "Claim Offer");
 
   // Truthful pick label — "Last Chance" implies genuine urgency, so it's
@@ -253,19 +256,21 @@ export function HappeningHero({ happening, occurrence, variant = "fomo_pick", re
           >
             <Icon name="verified" size={15} />
           </span>
-          <a
-            href={ctaHref}
-            target="_blank"
-            rel="noopener noreferrer"
-            onClick={(e) => {
-              e.stopPropagation();
-              trackOutboundClicked("happening", happening.id, ctaHref, variant === "book_early" ? "book_now" : "hero_cta");
-            }}
-            className="flex flex-1 items-center justify-center gap-1 rounded-lg bg-primary px-4 py-2.5 text-label-md font-bold text-on-primary shadow-sm transition-opacity hover:opacity-90 active:scale-95"
-          >
-            {ctaLabel}
-            <Icon name="arrow_forward" size={16} />
-          </a>
+          {ctaHref ? (
+            <a
+              href={ctaHref}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={(e) => {
+                e.stopPropagation();
+                trackOutboundClicked("happening", happening.id, ctaHref, variant === "book_early" ? "book_now" : "hero_cta");
+              }}
+              className="flex flex-1 items-center justify-center gap-1 rounded-lg bg-primary px-4 py-2.5 text-label-md font-bold text-on-primary shadow-sm transition-opacity hover:opacity-90 active:scale-95"
+            >
+              {ctaLabel}
+              <Icon name="arrow_forward" size={16} />
+            </a>
+          ) : null}
         </div>
       </div>
     </NavCard>

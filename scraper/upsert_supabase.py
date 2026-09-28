@@ -21,13 +21,13 @@ SUPABASE_SERVICE_ROLE_KEY commonly already lives for the Next app's
 server-only admin client. See `.env.example`.
 
 WRITE KEY: `scraped_reels` and `social_posts` have no anon/authenticated
-write policy (see supabase/lock_pipeline_tables.sql) — this module requires
+write policy (see supabase/archive/lock_pipeline_tables.sql) — this module requires
 SUPABASE_SERVICE_ROLE_KEY and never falls back to an anon key for writes.
 
 IMPORTANT: the `Prefer: resolution=merge-duplicates` upsert strategy below
 relies on `video_url` having a UNIQUE constraint/index in Postgres so
 PostgREST has an `ON CONFLICT` target. Both `scraped_reels` and
-`social_posts` already have this (see supabase/add_scraped_reels_staging.sql
+`social_posts` already have this (see supabase/archive/add_scraped_reels_staging.sql
 / add_social_video_columns.sql). If you see upsert errors mentioning "there
 is no unique or exclusion constraint", that index is missing on whichever
 table you're targeting.
@@ -70,7 +70,7 @@ def _get_credentials() -> tuple[str, str]:
     """URL + SERVICE-ROLE key for writing scraped_reels / social_posts.
 
     Both tables have no anon/authenticated write policy (see
-    supabase/lock_pipeline_tables.sql), so this never falls back to an anon
+    supabase/archive/lock_pipeline_tables.sql), so this never falls back to an anon
     key — a script running with only an anon key should fail loudly here
     rather than send requests PostgREST will silently 401/403 on.
     """

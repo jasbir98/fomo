@@ -2,7 +2,7 @@
  * Fomo — GET/POST/DELETE /api/alerts
  *
  * The signed-in caller's per-item "Book early" on-sale alerts (onsale_alerts,
- * supabase/add_push_alerts.sql). GET returns the raw happening-id list so
+ * supabase/archive/add_push_alerts.sql). GET returns the raw happening-id list so
  * Home (app/(shell)/page.tsx) can mark a Book Early card's NotifyMeButton as
  * already-subscribed on load, instead of every card resetting to
  * unsubscribed on refresh. POST/DELETE toggle one happening's alert.

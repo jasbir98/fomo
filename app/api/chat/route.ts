@@ -35,10 +35,24 @@ import type { Db } from "@/lib/supabase/types";
 export const runtime = "nodejs";
 
 // Pre-public-deploy abuse guards (rate limiting + input caps) — see
-// lib/rate-limit.ts and supabase/add_rate_limits.sql. Two windows checked
+// lib/rate-limit.ts and supabase/archive/add_rate_limits.sql. Two windows checked
 // per signed-in user: a short burst cap and a generous daily cap.
 const CHAT_RATE_LIMIT_BURST = { limit: 30, windowSeconds: 10 * 60 };
 const CHAT_RATE_LIMIT_DAILY = { limit: 150, windowSeconds: 24 * 60 * 60 };
+
+/**
+ * Chat calls a paid LLM per request, so unlike /api/subscribe and
+ * /api/tips (which keep lib/rate-limit.ts's default fail-open — a broken
+ * limiter must never be the reason someone can't sign up or leave a tip),
+ * every consume*() call below passes `failClosed: CHAT_FAIL_CLOSED`: in
+ * production, an RPC error denies the request (normal 429 "busy" response)
+ * instead of letting an unbounded number of requests through to Anthropic.
+ * Non-production environments keep failing open so local/preview dev isn't
+ * blocked by a migration that hasn't been run there yet. See lib/
+ * rate-limit.ts's module doc comment for the full fail-open/fail-closed
+ * contract.
+ */
+const CHAT_FAIL_CLOSED = process.env.NODE_ENV === "production";
 
 /**
  * Site-wide daily cap across every user, on top of the per-user caps above —
@@ -47,8 +61,9 @@ const CHAT_RATE_LIMIT_DAILY = { limit: 150, windowSeconds: 24 * 60 * 60 };
  * caps). Uses consumeGlobalRateLimit (lib/rate-limit.ts), the same
  * anon/service-role-backed limiter as /api/subscribe and /api/tips, keyed on
  * the fixed string "global" rather than an IP — see supabase/
- * add_anon_rate_limits.sql. Same fail-open behaviour until that migration
- * is applied.
+ * add_anon_rate_limits.sql. Fails closed in production like the per-user
+ * checks above (CHAT_FAIL_CLOSED), unlike /api/subscribe and /api/tips's
+ * own calls to the same underlying limiter.
  */
 const CHAT_GLOBAL_DAILY_LIMIT = { limit: 1500, windowSeconds: 24 * 60 * 60 };
 
@@ -396,22 +411,23 @@ export async function POST(req: Request): Promise<Response> {
   const who = parseWhoGroups(user.user_metadata);
 
   // Rate limit — burst window first, then daily; either exceeded denies the
-  // request. Fails open (lets the request through) until
-  // supabase/add_rate_limits.sql has been run — see lib/rate-limit.ts.
-  // Checked before the site-wide backstop below so a user already past
-  // their own limit is denied without also consuming a slot from the
-  // shared global counter (a signed-in-but-over-limit user has an identity
-  // to rate limit on, so their own check is the cheaper/more specific one).
-  const burst = await consumeRateLimit(db, "chat:burst", CHAT_RATE_LIMIT_BURST);
+  // request. In production, an RPC error (missing migration, network blip,
+  // ...) also denies — see CHAT_FAIL_CLOSED and lib/rate-limit.ts's module
+  // doc comment. Checked before the site-wide backstop below so a user
+  // already past their own limit is denied without also consuming a slot
+  // from the shared global counter (a signed-in-but-over-limit user has an
+  // identity to rate limit on, so their own check is the cheaper/more
+  // specific one).
+  const burst = await consumeRateLimit(db, "chat:burst", { ...CHAT_RATE_LIMIT_BURST, failClosed: CHAT_FAIL_CLOSED });
   if (!burst.allowed) return rateLimitedResponse(burst);
-  const daily = await consumeRateLimit(db, "chat:day", CHAT_RATE_LIMIT_DAILY);
+  const daily = await consumeRateLimit(db, "chat:day", { ...CHAT_RATE_LIMIT_DAILY, failClosed: CHAT_FAIL_CLOSED });
   if (!daily.allowed) return rateLimitedResponse(daily);
 
   // Site-wide backstop, last — see CHAT_GLOBAL_DAILY_LIMIT's doc comment.
   // Deliberately after the per-user checks above: consuming this shared
   // counter is only meaningful for a request that has already cleared its
   // own per-user limits.
-  const global = await consumeGlobalRateLimit("chat:global-day", CHAT_GLOBAL_DAILY_LIMIT);
+  const global = await consumeGlobalRateLimit("chat:global-day", { ...CHAT_GLOBAL_DAILY_LIMIT, failClosed: CHAT_FAIL_CLOSED });
   if (!global.allowed) {
     return anonRateLimitedResponse(
       "Fomo's really busy right now — please try again tomorrow.",

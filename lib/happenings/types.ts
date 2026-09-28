@@ -16,7 +16,7 @@
  *  usually free, not framed as a discount), `tour` (walking tours, tip-based or
  *  ticketed), `event` (dated one-offs/festivals that are neither a deal nor
  *  free-access — gigs, Murrayfield fixtures, ticketed festival strands). See
- *  supabase/add_happenings_booking.sql for the DB-side note — still no CHECK
+ *  supabase/archive/add_happenings_booking.sql for the DB-side note — still no CHECK
  *  constraint, this union is the only enforcement. */
 export type HappeningKind =
   | "deal"
@@ -62,7 +62,7 @@ export type HappeningConfidence = "low" | "medium" | "high";
 /** How likely/fast a bookable happening (mostly `kind: "event"` / `"tour"` /
  *  `"festival"`) sells out. Null means no sell-out evidence was found — NOT
  *  low risk; never inferred, only ever set alongside a sourced `sellout_note`.
- *  See supabase/add_happenings_booking.sql. */
+ *  See supabase/archive/add_happenings_booking.sql. */
 export type SelloutRisk = "high" | "medium" | "low";
 
 /** 0 = Sunday, matching `Date.prototype.getUTCDay()`. */
@@ -87,7 +87,7 @@ export type Recurrence =
   | { type: "annual"; month: number; day: number; endDay?: number; until?: string }
   | { type: "dates"; dates: string[] };
 
-/** Mirrors the `happenings` table in supabase/add_happenings.sql. */
+/** Mirrors the `happenings` table in supabase/archive/add_happenings.sql. */
 export interface Happening {
   id: string;
   slug: string;

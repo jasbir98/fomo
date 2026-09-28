@@ -30,8 +30,8 @@ goes into the Edge Function's own secrets (step 5).
 ## 3. Run the migrations, in this order
 
 ```
-1. supabase/add_happenings_booking.sql   (adds booking_opens_at / sellout_risk / sellout_note)
-2. supabase/add_push_alerts.sql          (push_subscriptions, onsale_alerts, push_notification_log,
+1. supabase/archive/add_happenings_booking.sql   (adds booking_opens_at / sellout_risk / sellout_note)
+2. supabase/archive/add_push_alerts.sql          (push_subscriptions, onsale_alerts, push_notification_log,
                                            profiles.big_onsale_alerts)
 ```
 
@@ -62,7 +62,7 @@ Edge Function automatically — don't set those yourself.
 
 ## 6. Schedule the sender
 
-Open `supabase/schedule_onsale_alerts.sql`, replace
+Open `supabase/archive/schedule_onsale_alerts.sql`, replace
 `https://<YOUR-PROJECT-REF>.supabase.co/functions/v1/onsale-alerts` with your
 project's real function URL, and run it. It uses Supabase Vault to store
 `CRON_SECRET` server-side rather than inline — follow the one-time
@@ -152,7 +152,7 @@ exercised, because it requires the deploy this task explicitly avoids:
   report — but `supabase functions deploy` / `serve` was not).
 - `pg_cron` + `pg_net` actually firing the scheduled job.
 - RLS behavior against a real authenticated session (reasoned through
-  against `supabase/harden_rls.sql`'s existing `own_rows` pattern, not run).
+  against `supabase/archive/harden_rls.sql`'s existing `own_rows` pattern, not run).
 
 The pure selection/dedupe logic in
 `supabase/functions/onsale-alerts/select.ts` **was** unit-checked with

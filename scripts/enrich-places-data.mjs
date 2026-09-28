@@ -2,7 +2,7 @@
 /**
  * enrich-places-data.mjs — one-off (but idempotent/re-runnable) enrichment
  * pass over `places` that backfills two columns added by
- * `supabase/add_places_ranking_signals.sql` but never populated:
+ * `supabase/archive/add_places_ranking_signals.sql` but never populated:
  *
  *   1. image_quality  ('ok' | 'thin' | 'none') — hero-eligibility gate.
  *      Card.tsx requires 'ok' before it will render a photo hero; with
@@ -34,7 +34,7 @@
  * Requires NEXT_PUBLIC_SUPABASE_URL and either SUPABASE_SERVICE_ROLE_KEY
  * (preferred, bypasses RLS) or NEXT_PUBLIC_SUPABASE_ANON_KEY (fallback —
  * works here because `places` has an anon_write policy, see
- * supabase/add_places_columns.sql).
+ * supabase/archive/add_places_columns.sql).
  */
 
 import sharp from "sharp";

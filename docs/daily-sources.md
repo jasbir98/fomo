@@ -3,7 +3,7 @@
 `scripts/daily-sources.mjs` proactively crawls four free, public Edinburgh
 event listing pages and pulls two provider APIs (Skiddle, Ticketmaster) once
 a day, and upserts normalized rows into the shared `events` table — the same
-table Skiddle/Ticketmaster cache into (`supabase/add_events.sql`), keyed on
+table Skiddle/Ticketmaster cache into (`supabase/archive/add_events.sql`), keyed on
 `(provider, provider_event_id)`.
 
 ## Why

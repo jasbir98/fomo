@@ -4,7 +4,7 @@ upsert_places.py — upserts validated place records (any country) into
 places_staging via Supabase REST. It does not write directly to `places`.
 
 WRITE KEY: places_staging has no anon/authenticated write policy (see
-supabase/lock_pipeline_tables.sql) — this script requires
+supabase/archive/lock_pipeline_tables.sql) — this script requires
 SUPABASE_SERVICE_ROLE_KEY and never falls back to an anon key.
 """
 
@@ -61,7 +61,7 @@ ALLOWED_COLUMNS = {
 
 def _get_credentials() -> tuple[str, str]:
     """URL + SERVICE-ROLE key. places_staging has no anon write policy (see
-    supabase/lock_pipeline_tables.sql), so this never falls back to an anon
+    supabase/archive/lock_pipeline_tables.sql), so this never falls back to an anon
     key — fail loudly instead of letting PostgREST 401/403 mid-run."""
     supabase_url = (
         os.environ.get("SUPABASE_URL", "").strip()

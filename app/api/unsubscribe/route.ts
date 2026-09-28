@@ -34,7 +34,7 @@
  *
  * Uses the service-role admin client (lib/supabase/admin.ts) — the same
  * "write-only mailbox" table `email_subscribers` has no anon UPDATE policy
- * (see supabase/add_email_subscribers.sql), by design: nobody signed out
+ * (see supabase/archive/add_email_subscribers.sql), by design: nobody signed out
  * should be able to flip unsubscribed_at on an arbitrary row via a guessed
  * id, only via a real 122-bit token match.
  */
@@ -48,7 +48,7 @@ const NEUTRAL_MESSAGE = "You're unsubscribed. You won't get any more Fomo Friday
 
 // Matches any RFC 4122 UUID (all versions/variants) — the exact shape
 // `unsubscribe_token` is generated as (`gen_random_uuid()`,
-// supabase/add_email_subscribers.sql).
+// supabase/archive/add_email_subscribers.sql).
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 function isValidToken(token: string | null): token is string {

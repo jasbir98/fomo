@@ -9,7 +9,7 @@
  * this account, not just Fomo Friday.
  *
  * Storage: every verified event is written to `email_events`
- * (supabase/add_email_events.sql) — a plain append-only log for later
+ * (supabase/archive/add_email_events.sql) — a plain append-only log for later
  * debugging/analytics, never read by any other route today.
  *
  * Suppression: on `email.bounced` (hard/permanent only — a soft/transient
@@ -75,7 +75,7 @@ function isHardBounce(data: Record<string, unknown>): boolean {
   return true;
 }
 
-/** True for a PostgREST/Postgres "table doesn't exist" error — supabase/add_email_events.sql hasn't been run yet. Same shape as every other route's isMissingTableError. */
+/** True for a PostgREST/Postgres "table doesn't exist" error — supabase/archive/add_email_events.sql hasn't been run yet. Same shape as every other route's isMissingTableError. */
 function isMissingTableError(err: unknown): boolean {
   const e = err as { code?: string; message?: string } | null;
   if (!e) return false;
@@ -132,7 +132,7 @@ export async function POST(request: Request) {
   });
   if (insertError) {
     if (isMissingTableError(insertError)) {
-      console.warn("[api/resend/webhook] email_events table missing — run supabase/add_email_events.sql");
+      console.warn("[api/resend/webhook] email_events table missing — run supabase/archive/add_email_events.sql");
     } else {
       console.error("[api/resend/webhook] failed to store event", insertError);
     }

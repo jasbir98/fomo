@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import { supabaseBrowserAuth } from "@/lib/supabase/client";
 import { buildAskFomoHref } from "@/lib/chat-seed";
 import { directionsUrlFor } from "@/lib/maps/links";
+import { safeHttpUrl } from "@/lib/http/safe-url";
 import { getEvent } from "@/lib/db";
 import { useSaved } from "@/lib/useSaved";
 import { categoryDefaultImage } from "@/lib/happenings/category-style";
@@ -192,6 +193,10 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
   }
 
   const directionsUrl = directionsUrlFor({ lat: event.lat, lng: event.lng, query: event.address ?? event.venue_name ?? event.name });
+  // ticket_url comes from Skiddle/Ticketmaster/JSON-LD scraping — validate
+  // before it reaches an <a href> (see lib/http/safe-url.ts). A rejected
+  // value falls through to the directions link, same as no ticket_url at all.
+  const safeTicketUrl = safeHttpUrl(event.ticket_url);
   const price = formatEventPrice(event);
   // Event has a single image_url, no place_photos-style gallery — one-item
   // array reuses PhotoCarousel's existing placeholder-when-empty behavior
@@ -339,12 +344,12 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
       {/* Sticky bottom actions */}
       <div className="sticky bottom-[calc(64px+env(safe-area-inset-bottom))] z-30 flex flex-col gap-2 border-t border-outline-variant/40 bg-surface-container-lowest/95 px-5 py-4 backdrop-blur-md shadow-[0_-4px_16px_rgba(3,22,50,0.08)]">
         <div className="flex gap-3">
-          {event.ticket_url ? (
+          {safeTicketUrl ? (
             <a
-              href={event.ticket_url}
+              href={safeTicketUrl}
               target="_blank"
               rel="noopener noreferrer"
-              onClick={() => trackOutboundClicked("event", event.id, event.ticket_url, "get_tickets")}
+              onClick={() => trackOutboundClicked("event", event.id, safeTicketUrl, "get_tickets")}
               className="flex min-h-[48px] flex-1 items-center justify-center gap-2 rounded-xl bg-secondary-container px-4 text-label-md font-semibold text-on-secondary-container shadow-sm transition-opacity hover:opacity-90"
             >
               <Icon name="confirmation_number" size={18} />

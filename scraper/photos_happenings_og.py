@@ -8,7 +8,7 @@ These are NOT openly-licensed photos like scraper/photos_wikimedia.py's —
 they're the source's own promotional/social-share image, used the same way
 any link-preview card would. `happenings.image_quality` is deliberately
 left at its 'thin' default here regardless of the image's actual size (see
-the comment on that column in supabase/add_happenings.sql: happenings are
+the comment on that column in supabase/archive/add_happenings.sql: happenings are
 a value-prop chip and must never win the Home ranker's photo-hero slot —
 setting 'ok' would defeat that on-purpose design and is never done here).
 
@@ -306,7 +306,7 @@ def main() -> None:
             "og:image URLs are the publisher's own promotional/social-share images, "
             "not openly-licensed photos. image_quality is deliberately left at 'thin' "
             "so happenings never win the Home ranker's photo-hero slot (see "
-            "supabase/add_happenings.sql's comment on image_quality)."
+            "supabase/archive/add_happenings.sql's comment on image_quality)."
         ),
     }
     out_path = OUT_DIR / ("happenings_dry_run.json" if args.dry_run else "happenings_report.json")

@@ -126,7 +126,7 @@ async function findExpiredOnceRows() {
 
 // Season-bound rows (festival concessions etc.) are usually "always" rows
 // with no ends_at, so the one-off rule above never sees them. Returns null
-// when supabase/add_season_valid_until.sql hasn't been run yet, so the sweep
+// when supabase/archive/add_season_valid_until.sql hasn't been run yet, so the sweep
 // keeps working without the column.
 async function findPastSeasonRows() {
   const today = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/London" }).format(new Date());

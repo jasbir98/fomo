@@ -107,6 +107,7 @@ import {
   isMidnightUtcSentinel,
   extractMetaDescription,
 } from "./lib/describe.mjs";
+import { httpUrlOrNull } from "./lib/http-url.mjs";
 
 if (process.argv.includes("--help") || process.argv.includes("-h")) {
   console.log(`Usage: node --env-file=.env.local scripts/daily-sources.mjs [options]
@@ -638,8 +639,12 @@ function mapJsonLdEvent(obj, { provider, pageUrl, destination, now }) {
     name,
     description: cleanDescription(obj.description, { title: name, venueName }),
     category: categoryFromTypes(types),
-    image_url: pickImage(obj.image),
-    ticket_url: eventUrl,
+    // JSON-LD's `obj.url`/`obj.image` are untrusted third-party page
+    // content — drop anything that isn't http(s) before it lands in the DB
+    // (see scripts/lib/http-url.mjs; app-side readers also validate, but a
+    // clean DB is the first line of defence).
+    image_url: httpUrlOrNull(pickImage(obj.image)),
+    ticket_url: httpUrlOrNull(eventUrl),
     starts_at: startsAt.toISOString(),
     ends_at: endsAt && !Number.isNaN(endsAt.getTime()) ? endsAt.toISOString() : null,
     venue_name: venueName,
@@ -1124,7 +1129,7 @@ function mapVenueRssItem(item, { provider, feedUrl, destination, now, venue, cat
     description: cleanDescription(item.description, { title: name, venueName: venue.venue_name }),
     category: mappedCategory,
     image_url: null, // RSS <item> carries no reliable photo (no enclosure/media tag on this feed)
-    ticket_url: eventUrl,
+    ticket_url: httpUrlOrNull(eventUrl),
     starts_at: startsAt.toISOString(),
     ends_at: null,
     venue_name: venue.venue_name,
@@ -1339,8 +1344,10 @@ function mapSkiddleEvent(event, { destination, now }) {
     name: event.eventname,
     description: cleanDescription(event.description, { title: event.eventname, venueName: event.venue?.name }),
     category: categoryFromSkiddleCode(event.eventcode),
-    image_url: realSkiddleImage(event.largeimageurl) ?? realSkiddleImage(event.imageurl),
-    ticket_url: event.link ?? event.admin?.link ?? null,
+    // Skiddle API fields — drop anything that isn't http(s) before it lands
+    // in the DB (see scripts/lib/http-url.mjs).
+    image_url: httpUrlOrNull(realSkiddleImage(event.largeimageurl) ?? realSkiddleImage(event.imageurl)),
+    ticket_url: httpUrlOrNull(event.link ?? event.admin?.link ?? null),
     starts_at,
     ends_at,
     venue_name: event.venue?.name ?? null,
@@ -1513,8 +1520,10 @@ function mapTicketmasterEvent(event, { destination, now }) {
     name: event.name,
     description: bestTicketmasterDescription(event, { title: event.name }),
     category: categoryFromTicketmasterSegment(segmentName),
-    image_url: pickTmImage(event.images),
-    ticket_url: event.url ?? null,
+    // Ticketmaster API fields — drop anything that isn't http(s) before it
+    // lands in the DB (see scripts/lib/http-url.mjs).
+    image_url: httpUrlOrNull(pickTmImage(event.images)),
+    ticket_url: httpUrlOrNull(event.url ?? null),
     starts_at,
     ends_at: null,
     venue_name: venue?.name ?? null,

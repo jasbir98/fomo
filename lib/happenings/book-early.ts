@@ -204,7 +204,7 @@ export function rankBookEarly(cards: BookEarlyCardData[]): BookEarlyCardData[] {
 }
 
 // ---------------------------------------------------------------------------
-// "Notify me" — wired to real web push (supabase/add_push_alerts.sql,
+// "Notify me" — wired to real web push (supabase/archive/add_push_alerts.sql,
 // lib/push/client.ts, components/happenings/BookEarlyCard.tsx). Gated on
 // NEXT_PUBLIC_VAPID_PUBLIC_KEY being set rather than a hardcoded boolean:
 // the affordance is meaningless before a VAPID keypair exists (subscribing

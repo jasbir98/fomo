@@ -25,7 +25,7 @@
  * All tips are stored with status 'new' and go to review before publishing.
  *
  * RATE LIMITED: 10/hour/IP via `consumeAnonRateLimit` (lib/rate-limit.ts →
- * `consume_anon_rate_limit`, supabase/add_anon_rate_limits.sql) — same
+ * `consume_anon_rate_limit`, supabase/archive/add_anon_rate_limits.sql) — same
  * scheme as /api/subscribe, since this route also has no session to key a
  * per-user limit on. Checked after the honeypot, before field validation.
  * Fails open until that migration is applied — see lib/rate-limit.ts's file
@@ -34,6 +34,7 @@
 import "server-only";
 import { NextResponse } from "next/server";
 import { supabaseServer } from "@/lib/supabase/server";
+import { supabaseAdmin } from "@/lib/supabase/admin";
 import type { Db } from "@/lib/supabase/types";
 import { consumeAnonRateLimit, anonRateLimitedResponse } from "@/lib/rate-limit";
 
@@ -149,14 +150,17 @@ export async function POST(request: Request) {
     contact_email = body.contact_email.trim().toLowerCase();
   }
 
-  // Get the current user if signed in.
-  const db: Db = await supabaseServer();
+  // Get the current user if signed in (cookie session, RLS-scoped client).
   const {
     data: { user },
-  } = await db.auth.getUser();
+  } = await (await supabaseServer()).auth.getUser();
   const user_id = user?.id ?? null;
 
-  // Insert the tip with status 'new' and no review_note.
+  // Insert with the service role: tips has no public insert policy
+  // (supabase/tighten_public_inserts.sql), so this route — with its rate
+  // limit, honeypot and validation above — is the only way in. status and
+  // review_note are fixed here, and user_id only ever comes from the session.
+  const db: Db = supabaseAdmin();
   const { error } = await db.from("tips").insert({
     title,
     url,
@@ -172,7 +176,7 @@ export async function POST(request: Request) {
 
   if (error) {
     if (isMissingTableError(error)) {
-      console.warn("[api/tips] tips table missing — run supabase/add_tips.sql");
+      console.warn("[api/tips] tips table missing — run supabase/archive/add_tips.sql");
       return NextResponse.json(
         { error: "Tips aren't set up yet — try again later" },
         { status: 503 }

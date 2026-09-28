@@ -9,7 +9,7 @@ import type { Happening } from "@/lib/happenings/types";
  * (or `happening_sources`) doesn't exist" — `42P01` is Postgres's own
  * undefined_table code, `PGRST205` is PostgREST's "not found in schema
  * cache" code for the same situation. The pipeline that runs
- * supabase/add_happenings.sql may not have been run yet in every
+ * supabase/archive/add_happenings.sql may not have been run yet in every
  * environment, and even after it has, the feed must never 500 the whole
  * Home page over a catalog table that simply has nothing in it yet — see
  * this file's module doc and the feed route's own doc comment.
@@ -25,7 +25,7 @@ function isMissingTableError(err: unknown): boolean {
  * Live happenings that apply in `city` — venue/city rows scoped to the city
  * itself, PLUS region rows for the city's region and national rows
  * regardless of city, per the `scope` doc comment in
- * supabase/add_happenings.sql (a `city = null` national/region row must not
+ * supabase/archive/add_happenings.sql (a `city = null` national/region row must not
  * be dropped by a naive `city.eq` filter, or "National Cinema Weekend" and
  * "Doors Open Days" never render on an Edinburgh page).
  *
@@ -55,7 +55,7 @@ export async function listLiveHappenings(db: Db, city: CityConfig = CITY): Promi
  * True once a season-bound row (festival concessions etc.) is past its
  * `season_valid_until` in the city's own calendar day. Filtered in JS rather
  * than in the query so the read keeps working before
- * supabase/add_season_valid_until.sql has been run (the column is then just
+ * supabase/archive/add_season_valid_until.sql has been run (the column is then just
  * absent from `select *`, and every row passes).
  */
 function isPastSeason(h: Happening, timeZone: string): boolean {

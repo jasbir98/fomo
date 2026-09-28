@@ -30,7 +30,7 @@ export default function ProfilePage() {
   const [securityOpen, setSecurityOpen] = useState(false);
   const prefs = usePrefs();
   const [mfyOpen, setMfyOpen] = useState(false);
-  // "Big on-sale alerts" (supabase/add_push_alerts.sql) — a top-level
+  // "Big on-sale alerts" (supabase/archive/add_push_alerts.sql) — a top-level
   // profiles column, not part of notification_settings (see that
   // migration's own doc comment for why). Toggling it on ensures a push
   // subscription exists for this device before saving, since the setting is

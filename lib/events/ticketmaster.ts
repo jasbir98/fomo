@@ -79,7 +79,7 @@ function mapEvent(event: TmEvent, destination: string): MappedEvent | null {
     lng: lng != null && Number.isFinite(lng) ? lng : null,
     city: venue?.city?.name ?? null,
     // Explicitly set (even when null) — never rely on the `events` table's
-    // lack of a `country` default; see supabase/add_events.sql.
+    // lack of a `country` default; see supabase/archive/add_events.sql.
     country: venue?.country?.countryCode ?? null,
     is_free: null, // Discovery v2 doesn't reliably flag free events
     price_from: typeof price?.min === "number" ? price.min : null,

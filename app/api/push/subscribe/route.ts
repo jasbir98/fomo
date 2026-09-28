@@ -8,7 +8,7 @@
  * Session gate: proxy.ts already 401s any /api/* request with no user;
  * the explicit check below is belt-and-braces, matching every other route
  * in this app (see app/api/saved/route.ts). RLS's `own_rows` policy on
- * push_subscriptions (supabase/add_push_alerts.sql) is the real scoping —
+ * push_subscriptions (supabase/archive/add_push_alerts.sql) is the real scoping —
  * this route can't write another user's row even if it tried.
  */
 import "server-only";

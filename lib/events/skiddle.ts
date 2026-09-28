@@ -28,7 +28,7 @@ export interface MappedEvent {
   city: string | null;
   // Explicitly set (even when null) so this always overrides the `events`
   // table's lack of a `country` default correctly — see the comment at the
-  // top of supabase/add_events.sql for why this column has NO default.
+  // top of supabase/archive/add_events.sql for why this column has NO default.
   country: string | null;
   is_free: boolean | null;
   price_from: number | null;

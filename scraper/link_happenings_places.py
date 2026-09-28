@@ -7,7 +7,7 @@ make directly against live `happenings` (never `happenings_staging`'s content
 columns, never `places`) — see the task brief this script was written for.
 
 Why this exists: `happenings.place_id uuid references places(id)` has
-existed since supabase/add_happenings.sql but was never backfilled — all 18
+existed since supabase/archive/add_happenings.sql but was never backfilled — all 18
 live rows have it null. Linking it lets the app join a happening onto its
 place page (so e.g. Camera Obscura's resident discount shows up on Camera
 Obscura's own place page) instead of the happening floating unattached.

@@ -31,8 +31,8 @@ npm install
 
 In the Supabase dashboard → **SQL Editor**, run the files in order (details in [`supabase/README.md`](supabase/README.md)):
 
-1. Paste and run [`supabase/schema.sql`](supabase/schema.sql) — creates tables, RLS policies, and indexes.
-2. Paste and run [`supabase/seed.sql`](supabase/seed.sql) — populates read-only `places` and `social_posts` with Edinburgh data.
+1. Paste and run [`supabase/archive/schema.sql`](supabase/archive/schema.sql) — creates tables, RLS policies, and indexes.
+2. Paste and run [`supabase/archive/seed.sql`](supabase/archive/seed.sql) — populates read-only `places` and `social_posts` with Edinburgh data.
 
 ### 3. Add your credentials
 
@@ -125,7 +125,7 @@ npx eslint .    # lint (0 problems expected)
 
 ## Deploy (Vercel-ready, optional)
 
-Import the repo in Vercel, set the environment variables (`NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `ANTHROPIC_API_KEY`, `NEXT_PUBLIC_MAPBOX_TOKEN`, `GOOGLE_PLACES_API_KEY`, and optional event API keys), and deploy. Run `supabase/schema.sql` + `seed.sql` against your project first.
+Import the repo in Vercel, set the environment variables (`NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `ANTHROPIC_API_KEY`, `NEXT_PUBLIC_MAPBOX_TOKEN`, `GOOGLE_PLACES_API_KEY`, and optional event API keys), and deploy. Run `supabase/archive/schema.sql` + `seed.sql` against your project first.
 
 ## Notes & limitations (v0)
 
