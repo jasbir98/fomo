@@ -9,6 +9,8 @@ import { HappeningHero } from "./HappeningHero";
 import type { FeedHeroCard } from "@/lib/happenings/feed-types";
 import type { EventItem } from "@/lib/types";
 import { eventToPreview, prefetchEvent, setEventPreview } from "@/lib/events/preview-cache";
+import { track, priceBand } from "@/lib/analytics/track";
+import type { FeedCardSurface } from "./FeedListCard";
 
 export interface FeedHeroProps {
   card: FeedHeroCard;
@@ -17,6 +19,8 @@ export interface FeedHeroProps {
    *  happening card (see app/api/feed/route.ts's `heroKind`), never an
    *  event one. */
   variant?: "fomo_pick" | "book_early";
+  /** `card_opened`'s `surface` — this is always Home's hero slot, so callers pass "home_whats_on" (or "book_early" for the Book Early tab's own hero). */
+  surface?: FeedCardSurface;
 }
 
 /**
@@ -27,14 +31,22 @@ export interface FeedHeroProps {
  * exist on an `EventItem`. Both variants carry the same `reason` eyebrow
  * pill from the recommendation score (lib/happenings/hero.ts).
  */
-export function FeedHero({ card, variant = "fomo_pick" }: FeedHeroProps) {
+export function FeedHero({ card, variant = "fomo_pick", surface }: FeedHeroProps) {
   if (card.kind === "happening") {
-    return <HappeningHero happening={card.happening} occurrence={card.occurrence} variant={variant} reason={card.reason} />;
+    return (
+      <HappeningHero
+        happening={card.happening}
+        occurrence={card.occurrence}
+        variant={variant}
+        reason={card.reason}
+        surface={surface}
+      />
+    );
   }
-  return <EventHero event={card.event} reason={card.reason} />;
+  return <EventHero event={card.event} reason={card.reason} surface={surface} />;
 }
 
-function EventHero({ event, reason }: { event: EventItem; reason: string | null }) {
+function EventHero({ event, reason, surface }: { event: EventItem; reason: string | null; surface?: FeedCardSurface }) {
   const [imgError, setImgError] = useState(false);
   const router = useRouter();
 
@@ -43,12 +55,17 @@ function EventHero({ event, reason }: { event: EventItem; reason: string | null 
   const eventTime = formatEventTimeSpan(event.starts_at, event.ends_at);
   const heroImage = event.image_url && !imgError ? event.image_url : categoryDefaultImage(null);
 
+  function trackOpen() {
+    track("card_opened", { kind: "event", id: event.id, source: "event", surface, position: 0, price_band: priceBand(event.is_free) });
+  }
+
   function goToEvent(e: React.MouseEvent | React.KeyboardEvent) {
     e.stopPropagation();
     // This button calls `stopPropagation`, so the click never reaches the
     // NavCard's own `onNavigate` below — write the preview here too, same
     // as that would have.
     setEventPreview(event.id, eventToPreview(event, { priceLabel: price, whenLabel: formatEventWhen(event.starts_at, event.ends_at) }));
+    trackOpen();
     router.push(`/event/${event.id}`);
   }
 
@@ -57,9 +74,10 @@ function EventHero({ event, reason }: { event: EventItem; reason: string | null 
       href={`/event/${event.id}`}
       ariaLabel={event.name}
       onPointerDown={() => prefetchEvent(event.id)}
-      onNavigate={() =>
-        setEventPreview(event.id, eventToPreview(event, { priceLabel: price, whenLabel: formatEventWhen(event.starts_at, event.ends_at) }))
-      }
+      onNavigate={() => {
+        setEventPreview(event.id, eventToPreview(event, { priceLabel: price, whenLabel: formatEventWhen(event.starts_at, event.ends_at) }));
+        trackOpen();
+      }}
       className="relative flex flex-col overflow-hidden rounded-3xl bg-surface-container-lowest shadow-level-3 cursor-pointer"
     >
       <div className="relative h-40 w-full shrink-0 overflow-hidden bg-surface-container">

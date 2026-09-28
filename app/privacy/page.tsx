@@ -4,8 +4,9 @@
 // compliance — have a solicitor (or a service like Termly/iubenda) review
 // the filled-in copy before launch. The bullet points describing what data
 // this app collects were derived by reading the actual code (see each
-// section's inline source references below) as of 2026-09-26; re-check them
-// whenever a new data-collecting feature ships.
+// section's inline source references below) as of 2026-09-28 (PostHog
+// analytics added); re-check them whenever a new data-collecting feature
+// ships.
 
 import Link from "next/link";
 import { PageHeader } from "@/components/ui";
@@ -30,7 +31,7 @@ export default function PrivacyPage() {
     <div className="flex min-h-dvh w-full flex-col bg-background pb-safe">
       <PageHeader title="Privacy Policy" showBack />
       <main className="mx-auto flex w-full max-w-sm flex-1 flex-col gap-6 px-5 pb-12">
-        <p className="text-label-sm text-on-surface-variant">Last updated 26 September 2026.</p>
+        <p className="text-label-sm text-on-surface-variant">Last updated 28 September 2026.</p>
 
         <Section title="Who we are">
           <p>
@@ -86,17 +87,28 @@ export default function PrivacyPage() {
               follow up or add it.
             </li>
             <li>
-              <strong>Anonymous usage analytics.</strong>{" "}We use Vercel Analytics, which counts page
-              views without cookies and without identifying you personally.
+              <strong>Product analytics.</strong>{" "}We use Vercel Analytics (page views, no cookies, no
+              personal identification) and PostHog, hosted in the EU, to understand how people use
+              Fomo — which pages and features get used, session recordings with every input masked, and
+              (via a survey pop-up) feedback you choose to give us. PostHog only starts saving anything
+              across visits once you accept the cookie banner (see &ldquo;Cookies&rdquo; below); before
+              that, or if you decline, nothing is written to your device. If you&rsquo;re signed in, the
+              events PostHog records are linked to your account status (student/working, budget,
+              whether you&rsquo;ve set preferences) so we can see which features matter to which kind of
+              visitor — never your email or chat content.
             </li>
           </ul>
         </Section>
 
         <Section title="Cookies">
           <p>
-            We use one type of cookie: the authentication cookie our auth provider (Supabase) sets to
-            keep you signed in. It&rsquo;s essential to the service — without it, you&rsquo;d have to
-            sign in again on every page. We don&rsquo;t use advertising or tracking cookies.
+            We use two kinds of cookies. The authentication cookie our auth provider (Supabase) sets to
+            keep you signed in is essential to the service — without it, you&rsquo;d have to sign in
+            again on every page, and it isn&rsquo;t something you can opt out of. The second is
+            PostHog&rsquo;s analytics cookie, which only gets set once you tap &ldquo;OK&rdquo; on the
+            cookie bar at the bottom of the screen; tapping &ldquo;No thanks&rdquo; means nothing is
+            stored on your device for analytics, and you won&rsquo;t be asked again either way. We
+            don&rsquo;t use advertising or third-party tracking cookies.
           </p>
         </Section>
 
@@ -114,7 +126,8 @@ export default function PrivacyPage() {
           <p>
             We share data with the processors that make the app work: Supabase (hosting, database,
             authentication), our AI provider (DeepSeek, or Anthropic) for Ask Fomo replies, Vercel
-            (hosting and anonymous analytics), and — if you book something through the app — the
+            (hosting, anonymous analytics and performance monitoring), PostHog (EU-hosted product
+            analytics, session replay and surveys), and — if you book something through the app — the
             relevant booking partner (e.g. Viator). We don&rsquo;t sell your data, and we don&rsquo;t
             share it for third-party advertising.
           </p>

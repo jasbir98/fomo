@@ -10,6 +10,7 @@ import { ensurePushSubscribed, pushReasonMessage } from "@/lib/push/client";
 import { NotifyMeButton } from "./NotifyMeButton";
 import { happeningToPreview, prefetchHappening, setHappeningPreview } from "@/lib/happenings/preview-cache";
 import { eventToPreview, prefetchEvent, setEventPreview } from "@/lib/events/preview-cache";
+import { track, priceBand, trackOutboundClicked } from "@/lib/analytics/track";
 
 /** Leading thumbnail — same convention as FeedListCard's: the subject's own
  *  `image_url`, else a bundled per-category default. Larger than the list
@@ -30,6 +31,8 @@ export interface BookEarlyCardProps {
    *  the button renders correctly subscribed on load instead of resetting
    *  to "Notify me" every refresh. Defaults to false for any other caller. */
   initialSubscribed?: boolean;
+  /** 0-based index within its list — `card_opened`'s `position`. `surface` is always "book_early" (Home's Book early tab and the dedicated /book-early page both render this same card), so it isn't a prop. */
+  position?: number;
 }
 
 /** Small filled pill for the tier label ("Just on sale" / "Tickets open 1 Oct" / "On sale now") — same visual weight as FeedListCard's TypeTag, distinct component since Book Early's label is a full sentence fragment, not a short type tag. */
@@ -50,7 +53,7 @@ function TierPill({ label }: { label: string }) {
  * exact same row markup would need more props threading than duplicating
  * the wrapper costs).
  */
-export function BookEarlyCard({ card, initialSubscribed = false }: BookEarlyCardProps) {
+export function BookEarlyCard({ card, initialSubscribed = false, position }: BookEarlyCardProps) {
   const [subscribed, setSubscribed] = useState(initialSubscribed);
   const [notifyError, setNotifyError] = useState<string | null>(null);
 
@@ -106,7 +109,10 @@ export function BookEarlyCard({ card, initialSubscribed = false }: BookEarlyCard
         href={`/event/${event.id}`}
         ariaLabel={event.name}
         onPointerDown={() => prefetchEvent(event.id)}
-        onNavigate={() => setEventPreview(event.id, eventToPreview(event, { priceLabel: price, whenLabel: card.dateLabel }))}
+        onNavigate={() => {
+          setEventPreview(event.id, eventToPreview(event, { priceLabel: price, whenLabel: card.dateLabel }));
+          track("card_opened", { kind: "event", id: event.id, source: "event", surface: "book_early", position, price_band: priceBand(event.is_free) });
+        }}
         className="flex cursor-pointer gap-3 rounded-2xl bg-surface-container-lowest p-4 shadow-level-1 transition-shadow hover:shadow-level-2"
       >
         <Thumbnail src={thumbnail} alt="" />
@@ -127,7 +133,10 @@ export function BookEarlyCard({ card, initialSubscribed = false }: BookEarlyCard
             href={event.ticket_url ?? undefined}
             target="_blank"
             rel="noopener noreferrer"
-            onClick={(e) => e.stopPropagation()}
+            onClick={(e) => {
+              e.stopPropagation();
+              trackOutboundClicked("event", event.id, event.ticket_url, "get_tickets");
+            }}
             className="mt-1 flex items-center justify-center gap-1 rounded-lg bg-primary py-2.5 text-label-md font-bold text-on-primary transition-opacity hover:opacity-90 active:scale-[0.98]"
           >
             Get tickets
@@ -154,7 +163,10 @@ export function BookEarlyCard({ card, initialSubscribed = false }: BookEarlyCard
       href={`/happening/${happening.id}`}
       ariaLabel={happening.title}
       onPointerDown={() => prefetchHappening(happening.id)}
-      onNavigate={() => setHappeningPreview(happening.id, happeningToPreview(happening, { priceLabel: priceBadge, whenLabel: card.dateLabel }))}
+      onNavigate={() => {
+        setHappeningPreview(happening.id, happeningToPreview(happening, { priceLabel: priceBadge, whenLabel: card.dateLabel }));
+        track("card_opened", { kind: "happening", id: happening.id, source: happening.kind, surface: "book_early", position, price_band: priceBand(happening.is_free) });
+      }}
       className="flex cursor-pointer gap-3 rounded-2xl bg-surface-container-lowest p-4 shadow-level-1 transition-shadow hover:shadow-level-2"
     >
       <Thumbnail src={thumbnail} alt="" />
@@ -187,7 +199,10 @@ export function BookEarlyCard({ card, initialSubscribed = false }: BookEarlyCard
             href={ctaHref}
             target="_blank"
             rel="noopener noreferrer"
-            onClick={(e) => e.stopPropagation()}
+            onClick={(e) => {
+              e.stopPropagation();
+              trackOutboundClicked("happening", happening.id, ctaHref, "get_tickets");
+            }}
             className="flex flex-1 items-center justify-center gap-1 rounded-lg bg-primary py-2.5 text-label-md font-bold text-on-primary transition-opacity hover:opacity-90 active:scale-[0.98]"
           >
             Get tickets

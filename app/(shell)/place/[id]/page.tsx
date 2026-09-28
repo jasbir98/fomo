@@ -16,6 +16,7 @@ import { nextOccurrence, normalizeRecurrence } from "@/lib/happenings/occurrence
 import type { Happening } from "@/lib/happenings/types";
 import type { HappeningCardData } from "@/lib/happenings/feed-types";
 import type { PlaceOffersResponse } from "@/app/api/places/[id]/offers/route";
+import { trackOutboundClicked } from "@/lib/analytics/track";
 
 const ONE_YEAR_MS = 366 * 86_400_000;
 
@@ -174,7 +175,7 @@ export default function PlaceDetailPage({ params }: { params: Promise<{ id: stri
       <PageHeader
         title={placeName}
         showBack
-        action={<ShareButton title={placeName} text={shareText} url={shareUrl} />}
+        action={<ShareButton title={placeName} text={shareText} url={shareUrl} kind="place" />}
       />
 
       {/* Hero */}
@@ -230,7 +231,13 @@ export default function PlaceDetailPage({ params }: { params: Promise<{ id: stri
               </div>
             </div>
             {directionsUrl ? (
-              <a href={directionsUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 text-left">
+              <a
+                href={directionsUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={() => trackOutboundClicked("place", id, directionsUrl, "directions")}
+                className="flex items-center gap-3 text-left"
+              >
                 <Icon name="near_me" className="text-primary" />
                 <div>
                   <p className="text-label-sm text-on-surface-variant">Getting there</p>
@@ -351,6 +358,7 @@ export default function PlaceDetailPage({ params }: { params: Promise<{ id: stri
               href={directionsUrl}
               target="_blank"
               rel="noopener noreferrer"
+              onClick={() => trackOutboundClicked("place", id, directionsUrl, "directions")}
               className="relative flex h-40 w-full overflow-hidden rounded-2xl bg-surface-container text-left shadow-level-1"
             >
               <div className="absolute inset-0 flex items-center justify-center">
@@ -392,6 +400,7 @@ export default function PlaceDetailPage({ params }: { params: Promise<{ id: stri
               href={directionsUrl}
               target="_blank"
               rel="noopener noreferrer"
+              onClick={() => trackOutboundClicked("place", id, directionsUrl, "directions")}
               className="inline-flex min-h-[48px] w-full items-center justify-center gap-2 rounded-xl bg-secondary-container px-6 text-label-md font-medium text-on-secondary-container shadow-sm transition-all hover:opacity-90 active:opacity-80"
             >
               <Icon name="directions" size={18} />

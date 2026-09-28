@@ -16,6 +16,7 @@ import { cardOnDay, cardPillDate } from "@/components/happenings/DateFilterRow";
 import { usePrefs } from "@/lib/personalise/usePrefs";
 import { personalBoost, type BoostPrefs } from "@/lib/personalise/score";
 import { useEffectiveWho } from "@/lib/personalise/useEffectiveWho";
+import { track } from "@/lib/analytics/track";
 
 /** Only these two windows are date windows at all — `book_early` is a
  *  separate tab with its own dedicated page (/book-early), never reachable
@@ -87,7 +88,19 @@ function WhatsOnPageInner() {
   // ordering by default (the brief: "Not on /whats-on full list date
   // ordering (leave chronological)... DO add a 'For you' chip there that
   // sorts by boost"), so it's a plain client toggle with no URL state.
-  const [forYou, setForYou] = useState(false);
+  const [forYou, setForYouState] = useState(false);
+  function setForYou(next: boolean) {
+    setForYouState(next);
+    track("filter_used", { filter: "for_you", value: next, page: "whats_on" });
+  }
+  function selectDateFilter(next: string) {
+    setDateFilter(next);
+    track("filter_used", { filter: "date", value: next, page: "whats_on" });
+  }
+  function selectCategoryFilter(next: CategoryFacetKey | null) {
+    setCategoryFilter(next);
+    track("filter_used", { filter: "category", value: next, page: "whats_on" });
+  }
   const who = useEffectiveWho();
   const prefs = usePrefs();
   const boostPrefs: BoostPrefs = useMemo(
@@ -97,6 +110,7 @@ function WhatsOnPageInner() {
 
   function setFreeOnly(next: boolean) {
     setFreeOnlyState(next);
+    track("filter_used", { filter: "free_only", value: next, page: "whats_on" });
     const params = new URLSearchParams(searchParams.toString());
     if (next) params.set("free", "1");
     else params.delete("free");
@@ -244,7 +258,7 @@ function WhatsOnPageInner() {
             <SegmentedControl value={feedWindow} options={WHATS_ON_WINDOWS} onChange={setFeedWindow} />
 
             {dates.length >= 2 ? (
-              <DateFilterRow dates={dates} selected={dateFilter} onSelect={setDateFilter} />
+              <DateFilterRow dates={dates} selected={dateFilter} onSelect={selectDateFilter} />
             ) : null}
 
             <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1 [&::-webkit-scrollbar]:hidden">
@@ -259,18 +273,18 @@ function WhatsOnPageInner() {
                 leadingIcon="auto_awesome"
                 selected={forYou}
                 aria-pressed={forYou}
-                onClick={() => setForYou((v) => !v)}
+                onClick={() => setForYou(!forYou)}
               />
               {categoryOptions.length > 1 ? (
                 <>
-                  <Chip label="All" selected={categoryFilter === null} onClick={() => setCategoryFilter(null)} />
+                  <Chip label="All" selected={categoryFilter === null} onClick={() => selectCategoryFilter(null)} />
                   {categoryOptions.map((facet) => (
                     <Chip
                       key={facet.key}
                       label={facet.label}
                       leadingIcon={facet.icon}
                       selected={categoryFilter === facet.key}
-                      onClick={() => setCategoryFilter(facet.key)}
+                      onClick={() => selectCategoryFilter(facet.key)}
                     />
                   ))}
                 </>
@@ -319,8 +333,8 @@ function WhatsOnPageInner() {
           </div>
         ) : (
           <div className="flex flex-col gap-3 pt-1">
-            {visibleCards.slice(0, revealCount).map((card) => (
-              <FeedListCard key={cardKey(card)} card={card} />
+            {visibleCards.slice(0, revealCount).map((card, i) => (
+              <FeedListCard key={cardKey(card)} card={card} surface="whats_on" position={i} />
             ))}
             {revealCount < visibleCards.length ? <div ref={revealSentinelRef} className="h-1" /> : null}
           </div>

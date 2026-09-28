@@ -128,6 +128,27 @@ const nextConfig: NextConfig = {
       { source: "/kit", destination: "/", permanent: false },
     ];
   },
+  // PostHog reverse proxy — instrumentation-client.ts's `api_host: "/ingest"`
+  // sends every capture/decide/flags/session-recording call here instead of
+  // straight to posthog.com, so it's same-origin (no third-party cookie/CSP
+  // hassle, ad-blockers are far less likely to catch it). EU cloud only —
+  // matches the account's EU data residency (see instrumentation-client.ts).
+  // `skipTrailingSlashRedirect` stops Next's own trailing-slash redirect from
+  // intercepting these before the rewrite gets a chance to run — PostHog's
+  // own endpoints are picky about an added/stripped trailing slash on a
+  // redirect hop. proxy.ts's matcher DOES run for `/ingest/*` (only static
+  // assets/icons are excluded there), but that's fine as-is: `/ingest` isn't
+  // one of SIGNED_IN_PAGE_PREFIXES, so a signed-out visitor's requests here
+  // fall through proxy.ts's public-page branch untouched, same as any other
+  // browsable page — no `PUBLIC_API_PREFIXES` entry needed (that allowlist
+  // only ever gates paths under `/api/*`, which `/ingest/*` isn't).
+  skipTrailingSlashRedirect: true,
+  async rewrites() {
+    return [
+      { source: "/ingest/static/:path*", destination: "https://eu-assets.i.posthog.com/static/:path*" },
+      { source: "/ingest/:path*", destination: "https://eu.i.posthog.com/:path*" },
+    ];
+  },
 };
 
 export default nextConfig;

@@ -1,9 +1,13 @@
 "use client";
 
 import type { ReactNode } from "react";
+import { useEffect } from "react";
 import { BottomNav } from "./BottomNav";
 import { MakeFomoYours } from "@/components/personalise/MakeFomoYours";
 import { closeMakeFomoYours, useMakeFomoYoursOpen } from "@/lib/personalise/trigger";
+import { ConsentBar } from "@/components/analytics/ConsentBar";
+import { IdentifyUser } from "@/components/analytics/IdentifyUser";
+import { track } from "@/lib/analytics/track";
 
 export type AppShellProps = {
   children: ReactNode;
@@ -29,11 +33,25 @@ export function AppShell({ children }: AppShellProps) {
   // triggers it — it can be opened from a SaveButton on almost any screen,
   // not just Home/Profile.
   const makeFomoYoursOpen = useMakeFomoYoursOpen();
+
+  // `pwa_installed` — fires once, whenever the browser actually installs
+  // the PWA (not just when the install prompt is shown/accepted, which
+  // `beforeinstallprompt` covers but this app doesn't hook into anywhere).
+  useEffect(() => {
+    function handleInstalled() {
+      track("pwa_installed");
+    }
+    window.addEventListener("appinstalled", handleInstalled);
+    return () => window.removeEventListener("appinstalled", handleInstalled);
+  }, []);
+
   return (
     <div className="min-h-dvh">
+      <IdentifyUser />
       <div className="pb-[calc(88px+env(safe-area-inset-bottom))]">{children}</div>
       <BottomNav />
       <MakeFomoYours open={makeFomoYoursOpen} onClose={closeMakeFomoYours} />
+      <ConsentBar />
     </div>
   );
 }

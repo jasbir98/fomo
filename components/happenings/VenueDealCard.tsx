@@ -9,6 +9,7 @@ import { priceLabelForHappening, type PriceLabel } from "@/lib/happenings/price-
 import { PriceTag } from "@/components/happenings/PriceTag";
 import { useEffectiveWho } from "@/lib/personalise/useEffectiveWho";
 import type { DealCardData } from "@/lib/happenings/feed-types";
+import { track, priceBand } from "@/lib/analytics/track";
 
 export interface VenueDealCardProps {
   /** `null` when this group has no resolvable `places` row (a normalised-
@@ -21,6 +22,8 @@ export interface VenueDealCardProps {
   district: string | null;
   /** The subset of this venue's offers that currently match the active WHAT/WHO filters — the caller (app/(shell)/page.tsx) does the filtering so this component never needs to know about filter state, just what to render. */
   offers: DealCardData[];
+  /** 0-based index within the /deals list — `card_opened`'s `position`. */
+  position?: number;
 }
 
 /**
@@ -140,7 +143,7 @@ function ExpandedOfferRow({ offer }: { offer: DealCardData }) {
  * `VenueDealCardProps`'s doc comment), there's nowhere to send the tap, so
  * the card expands in place instead, listing each offer with its own link.
  */
-export function VenueDealCard({ placeId, placeName, placeImageUrl, district, offers }: VenueDealCardProps) {
+export function VenueDealCard({ placeId, placeName, placeImageUrl, district, offers, position }: VenueDealCardProps) {
   const [expanded, setExpanded] = useState(false);
   const priceLabel = bestSaving(offers);
 
@@ -149,6 +152,16 @@ export function VenueDealCard({ placeId, placeName, placeImageUrl, district, off
       <NavCard
         href={`/place/${placeId}`}
         ariaLabel={placeName}
+        onNavigate={() =>
+          track("card_opened", {
+            kind: "place",
+            id: placeId,
+            source: "venue_group",
+            surface: "deals",
+            position,
+            price_band: priceBand(offers.some((o) => o.happening.is_free)),
+          })
+        }
         className="flex cursor-pointer items-center gap-3.5 rounded-2xl bg-surface-container-lowest p-3.5 shadow-level-1 transition-shadow hover:shadow-level-2"
       >
         <VenueThumbnail placeImageUrl={placeImageUrl} />

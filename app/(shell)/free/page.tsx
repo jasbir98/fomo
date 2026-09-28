@@ -9,6 +9,7 @@ import { useProgressiveReveal } from "@/lib/useProgressiveReveal";
 import { ErrorState, Icon, PageHeader, StickyFilterBar } from "@/components/ui";
 import { FreeAnyTimeFilters, FreeAnyTimeRow } from "@/components/happenings";
 import { FomoSpot } from "@/components/fomo/FomoSpot";
+import { track } from "@/lib/analytics/track";
 
 /** Matches Home's feed staleness (app/(shell)/page.tsx's `FEED_STALE_MS`) — duplicated as a plain number rather than imported across route boundaries. */
 const FREE_ANY_TIME_STALE_MS = 60_000;
@@ -55,6 +56,16 @@ export default function FreeAnyTimePage() {
   const [typeBucket, setTypeBucket] = useState<string | null>(null);
   const [district, setDistrict] = useState<string | null>(null);
 
+  function handleTypeChange(value: string | null) {
+    setTypeBucket(value);
+    track("filter_used", { filter: "type", value, page: "free" });
+  }
+
+  function handleDistrictChange(value: string | null) {
+    setDistrict(value);
+    track("filter_used", { filter: "district", value, page: "free" });
+  }
+
   const typeOptions = useMemo(() => (items ? distinctTypeBuckets(items) : []), [items]);
   const districtOptions = useMemo(() => (items ? distinctDistricts(items) : []), [items]);
 
@@ -87,8 +98,8 @@ export default function FreeAnyTimePage() {
               district={district}
               typeOptions={typeOptions}
               districtOptions={districtOptions}
-              onTypeChange={setTypeBucket}
-              onDistrictChange={setDistrict}
+              onTypeChange={handleTypeChange}
+              onDistrictChange={handleDistrictChange}
               resultCount={filteredItems.length}
             />
             <Link

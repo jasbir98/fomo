@@ -18,6 +18,7 @@ import { ExploreSheet } from "@/components/explore/ExploreSheet";
 import { AppHeader } from "@/components/shell/AppHeader";
 import { buildSearchMapUrl } from "@/lib/maps/links";
 import { Icon } from "@/components/ui";
+import { track } from "@/lib/analytics/track";
 
 const MapStage = dynamic(() => import("@/components/explore/MapStage").then((mod) => mod.MapStage), {
   ssr: false,
@@ -254,6 +255,7 @@ export default function ExplorePage() {
     setSelectedPinId(pin.id);
     setSheetPin(pin);
     setPlaceCard(null);
+    track("search_submitted", { length: search.trim().length });
   }
 
   // Search dropdown "Places" (Google) pick, already resolved server-side
@@ -274,6 +276,7 @@ export default function ExplorePage() {
     setSelectedPinId(null);
     setSheetPin(null);
     setPlaceCard({ name: result.name, address: result.address ?? null, lat: result.lat, lng: result.lng });
+    track("search_submitted", { length: search.trim().length });
   }
 
   function handleWidenSearch() {

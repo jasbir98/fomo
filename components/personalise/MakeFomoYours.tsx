@@ -5,6 +5,7 @@ import { BottomSheet, Button, Chip, SegmentedControl } from "@/components/ui";
 import { FomoSpot } from "@/components/fomo/FomoSpot";
 import { INTEREST_ICON, INTEREST_LABEL, INTEREST_ORDER, MAX_INTERESTS, type InterestKey } from "@/lib/personalise/interests";
 import { usePrefs, type FomoBudget, type FomoStatus } from "@/lib/personalise/usePrefs";
+import { track } from "@/lib/analytics/track";
 
 export interface MakeFomoYoursProps {
   open: boolean;
@@ -89,6 +90,7 @@ export function MakeFomoYours({ open, onClose }: MakeFomoYoursProps) {
     setError(null);
     try {
       await prefs.save({ status, under26, residents, over60, interests, budget, done: true });
+      track("prefs_completed");
       onClose();
     } catch (err) {
       console.error("[personalise] save prefs failed", err);
@@ -102,6 +104,7 @@ export function MakeFomoYours({ open, onClose }: MakeFomoYoursProps) {
     setSaving(true);
     try {
       await prefs.dismiss();
+      track("prefs_skipped");
     } catch (err) {
       console.error("[personalise] dismiss prefs failed", err);
     } finally {

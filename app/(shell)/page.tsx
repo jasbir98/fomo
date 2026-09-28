@@ -26,6 +26,7 @@ import { openMakeFomoYours } from "@/lib/personalise/trigger";
 import { personalBoost, reorderWithBoost, type BoostPrefs } from "@/lib/personalise/score";
 import { useEffectiveWho } from "@/lib/personalise/useEffectiveWho";
 import type { RankedDealItem } from "@/lib/happenings/venue-deals";
+import { track } from "@/lib/analytics/track";
 
 interface HomeWeather {
   condition: WeatherCondition;
@@ -557,9 +558,11 @@ export default function HomePage() {
   // moves, so the two motions read as one gesture rather than two unrelated
   // animations.
   function handleWindowChange(next: FeedWindow) {
+    if (next === feedWindow) return;
     const fromIndex = WINDOW_OPTIONS.findIndex((o) => o.value === feedWindow);
     const toIndex = WINDOW_OPTIONS.findIndex((o) => o.value === next);
     setSwitchDirection(toIndex >= fromIndex ? 1 : -1);
+    track("tab_switched", { from: feedWindow, to: next });
     setWindow(next);
   }
 
@@ -739,7 +742,7 @@ export default function HomePage() {
           // to the active window server-side, so this remount is a genuine
           // hero change, not just a replay.
           <div key={`hero-${feedWindow}`} className={windowSlideClass}>
-            <FeedHero card={feed.hero} variant={heroKind} />
+            <FeedHero card={feed.hero} variant={heroKind} surface={heroKind === "book_early" ? "book_early" : "home_whats_on"} />
           </div>
         ) : heroKind === "book_early" ? null : feed !== null ? (
           // This window's own feed HAS loaded and genuinely has no hero
@@ -750,8 +753,8 @@ export default function HomePage() {
           // point of scoping the hero at all.
           whatsOnCards.length > 0 ? (
             <div key={`hero-preview-${feedWindow}`} className={`${windowSlideClass} flex flex-col gap-2`}>
-              {whatsOnCards.slice(0, 3).map((card) => (
-                <FeedListCard key={cardKey(card)} card={card} />
+              {whatsOnCards.slice(0, 3).map((card, i) => (
+                <FeedListCard key={cardKey(card)} card={card} surface="home_whats_on" position={i} />
               ))}
             </div>
           ) : (
@@ -799,7 +802,7 @@ export default function HomePage() {
             than disappearing on Coming up/Book early. Renders nothing of
             its own accord when the day's selection is too thin (see
             TodaysDealsStrip/todaysDeals). */}
-        <TodaysDealsStrip deals={boostedTodaysDeals} />
+        <TodaysDealsStrip deals={boostedTodaysDeals} surface="home_today_deals" />
 
         {/* Slim, dismissible "Make Fomo yours" banner (task brief §2) —
             shown to anyone, signed in or out, who hasn't completed or
@@ -908,8 +911,8 @@ export default function HomePage() {
                   </div>
                 ) : (
                   <>
-                    {boostedWhatsOnCards.slice(0, SECTION_CAP).map((card) => (
-                      <FeedListCard key={cardKey(card)} card={card} />
+                    {boostedWhatsOnCards.slice(0, SECTION_CAP).map((card, i) => (
+                      <FeedListCard key={cardKey(card)} card={card} surface="home_whats_on" position={i} />
                     ))}
                     <SeeAllButton
                       href={`/whats-on?window=${feedWindow}`}
@@ -969,11 +972,12 @@ export default function HomePage() {
               </div>
             ) : (
               <div className="flex flex-col gap-3">
-                {bookEarlyAll.slice(0, SECTION_CAP).map((card) => (
+                {bookEarlyAll.slice(0, SECTION_CAP).map((card, i) => (
                   <BookEarlyCard
                     key={bookEarlyCardKey(card)}
                     card={card}
                     initialSubscribed={card.kind === "happening" && alertHappeningIds.has(card.happening.id)}
+                    position={i}
                   />
                 ))}
                 <SeeAllButton href="/book-early" total={bookEarlyAll.length} shown={SECTION_CAP} />

@@ -11,6 +11,7 @@ import { addMessage, clearMessages, listMessages } from "@/lib/db";
 import { ASK_FOMO_PROMPTS, type AiReplyBlock, type ChatItem } from "@/lib/fomo-ai";
 import { hrefForSeed, readChatSeed, suggestedQuestionsFor, type ChatSeed } from "@/lib/chat-seed";
 import type { ChatMessage } from "@/lib/types";
+import { track } from "@/lib/analytics/track";
 
 /**
  * Minimal inline markdown for assistant/user chat text — no markdown library
@@ -218,6 +219,7 @@ function FomoChatPageInner() {
   async function send(text: string) {
     const trimmed = text.trim();
     if (!trimmed || sending) return;
+    track("chat_message_sent", { length: trimmed.length });
     setSending(true);
     setInput("");
 

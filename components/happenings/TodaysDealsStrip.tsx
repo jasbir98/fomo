@@ -10,11 +10,14 @@ import { useEffectiveWho } from "@/lib/personalise/useEffectiveWho";
 import type { DealCardData } from "@/lib/happenings/feed-types";
 import type { DealVenueGroup, RankedDealItem } from "@/lib/happenings/venue-deals";
 import { happeningToPreview, prefetchHappening, setHappeningPreview } from "@/lib/happenings/preview-cache";
+import { track, priceBand } from "@/lib/analytics/track";
 
 export interface TodaysDealsStripProps {
   deals: RankedDealItem[];
   /** Defaults to `new Date()` — accepted so a caller (or a test) can pin "today" rather than this component reading the clock itself. */
   at?: Date;
+  /** `card_opened`'s `surface` — this strip only ever renders on Home, so callers pass "home_today_deals". */
+  surface?: "home_today_deals";
 }
 
 const WEEKDAY_LABEL = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
@@ -24,7 +27,7 @@ const WEEKDAY_LABEL = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "
  *  fixed-width scroller). Same tap target (`/happening/[id]`), same badge/
  *  thumbnail language (savingBadgeLabel, categoryDefaultImage) so it reads
  *  as the same app, just condensed. */
-function TodaysDealCard({ card }: { card: DealCardData }) {
+function TodaysDealCard({ card, surface, position }: { card: DealCardData; surface?: "home_today_deals"; position?: number }) {
   const { happening, who: cardWho } = card;
   const badge = savingBadgeLabel(happening);
   const style = categoryStyle(happening.category);
@@ -42,7 +45,10 @@ function TodaysDealCard({ card }: { card: DealCardData }) {
       href={`/happening/${happening.id}`}
       ariaLabel={happening.title}
       onPointerDown={() => prefetchHappening(happening.id)}
-      onNavigate={() => setHappeningPreview(happening.id, happeningToPreview(happening, { priceLabel: badge, whenLabel: time }))}
+      onNavigate={() => {
+        setHappeningPreview(happening.id, happeningToPreview(happening, { priceLabel: badge, whenLabel: time }));
+        track("card_opened", { kind: "happening", id: happening.id, source: happening.kind, surface, position, price_band: priceBand(happening.is_free) });
+      }}
       className="flex w-40 shrink-0 cursor-pointer flex-col gap-2 rounded-2xl bg-surface-container-lowest p-3 shadow-level-1 transition-shadow hover:shadow-level-2"
     >
       <div className="relative h-20 w-full shrink-0 overflow-hidden rounded-xl border border-hairline bg-surface-container">
@@ -87,7 +93,7 @@ function bestOffer(offers: DealCardData[]): DealCardData {
  *  venue's own grouped view: `/place/[id]` when the group resolved to a real
  *  place, else `/deals` (this strip is a fixed-width horizontal scroller, no
  *  room to expand a group inline the way VenueDealCard does on `/deals`). */
-function TodaysDealGroupCard({ group }: { group: DealVenueGroup }) {
+function TodaysDealGroupCard({ group, surface, position }: { group: DealVenueGroup; surface?: "home_today_deals"; position?: number }) {
   const headline = bestOffer(group.offers);
   const { happening } = headline;
   const style = categoryStyle(happening.category);
@@ -104,6 +110,11 @@ function TodaysDealGroupCard({ group }: { group: DealVenueGroup }) {
     <NavCard
       href={href}
       ariaLabel={`${group.placeName} · ${group.offers.length} deals`}
+      onNavigate={() => {
+        if (group.placeId) {
+          track("card_opened", { kind: "place", id: group.placeId, source: "venue_group", surface, position, price_band: priceBand(happening.is_free) });
+        }
+      }}
       className="flex w-40 shrink-0 cursor-pointer flex-col gap-2 rounded-2xl bg-surface-container-lowest p-3 shadow-level-1 transition-shadow hover:shadow-level-2"
     >
       <div className="relative h-20 w-full shrink-0 overflow-hidden rounded-xl border border-hairline bg-surface-container">
@@ -139,7 +150,7 @@ function TodaysDealGroupCard({ group }: { group: DealVenueGroup }) {
  * real "today" list (see `todaysDeals`'s own MIN_RENDER_COUNT), rather than
  * padding out a one-card strip.
  */
-export function TodaysDealsStrip({ deals, at = new Date() }: TodaysDealsStripProps) {
+export function TodaysDealsStrip({ deals, at = new Date(), surface }: TodaysDealsStripProps) {
   if (deals.length === 0) return null;
 
   const weekdayName = WEEKDAY_LABEL[weekdayOf(localDayDate(at, CITY.timezone))];
@@ -161,11 +172,11 @@ export function TodaysDealsStrip({ deals, at = new Date() }: TodaysDealsStripPro
       </div>
 
       <div className="-mx-4 flex gap-3 overflow-x-auto px-4 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-        {deals.map((item) =>
+        {deals.map((item, i) =>
           item.kind === "group" ? (
-            <TodaysDealGroupCard key={`group-${item.key}`} group={item} />
+            <TodaysDealGroupCard key={`group-${item.key}`} group={item} surface={surface} position={i} />
           ) : (
-            <TodaysDealCard key={happeningKey(item.card)} card={item.card} />
+            <TodaysDealCard key={happeningKey(item.card)} card={item.card} surface={surface} position={i} />
           )
         )}
       </div>

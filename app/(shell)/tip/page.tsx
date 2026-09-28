@@ -3,6 +3,7 @@
 import { useState, type FormEvent } from "react";
 import { useSearchParams } from "next/navigation";
 import { Icon, PageHeader } from "@/components/ui";
+import { track } from "@/lib/analytics/track";
 
 type FormStatus = "idle" | "sending" | "done" | "error";
 
@@ -67,6 +68,7 @@ export default function TipPage() {
         return;
       }
 
+      track("tip_submitted", { type: isFeedback ? "feedback" : "tip" });
       setStatus("done");
       setFormData({
         title: "",

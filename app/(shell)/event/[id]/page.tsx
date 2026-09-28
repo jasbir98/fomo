@@ -14,6 +14,7 @@ import type { EventItem } from "@/lib/types";
 import { Button, ErrorState, FomoLoader, Icon, PageHeader, PhotoCarousel, ShareButton, StatusPill } from "@/components/ui";
 import type { CarouselPhoto } from "@/components/ui";
 import { getEventPreview, takePrefetchedEvent, type EventPreview } from "@/lib/events/preview-cache";
+import { track, trackOutboundClicked } from "@/lib/analytics/track";
 
 /**
  * Google Calendar "add event" link — mirrors the happening detail page's
@@ -208,7 +209,7 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
       <PageHeader
         title={event.name}
         showBack
-        action={<ShareButton title={event.name} text={shareText} url={shareUrl} />}
+        action={<ShareButton title={event.name} text={shareText} url={shareUrl} kind="event" />}
       />
 
       {/* Hero */}
@@ -271,6 +272,7 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
           <div className="flex items-center gap-2 border-t border-outline-variant/30 pt-4">
             <a
               href={`/api/events/${event.id}/ics`}
+              onClick={() => track("calendar_added", { type: "ics", kind: "event" })}
               className="flex min-h-10 items-center gap-1 rounded-full border border-hairline-strong px-3 text-label-sm font-bold text-primary hover:bg-surface-container"
             >
               <Icon name="event_available" size={16} />
@@ -280,6 +282,7 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
               href={eventGoogleCalendarUrl(event)}
               target="_blank"
               rel="noopener noreferrer"
+              onClick={() => track("calendar_added", { type: "google", kind: "event" })}
               className="text-label-sm font-medium text-on-surface-variant underline-offset-2 hover:underline"
             >
               Google Calendar
@@ -295,6 +298,7 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
               href={directionsUrl}
               target="_blank"
               rel="noopener noreferrer"
+              onClick={() => trackOutboundClicked("event", event.id, directionsUrl, "directions")}
               className="relative flex h-40 w-full overflow-hidden rounded-xl border border-outline-variant/40 bg-surface-container text-left"
             >
               <div className="absolute inset-0 flex items-center justify-center">
@@ -340,6 +344,7 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
               href={event.ticket_url}
               target="_blank"
               rel="noopener noreferrer"
+              onClick={() => trackOutboundClicked("event", event.id, event.ticket_url, "get_tickets")}
               className="flex min-h-[48px] flex-1 items-center justify-center gap-2 rounded-xl bg-secondary-container px-4 text-label-md font-semibold text-on-secondary-container shadow-sm transition-opacity hover:opacity-90"
             >
               <Icon name="confirmation_number" size={18} />
@@ -350,6 +355,7 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
               href={directionsUrl}
               target="_blank"
               rel="noopener noreferrer"
+              onClick={() => trackOutboundClicked("event", event.id, directionsUrl, "directions")}
               className="inline-flex min-h-[48px] w-full items-center justify-center gap-2 rounded-xl bg-secondary-container px-6 text-label-md font-medium text-on-secondary-container shadow-sm transition-all hover:opacity-90 active:opacity-80"
             >
               <Icon name="directions" size={18} />

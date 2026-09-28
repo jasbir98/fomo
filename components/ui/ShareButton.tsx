@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, type MouseEvent } from "react";
 import { Icon } from "./Icon";
 import { recordAffinity } from "@/lib/personalise/affinity";
 import type { InterestKey } from "@/lib/personalise/interests";
+import { track } from "@/lib/analytics/track";
 
 export type ShareButtonProps = {
   /** Native share sheet title. */
@@ -17,6 +18,8 @@ export type ShareButtonProps = {
   className?: string;
   /** This card's personalisation interest (lib/personalise/interests.ts) — feeds the implicit-learning affinity counter (lib/personalise/affinity.ts) on a completed share, same signal SaveButton's own `interestHint` records on a save. Omit where the interest isn't readily available. */
   interestHint?: InterestKey | null;
+  /** `share_completed`'s `kind` — what's being shared (happening/event/place/weekend page, ...). Omit only where the caller has no natural subject type (nothing shares without one today, but the event stays no-op-safe). */
+  kind?: string;
 };
 
 /**
@@ -33,7 +36,7 @@ export type ShareButtonProps = {
  * rejection (e.g. no registered share targets) falls back to clipboard
  * rather than leaving the tap dead.
  */
-export function ShareButton({ title, text, url, variant = "icon", className = "", interestHint = null }: ShareButtonProps) {
+export function ShareButton({ title, text, url, variant = "icon", className = "", interestHint = null, kind }: ShareButtonProps) {
   const [copied, setCopied] = useState(false);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -64,6 +67,7 @@ export function ShareButton({ title, text, url, variant = "icon", className = ""
       try {
         await navigator.share({ title, text, url });
         recordAffinity(interestHint);
+        track("share_completed", { method: "native", kind });
         return;
       } catch (err) {
         if (err instanceof Error && err.name === "AbortError") return;
@@ -73,6 +77,7 @@ export function ShareButton({ title, text, url, variant = "icon", className = ""
     }
     await copyToClipboard();
     recordAffinity(interestHint);
+    track("share_completed", { method: "clipboard", kind });
   }
 
   if (variant === "labelled") {

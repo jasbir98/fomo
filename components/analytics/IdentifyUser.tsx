@@ -1,0 +1,116 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import type { Session } from "@supabase/supabase-js";
+import { supabaseBrowserAuth } from "@/lib/supabase/client";
+import { usePrefs } from "@/lib/personalise/usePrefs";
+import { track } from "@/lib/analytics/track";
+
+/** sessionStorage key app/signin/page.tsx sets right before it hands off to
+ *  a real sign-in (OTP verify, Google ID-token exchange, or the OAuth
+ *  redirect fallback) — every one of those paths ends in a full page
+ *  navigation (`window.location.assign`, or the OAuth provider redirect
+ *  itself), so by the time this component mounts on the destination page a
+ *  session already exists. Reading (and clearing) this flag once on mount
+ *  is what makes `signin_completed` fire exactly once per sign-in instead
+ *  of on every later page load of an already-signed-in visitor — see
+ *  app/signin/page.tsx's own use of this key. */
+const PENDING_SIGNIN_METHOD_KEY = "fomo:pending_signin_method";
+
+function readAndClearPendingSigninMethod(): string | null {
+  try {
+    const method = sessionStorage.getItem(PENDING_SIGNIN_METHOD_KEY);
+    if (method) sessionStorage.removeItem(PENDING_SIGNIN_METHOD_KEY);
+    return method;
+  } catch {
+    return null;
+  }
+}
+
+function isStandalone(): boolean {
+  if (typeof window === "undefined") return false;
+  const nav = navigator as Navigator & { standalone?: boolean };
+  return window.matchMedia?.("(display-mode: standalone)").matches === true || nav.standalone === true;
+}
+
+/** `fomo_who` is stored as a plain array in user_metadata (lib/useSaved.ts's
+ *  `setWhoGroups`) — this just counts it defensively (a session read
+ *  straight from Supabase, not our own normalised shape). */
+function whoGroupsFromMetadata(userMetadata: Record<string, unknown> | null | undefined): string[] {
+  const raw = userMetadata?.fomo_who;
+  return Array.isArray(raw) ? raw.filter((v): v is string => typeof v === "string") : [];
+}
+
+function interestsCountFromMetadata(userMetadata: Record<string, unknown> | null | undefined): number {
+  const raw = userMetadata?.fomo_interests;
+  return Array.isArray(raw) ? raw.length : 0;
+}
+
+/** Identifies the signed-in visitor to PostHog (never their email — see
+ *  brief) and registers the app-wide super properties every event should
+ *  carry. Mounted once in AppShell, alongside ConsentBar. */
+export function IdentifyUser() {
+  const prefs = usePrefs();
+  const [signedIn, setSignedIn] = useState(false);
+
+  // Auth identity — separate from the super-properties effect below so a
+  // prefs-only change (e.g. toggling a budget chip) never re-runs the
+  // identify/reset call, only the super-property registration.
+  useEffect(() => {
+    const db = supabaseBrowserAuth();
+
+    function identifySession(session: Session) {
+      const user = session.user;
+      const meta = (user.user_metadata ?? {}) as Record<string, unknown>;
+      window.posthog?.identify?.(user.id, {
+        signin_method: user.app_metadata?.provider ?? "email",
+        fomo_status: typeof meta.fomo_status === "string" ? meta.fomo_status : null,
+        who_groups: whoGroupsFromMetadata(meta),
+        interests_count: interestsCountFromMetadata(meta),
+        budget: typeof meta.fomo_budget === "string" ? meta.fomo_budget : null,
+        prefs_set: meta.fomo_prefs_done === true,
+      });
+      setSignedIn(true);
+    }
+
+    // Current session, once — covers both "already signed in, page just
+    // loaded" and "just finished signing in and landed here via a full
+    // navigation" (see PENDING_SIGNIN_METHOD_KEY's own doc comment).
+    void db.auth.getSession().then(({ data: { session } }) => {
+      if (!session) return;
+      identifySession(session);
+      const pendingMethod = readAndClearPendingSigninMethod();
+      if (pendingMethod) track("signin_completed", { method: pendingMethod });
+    });
+
+    const {
+      data: { subscription },
+    } = db.auth.onAuthStateChange((event, session) => {
+      if (event === "SIGNED_IN" && session) {
+        identifySession(session);
+        const pendingMethod = readAndClearPendingSigninMethod();
+        if (pendingMethod) track("signin_completed", { method: pendingMethod });
+      } else if (event === "SIGNED_OUT") {
+        window.posthog?.reset?.();
+        setSignedIn(false);
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  // Super properties — attached to every event, identified or not.
+  // Re-registered whenever `signedIn`/`prefs.done` changes (sign-in/out,
+  // Make Fomo yours completed/skipped/edited).
+  useEffect(() => {
+    window.posthog?.register?.({
+      signed_in: signedIn,
+      standalone: isStandalone(),
+      prefs_set: prefs.done,
+    });
+  }, [signedIn, prefs.done]);
+
+  return null;
+}
+
+export default IdentifyUser;

@@ -12,6 +12,7 @@ import { Chip, ErrorState, FeedbackLink, Icon, PageHeader, ShareButton, StickyFi
 import { FeedListCard, SubscribeCard } from "@/components/happenings";
 import { FomoSpot } from "@/components/fomo/FomoSpot";
 import { cardOnDay } from "@/components/happenings/DateFilterRow";
+import { track } from "@/lib/analytics/track";
 
 /** Matches Home's and What's on's `FEED_STALE_MS`. */
 const FEED_STALE_MS = 60_000;
@@ -54,6 +55,7 @@ function WeekendPageInner() {
 
   function setFreeOnly(next: boolean) {
     setFreeOnlyState(next);
+    track("filter_used", { filter: "free_only", value: next, page: "weekend" });
     const params = new URLSearchParams(searchParams.toString());
     if (next) params.set("free", "1");
     else params.delete("free");
@@ -90,6 +92,7 @@ function WeekendPageInner() {
             title="This weekend in Edinburgh — Fomo"
             text="Free & cheap things to do in Edinburgh this weekend — found on Fomo"
             url={typeof window === "undefined" ? "/weekend" : `${window.location.origin}/weekend`}
+            kind="weekend"
           />} />
 
       <div className="flex flex-col gap-4 px-4">
@@ -154,8 +157,8 @@ function WeekendPageInner() {
           </div>
         ) : (
           <div className="flex flex-col gap-3 pt-1">
-            {cards.slice(0, revealCount).map((card) => (
-              <FeedListCard key={cardKey(card)} card={card} />
+            {cards.slice(0, revealCount).map((card, i) => (
+              <FeedListCard key={cardKey(card)} card={card} surface="weekend" position={i} />
             ))}
             {revealCount < cards.length ? <div ref={revealSentinelRef} className="h-1" /> : null}
           </div>

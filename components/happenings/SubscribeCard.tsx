@@ -3,6 +3,7 @@
 import { useState, type FormEvent } from "react";
 import Link from "next/link";
 import { Icon } from "@/components/ui";
+import { track } from "@/lib/analytics/track";
 
 export interface SubscribeCardProps {
   /** Where this card is mounted — sent as `source` to POST /api/subscribe so the digest signup list can tell which surface drove a signup. */
@@ -74,6 +75,7 @@ export function SubscribeCard({ source, className = "" }: SubscribeCardProps) {
         return;
       }
       rememberSubscribed();
+      track("subscribe_submitted", { surface: source });
       setStatus("done");
     } catch {
       setStatus("error");

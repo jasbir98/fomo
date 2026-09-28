@@ -13,6 +13,33 @@ import { publicNextOrHome } from "@/lib/auth/public-next";
 import { signinReasonCopy } from "@/lib/auth/signin-reason";
 import { generateNonce, sha256Hex } from "@/lib/auth/google-identity";
 
+/** Written right before every path that ends in a successful sign-in (each
+ *  one then does a full page navigation — `window.location.assign`, or the
+ *  OAuth provider's own redirect) so components/analytics/IdentifyUser.tsx
+ *  can fire `signin_completed {method}` exactly once, on the destination
+ *  page, after the session actually exists — see that file's own doc
+ *  comment on why a full navigation makes this reliable. Cleared on an
+ *  OAuth failure (no redirect happened after all) so a later real sign-in
+ *  doesn't get attributed to this attempt's method by mistake. */
+const PENDING_SIGNIN_METHOD_KEY = "fomo:pending_signin_method";
+
+function markPendingSignin(method: string) {
+  try {
+    sessionStorage.setItem(PENDING_SIGNIN_METHOD_KEY, method);
+  } catch {
+    // Private window / blocked storage — signin_completed just won't fire
+    // for this attempt, no worse than not having this at all.
+  }
+}
+
+function clearPendingSignin() {
+  try {
+    sessionStorage.removeItem(PENDING_SIGNIN_METHOD_KEY);
+  } catch {
+    // See markPendingSignin's own catch.
+  }
+}
+
 // Set in .env.local / Vercel — see this file's Google sign-in block below.
 // Left unset, the Google button falls back to the existing
 // `signInWithOAuth` redirect flow unchanged (see `signInWithProvider`).
@@ -156,6 +183,7 @@ function SigninContent() {
         // `on_auth_user_created` DB trigger (supabase/add_auth_identity.sql)
         // creates the `profiles` row server-side on first sign-in, same as
         // for OAuth/OTP, so there's nothing else to replicate client-side.
+        markPendingSignin("google");
         window.location.assign(nextParam);
       } catch (err) {
         console.error("[signin] signInWithIdToken failed", err);
@@ -284,6 +312,7 @@ function SigninContent() {
         setError(friendlyOtpError(verifyError));
         return;
       }
+      markPendingSignin("email");
       window.location.assign(nextParam);
     } catch (err) {
       console.error("[signin] verifyOtp failed", err);
@@ -300,17 +329,23 @@ function SigninContent() {
     try {
       const supabase = supabaseBrowserAuth();
       const redirectTo = `${window.location.origin}/auth/callback?next=${encodeURIComponent(nextParam)}`;
+      // Set before the call, not after — a successful call redirects the
+      // browser away immediately, so there's no reliable "after" to set it
+      // in; cleared below if it turns out sign-in never actually started.
+      markPendingSignin(provider);
       const { error: oauthError } = await supabase.auth.signInWithOAuth({
         provider,
         options: { redirectTo },
       });
       if (oauthError) {
+        clearPendingSignin();
         setError(oauthError.message);
         setOauthLoading(null);
       }
       // On success the browser navigates away to the provider — no further
       // state update needed here.
     } catch (err) {
+      clearPendingSignin();
       console.error(`[signin] signInWithOAuth(${provider}) failed`, err);
       setError("Couldn't start sign-in. Try again.");
       setOauthLoading(null);

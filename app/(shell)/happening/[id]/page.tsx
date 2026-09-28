@@ -26,6 +26,7 @@ import { NotifyMeButton } from "@/components/happenings";
 import { ensurePushSubscribed, pushReasonMessage } from "@/lib/push/client";
 import { getHappeningPreview, takePrefetchedHappening, type HappeningPreview } from "@/lib/happenings/preview-cache";
 import { interestForHappeningCategory } from "@/lib/personalise/interests";
+import { track, trackOutboundClicked } from "@/lib/analytics/track";
 
 // Throws on a network error or non-2xx status (GET /api/happenings/[id]
 // returns 401/500 for those — see that route's own doc comment) so the
@@ -372,6 +373,7 @@ export default function HappeningDetailPage({ params }: { params: Promise<{ id: 
     // after a future re-render), so this satisfies the checker rather than
     // reflecting a real runtime possibility.
     if (!happening) return;
+    trackOutboundClicked("happening", happening.id, happening.source_url, "source");
     window.open(happening.source_url, "_blank", "noopener,noreferrer");
   }
 
@@ -392,6 +394,7 @@ export default function HappeningDetailPage({ params }: { params: Promise<{ id: 
               text={shareText}
               url={shareUrl}
               interestHint={interestForHappeningCategory(happening.category)}
+              kind="happening"
             />
           </div>
         }
@@ -590,6 +593,7 @@ export default function HappeningDetailPage({ params }: { params: Promise<{ id: 
                     device's calendar app's own import). */}
                 <a
                   href={icsUrl}
+                  onClick={() => track("calendar_added", { type: "ics", kind: "happening" })}
                   className="flex min-h-10 items-center gap-1 rounded-full border border-hairline-strong px-3 text-label-sm font-bold text-primary hover:bg-surface-container"
                 >
                   <Icon name="event_available" size={16} />
@@ -603,6 +607,7 @@ export default function HappeningDetailPage({ params }: { params: Promise<{ id: 
                     href={calendarUrl}
                     target="_blank"
                     rel="noopener noreferrer"
+                    onClick={() => track("calendar_added", { type: "google", kind: "happening" })}
                     className="text-label-sm font-medium text-on-surface-variant underline-offset-2 hover:underline"
                   >
                     Google Calendar
@@ -804,6 +809,7 @@ export default function HappeningDetailPage({ params }: { params: Promise<{ id: 
               href={directionsUrl}
               target="_blank"
               rel="noopener noreferrer"
+              onClick={() => trackOutboundClicked("happening", happening.id, directionsUrl, "directions")}
               className="flex w-full items-center gap-3 rounded-2xl bg-surface-container-lowest p-4 text-left shadow-level-1"
             >
               <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary-fixed text-primary">
@@ -851,7 +857,10 @@ export default function HappeningDetailPage({ params }: { params: Promise<{ id: 
             variant="orange"
             fullWidth
             trailingIcon="open_in_new"
-            onClick={() => window.open(ctaHref, "_blank", "noopener,noreferrer")}
+            onClick={() => {
+              trackOutboundClicked("happening", happening.id, ctaHref, "primary");
+              window.open(ctaHref, "_blank", "noopener,noreferrer");
+            }}
           >
             {ctaLabel}
           </Button>

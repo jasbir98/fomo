@@ -17,6 +17,7 @@ import { useProgressiveReveal } from "@/lib/useProgressiveReveal";
 import { ErrorState, Icon, PageHeader, StickyFilterBar } from "@/components/ui";
 import { BookEarlyCard, BookEarlyFilters } from "@/components/happenings";
 import { FomoSpot } from "@/components/fomo/FomoSpot";
+import { track } from "@/lib/analytics/track";
 
 function bookEarlyCardKey(card: BookEarlyCardData): string {
   return card.kind === "happening" ? `happening-${card.happening.id}` : `event-${card.event.id}`;
@@ -92,6 +93,19 @@ export default function BookEarlyPage() {
   const [category, setCategory] = useState<HappeningCategory | null>(null);
   const [month, setMonth] = useState<string | null>(null);
 
+  function handleTimingChange(value: BookEarlyTiming | null) {
+    setTiming(value);
+    track("filter_used", { filter: "timing", value, page: "book_early" });
+  }
+  function handleCategoryChange(value: HappeningCategory | null) {
+    setCategory(value);
+    track("filter_used", { filter: "category", value, page: "book_early" });
+  }
+  function handleMonthChange(value: string | null) {
+    setMonth(value);
+    track("filter_used", { filter: "month", value, page: "book_early" });
+  }
+
   const categoryOptions = useMemo(() => {
     if (!cards) return [];
     const present = new Set<HappeningCategory>();
@@ -143,9 +157,9 @@ export default function BookEarlyPage() {
               month={month}
               categoryOptions={categoryOptions}
               monthOptions={monthOptions}
-              onTimingChange={setTiming}
-              onCategoryChange={setCategory}
-              onMonthChange={setMonth}
+              onTimingChange={handleTimingChange}
+              onCategoryChange={handleCategoryChange}
+              onMonthChange={handleMonthChange}
               resultCount={filteredCards.length}
             />
             <Link
@@ -179,11 +193,12 @@ export default function BookEarlyPage() {
           </div>
         ) : (
           <div className="flex flex-col gap-3 pt-1">
-            {filteredCards.slice(0, visibleCount).map((card) => (
+            {filteredCards.slice(0, visibleCount).map((card, i) => (
               <BookEarlyCard
                 key={bookEarlyCardKey(card)}
                 card={card}
                 initialSubscribed={card.kind === "happening" && alertHappeningIds.has(card.happening.id)}
+                position={i}
               />
             ))}
             {visibleCount < filteredCards.length ? <div ref={revealSentinelRef} className="h-1" /> : null}

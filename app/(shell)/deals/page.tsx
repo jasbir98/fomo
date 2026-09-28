@@ -14,6 +14,7 @@ import { FomoSpot } from "@/components/fomo/FomoSpot";
 import { usePrefs } from "@/lib/personalise/usePrefs";
 import { personalBoost, reorderWithBoost, type BoostPrefs } from "@/lib/personalise/score";
 import { useEffectiveWho } from "@/lib/personalise/useEffectiveWho";
+import { track } from "@/lib/analytics/track";
 
 type DealListItem =
   | { kind: "venue"; group: VenueDealGroup }
@@ -57,6 +58,16 @@ export default function DealsPage() {
   const error = dealsResult.error != null && deals === null;
   const [dealWhat, setDealWhat] = useState<DealWhatGroup | null>(null);
   const [dealWho, setDealWho] = useState<DealWhoGroup | null>(null);
+
+  function handleWhatChange(value: DealWhatGroup | null) {
+    setDealWhat(value);
+    track("filter_used", { filter: "what", value, page: "deals" });
+  }
+
+  function handleWhoChange(value: DealWhoGroup | null) {
+    setDealWho(value);
+    track("filter_used", { filter: "who", value, page: "deals" });
+  }
   const who = useEffectiveWho();
   const prefs = usePrefs();
   const boostPrefs: BoostPrefs = useMemo(
@@ -120,8 +131,8 @@ export default function DealsPage() {
             <DealFilters
               what={dealWhat}
               who={dealWho}
-              onWhatChange={setDealWhat}
-              onWhoChange={setDealWho}
+              onWhatChange={handleWhatChange}
+              onWhoChange={handleWhoChange}
               resultCount={dealItems.length}
             />
           </div>
@@ -148,7 +159,7 @@ export default function DealsPage() {
           </div>
         ) : (
           <div className="flex flex-col gap-3 pt-1">
-            {dealItems.slice(0, visibleCount).map((item) =>
+            {dealItems.slice(0, visibleCount).map((item, i) =>
               item.kind === "venue" ? (
                 <VenueDealCard
                   key={`venue-${item.group.placeId ?? item.group.placeName}`}
@@ -157,11 +168,14 @@ export default function DealsPage() {
                   placeImageUrl={item.group.placeImageUrl}
                   district={item.group.district}
                   offers={item.group.offers}
+                  position={i}
                 />
               ) : (
                 <FeedListCard
                   key={`single-${item.card.happening.id}`}
                   card={{ kind: "happening", happening: item.card.happening, occurrence: item.card.occurrence }}
+                  surface="deals"
+                  position={i}
                 />
               )
             )}

@@ -7,6 +7,7 @@ import { maybeOpenOnFirstSave } from "@/lib/personalise/trigger";
 import { recordAffinity } from "@/lib/personalise/affinity";
 import type { InterestKey } from "@/lib/personalise/interests";
 import type { CardSubjectType } from "@/lib/types";
+import { track } from "@/lib/analytics/track";
 
 export type SaveButtonProps = {
   subjectType: CardSubjectType;
@@ -43,8 +44,13 @@ export function SaveButton({ subjectType, subjectId, className = "", interestHin
         e.stopPropagation();
         e.preventDefault();
         const wasSaved = saved;
+        // Only counted once the toggle actually lands — a signed-out tap
+        // redirects to sign-in instead of saving (lib/useSaved.ts), which
+        // must never register as a save.
         void toggle(subjectType, subjectId).then(() => {
-          if (wasSaved || signedIn !== true) return;
+          if (signedIn !== true) return;
+          track(wasSaved ? "save_removed" : "save_added", { kind: subjectType, id: subjectId });
+          if (wasSaved) return;
           maybeOpenOnFirstSave(prefs.done);
           recordAffinity(interestHint);
         });

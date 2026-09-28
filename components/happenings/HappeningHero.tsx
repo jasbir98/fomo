@@ -18,6 +18,8 @@ import { bookEarlyLabelFor, bookEarlyTier } from "@/lib/happenings/book-early";
 import { categoryDefaultImage, categoryStyle } from "@/lib/happenings/category-style";
 import type { Happening, Occurrence } from "@/lib/happenings/types";
 import { happeningToPreview, prefetchHappening, setHappeningPreview } from "@/lib/happenings/preview-cache";
+import { track, priceBand, trackOutboundClicked } from "@/lib/analytics/track";
+import type { FeedCardSurface } from "./FeedListCard";
 
 export interface HappeningHeroProps {
   happening: Happening;
@@ -38,6 +40,8 @@ export interface HappeningHeroProps {
    *  Fomo Pick/Book Early label. Null/undefined renders nothing extra,
    *  which is the normal case on the Book Early tab (see FeedHero). */
   reason?: string | null;
+  /** `card_opened`'s `surface` — "home_whats_on" for the ranked Fomo Pick hero, "book_early" for that tab's own hero. */
+  surface?: FeedCardSurface;
 }
 
 /**
@@ -53,7 +57,7 @@ export interface HappeningHeroProps {
  * on Book early, which shows no hero at all rather than either fallback when
  * it has no Book Early candidate to lead with.
  */
-export function HappeningHero({ happening, occurrence, variant = "fomo_pick", reason }: HappeningHeroProps) {
+export function HappeningHero({ happening, occurrence, variant = "fomo_pick", reason, surface }: HappeningHeroProps) {
   const [copied, setCopied] = useState(false);
   const [imgError, setImgError] = useState(false);
   const now = new Date();
@@ -132,9 +136,17 @@ export function HappeningHero({ happening, occurrence, variant = "fomo_pick", re
       href={`/happening/${happening.id}`}
       ariaLabel={happening.title}
       onPointerDown={() => prefetchHappening(happening.id)}
-      onNavigate={() =>
-        setHappeningPreview(happening.id, happeningToPreview(happening, { priceLabel: badge, whenLabel: occurrenceRangeLabel(occurrence) }))
-      }
+      onNavigate={() => {
+        setHappeningPreview(happening.id, happeningToPreview(happening, { priceLabel: badge, whenLabel: occurrenceRangeLabel(occurrence) }));
+        track("card_opened", {
+          kind: "happening",
+          id: happening.id,
+          source: variant === "book_early" ? "book_early_hero" : happening.kind,
+          surface,
+          position: 0,
+          price_band: priceBand(happening.is_free),
+        });
+      }}
       className="relative flex flex-col overflow-hidden rounded-3xl bg-surface-container-lowest shadow-level-3 cursor-pointer"
     >
       <div className="relative h-40 w-full shrink-0 overflow-hidden bg-surface-container">
@@ -246,7 +258,10 @@ export function HappeningHero({ happening, occurrence, variant = "fomo_pick", re
             href={ctaHref}
             target="_blank"
             rel="noopener noreferrer"
-            onClick={(e) => e.stopPropagation()}
+            onClick={(e) => {
+              e.stopPropagation();
+              trackOutboundClicked("happening", happening.id, ctaHref, variant === "book_early" ? "book_now" : "hero_cta");
+            }}
             className="flex flex-1 items-center justify-center gap-1 rounded-lg bg-primary px-4 py-2.5 text-label-md font-bold text-on-primary shadow-sm transition-opacity hover:opacity-90 active:scale-95"
           >
             {ctaLabel}

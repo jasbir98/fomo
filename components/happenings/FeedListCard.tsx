@@ -24,9 +24,38 @@ import { interestForHappeningCategory } from "@/lib/personalise/interests";
 import { useEffectiveWho } from "@/lib/personalise/useEffectiveWho";
 import { happeningToPreview, prefetchHappening, setHappeningPreview } from "@/lib/happenings/preview-cache";
 import { eventToPreview, prefetchEvent, setEventPreview } from "@/lib/events/preview-cache";
+import { track, priceBand, trackOutboundClicked } from "@/lib/analytics/track";
+
+/** Where this list is mounted — sent as `card_opened`'s `surface` so
+ *  analytics can tell a Home "What's on" tap apart from the same card
+ *  rendered on /whats-on, /weekend, /deals, /free or /book-early. */
+export type FeedCardSurface = "home_whats_on" | "whats_on" | "weekend" | "free" | "deals" | "book_early";
 
 export interface FeedListCardProps {
   card: FeedCardData;
+  /** Omitted only by call sites not yet passing it through — `card_opened` still fires, just without a `surface`. */
+  surface?: FeedCardSurface;
+  /** 0-based index within its list, when cheaply known at the call site. */
+  position?: number;
+}
+
+/** One `card_opened` call site for every happening-backed row variant below
+ *  — `kind` is always "happening" (what detail page it opens), `source` is
+ *  the more specific sub-type: the happening's own `kind` (deal/event/
+ *  activity/tour/festival) for a single row, or "series"/"recurring" for
+ *  the aggregated card variants. */
+function trackCardOpened(
+  source: string,
+  id: string,
+  surface: FeedCardSurface | undefined,
+  position: number | undefined,
+  isFree: boolean | null | undefined
+) {
+  track("card_opened", { kind: "happening", id, source, surface, position, price_band: priceBand(isFree) });
+}
+
+function trackEventCardOpened(id: string, surface: FeedCardSurface | undefined, position: number | undefined, isFree: boolean | null | undefined) {
+  track("card_opened", { kind: "event", id, source: "event", surface, position, price_band: priceBand(isFree) });
 }
 
 /** "NATIONAL EVENT"/"REGIONAL EVENT" render as a plain accent label (the mockup's National Cinema Weekend row); everything else (EVENT/DEAL/FESTIVAL, and every event card) renders as a filled pill. */
@@ -106,7 +135,17 @@ function CardShell({
   );
 }
 
-function HappeningRow({ happening, occurrence }: { happening: Happening; occurrence: Occurrence }) {
+function HappeningRow({
+  happening,
+  occurrence,
+  surface,
+  position,
+}: {
+  happening: Happening;
+  occurrence: Occurrence;
+  surface?: FeedCardSurface;
+  position?: number;
+}) {
   const tag = happeningTypeTag(happening, occurrence.exact);
   const time = happeningTimeLabel(occurrence);
   const venue = happening.venue_name ?? happening.district;
@@ -132,12 +171,13 @@ function HappeningRow({ happening, occurrence }: { happening: Happening; occurre
     <CardShell
       href={`/happening/${happening.id}`}
       onPointerDown={() => prefetchHappening(happening.id)}
-      onNavigate={() =>
+      onNavigate={() => {
         setHappeningPreview(
           happening.id,
           happeningToPreview(happening, { priceLabel: savingBadgeLabel(happening), whenLabel: occurrenceRangeLabel(occurrence) })
-        )
-      }
+        );
+        trackCardOpened(happening.kind, happening.id, surface, position, happening.is_free);
+      }}
     >
       <div className="flex items-start justify-between gap-3">
         <Thumbnail src={thumbnail} alt="" />
@@ -194,7 +234,7 @@ function HappeningRow({ happening, occurrence }: { happening: Happening; occurre
  * that page's Locations section). No external booking CTA here — a series
  * has no one booking link, only its detail page does per-location.
  */
-function SeriesRow({ card }: { card: SeriesCardData }) {
+function SeriesRow({ card, surface, position }: { card: SeriesCardData; surface?: FeedCardSurface; position?: number }) {
   const { lead, occurrence } = card;
   const tag = happeningTypeTag(lead, occurrence.exact);
   const time = happeningTimeLabel(occurrence);
@@ -209,12 +249,13 @@ function SeriesRow({ card }: { card: SeriesCardData }) {
     <CardShell
       href={`/happening/${lead.id}`}
       onPointerDown={() => prefetchHappening(lead.id)}
-      onNavigate={() =>
+      onNavigate={() => {
         setHappeningPreview(
           lead.id,
           happeningToPreview(lead, { priceLabel: savingBadgeLabel(lead), whenLabel: occurrenceRangeLabel(occurrence) })
-        )
-      }
+        );
+        trackCardOpened("series", lead.id, surface, position, lead.is_free);
+      }}
     >
       <div className="flex items-start justify-between gap-3">
         <Thumbnail src={thumbnail} alt="" />
@@ -269,7 +310,7 @@ function shortDayLabel(dayDate: string): string {
  * SeriesRow borrows from its lead; tapping it goes to the lead's own detail
  * page — that occurrence's actual booking link/details.
  */
-function RecurringRow({ card }: { card: RecurringCardData }) {
+function RecurringRow({ card, surface, position }: { card: RecurringCardData; surface?: FeedCardSurface; position?: number }) {
   const { lead, dates } = card;
   const extraCount = dates.length - 1;
   const dateLabel = `${shortDayLabel(dates[0])}${extraCount > 0 ? ` + ${extraCount} more date${extraCount === 1 ? "" : "s"}` : ""}`;
@@ -286,11 +327,15 @@ function RecurringRow({ card }: { card: RecurringCardData }) {
     <CardShell
       href={href}
       onPointerDown={() => (lead.kind === "happening" ? prefetchHappening(lead.happening.id) : prefetchEvent(lead.event.id))}
-      onNavigate={() =>
-        lead.kind === "happening"
-          ? setHappeningPreview(lead.happening.id, happeningToPreview(lead.happening, { priceLabel: savingBadgeLabel(lead.happening), whenLabel: dateLabel }))
-          : setEventPreview(lead.event.id, eventToPreview(lead.event, { priceLabel: formatEventPrice(lead.event), whenLabel: dateLabel }))
-      }
+      onNavigate={() => {
+        if (lead.kind === "happening") {
+          setHappeningPreview(lead.happening.id, happeningToPreview(lead.happening, { priceLabel: savingBadgeLabel(lead.happening), whenLabel: dateLabel }));
+          trackCardOpened("recurring", lead.happening.id, surface, position, lead.happening.is_free);
+        } else {
+          setEventPreview(lead.event.id, eventToPreview(lead.event, { priceLabel: formatEventPrice(lead.event), whenLabel: dateLabel }));
+          trackEventCardOpened(lead.event.id, surface, position, lead.event.is_free);
+        }
+      }}
     >
       <div className="flex items-start justify-between gap-3">
         <Thumbnail src={thumbnail} alt="" />
@@ -326,7 +371,7 @@ function RecurringRow({ card }: { card: RecurringCardData }) {
   );
 }
 
-function FestivalRow({ happening }: { happening: Happening }) {
+function FestivalRow({ happening, surface, position }: { happening: Happening; surface?: FeedCardSurface; position?: number }) {
   const priceLabel = priceLabelForHappening(happening);
   const ctaHref = happening.booking_url ?? happening.source_url;
   const ctaLabel = happening.cta_label ?? "View Details";
@@ -343,7 +388,10 @@ function FestivalRow({ happening }: { happening: Happening }) {
       href={`/happening/${happening.id}`}
       ariaLabel={happening.title}
       onPointerDown={() => prefetchHappening(happening.id)}
-      onNavigate={() => setHappeningPreview(happening.id, happeningToPreview(happening, { priceLabel: savingBadgeLabel(happening) }))}
+      onNavigate={() => {
+        setHappeningPreview(happening.id, happeningToPreview(happening, { priceLabel: savingBadgeLabel(happening) }));
+        trackCardOpened("festival", happening.id, surface, position, happening.is_free);
+      }}
       className="flex cursor-pointer flex-col overflow-hidden rounded-3xl bg-surface-container-lowest shadow-level-2"
     >
       {/* Full-width banner — the feed's max container is 480px (see e.g.
@@ -398,7 +446,10 @@ function FestivalRow({ happening }: { happening: Happening }) {
         href={ctaHref}
         target="_blank"
         rel="noopener noreferrer"
-        onClick={(e) => e.stopPropagation()}
+        onClick={(e) => {
+          e.stopPropagation();
+          trackOutboundClicked("happening", happening.id, ctaHref, "festival_cta");
+        }}
         className="flex w-full items-center justify-center gap-1.5 rounded-lg bg-primary py-2.5 text-label-md font-bold text-on-primary shadow-sm transition-opacity hover:opacity-90 active:scale-[0.98]"
       >
         {ctaLabel}
@@ -409,7 +460,7 @@ function FestivalRow({ happening }: { happening: Happening }) {
   );
 }
 
-function EventRow({ event }: { event: EventItem }) {
+function EventRow({ event, surface, position }: { event: EventItem; surface?: FeedCardSurface; position?: number }) {
   const eventDate = formatEventDate(event.starts_at);
   const eventTime = formatEventTimeSpan(event.starts_at, event.ends_at);
   const priceLabel = priceLabelForEvent(event);
@@ -423,12 +474,13 @@ function EventRow({ event }: { event: EventItem }) {
     <CardShell
       href={`/event/${event.id}`}
       onPointerDown={() => prefetchEvent(event.id)}
-      onNavigate={() =>
+      onNavigate={() => {
         setEventPreview(
           event.id,
           eventToPreview(event, { priceLabel: formatEventPrice(event), whenLabel: formatEventWhen(event.starts_at, event.ends_at) })
-        )
-      }
+        );
+        trackEventCardOpened(event.id, surface, position, event.is_free);
+      }}
     >
       <div className="flex items-start justify-between gap-3">
         <Thumbnail src={thumbnail} alt="" />
@@ -475,14 +527,16 @@ function EventRow({ event }: { event: EventItem }) {
  * instead renders the wider civic variant (source-link row + full-width
  * CTA), matching the mockup's Doors Open Days card.
  */
-export function FeedListCard({ card }: FeedListCardProps) {
-  if (card.kind === "series") return <SeriesRow card={card} />;
-  if (card.kind === "recurring") return <RecurringRow card={card} />;
+export function FeedListCard({ card, surface, position }: FeedListCardProps) {
+  if (card.kind === "series") return <SeriesRow card={card} surface={surface} position={position} />;
+  if (card.kind === "recurring") return <RecurringRow card={card} surface={surface} position={position} />;
   if (card.kind === "happening") {
-    if (card.happening.kind === "festival") return <FestivalRow happening={card.happening} />;
-    return <HappeningRow happening={card.happening} occurrence={card.occurrence} />;
+    if (card.happening.kind === "festival") {
+      return <FestivalRow happening={card.happening} surface={surface} position={position} />;
+    }
+    return <HappeningRow happening={card.happening} occurrence={card.occurrence} surface={surface} position={position} />;
   }
-  return <EventRow event={card.event} />;
+  return <EventRow event={card.event} surface={surface} position={position} />;
 }
 
 export default FeedListCard;

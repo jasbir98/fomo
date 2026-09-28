@@ -1,17 +1,33 @@
 /**
- * Minimal error-reporting shim for the app's error boundaries
- * (app/error.tsx, app/global-error.tsx). For now just `console.error`s so
- * failures are visible in server/browser logs; once PostHog is wired up
- * (separate task) it'll also forward to `posthog.captureException` — this
- * checks for `window.posthog` rather than importing the SDK so this file
- * has zero new dependencies today and doesn't need touching when that
- * lands, as long as PostHog attaches itself to `window.posthog` the usual
- * way.
+ * Error-reporting shim for the app's error boundaries (app/error.tsx,
+ * app/global-error.tsx). Always `console.error`s so failures are visible in
+ * server/browser logs, and also forwards to `posthog.captureException` when
+ * PostHog has attached itself to `window.posthog` (instrumentation-client.ts)
+ * — checked via `window.posthog` rather than importing the SDK directly so
+ * this file needs no posthog-js dependency of its own and stays a safe
+ * no-op before that script has run, or when NEXT_PUBLIC_POSTHOG_KEY is unset.
  */
 
+// Method-shorthand signatures (not `foo?: (x) => void` arrow-typed
+// properties) deliberately — TypeScript checks these bivariantly, which is
+// what lets instrumentation-client.ts assign the real, much more strictly
+// typed posthog-js instance to `window.posthog` without every param type
+// here having to exactly (contravariantly) match posthog-js's own.
 interface PosthogLike {
-  captureException?: (error: unknown, properties?: Record<string, unknown>) => void;
-  displaySurvey?: (surveyId: string) => void;
+  captureException?(error: unknown, properties?: Record<string, unknown>): void;
+  displaySurvey?(surveyId: string): void;
+  /** lib/analytics/track.ts's `track()` is the one place the rest of the
+   *  app calls this — declared here (the single `declare global` for
+   *  `window.posthog` in the codebase) so every file that touches it agrees
+   *  on one shape instead of TypeScript rejecting conflicting re-declarations. */
+  capture?(event: string, properties?: Record<string, unknown>): void;
+  /** components/analytics/ConsentBar.tsx's only call — flips persistence
+   *  from the pre-consent "memory" mode to "localStorage+cookie" on accept. */
+  set_config?(config: Record<string, unknown>): void;
+  /** components/analytics/IdentifyUser.tsx's calls — identity + super properties. */
+  identify?(id: string, properties?: Record<string, unknown>): void;
+  reset?(): void;
+  register?(properties: Record<string, unknown>): void;
 }
 
 declare global {
