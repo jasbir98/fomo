@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useState, useSyncExternalStore, type FormEvent } from "react";
 import Link from "next/link";
 import { Icon } from "@/components/ui";
 import { track } from "@/lib/analytics/track";
@@ -13,6 +13,8 @@ export interface SubscribeCardProps {
 
 /** localStorage key remembering "this browser already subscribed" — see this file's doc comment. */
 const SUBSCRIBED_KEY = "fomo_subscribed";
+
+const subscribeNoop = () => () => {};
 
 function readSubscribed(): boolean {
   try {
@@ -52,9 +54,11 @@ function rememberSubscribed() {
 export function SubscribeCard({ source, className = "" }: SubscribeCardProps) {
   const [email, setEmail] = useState("");
   const [website, setWebsite] = useState(""); // honeypot — always empty for a real visitor
-  const [status, setStatus] = useState<"idle" | "sending" | "done" | "error">(() =>
-    typeof window !== "undefined" && readSubscribed() ? "done" : "idle"
-  );
+  // Server snapshot is "not subscribed" so the hydration pass matches the
+  // server HTML; a returning subscriber flips to "done" right after.
+  const alreadySubscribed = useSyncExternalStore(subscribeNoop, readSubscribed, () => false);
+  const [formStatus, setStatus] = useState<"idle" | "sending" | "done" | "error">("idle");
+  const status = alreadySubscribed && formStatus === "idle" ? "done" : formStatus;
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   async function handleSubmit(e: FormEvent) {

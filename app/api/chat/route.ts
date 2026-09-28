@@ -403,11 +403,22 @@ export async function POST(req: Request): Promise<Response> {
   if (!user) return jsonError("Sign in to use Ask Fomo.", 401);
   const who = parseWhoGroups(user.user_metadata);
 
-  // Site-wide backstop before the per-user checks — see
-  // CHAT_GLOBAL_DAILY_LIMIT's doc comment. Checked first since it's the
-  // cheapest possible reason to reject (no per-user identity needed) and
-  // protects the aggregate bill even if every individual user is well
-  // within their own limits.
+  // Rate limit — burst window first, then daily; either exceeded denies the
+  // request. Fails open (lets the request through) until
+  // supabase/add_rate_limits.sql has been run — see lib/rate-limit.ts.
+  // Checked before the site-wide backstop below so a user already past
+  // their own limit is denied without also consuming a slot from the
+  // shared global counter (a signed-in-but-over-limit user has an identity
+  // to rate limit on, so their own check is the cheaper/more specific one).
+  const burst = await consumeRateLimit(db, "chat:burst", CHAT_RATE_LIMIT_BURST);
+  if (!burst.allowed) return rateLimitedResponse(burst);
+  const daily = await consumeRateLimit(db, "chat:day", CHAT_RATE_LIMIT_DAILY);
+  if (!daily.allowed) return rateLimitedResponse(daily);
+
+  // Site-wide backstop, last — see CHAT_GLOBAL_DAILY_LIMIT's doc comment.
+  // Deliberately after the per-user checks above: consuming this shared
+  // counter is only meaningful for a request that has already cleared its
+  // own per-user limits.
   const global = await consumeGlobalRateLimit("chat:global-day", CHAT_GLOBAL_DAILY_LIMIT);
   if (!global.allowed) {
     return anonRateLimitedResponse(
@@ -415,14 +426,6 @@ export async function POST(req: Request): Promise<Response> {
       CHAT_GLOBAL_DAILY_LIMIT.windowSeconds
     );
   }
-
-  // Rate limit — burst window first, then daily; either exceeded denies the
-  // request. Fails open (lets the request through) until
-  // supabase/add_rate_limits.sql has been run — see lib/rate-limit.ts.
-  const burst = await consumeRateLimit(db, "chat:burst", CHAT_RATE_LIMIT_BURST);
-  if (!burst.allowed) return rateLimitedResponse(burst);
-  const daily = await consumeRateLimit(db, "chat:day", CHAT_RATE_LIMIT_DAILY);
-  if (!daily.allowed) return rateLimitedResponse(daily);
 
   const now = new Date();
   let catalogue: Catalogue;

@@ -51,6 +51,10 @@ if (POSTHOG_KEY) {
     // (memory-only) and never-signed-in usage still shows up in retention/
     // funnels, not just identified users. See this file's doc comment.
     person_profiles: "always",
+    // Append lazy-loaded scripts (config, surveys, recorder) to <head>. The
+    // default inserts them before the first `body > script`, which lands
+    // inside the React-rendered tree and breaks hydration.
+    external_scripts_inject_target: "head",
     capture_pageview: "history_change",
     capture_pageleave: true,
     autocapture: true,

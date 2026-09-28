@@ -21,6 +21,10 @@ on:
           - email-dry-run
           - email-send
 
+# Least privilege: jobs only check out code and upload artifacts.
+permissions:
+  contents: read
+
 jobs:
   carousel:
     # Run carousel job on Wednesday cron (schedule[0]) or if manually triggered with action=carousel

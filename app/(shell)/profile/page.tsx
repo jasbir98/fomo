@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, type ChangeEvent } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore, type ChangeEvent } from "react";
 import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
@@ -17,6 +17,8 @@ import { usePrefs } from "@/lib/personalise/usePrefs";
 const AvatarCropModal = dynamic(() => import("@/components/fomo/AvatarCropModal").then((mod) => mod.AvatarCropModal), {
   ssr: false,
 });
+
+const subscribeNoop = () => () => {};
 
 export default function ProfilePage() {
   const db = supabaseBrowserAuth();
@@ -36,15 +38,18 @@ export default function ProfilePage() {
   const [bigOnsaleAlerts, setBigOnsaleAlerts] = useState(false);
   const [bigOnsaleAlertsBusy, setBigOnsaleAlertsBusy] = useState(false);
   const [bigOnsaleAlertsError, setBigOnsaleAlertsError] = useState<string | null>(null);
-  // Lazily read once on mount purely for display ("Notifications:
-  // allowed/blocked/not requested yet") — never drives requestPermission
-  // itself, which only ever runs from ensurePushSubscribed inside a real
-  // button click. A lazy initializer rather than an effect: this is a
-  // one-time synchronous browser API read, not a subscription to an
-  // external system, so there's nothing to synchronize on mount.
-  const [notificationPermission, setNotificationPermission] = useState<NotificationPermission | "unsupported">(
-    () => (typeof window === "undefined" ? "unsupported" : pushSupportReason() ? "unsupported" : Notification.permission)
+  // Read purely for display ("Notifications: allowed/blocked/not requested
+  // yet") — never drives requestPermission itself, which only ever runs from
+  // ensurePushSubscribed inside a real button click. useSyncExternalStore
+  // with an "unsupported" server snapshot keeps the hydration pass identical
+  // to the server HTML; the real value renders right after.
+  const initialPermission = useSyncExternalStore(
+    subscribeNoop,
+    () => (pushSupportReason() ? "unsupported" : Notification.permission),
+    () => "unsupported" as const
   );
+  const [permissionOverride, setNotificationPermission] = useState<NotificationPermission | "unsupported" | null>(null);
+  const notificationPermission = permissionOverride ?? initialPermission;
   // Account identity — replaces the old device-id display now that identity
   // comes from a real Supabase session rather than a localStorage device id.
   const [accountEmail, setAccountEmail] = useState<string | null>(null);

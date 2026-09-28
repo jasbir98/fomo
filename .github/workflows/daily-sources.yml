@@ -17,6 +17,10 @@ on:
     - cron: "43 17 * * *"
   workflow_dispatch: {}
 
+# Least privilege: jobs only check out code and upload artifacts.
+permissions:
+  contents: read
+
 jobs:
   ingest:
     runs-on: ubuntu-latest

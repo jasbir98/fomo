@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useSyncExternalStore } from "react";
 import Link from "next/link";
 
 /** localStorage key remembering the visitor's choice — set once, never asked again either way (accept or decline), matching SubscribeCard's own `fomo_subscribed` convention (components/happenings/SubscribeCard.tsx). */
@@ -16,6 +16,10 @@ function readConsent(): Consent | null {
     return null;
   }
 }
+
+// The choice only changes through this component (which tracks it in state),
+// so there's nothing external to subscribe to.
+const subscribeNoop = () => () => {};
 
 function writeConsent(value: Consent) {
   try {
@@ -36,16 +40,16 @@ function writeConsent(value: Consent) {
  * (events still capture for the current page load/session, nothing
  * persisted) and, like "OK", is remembered so the bar never asks twice.
  *
- * Deliberately renders nothing once a choice has been made — the
- * localStorage read happens in the state initializer (client-only, same
- * `typeof window !== "undefined"` guard as SubscribeCard's own
- * `readSubscribed` convention) rather than an effect, so there's no
- * setState-after-mount flash of the bar on every repeat visit.
+ * Renders nothing once a choice has been made. The stored choice is read
+ * via useSyncExternalStore with a "pending" server snapshot, so SSR and the
+ * hydration pass both render nothing and the bar only appears on the client
+ * for visitors who haven't chosen yet. (Reading localStorage in a state
+ * initializer made returning visitors' client tree differ from the server
+ * HTML — React #418, whole-page client re-render.)
  */
 export function ConsentBar() {
-  const [consent, setConsent] = useState<Consent | null>(() =>
-    typeof window !== "undefined" ? readConsent() : null
-  );
+  const stored = useSyncExternalStore(subscribeNoop, readConsent, () => "pending" as const);
+  const [consent, setConsent] = useState<Consent | null>(null);
 
   function choose(value: Consent) {
     writeConsent(value);
@@ -55,7 +59,7 @@ export function ConsentBar() {
     }
   }
 
-  if (consent !== null) return null;
+  if (consent !== null || stored !== null) return null;
 
   return (
     <div

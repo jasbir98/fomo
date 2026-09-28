@@ -3,6 +3,7 @@
 // about, plus a `returnTo` path so closing chat lands back where you tapped
 // from, not on the bare Fomo tab.
 import type { CardSubjectType } from "@/lib/types";
+import { safeNext } from "@/lib/auth/safe-next";
 
 export interface ChatSeed {
   type: CardSubjectType;
@@ -43,7 +44,7 @@ export function readChatSeed(searchParams: URLSearchParams): ChatSeed | null {
     name,
     city: searchParams.get(`${PARAM_PREFIX}City`),
     coords: Number.isFinite(lat) && Number.isFinite(lng) ? { lat, lng } : null,
-    returnTo: searchParams.get("returnTo") || "/",
+    returnTo: safeNext(searchParams.get("returnTo")),
   };
 }
 
