@@ -17,6 +17,10 @@ import { REMOTE_IMAGE_HOSTNAMES } from "./lib/image/cdn";
 // so it needs an explicit allowance — but only outside production, where no
 // such interception ever happens and the CSP should stay maximally strict.
 const isProductionDeploy = process.env.VERCEL_ENV === "production";
+// Dev only: React's dev build uses eval() for callstacks, and Vercel Analytics/
+// Speed Insights load debug scripts from va.vercel-scripts.com (prod serves them
+// same-origin under /_vercel).
+const isDev = process.env.NODE_ENV === "development";
 
 const CSP_DIRECTIVES = [
   "default-src 'self'",
@@ -24,7 +28,7 @@ const CSP_DIRECTIVES = [
   // 'unsafe-inline' stays here until that's built out. Google Identity
   // Services (GIS) sign-in (app/signin/page.tsx) loads its client script
   // from accounts.google.com/gsi/client — see Google's GIS CSP guidance.
-  "script-src 'self' 'unsafe-inline' https://accounts.google.com/gsi/client",
+  `script-src 'self' 'unsafe-inline'${isDev ? " 'unsafe-eval' https://va.vercel-scripts.com" : ""} https://accounts.google.com/gsi/client`,
   // Tailwind's compiled stylesheet is same-origin; 'unsafe-inline' covers the
   // many inline style={{...}} attributes throughout components (e.g.
   // ReelViewer's drag transforms) and Next's own inline <style> tags.

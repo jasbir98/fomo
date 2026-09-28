@@ -82,26 +82,9 @@ export default function RootLayout({
           rel="stylesheet"
           href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL@20..48,100..700,0..1"
         />
-      </head>
-      <body>
-        <div className="mx-auto flex min-h-dvh w-full max-w-[480px] flex-col bg-background">
-          {children}
-        </div>
-        {/* Material Symbols stylesheet: flip media="print" to media="all" once loaded to
-            make stylesheet non-render-blocking while falling back gracefully. */}
-        <script
-          dangerouslySetInnerHTML={{
-            __html: `
-              const links = document.querySelectorAll('link[href*="Material+Symbols"]');
-              links.forEach((link) => {
-                if (link.media === 'print' && link.rel === 'stylesheet') {
-                  link.onload = () => { link.media = 'all'; };
-                  if (link.sheet) link.media = 'all';
-                }
-              });
-            `,
-          }}
-        />
+        {/* Inline scripts live in <head>, never <body>: PostHog inserts its
+            config.js before the first `body > script`, and React would then try
+            to hydrate that injected tag as ours (attribute mismatch). */}
         {/* Skip SW registration outside production: Turbopack's dev server + hand-rolled
             sw.js (no HMR-awareness) is one thing, but the real trigger for the console
             noise is CDP/automation-driven Chrome (this Browser pane included) rejecting
@@ -116,6 +99,11 @@ export default function RootLayout({
             }}
           />
         )}
+      </head>
+      <body>
+        <div className="mx-auto flex min-h-dvh w-full max-w-[480px] flex-col bg-background">
+          {children}
+        </div>
         <Analytics />
         <SpeedInsights />
       </body>
