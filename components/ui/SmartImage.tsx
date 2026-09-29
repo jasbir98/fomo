@@ -132,6 +132,25 @@ export function SmartImage({
     );
   }
 
+  // Our own raster files under /public (e.g. the category default photos,
+  // shipped at 1600px): let next/image resize them per placement and serve
+  // AVIF/WebP, so a 64px thumbnail never downloads the full banner.
+  if (httpsSrc.startsWith("/") && !httpsSrc.startsWith("//") && !httpsSrc.endsWith(".svg")) {
+    return (
+      <Image
+        src={httpsSrc}
+        alt={alt}
+        width={width}
+        height={height}
+        sizes={sizes}
+        quality={QUALITY}
+        priority={priority}
+        className={className}
+        onError={handleError}
+      />
+    );
+  }
+
   if (isOptimizableRemote(httpsSrc)) {
     // `unoptimized` defaults to `true` (i.e. "assume NOT configured") unless
     // `isKnownImageHost` positively confirms the hostname matches one of

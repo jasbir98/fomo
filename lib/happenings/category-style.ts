@@ -27,7 +27,7 @@ export interface CategoryStyle {
   textClass: string;
   /** Small solid marker dot (e.g. next to a section heading). */
   dotClass: string;
-  /** Bundled local default image — public/defaults/happenings/<category>.svg — used when a happening has no image_url and (for venue-grouped cards) no place photo either. */
+  /** Bundled local default image — public/defaults/happenings/<category>.webp (1600px; next/image resizes per placement) — used when a happening has no image_url and (for venue-grouped cards) no place photo either. */
   defaultImage: string;
 }
 
@@ -55,7 +55,7 @@ export const CATEGORY_STYLE: Record<HappeningCategory, CategoryStyle> = {
     badgeClass: "bg-cat-music text-white",
     textClass: "text-cat-music",
     dotClass: "bg-cat-music",
-    defaultImage: "/defaults/happenings/music.svg",
+    defaultImage: "/defaults/happenings/music.webp",
   },
   nightlife: {
     label: "Nightlife",
@@ -63,7 +63,7 @@ export const CATEGORY_STYLE: Record<HappeningCategory, CategoryStyle> = {
     badgeClass: "bg-cat-nightlife text-white",
     textClass: "text-cat-nightlife",
     dotClass: "bg-cat-nightlife",
-    defaultImage: "/defaults/happenings/nightlife.svg",
+    defaultImage: "/defaults/happenings/nightlife.webp",
   },
   festival: {
     label: "Festival",
@@ -71,7 +71,7 @@ export const CATEGORY_STYLE: Record<HappeningCategory, CategoryStyle> = {
     badgeClass: "bg-cat-festival text-white",
     textClass: "text-cat-festival",
     dotClass: "bg-cat-festival",
-    defaultImage: "/defaults/happenings/festival.svg",
+    defaultImage: "/defaults/happenings/festival.webp",
   },
   arts: {
     label: "Arts",
@@ -79,7 +79,7 @@ export const CATEGORY_STYLE: Record<HappeningCategory, CategoryStyle> = {
     badgeClass: "bg-cat-arts text-white",
     textClass: "text-cat-arts",
     dotClass: "bg-cat-arts",
-    defaultImage: "/defaults/happenings/arts.svg",
+    defaultImage: "/defaults/happenings/arts.webp",
   },
   comedy: {
     label: "Comedy",
@@ -87,7 +87,7 @@ export const CATEGORY_STYLE: Record<HappeningCategory, CategoryStyle> = {
     badgeClass: "bg-cat-comedy text-white",
     textClass: "text-cat-comedy",
     dotClass: "bg-cat-comedy",
-    defaultImage: "/defaults/happenings/comedy.svg",
+    defaultImage: "/defaults/happenings/comedy.webp",
   },
   sports: {
     label: "Sports",
@@ -95,7 +95,7 @@ export const CATEGORY_STYLE: Record<HappeningCategory, CategoryStyle> = {
     badgeClass: "bg-cat-sports text-white",
     textClass: "text-cat-sports",
     dotClass: "bg-cat-sports",
-    defaultImage: "/defaults/happenings/sports.svg",
+    defaultImage: "/defaults/happenings/sports.webp",
   },
   food: {
     label: "Food & drink",
@@ -103,7 +103,7 @@ export const CATEGORY_STYLE: Record<HappeningCategory, CategoryStyle> = {
     badgeClass: "bg-cat-food text-white",
     textClass: "text-cat-food",
     dotClass: "bg-cat-food",
-    defaultImage: "/defaults/happenings/food.svg",
+    defaultImage: "/defaults/happenings/food.webp",
   },
   family: {
     label: "Family",
@@ -111,7 +111,7 @@ export const CATEGORY_STYLE: Record<HappeningCategory, CategoryStyle> = {
     badgeClass: "bg-cat-family text-white",
     textClass: "text-cat-family",
     dotClass: "bg-cat-family",
-    defaultImage: "/defaults/happenings/family.svg",
+    defaultImage: "/defaults/happenings/family.webp",
   },
   museum: {
     label: "Museum",
@@ -119,7 +119,7 @@ export const CATEGORY_STYLE: Record<HappeningCategory, CategoryStyle> = {
     badgeClass: "bg-cat-museum text-white",
     textClass: "text-cat-museum",
     dotClass: "bg-cat-museum",
-    defaultImage: "/defaults/happenings/museum.svg",
+    defaultImage: "/defaults/happenings/museum.webp",
   },
   cinema: {
     label: "Cinema",
@@ -127,7 +127,7 @@ export const CATEGORY_STYLE: Record<HappeningCategory, CategoryStyle> = {
     badgeClass: "bg-cat-cinema text-white",
     textClass: "text-cat-cinema",
     dotClass: "bg-cat-cinema",
-    defaultImage: "/defaults/happenings/cinema.svg",
+    defaultImage: "/defaults/happenings/cinema.webp",
   },
   other: {
     label: "Other",
@@ -135,7 +135,7 @@ export const CATEGORY_STYLE: Record<HappeningCategory, CategoryStyle> = {
     badgeClass: "bg-cat-other text-white",
     textClass: "text-cat-other",
     dotClass: "bg-cat-other",
-    defaultImage: "/defaults/happenings/other.svg",
+    defaultImage: "/defaults/happenings/other.webp",
   },
   wellness: {
     label: "Wellness",
@@ -143,7 +143,7 @@ export const CATEGORY_STYLE: Record<HappeningCategory, CategoryStyle> = {
     badgeClass: "bg-cat-wellness text-white",
     textClass: "text-cat-wellness",
     dotClass: "bg-cat-wellness",
-    defaultImage: "/defaults/happenings/wellness.svg",
+    defaultImage: "/defaults/happenings/wellness.webp",
   },
   outdoors: {
     label: "Outdoors",
@@ -151,7 +151,7 @@ export const CATEGORY_STYLE: Record<HappeningCategory, CategoryStyle> = {
     badgeClass: "bg-cat-outdoors text-white",
     textClass: "text-cat-outdoors",
     dotClass: "bg-cat-outdoors",
-    defaultImage: "/defaults/happenings/outdoors.svg",
+    defaultImage: "/defaults/happenings/outdoors.webp",
   },
   tours: {
     label: "Tours",
@@ -159,7 +159,7 @@ export const CATEGORY_STYLE: Record<HappeningCategory, CategoryStyle> = {
     badgeClass: "bg-cat-tours text-white",
     textClass: "text-cat-tours",
     dotClass: "bg-cat-tours",
-    defaultImage: "/defaults/happenings/tours.svg",
+    defaultImage: "/defaults/happenings/tours.webp",
   },
 };
 
