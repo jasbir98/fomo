@@ -225,18 +225,18 @@ export default function HappeningDetailPage({ params }: { params: Promise<{ id: 
     // provenance, the CTA — all of it needs the real happening row).
     const previewImage = preview.imageUrl ?? categoryDefaultImage(preview.category);
     return (
-      <div className="flex flex-col gap-6 pb-6">
+      <div className="flex flex-col gap-4 pb-6">
         <PageHeader title={preview.title} showBack />
         <section className="relative h-64 w-full overflow-hidden">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src={previewImage} alt="" className="h-full w-full object-cover" />
           <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 h-20 bg-gradient-to-t from-background/90 to-transparent" />
-          <div className="absolute bottom-4 left-5 z-20 flex items-center gap-2">
+          <div className="absolute bottom-4 left-4 right-4 z-20 flex flex-wrap items-center gap-2">
             {preview.whenLabel ? <StatusPill label={preview.whenLabel} tone="info" icon="schedule" /> : null}
             {preview.priceLabel ? <StatusPill label={preview.priceLabel} tone="success" icon="local_offer" /> : null}
           </div>
         </section>
-        <div className="flex flex-col gap-6 px-5">
+        <div className="flex flex-col gap-4 px-4">
           <section className="rounded-2xl bg-surface-container-lowest p-5 shadow-level-1">
             <h1 className="text-headline-lg font-extrabold leading-snug text-on-surface">{preview.title}</h1>
             {preview.venueName || preview.district ? (
@@ -266,7 +266,7 @@ export default function HappeningDetailPage({ params }: { params: Promise<{ id: 
     return (
       <div className="flex flex-col gap-4">
         <PageHeader title="Deal" showBack />
-        <div className="px-5 py-16">
+        <div className="px-4 py-16">
           <ErrorState
             title="Couldn't load this deal"
             message="Check your connection and try again."
@@ -281,7 +281,7 @@ export default function HappeningDetailPage({ params }: { params: Promise<{ id: 
     return (
       <div className="flex flex-col gap-4">
         <PageHeader title="Deal" showBack />
-        <div className="flex flex-col items-center gap-3 px-5 py-16 text-center text-on-surface-variant">
+        <div className="flex flex-col items-center gap-3 px-4 py-16 text-center text-on-surface-variant">
           <Icon name="local_offer" size={32} />
           <p className="text-body-md">We couldn&rsquo;t find this deal.</p>
           <Link href="/" className="text-label-md font-medium text-secondary">
@@ -404,7 +404,7 @@ export default function HappeningDetailPage({ params }: { params: Promise<{ id: 
   }
 
   return (
-    <div className="flex flex-col gap-6 pb-6">
+    <div className="flex flex-col gap-4 pb-6">
       <PageHeader
         title={happening.title}
         showBack
@@ -447,7 +447,7 @@ export default function HappeningDetailPage({ params }: { params: Promise<{ id: 
         ) : null}
 
         <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 h-20 bg-gradient-to-t from-background/90 to-transparent" />
-        <div className="absolute bottom-4 left-5 z-20 flex items-center gap-2">
+        <div className="absolute bottom-4 left-4 right-4 z-20 flex flex-wrap items-center gap-2">
           <StatusPill
             label={primaryOccurrence ? occurrenceRangeLabel(primaryOccurrence) : "Ongoing"}
             tone="info"
@@ -457,9 +457,9 @@ export default function HappeningDetailPage({ params }: { params: Promise<{ id: 
         </div>
       </section>
 
-      <div className="flex flex-col gap-6 px-5">
+      <div className="flex flex-col gap-4 px-4">
         {ended ? (
-          <div role="status" className="flex items-start gap-2.5 rounded-2xl bg-error-container/40 p-4 text-on-surface">
+          <div role="status" className="flex items-start gap-2.5 rounded-2xl bg-error-container/40 p-3.5 text-on-surface">
             <Icon name="event_busy" size={20} className="mt-0.5 shrink-0 text-error" />
             <p className="text-body-md">
               <span className="font-bold">This has ended.</span> It&apos;s no longer running. Check the official
@@ -692,7 +692,7 @@ export default function HappeningDetailPage({ params }: { params: Promise<{ id: 
                       ) : null}
                     </div>
                     {i === 0 ? (
-                      <span className="rounded-full bg-primary-fixed px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-primary">
+                      <span className="rounded-full bg-primary-fixed px-2.5 py-1 text-label-sm font-bold uppercase tracking-wide text-primary">
                         Next
                       </span>
                     ) : null}
@@ -794,7 +794,7 @@ export default function HappeningDetailPage({ params }: { params: Promise<{ id: 
                           ) : null}
                         </div>
                         {isCurrent ? (
-                          <span className="shrink-0 rounded-full bg-primary px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-on-primary">
+                          <span className="shrink-0 rounded-full bg-primary px-2.5 py-1 text-label-sm font-bold uppercase tracking-wide text-on-primary">
                             Viewing
                           </span>
                         ) : (
@@ -838,7 +838,7 @@ export default function HappeningDetailPage({ params }: { params: Promise<{ id: 
               target="_blank"
               rel="noopener noreferrer"
               onClick={() => trackOutboundClicked("happening", happening.id, directionsUrl, "directions")}
-              className="flex w-full items-center gap-3 rounded-2xl bg-surface-container-lowest p-4 text-left shadow-level-1"
+              className="flex w-full items-center gap-3 rounded-2xl bg-surface-container-lowest p-3.5 text-left shadow-level-1"
             >
               <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary-fixed text-primary">
                 <Icon name="near_me" size={20} />
@@ -881,7 +881,7 @@ export default function HappeningDetailPage({ params }: { params: Promise<{ id: 
       </div>
 
       {/* Sticky bottom CTA */}
-      <div className="sticky bottom-[calc(64px+env(safe-area-inset-bottom))] z-30 flex flex-col gap-2 border-t border-outline-variant/40 bg-surface-container-lowest/95 px-5 py-4 backdrop-blur-md shadow-[0_-4px_16px_rgba(3,22,50,0.08)]">
+      <div className="sticky bottom-[calc(64px+env(safe-area-inset-bottom))] z-30 flex flex-col gap-2 border-t border-outline-variant/40 bg-surface-container-lowest/95 px-4 py-4 backdrop-blur-md shadow-[0_-4px_16px_rgba(3,22,50,0.08)]">
         <div className="flex items-center gap-2">
           {ctaHref ? (
             <Button

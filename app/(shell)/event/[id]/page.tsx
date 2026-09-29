@@ -127,17 +127,17 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
     // the real event row).
     const previewImage = preview.imageUrl ?? categoryDefaultImage(null);
     return (
-      <div className="flex flex-col gap-6 pb-6">
+      <div className="flex flex-col gap-4 pb-6">
         <PageHeader title={preview.title} showBack />
         <section className="relative h-64 w-full overflow-hidden">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src={previewImage} alt="" className="h-full w-full object-cover" />
           <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 h-20 bg-gradient-to-t from-background/90 to-transparent" />
-          <div className="absolute bottom-4 left-5 z-20 flex items-center gap-2">
+          <div className="absolute bottom-4 left-4 right-4 z-20 flex flex-wrap items-center gap-2">
             {preview.whenLabel ? <StatusPill label={preview.whenLabel} tone="info" icon="schedule" /> : null}
           </div>
         </section>
-        <div className="flex flex-col gap-6 px-5">
+        <div className="flex flex-col gap-4 px-4">
           <section className="rounded-xl border border-outline-variant/40 bg-surface-container-lowest p-5 shadow-sm">
             <div className="mb-2 flex items-center justify-between gap-3">
               <span />
@@ -167,7 +167,7 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
     return (
       <div className="flex flex-col gap-4">
         <PageHeader title="Event" showBack />
-        <div className="px-5 py-16">
+        <div className="px-4 py-16">
           <ErrorState
             title="Couldn't load this event"
             message="Check your connection and try again."
@@ -182,7 +182,7 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
     return (
       <div className="flex flex-col gap-4">
         <PageHeader title="Event" showBack />
-        <div className="flex flex-col items-center gap-3 px-5 py-16 text-center text-on-surface-variant">
+        <div className="flex flex-col items-center gap-3 px-4 py-16 text-center text-on-surface-variant">
           <Icon name="event_busy" size={32} />
           <p className="text-body-md">We couldn&rsquo;t find this event.</p>
           <Link href="/whats-on" className="text-label-md font-medium text-secondary">
@@ -211,7 +211,7 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
     .join(" · ")} · via Fomo`;
 
   return (
-    <div className="flex flex-col gap-6 pb-6">
+    <div className="flex flex-col gap-4 pb-6">
       <PageHeader
         title={event.name}
         showBack
@@ -222,12 +222,12 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
       <section className="relative h-64 w-full overflow-hidden">
         <PhotoCarousel key={event.id} photos={heroPhotos} />
         <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 h-20 bg-gradient-to-t from-background/90 to-transparent" />
-        <div className="absolute bottom-4 left-5 z-20">
+        <div className="absolute bottom-4 left-4 right-4 z-20 flex">
           <StatusPill label={formatEventWhen(event.starts_at, event.ends_at)} tone="info" icon="schedule" />
         </div>
       </section>
 
-      <div className="flex flex-col gap-6 px-5">
+      <div className="flex flex-col gap-4 px-4">
         {/* Description & stats */}
         <section className="rounded-xl border border-outline-variant/40 bg-surface-container-lowest p-5 shadow-sm">
           <div className="mb-3 flex items-center justify-between gap-3">
@@ -314,14 +314,14 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
               <div className="absolute inset-0 flex items-center justify-center">
                 <Icon name="map" size={64} className="text-outline-variant" />
               </div>
-              <div className="absolute bottom-3 left-3 right-3 flex items-center justify-between rounded-lg bg-white/90 px-3 py-2 backdrop-blur-md">
-                <div>
-                  <p className="text-label-md text-primary">
+              <div className="absolute bottom-3 left-3 right-3 flex items-center justify-between gap-2 rounded-lg bg-white/90 px-3 py-2 backdrop-blur-md">
+                <div className="min-w-0">
+                  <p className="truncate text-label-md text-primary">
                     {event.venue_name ?? event.address ?? event.name}
                   </p>
                   <p className="text-label-sm text-on-surface-variant">Tap to open directions</p>
                 </div>
-                <Icon name="open_in_new" className="text-primary" />
+                <Icon name="open_in_new" className="shrink-0 text-primary" />
               </div>
             </a>
           ) : (
@@ -333,9 +333,9 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
               <div className="absolute inset-0 flex items-center justify-center">
                 <Icon name="map" size={64} className="text-outline-variant" />
               </div>
-              <div className="absolute bottom-3 left-3 right-3 flex items-center justify-between rounded-lg bg-white/90 px-3 py-2 backdrop-blur-md">
-                <div>
-                  <p className="text-label-md text-primary">
+              <div className="absolute bottom-3 left-3 right-3 flex items-center justify-between gap-2 rounded-lg bg-white/90 px-3 py-2 backdrop-blur-md">
+                <div className="min-w-0">
+                  <p className="truncate text-label-md text-primary">
                     {event.venue_name ?? event.address ?? event.name}
                   </p>
                   <p className="text-label-sm text-on-surface-variant">Location unavailable</p>
@@ -347,7 +347,7 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
       </div>
 
       {/* Sticky bottom actions */}
-      <div className="sticky bottom-[calc(64px+env(safe-area-inset-bottom))] z-30 flex flex-col gap-2 border-t border-outline-variant/40 bg-surface-container-lowest/95 px-5 py-4 backdrop-blur-md shadow-[0_-4px_16px_rgba(3,22,50,0.08)]">
+      <div className="sticky bottom-[calc(64px+env(safe-area-inset-bottom))] z-30 flex flex-col gap-2 border-t border-outline-variant/40 bg-surface-container-lowest/95 px-4 py-4 backdrop-blur-md shadow-[0_-4px_16px_rgba(3,22,50,0.08)]">
         <div className="flex gap-3">
           {safeTicketUrl ? (
             <a

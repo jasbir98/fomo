@@ -1,31 +1,24 @@
 "use client";
 
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { usePathname } from "next/navigation";
 import { Icon } from "@/components/ui/Icon";
+import { InstallSheet } from "@/components/install/InstallSheet";
+import { promptInstall } from "@/lib/pwa/install-prompt";
+import { useInstallState } from "@/lib/pwa/useInstallState";
 import { track } from "@/lib/analytics/track";
 
-/** Same key/values ConsentBar (components/analytics/ConsentBar.tsx) uses —
- *  duplicated here rather than imported so this component stays a leaf that
- *  only reads, never writes, ConsentBar's storage. */
+/** Same key ConsentBar (components/analytics/ConsentBar.tsx) writes. Only read here, never written. */
 const CONSENT_KEY = "fomo:consent";
 
-const VISITS_KEY = "fomo:visits";
-/** sessionStorage — one increment per browser session, not per page view. */
-const VISIT_SESSION_FLAG = "fomo:visit-counted";
 const DISMISSED_AT_KEY = "fomo:install-dismissed-at";
 const SHOWN_COUNT_KEY = "fomo:install-shown-count";
 
-const MIN_VISITS_BEFORE_SHOWING = 2;
-const MAX_TOTAL_SHOWS = 3;
+const MIN_PAGES_BEFORE_SHOWING = 2;
+/** Or, for someone reading one long page: this long on the site. */
+const MIN_SECONDS_BEFORE_SHOWING = 25;
+const MAX_TOTAL_SHOWS = 5;
 const DISMISS_COOLDOWN_MS = 14 * 24 * 60 * 60 * 1000;
-
-type Platform = "android" | "ios";
-
-/** Not yet in lib.dom.d.ts. */
-type BeforeInstallPromptEvent = Event & {
-  prompt: () => Promise<void>;
-  userChoice: Promise<{ outcome: "accepted" | "dismissed"; platform: string }>;
-};
 
 function readInt(key: string): number {
   try {
@@ -48,125 +41,96 @@ function writeStr(key: string, value: string) {
   try {
     localStorage.setItem(key, value);
   } catch {
-    // Private window / blocked storage — worst case we ask again next visit.
+    // Private window / blocked storage: worst case we ask again next visit.
   }
 }
 
-function isStandalone(): boolean {
-  try {
-    return (
-      window.matchMedia?.("(display-mode: standalone)").matches === true ||
-      (navigator as Navigator & { standalone?: boolean }).standalone === true
-    );
-  } catch {
-    return false;
-  }
-}
-
-/** iOS Safari only — Chrome/Firefox/Edge-on-iOS all ride Safari's WebKit but
- *  can't install PWAs, and in-app browsers (Instagram/Facebook) can't either. */
-function detectIOSSafari(): "ios" | "in-app" | "unsupported" | null {
-  const ua = navigator.userAgent;
-  const isIOS = /iPad|iPhone|iPod/.test(ua) && !("MSStream" in window);
-  if (!isIOS) return null;
-  if (/Instagram|FBAN|FBAV/.test(ua)) return "in-app";
-  if (/CriOS|FxiOS|EdgiOS|OPiOS/.test(ua)) return "unsupported";
-  return "ios";
-}
-
-// Nothing external to subscribe to — this only distinguishes the SSR/first-
-// hydration pass (must render nothing, see below) from every client render
-// after. Same pattern as ConsentBar's own useSyncExternalStore usage.
-const subscribeNoop = () => () => {};
-function useMounted(): boolean {
-  return useSyncExternalStore(
-    subscribeNoop,
-    () => true,
-    () => false
-  );
+function readConsent(): "accepted" | "declined" | null {
+  const raw = readStr(CONSENT_KEY);
+  return raw === "accepted" || raw === "declined" ? raw : null;
 }
 
 /**
- * "Add to home screen" hint. Mounted once in AppShell, fixed above
- * BottomNav like ConsentBar (same position class — the two are mutually
- * exclusive within a visit, see the consent-decided gate below, so they
- * never actually stack).
+ * Has the visitor answered the cookie bar yet? ConsentBar writes the key in
+ * this same tab, where the `storage` event doesn't fire, so poll once a second
+ * until it's set (then stop). "pending" is the server/hydration snapshot.
+ */
+function subscribeConsent(cb: () => void): () => void {
+  const timer = window.setInterval(() => {
+    if (readConsent() !== null) window.clearInterval(timer);
+    cb();
+  }, 1000);
+  window.addEventListener("storage", cb);
+  return () => {
+    window.clearInterval(timer);
+    window.removeEventListener("storage", cb);
+  };
+}
+
+/**
+ * "Add to home screen" hint, mounted once in AppShell and fixed above
+ * BottomNav like ConsentBar (same position class; it waits for ConsentBar to
+ * be answered so the two never stack).
  *
  * Gating (all must hold before anything renders):
- *  - not already installed (display-mode: standalone / navigator.standalone)
- *  - 2nd visit onward (fomo:visits, incremented once per session)
+ *  - a phone or tablet browser that can (or could) install: not desktop, not
+ *    already running as the installed app
+ *  - the cookie bar has been answered (any choice, this session or before)
+ *  - engaged: 2+ pages viewed this session, or 25s on the site
  *  - not dismissed in the last 14 days (fomo:install-dismissed-at)
- *  - shown fewer than 3 times total (fomo:install-shown-count)
- *  - the visitor has already made a cookie choice this visit, so this never
- *    appears stacked with ConsentBar (simplest fix per the brief: just
- *    don't show while ConsentBar might still be showing)
+ *  - shown fewer than 5 times total (fomo:install-shown-count)
  *
- * SSR/hydration: renders null on the server and on the first client render
- * (useMounted's useSyncExternalStore server snapshot), then decides
- * visibility in an effect — never reads localStorage during render itself,
- * mirroring the hydration-bug fix already applied to ConsentBar.
+ * The button installs in one tap when the browser has handed over its prompt
+ * (lib/pwa/install-prompt.ts), otherwise it opens InstallSheet's step list.
+ *
+ * SSR/hydration: renders null on the server and first client render (install
+ * state and consent both have "unknown" server snapshots), and reads storage
+ * only in an effect, never during render.
  */
 export function InstallHint() {
-  const mounted = useMounted();
-  const [platform, setPlatform] = useState<Platform | null>(null);
+  const { platform, canPrompt, installed } = useInstallState();
+  const consent = useSyncExternalStore(
+    subscribeConsent,
+    readConsent,
+    () => "pending" as const
+  );
+  const pathname = usePathname();
+  // Pages viewed this session: the shell persists across client navigations,
+  // so count pathname changes ("adjust state during render", not an effect).
+  const [pagesViewed, setPagesViewed] = useState(1);
+  const [lastPath, setLastPath] = useState(pathname);
+  if (pathname !== lastPath) {
+    setLastPath(pathname);
+    setPagesViewed((n) => n + 1);
+  }
+  const [timeOnSiteReached, setTimeOnSiteReached] = useState(false);
+  const [storageOk, setStorageOk] = useState(false);
   const [dismissed, setDismissed] = useState(false);
-  const [eligible, setEligible] = useState(false);
-  const deferredPromptRef = useRef<BeforeInstallPromptEvent | null>(null);
+  const [sheetOpen, setSheetOpen] = useState(false);
   const hasTrackedShownRef = useRef(false);
 
-  // Resolve the non-install-prompt gates once, client-side only.
   useEffect(() => {
-    if (!mounted) return;
-    if (isStandalone()) return;
-
-    let visits = readInt(VISITS_KEY);
-    try {
-      if (!sessionStorage.getItem(VISIT_SESSION_FLAG)) {
-        visits += 1;
-        writeStr(VISITS_KEY, String(visits));
-        sessionStorage.setItem(VISIT_SESSION_FLAG, "1");
-      }
-    } catch {
-      // Ignore — worst case visits under-counts this session.
-    }
-    if (visits < MIN_VISITS_BEFORE_SHOWING) return;
-
-    if (readInt(SHOWN_COUNT_KEY) >= MAX_TOTAL_SHOWS) return;
-
-    const dismissedAt = readStr(DISMISSED_AT_KEY);
-    if (dismissedAt && Date.now() - Number(dismissedAt) < DISMISS_COOLDOWN_MS) return;
-
-    const consent = readStr(CONSENT_KEY);
-    if (consent !== "accepted" && consent !== "declined") return; // ConsentBar may still be showing
-
-    const ios = detectIOSSafari();
-    // This effect reacts to external, client-only state (localStorage,
-    // UA, matchMedia) it's reading for the first time — not deriving from
-    // props/state — so the synchronous setState below is the exact
-    // cascading-render shape react-hooks/set-state-in-effect flags.
-    // Deferring to a microtask is this codebase's standard escape hatch
-    // (see AmbientWeather.tsx, app/signin/page.tsx).
-    queueMicrotask(() => {
-      setEligible(true);
-      if (ios === "ios") setPlatform("ios");
-    });
-    // "in-app" / "unsupported" / null (Android, desktop): wait for
-    // beforeinstallprompt below — nothing to show without it.
-  }, [mounted]);
-
-  // Android/Chrome/Edge: capture the browser's own install prompt so we can
-  // trigger it from our card's button instead of a native mini-infobar.
-  useEffect(() => {
-    function handler(e: Event) {
-      e.preventDefault();
-      deferredPromptRef.current = e as BeforeInstallPromptEvent;
-      setPlatform("android");
-    }
-    window.addEventListener("beforeinstallprompt", handler);
-    return () => window.removeEventListener("beforeinstallprompt", handler);
+    const timer = window.setTimeout(() => setTimeOnSiteReached(true), MIN_SECONDS_BEFORE_SHOWING * 1000);
+    return () => window.clearTimeout(timer);
   }, []);
 
-  const visible = mounted && eligible && !dismissed && platform !== null;
+  // Storage-backed gates, resolved once client-side. Reads external,
+  // client-only state for the first time, so the deferred setState is this
+  // codebase's standard escape hatch for react-hooks/set-state-in-effect
+  // (see AmbientWeather.tsx, app/signin/page.tsx).
+  useEffect(() => {
+    if (readInt(SHOWN_COUNT_KEY) >= MAX_TOTAL_SHOWS) return;
+    const dismissedAt = readStr(DISMISSED_AT_KEY);
+    if (dismissedAt && Date.now() - Number(dismissedAt) < DISMISS_COOLDOWN_MS) return;
+    queueMicrotask(() => setStorageOk(true));
+  }, []);
+
+  const installable = platform !== null && platform !== "desktop";
+  const engaged = pagesViewed >= MIN_PAGES_BEFORE_SHOWING || timeOnSiteReached;
+  // Chat and search own the bottom of the screen (composer / keyboard).
+  const onBusyScreen = /^\/(fomo|search)(\/|$)/.test(pathname);
+  const visible =
+    !onBusyScreen && storageOk && installable && !installed && !dismissed && consent !== "pending" && consent !== null && engaged;
 
   useEffect(() => {
     if (visible && !hasTrackedShownRef.current) {
@@ -182,63 +146,61 @@ export function InstallHint() {
     setDismissed(true);
   }
 
-  async function handleInstallClick() {
-    const prompt = deferredPromptRef.current;
-    if (!prompt) return;
-    try {
-      await prompt.prompt();
-      const choice = await prompt.userChoice;
-      track("install_prompt_result", { outcome: choice.outcome });
-    } catch {
-      // User dismissed via OS chrome, or the prompt was already consumed.
-    } finally {
-      deferredPromptRef.current = null;
-      // Either way the browser's one-shot prompt is spent — same 14-day
-      // cooldown as an explicit dismiss rather than re-showing our card.
-      writeStr(DISMISSED_AT_KEY, String(Date.now()));
-      setDismissed(true);
+  async function handleAction() {
+    // Either route spends this show; same cooldown as an explicit dismiss.
+    writeStr(DISMISSED_AT_KEY, String(Date.now()));
+    setDismissed(true);
+    if (canPrompt) {
+      await promptInstall();
+    } else {
+      setSheetOpen(true);
     }
   }
 
-  if (!visible) return null;
+  const message =
+    platform === "ios" ? (
+      <>
+        Add Fomo to your home screen: tap <Icon name="ios_share" size={16} className="align-text-bottom" />, then
+        &ldquo;Add to Home Screen&rdquo;.
+      </>
+    ) : platform === "in-app" ? (
+      "Open Fomo in your browser to add it to your home screen."
+    ) : platform === "ios-other-browser" ? (
+      "Open Fomo in Safari to add it to your home screen."
+    ) : (
+      "Add Fomo to your home screen. Opens instantly, like an app."
+    );
 
   return (
-    <div
-      role="region"
-      aria-label="Install Fomo"
-      className="fixed inset-x-0 bottom-[calc(88px+env(safe-area-inset-bottom))] z-40 mx-auto flex w-full max-w-[480px] items-center gap-3 border-t border-hairline bg-surface-container-lowest/95 px-4 py-3 shadow-level-2 backdrop-blur-md"
-    >
-      {platform === "ios" ? (
-        <p className="flex-1 text-label-sm text-on-surface-variant">
-          Add Fomo to your home screen: tap{" "}
-          <Icon name="ios_share" size={16} className="align-text-bottom" /> then &ldquo;Add to Home
-          Screen&rdquo;.
-        </p>
-      ) : (
-        <p className="flex-1 text-label-sm text-on-surface-variant">
-          Add Fomo to your home screen. Opens instantly, like an app.
-        </p>
-      )}
-      <div className="flex shrink-0 items-center gap-2">
-        {platform === "android" && (
-          <button
-            type="button"
-            onClick={handleInstallClick}
-            className="rounded-full bg-primary px-3.5 py-1.5 text-label-sm font-bold text-on-primary hover:opacity-90"
-          >
-            Install
-          </button>
-        )}
-        <button
-          type="button"
-          onClick={dismiss}
-          aria-label="Dismiss"
-          className="rounded-full p-1.5 text-on-surface-variant hover:bg-surface-container"
+    <>
+      {visible ? (
+        <div
+          role="region"
+          aria-label="Install Fomo"
+          className="fixed inset-x-0 bottom-[calc(88px+env(safe-area-inset-bottom))] z-40 mx-auto flex w-full max-w-[480px] items-center gap-3 border-t border-hairline bg-surface-container-lowest/95 px-4 py-3 shadow-level-2 backdrop-blur-md"
         >
-          <Icon name="close" size={18} />
-        </button>
-      </div>
-    </div>
+          <p className="flex-1 text-label-sm text-on-surface-variant">{message}</p>
+          <div className="flex shrink-0 items-center gap-1">
+            <button
+              type="button"
+              onClick={() => void handleAction()}
+              className="min-h-9 rounded-full bg-primary px-3.5 py-1.5 text-label-sm font-bold text-on-primary hover:opacity-90"
+            >
+              {canPrompt ? "Install" : "Show me"}
+            </button>
+            <button
+              type="button"
+              onClick={dismiss}
+              aria-label="Dismiss"
+              className="flex h-9 w-9 items-center justify-center rounded-full text-on-surface-variant hover:bg-surface-container"
+            >
+              <Icon name="close" size={18} />
+            </button>
+          </div>
+        </div>
+      ) : null}
+      <InstallSheet open={sheetOpen} onClose={() => setSheetOpen(false)} source="hint" />
+    </>
   );
 }
 

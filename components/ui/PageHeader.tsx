@@ -34,7 +34,7 @@ export function PageHeader({
 
   return (
     <header
-      className={`sticky top-0 z-40 flex items-center gap-2 bg-background/90 backdrop-blur-sm px-5 min-h-[56px] pt-safe ${className}`}
+      className={`sticky top-0 z-40 flex items-center gap-2 bg-background/90 backdrop-blur-sm px-4 min-h-[56px] pt-safe ${className}`}
     >
       {showBack ? (
         <button

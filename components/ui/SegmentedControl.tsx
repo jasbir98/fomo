@@ -6,6 +6,8 @@ import { Icon } from "./Icon";
 export type SegmentOption<T extends string = string> = {
   value: T;
   label: string;
+  /** Optional count shown after the label; dropped on very narrow screens so the segments still fit. */
+  count?: number;
   /** Optional Material Symbols name shown before the label. */
   icon?: string;
 };
@@ -83,12 +85,13 @@ export function SegmentedControl<T extends string = string>({
             role="tab"
             aria-selected={active}
             onClick={() => onChange(opt.value)}
-            className={`relative z-10 inline-flex items-center justify-center gap-1.5 rounded-full px-4 min-h-[40px] text-label-md font-medium transition-colors duration-200 flex-1 whitespace-nowrap ${
+            className={`relative z-10 inline-flex items-center justify-center gap-1.5 rounded-full px-2.5 min-w-0 min-h-[40px] text-label-md font-medium transition-colors duration-200 flex-1 whitespace-nowrap ${
               active ? "text-on-primary" : "bg-transparent text-on-surface-variant hover:text-on-surface"
             }`}
           >
             {opt.icon ? <Icon name={opt.icon} size={18} filled={active} /> : null}
             {opt.label}
+            {opt.count != null ? <span className="opacity-75 max-[359px]:hidden">· {opt.count}</span> : null}
           </button>
         );
       })}

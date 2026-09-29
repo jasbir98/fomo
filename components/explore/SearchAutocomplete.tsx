@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useId, useRef, useState, type KeyboardEvent } from "react";
+import { useRouter } from "next/navigation";
 import type { ExplorePin } from "@/lib/explore/types";
 import { Icon } from "@/components/ui";
 
@@ -34,8 +35,8 @@ export interface SearchAutocompleteProps {
 
 const MAX_FOMO_MATCHES = 4;
 
-/** Flattened option list for keyboard nav across both groups. */
-type Option = { kind: "pin"; pin: ExplorePin } | { kind: "google"; suggestion: GoogleSuggestion };
+/** Flattened option list for keyboard nav across every group ("ask" is always last). */
+type Option = { kind: "pin"; pin: ExplorePin } | { kind: "google"; suggestion: GoogleSuggestion } | { kind: "ask" };
 
 /**
  * Explore's search box + suggestions dropdown. Two groups: "On Fomo" is an
@@ -59,6 +60,7 @@ export function SearchAutocomplete({
   onSelectGooglePlace,
   placeholder = "Search Edinburgh…",
 }: SearchAutocompleteProps) {
+  const router = useRouter();
   const [open, setOpen] = useState(false);
   const [googleSuggestions, setGoogleSuggestions] = useState<GoogleSuggestion[]>([]);
   const [activeIndex, setActiveIndex] = useState(-1);
@@ -114,8 +116,11 @@ export function SearchAutocomplete({
   const options: Option[] = [
     ...fomoMatches.map((pin): Option => ({ kind: "pin", pin })),
     ...visibleGoogleSuggestions.map((suggestion): Option => ({ kind: "google", suggestion })),
+    // Open questions ("cheap biryani") don't match a pin title; hand them to the AI.
+    ...(q.length >= 2 ? [{ kind: "ask" } as Option] : []),
   ];
   const showDropdown = open && options.length > 0;
+  const askIndex = options.length - 1;
 
   function selectPin(pin: ExplorePin) {
     setOpen(false);
@@ -138,9 +143,15 @@ export function SearchAutocomplete({
     }
   }
 
+  function askFomo() {
+    setOpen(false);
+    router.push(`/fomo?q=${encodeURIComponent(q)}&send=1`);
+  }
+
   function selectOption(option: Option) {
     if (option.kind === "pin") selectPin(option.pin);
-    else void selectGoogle(option.suggestion);
+    else if (option.kind === "google") void selectGoogle(option.suggestion);
+    else askFomo();
   }
 
   function handleKeyDown(e: KeyboardEvent<HTMLInputElement>) {
@@ -266,6 +277,30 @@ export function SearchAutocomplete({
                   </li>
                 );
               })}
+            </>
+          ) : null}
+
+          {q.length >= 2 ? (
+            <>
+              {fomoMatches.length + visibleGoogleSuggestions.length > 0 ? (
+                <li role="presentation" aria-hidden="true" className="mx-2 my-0.5 border-t border-hairline" />
+              ) : null}
+              <li role="presentation">
+                <button
+                  id={`${listboxId}-opt-${askIndex}`}
+                  role="option"
+                  aria-selected={activeIndex === askIndex}
+                  type="button"
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={askFomo}
+                  className={`flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-body-sm font-semibold text-primary transition-colors ${
+                    activeIndex === askIndex ? "bg-surface-container" : "hover:bg-surface-container"
+                  }`}
+                >
+                  <Icon name="auto_awesome" size={16} className="shrink-0" />
+                  <span className="truncate">Ask Fomo: &ldquo;{q}&rdquo;</span>
+                </button>
+              </li>
             </>
           ) : null}
         </ul>

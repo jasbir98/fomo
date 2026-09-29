@@ -20,6 +20,32 @@ export interface ChatItem {
   href: string;
 }
 
+/**
+ * A venue from Google Places (New), shown when the catalogue has nothing
+ * fitting. Compact on purpose: no photos (too costly per chat turn). Every
+ * fact here comes straight from Google's response, never the model.
+ */
+export interface ChatPlace {
+  id: string;
+  name: string;
+  address: string | null;
+  rating: number | null;
+  ratingCount: number | null;
+  /** 0-4, Google's price level. */
+  priceLevel: number | null;
+  /** "£10-20" from Google's price range, else "£"/"££" from the level, else null. */
+  priceText: string | null;
+  openNow: boolean | null;
+  /** Google's display type, e.g. "Indian restaurant". */
+  type: string | null;
+  /** Google's review/generative summary, trimmed. */
+  summary: string | null;
+  /** Google's required disclosure for `summary`, e.g. "Summarized with Gemini". */
+  summaryDisclosure: string | null;
+  /** https Google Maps link. */
+  mapsUrl: string | null;
+}
+
 /** Tappable reply options, optionally with a short lead-in question. */
 export interface QuickReplies {
   prompt?: string;
@@ -34,6 +60,7 @@ export interface QuickReplies {
 export type AiReplyBlock =
   | { kind: "text"; text: string }
   | { kind: "items"; reason?: string; items: ChatItem[] }
+  | { kind: "places"; reason?: string; places: ChatPlace[]; attribution: "Google Maps" }
   | { kind: "quick_replies"; quick_replies: QuickReplies }
   | { kind: "rich_card"; card: { name: string; description?: string } }
   | { kind: "action_proposal"; proposal: { title: string; summary?: string } };

@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import dynamic from "next/dynamic";
+import { useSearchParams } from "next/navigation";
 import { CITY } from "@/lib/city";
 import { currentCoordinates, refreshGeolocation, useGeolocation, sortByDistance, distanceKm } from "@/lib/geo";
 import type { ExploreLayer, ExplorePin, ExploreResponse } from "@/lib/explore/types";
@@ -49,10 +50,12 @@ function isWeekendStart(iso: string): boolean {
   return weekday === "Sat" || weekday === "Sun";
 }
 
-export default function ExplorePage() {
+function ExploreContent() {
+  // A ?q= from global search seeds the box; after that it's plain local state.
+  const initialSearch = useSearchParams().get("q") ?? "";
   const [layer, setLayer] = useState<ExploreLayer>("everything");
   const [categories, setCategories] = useState<ExploreCategorySlug[]>([]);
-  const [search, setSearch] = useState("");
+  const [search, setSearch] = useState(initialSearch);
   const [neighbourhood, setNeighbourhood] = useState<string | null>(null);
 
   // Collection-preset-only narrowing — cleared whenever the user takes
@@ -294,7 +297,7 @@ export default function ExplorePage() {
     <div className="flex flex-col gap-4 pb-6">
       <AppHeader title="Explore Edinburgh" />
 
-      <div className="flex flex-col gap-4 px-5">
+      <div className="flex flex-col gap-4 px-4">
         {/* Search — free-text across places, deals, events and free things, plus an "On Fomo" / "Places" suggestions dropdown */}
         <SearchAutocomplete
           search={search}
@@ -402,5 +405,13 @@ export default function ExplorePage() {
 
       <ExploreSheet pin={sheetPin} onClose={() => setSheetPin(null)} />
     </div>
+  );
+}
+
+export default function ExplorePage() {
+  return (
+    <Suspense fallback={null}>
+      <ExploreContent />
+    </Suspense>
   );
 }

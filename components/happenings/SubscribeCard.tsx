@@ -101,7 +101,7 @@ export function SubscribeCard({ source, className = "" }: SubscribeCardProps) {
   return (
     <form
       onSubmit={handleSubmit}
-      className={`flex flex-col gap-3 rounded-2xl border border-hairline-strong bg-surface-container-low p-4 ${className}`}
+      className={`flex flex-col gap-3 rounded-2xl border border-hairline-strong bg-surface-container-low p-3.5 ${className}`}
     >
       <div className="flex flex-col gap-0.5">
         <h3 className="text-title-sm font-extrabold tracking-tight text-on-surface">Get Fomo Friday</h3>

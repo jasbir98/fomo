@@ -28,7 +28,7 @@ export function PriceTag({ label, variant = "card", className = "" }: PriceTagPr
     variant === "banner"
       ? "rounded-full border border-on-primary/20 bg-primary-container px-3 py-1 text-label-md text-on-primary-container shadow-xs"
       : variant === "compact"
-        ? "rounded-full bg-surface-container px-2 py-0.5 text-[10px] text-primary"
+        ? "rounded-full bg-surface-container px-2 py-0.5 text-label-sm font-medium text-primary"
         : "rounded-full border border-hairline-strong bg-surface-container px-2.5 py-1 text-label-md text-primary shadow-xs";
 
   return (

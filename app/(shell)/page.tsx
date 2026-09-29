@@ -3,14 +3,13 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { cityBadge, SUPPORTED_CITIES } from "@/lib/city";
-import { useSaved } from "@/lib/useSaved";
 import { chooseCity, dismissCityPrompt, useSelectedCity } from "@/lib/useSelectedCity";
 import { prefetchJson, useCachedJson, usePeekCachedJson } from "@/lib/http/clientCache";
 import type { FeedCardData, FeedResponse, FeedWindow } from "@/lib/happenings/feed-types";
 import { NOTIFY_ME_ENABLED } from "@/lib/happenings/book-early";
 import type { WeatherCondition } from "@/lib/weather";
-import { WEATHER_THEME } from "@/lib/weatherUi";
-import { CityPicker, ErrorState, FeedbackLink, FomoLogo, Icon, SeeAllButton, SegmentedControl } from "@/components/ui";
+import { CityPicker, ErrorState, FeedbackLink, Icon, SeeAllButton, SegmentedControl } from "@/components/ui";
+import { AppHeader } from "@/components/shell/AppHeader";
 import { FomoSpot } from "@/components/fomo/FomoSpot";
 import { AnyDaySection, FeedHero, FeedListCard, FreeAnyTimeList, BookEarlyCard, SubscribeCard } from "@/components/happenings";
 import { TodaysDealsStrip } from "@/components/happenings/TodaysDealsStrip";
@@ -238,7 +237,6 @@ export default function HomePage() {
   // actually ready to show.
   const pendingScrollRef = useRef(false);
   const prevFeedWindowRef = useRef<FeedWindow>(feedWindow);
-  const { signedIn } = useSaved();
   const prefs = usePrefs();
   // Signed-in AND signed-out visitors both need a "who" — a signed-out
   // visitor who answered "Make Fomo yours" has their eligibility in
@@ -470,7 +468,7 @@ export default function HomePage() {
     () =>
       WINDOW_OPTIONS.map((opt) => {
         const count = countFor(opt.value);
-        return count != null ? { ...opt, label: `${opt.label} · ${count}` } : opt;
+        return count != null ? { ...opt, count } : opt;
       }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [feed, feedWindow, peekedNow, peekedComingUp, peekedBookEarly]
@@ -516,7 +514,7 @@ export default function HomePage() {
   const windowSlideClass = switchDirection === 1 ? "feed-slide-in-right" : "feed-slide-in-left";
 
   return (
-    <div className="relative flex flex-col gap-6 pb-6">
+    <div className="relative flex flex-col gap-4 pb-6">
       {/* Ambient weather decoration — behind the header/hero region only
           (fixed height, not the whole page). `-z-10` (this `div` is now the
           positioned ancestor, via `relative` above) — drawn OVER the hero and
@@ -524,7 +522,7 @@ export default function HomePage() {
           showed in the thin gaps between opaque cards; the sticky header's
           own z-index still keeps it under the app bar.
           `weather` (not `weatherResult.data`) is already the resolved-or-null
-          value used by the chip below, so the two never disagree about
+          value handed to the header chip, so the two never disagree about
           what's currently showing. */}
       <AmbientWeather
         condition={weather?.condition ?? null}
@@ -533,19 +531,11 @@ export default function HomePage() {
         className="z-[5] h-[520px]"
       />
 
-      {/* NOT `glass-surface` here (72% opaque) — sticky, it let scrolled
-          section headings show through underneath it. A sticky app bar needs
-          to actually occlude what scrolls behind it; the shared glass-surface
-          utility is tuned for overlay badges and non-sticky surfaces where
-          that translucency reads as intentional, not a bug, so this stays a
-          local override rather than changing the utility itself out from
-          under its other callers. */}
-      <header className="sticky top-0 z-40 flex items-center justify-between gap-2 border-b border-hairline bg-surface-container-lowest/95 px-4 pt-safe min-h-[64px] backdrop-blur-xl">
-
-        <div className="flex min-w-0 items-center gap-2.5">
-          <FomoLogo size={28} />
-          {/* A picker with one choice is noise — only offered once there's a second city. */}
-          {SUPPORTED_CITIES.length > 1 ? (
+      <AppHeader
+        weather={weather}
+        leading={
+          // A picker with one choice is noise, so it's only offered once there's a second city.
+          SUPPORTED_CITIES.length > 1 ? (
             <button
               type="button"
               onClick={() => setCityPickerOpen(true)}
@@ -555,48 +545,9 @@ export default function HomePage() {
               <Icon name="location_on" size={14} className="text-secondary" />
               <span className="text-label-sm font-bold tracking-tight text-secondary">{cityBadge(city)}</span>
             </button>
-          ) : null}
-        </div>
-
-        <div className="flex shrink-0 items-center gap-1">
-          {/* Neutral tint: the per-condition colours read as an alert (rain came out red). */}
-          <div
-            role="img"
-            aria-label={
-              weather && weather.tempC != null
-                ? `${WEATHER_THEME[weather.condition].label}, ${Math.round(weather.tempC)} degrees`
-                : "Weather unavailable"
-            }
-            className="flex items-center gap-1.5 rounded-full bg-surface-container px-2.5 py-1 text-on-surface-variant"
-          >
-            <Icon name={weather ? WEATHER_THEME[weather.condition].icon : "partly_cloudy_day"} size={16} />
-            <span className="text-label-sm font-semibold">
-              {weather?.tempC != null ? `${Math.round(weather.tempC)}°` : "–°"}
-            </span>
-          </div>
-          <Link
-            href="/saved"
-            aria-label="Saved"
-            className="flex h-10 w-10 items-center justify-center rounded-full text-on-surface-variant transition-colors hover:bg-surface-container hover:text-on-surface"
-          >
-            <Icon name="bookmark" size={22} />
-          </Link>
-          {signedIn === false ? (
-            <Link
-              href="/signin"
-              className="ml-1 flex h-9 items-center rounded-full bg-primary px-3.5 text-label-md font-bold text-on-primary"
-            >
-              Sign in
-            </Link>
-          ) : (
-            <Link href="/profile" aria-label="Profile" className="flex h-10 w-10 items-center justify-center">
-              <span className="flex h-8 w-8 items-center justify-center rounded-full bg-primary-container text-on-primary">
-                <Icon name="person" size={17} />
-              </span>
-            </Link>
-          )}
-        </div>
-      </header>
+          ) : null
+        }
+      />
 
       {/* Surfaced once, only when geolocation is denied/unsupported and the
           user has never confirmed or dismissed a city — an explicit,
@@ -644,7 +595,7 @@ export default function HomePage() {
         onSelect={chooseCity}
       />
 
-      <div className="flex flex-col gap-6 px-4">
+      <div className="flex flex-col gap-4 px-4">
         {/* Window control — drives What's on, and on Book early the hero too
             (see `heroKind`). Labels grow their own count once known
             (`windowOptions`); the plain-words line underneath restates the

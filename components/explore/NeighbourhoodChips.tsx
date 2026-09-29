@@ -11,7 +11,7 @@ export interface NeighbourhoodChipsProps {
 /** Quick-jump chips for the ten fixed Edinburgh neighbourhoods (lib/explore/neighbourhoods.ts). Tapping the active one again clears the selection. */
 export function NeighbourhoodChips({ selected, onSelect }: NeighbourhoodChipsProps) {
   return (
-    <div className="-mx-5 flex gap-2 overflow-x-auto px-5 pb-1 [&::-webkit-scrollbar]:hidden">
+    <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 [&::-webkit-scrollbar]:hidden">
       {NEIGHBOURHOODS.map((n) => (
         <Chip
           key={n.slug}

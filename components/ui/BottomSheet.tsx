@@ -127,19 +127,25 @@ export function BottomSheet({ open, onClose, title, children, className = "", ar
         aria-labelledby={titleIsString ? titleId : undefined}
         aria-label={!titleIsString ? (ariaLabel ?? "Dialog") : undefined}
         tabIndex={-1}
-        className={`relative w-full max-w-[480px] rounded-t-xl bg-surface-container-lowest pb-safe shadow-[0_-8px_32px_rgba(3,22,50,0.18)] transition-transform duration-300 motion-reduce:transition-none focus:outline-none ${
+        className={`relative flex max-h-[calc(100dvh-env(safe-area-inset-top)-1rem)] w-full max-w-[480px] flex-col rounded-t-xl bg-surface-container-lowest shadow-[0_-8px_32px_rgba(3,22,50,0.18)] transition-transform duration-300 motion-reduce:transition-none focus:outline-none ${
           open ? "translate-y-0" : "translate-y-full"
         } ${className}`}
       >
-        <div className="flex justify-center pt-3 pb-1">
+        <div className="flex shrink-0 justify-center pt-3 pb-1">
           <span className="h-1.5 w-10 rounded-full bg-outline-variant" aria-hidden="true" />
         </div>
         {title ? (
-          <h2 id={titleIsString ? titleId : undefined} className="px-5 pb-2 pt-1 text-headline-sm text-on-surface">
+          <h2 id={titleIsString ? titleId : undefined} className="shrink-0 px-4 pb-2 pt-1 text-headline-sm text-on-surface">
             {title}
           </h2>
         ) : null}
-        <div className="px-5 pb-5 pt-2">{children}</div>
+        {/* Only this body scrolls; handle + title stay pinned. Body scroll on the page is
+            locked while open, so without an inner scroller tall sheets spilled off
+            the top of short phones. Bottom safe-area lives here so the last
+            control clears the home indicator when scrolled to the end. */}
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-[calc(1rem+env(safe-area-inset-bottom))] pt-2">
+          {children}
+        </div>
       </div>
     </div>,
     document.body

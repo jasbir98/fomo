@@ -115,7 +115,7 @@ export function MakeFomoYours({ open, onClose }: MakeFomoYoursProps) {
 
   return (
     <BottomSheet open={open} onClose={onClose} title="Make Fomo yours" ariaLabel="Make Fomo yours">
-      <div className="flex flex-col gap-5">
+      <div className="flex flex-col gap-4">
         <div className="flex items-center gap-3">
           <FomoSpot mood="grin" pose="wave" className="h-14 w-14" />
           <p className="text-body-sm text-on-surface-variant">
@@ -217,7 +217,10 @@ export function MakeFomoYours({ open, onClose }: MakeFomoYoursProps) {
 
         {error ? <p className="text-label-sm text-error">{error}</p> : null}
 
-        <div className="flex items-center gap-3 pt-1">
+        {/* Sticky footer: on short phones the sheet body scrolls, and Save/Skip
+            must stay reachable. The negative bottom margin cancels the sheet
+            body's own bottom padding so the footer owns the safe-area gap. */}
+        <div className="sticky bottom-[calc(-1rem-env(safe-area-inset-bottom))] -mx-4 -mb-[calc(1rem+env(safe-area-inset-bottom))] flex items-center gap-3 border-t border-hairline bg-surface-container-lowest px-4 pt-3 pb-[calc(1rem+env(safe-area-inset-bottom))]">
           <Button variant="ghost" onClick={handleSkip} disabled={saving} className="flex-1">
             Skip for now
           </Button>

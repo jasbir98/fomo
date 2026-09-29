@@ -183,21 +183,21 @@ export function HappeningHero({ happening, occurrence, variant = "fomo_pick", re
           ) : null}
         </div>
 
-        <div className="absolute bottom-2.5 left-3.5 flex items-center gap-2">
-          <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-label-sm font-bold backdrop-blur-md ${cat.badgeClass}`}>
+        <div className="absolute bottom-2.5 left-3.5 right-3.5 flex min-w-0 items-center gap-2">
+          <span className={`inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-label-sm font-bold backdrop-blur-md ${cat.badgeClass}`}>
             <Icon name={cat.icon} size={13} />
             {cat.label}
           </span>
           {district ? (
-            <div className="flex items-center gap-1 text-primary">
-              <Icon name="pin_drop" size={16} />
-              <span className="text-label-sm font-extrabold uppercase tracking-wider">{district}</span>
+            <div className="flex min-w-0 items-center gap-1 text-primary">
+              <Icon name="pin_drop" size={16} className="shrink-0" />
+              <span className="min-w-0 truncate text-label-sm font-extrabold uppercase tracking-wider">{district}</span>
             </div>
           ) : null}
         </div>
       </div>
 
-      <div className="flex flex-col gap-3 p-4 pt-2.5">
+      <div className="flex flex-col gap-3 p-3.5 pt-2.5">
         <div className="flex flex-col gap-1">
           <h2 className="line-clamp-2 text-headline-md font-extrabold leading-snug text-on-surface">
             {heroHeadline(happening, occurrence, now)}
@@ -214,7 +214,7 @@ export function HappeningHero({ happening, occurrence, variant = "fomo_pick", re
                 <Icon name="vpn_key" size={18} />
               </div>
               <div className="flex min-w-0 flex-col">
-                <span className="text-[9px] font-bold uppercase tracking-wider text-on-surface-variant">
+                <span className="truncate text-label-sm font-bold uppercase tracking-wider text-on-surface-variant">
                   {happening.redemption_note ?? "Code at checkout"}
                 </span>
                 <span className="truncate text-body-sm font-extrabold tracking-wider text-on-surface">

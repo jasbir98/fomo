@@ -118,7 +118,7 @@ export default function DealsPage() {
   });
 
   return (
-    <div className="flex flex-col gap-5 pb-8">
+    <div className="flex flex-col gap-4 pb-6">
       <AppHeader title="Deals & Offers" />
 
       <div className="flex flex-col gap-4 px-4">

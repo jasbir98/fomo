@@ -8,7 +8,8 @@ import { FomoFace, type FomoMood } from "@/components/onboarding/Characters";
 import { FomoSpot } from "@/components/fomo/FomoSpot";
 import { supabaseBrowserAuth } from "@/lib/supabase/client";
 import { addMessage, clearMessages, listMessages } from "@/lib/db";
-import { ASK_FOMO_PROMPTS, type AiReplyBlock, type ChatItem } from "@/lib/fomo-ai";
+import { ASK_FOMO_PROMPTS, type AiReplyBlock, type ChatItem, type ChatPlace } from "@/lib/fomo-ai";
+import { CITY } from "@/lib/city";
 import { hrefForSeed, readChatSeed, suggestedQuestionsFor, type ChatSeed } from "@/lib/chat-seed";
 import type { ChatMessage } from "@/lib/types";
 import { track } from "@/lib/analytics/track";
@@ -90,12 +91,44 @@ const MAX_HISTORY_MESSAGES = 12;
 /** `chat_messages.mode` value for new turns. Chat has one mode now; older rows carry trip-era modes and render the same. */
 const CHAT_MODE = "ask";
 
+/** Signed-out visitors keep their conversation here (per tab, gone when it closes) instead of in `chat_messages`. */
+const ANON_CHAT_KEY = "fomo:anon-chat";
+const MAX_ANON_MESSAGES = 40;
+
+function readAnonChat(): UiMessage[] {
+  try {
+    const raw = sessionStorage.getItem(ANON_CHAT_KEY);
+    if (!raw) return [];
+    const parsed: unknown = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter((m): m is UiMessage => {
+      if (!m || typeof m !== "object") return false;
+      const v = m as Record<string, unknown>;
+      if (typeof v.id !== "string") return false;
+      if (v.role === "user") return typeof v.text === "string";
+      return v.role === "assistant" && Array.isArray(v.blocks);
+    });
+  } catch {
+    return [];
+  }
+}
+
+function writeAnonChat(messages: UiMessage[]) {
+  try {
+    if (messages.length === 0) sessionStorage.removeItem(ANON_CHAT_KEY);
+    else sessionStorage.setItem(ANON_CHAT_KEY, JSON.stringify(messages.slice(-MAX_ANON_MESSAGES)));
+  } catch {
+    // Private window / blocked storage: the chat just doesn't survive a reload.
+  }
+}
+
 /** Flatten an assistant turn's blocks to plain text for the API history. */
 function blocksToText(blocks: AiReplyBlock[]): string {
   return blocks
     .map((b) => {
       if (b.kind === "text") return b.text;
       if (b.kind === "items") return `[Showed: ${b.items.map((item) => item.title).join(", ")}]`;
+      if (b.kind === "places") return `[Places shown: ${b.places.map((p) => p.name).join(", ")}]`;
       if (b.kind === "quick_replies") return `[Quick replies offered: ${b.quick_replies.options.join(", ")}]`;
       if (b.kind === "rich_card") return `[Suggested place: ${b.card.name}]`;
       return `[Suggested: ${b.proposal.title}]`;
@@ -158,6 +191,11 @@ function FomoChatPageInner() {
   const [input, setInput] = useState(() => searchParams.get("q") ?? "");
   const [sending, setSending] = useState(false);
   const [ready, setReady] = useState(false);
+  // null until the session check on mount finishes; false = signed out (chat
+  // lives in sessionStorage, nothing touches `chat_messages`).
+  const [signedIn, setSignedIn] = useState<boolean | null>(null);
+  // Set when the server says a signed-out visitor is out of free questions.
+  const [signinWall, setSigninWall] = useState(false);
   const [loadFailed, setLoadFailed] = useState(false);
   const [clearDialogOpen, setClearDialogOpen] = useState(false);
   const [clearing, setClearing] = useState(false);
@@ -167,14 +205,27 @@ function FomoChatPageInner() {
   // not mid-animation from wherever the top of a long history sits. Every
   // scroll after that (sends, quick replies) is the usual smooth one.
   const didInitialScroll = useRef(false);
+  // `?q=…&send=1` auto-sends once; the ref stops React strict mode's double effect run sending it twice.
+  const didAutoSend = useRef(false);
 
-  // On mount: load this user's chat history (user-scoped, see lib/db/chat.ts).
+  // On mount: work out who this is, then load this user's chat history
+  // (user-scoped, see lib/db/chat.ts) or, signed out, the sessionStorage copy.
   useEffect(() => {
     let cancelled = false;
     (async () => {
       try {
-        const history = await listMessages(db);
-        if (!cancelled) setMessages(history.map(parseMessage));
+        const {
+          data: { session },
+        } = await db.auth.getSession();
+        if (cancelled) return;
+        if (session) {
+          setSignedIn(true);
+          const history = await listMessages(db);
+          if (!cancelled) setMessages(history.map(parseMessage));
+        } else {
+          setSignedIn(false);
+          setMessages(readAnonChat());
+        }
       } catch (err) {
         console.error("[fomo] load failed", err);
         if (!cancelled) setLoadFailed(true);
@@ -186,6 +237,12 @@ function FomoChatPageInner() {
       cancelled = true;
     };
   }, [db]);
+
+  // Signed-out chats are mirrored to sessionStorage once a reply has settled.
+  useEffect(() => {
+    if (!ready || signedIn !== false || sending) return;
+    writeAnonChat(messages);
+  }, [messages, ready, signedIn, sending]);
 
   useEffect(() => {
     if (!ready) return;
@@ -216,7 +273,8 @@ function FomoChatPageInner() {
 
   async function send(text: string) {
     const trimmed = text.trim();
-    if (!trimmed || sending) return;
+    // signedIn is null until the mount-time session check is done; sending before then could misfile the turn.
+    if (!trimmed || sending || signedIn === null) return;
     track("chat_message_sent", { length: trimmed.length });
     setSending(true);
     setInput("");
@@ -236,6 +294,8 @@ function FomoChatPageInner() {
     const attachSeed = pendingSeed;
 
     const provisionalId = createPendingId();
+    const isSignedIn = signedIn === true;
+    let userTurnId = createPendingId();
 
     const updateProvisional = (blocks: AiReplyBlock[]) => {
       setMessages((prev) =>
@@ -249,10 +309,13 @@ function FomoChatPageInner() {
       const userContent: { text: string; seed?: SeedAttachment } = attachSeed
         ? { text: trimmed, seed: attachSeed }
         : { text: trimmed };
-      const userRow = await addMessage(db, { role: "user", mode: CHAT_MODE, content: userContent });
+      if (isSignedIn) {
+        const userRow = await addMessage(db, { role: "user", mode: CHAT_MODE, content: userContent });
+        userTurnId = userRow.id;
+      }
       setMessages((prev) => [
         ...prev,
-        { id: userRow.id, role: "user", text: trimmed, seed: attachSeed ?? undefined },
+        { id: userTurnId, role: "user", text: trimmed, seed: attachSeed ?? undefined },
         { id: provisionalId, role: "assistant", blocks: [{ kind: "text", text: "" }] },
       ]);
 
@@ -269,15 +332,23 @@ function FomoChatPageInner() {
       // Rate limited — show the server's "try again in N minutes" message and
       // keep the question in the composer so it can be resent later.
       if (res.status === 429) {
-        let message = "You've hit the limit for now — try again in a few minutes.";
+        let message = "You've hit the limit for now. Try again in a few minutes.";
+        let needsSignin = false;
         try {
-          const data = (await res.json()) as { message?: string };
+          const data = (await res.json()) as { message?: string; signin?: boolean };
           if (typeof data?.message === "string") message = data.message;
+          needsSignin = data?.signin === true;
         } catch {
           // Keep the fallback message above.
         }
-        updateProvisional([{ kind: "text", text: message }]);
         setInput(trimmed);
+        if (needsSignin) {
+          // Out of free questions: drop this turn and show the sign-in card instead.
+          setMessages((prev) => prev.filter((m) => m.id !== provisionalId && m.id !== userTurnId));
+          setSigninWall(true);
+        } else {
+          updateProvisional([{ kind: "text", text: message }]);
+        }
         return;
       }
 
@@ -321,14 +392,19 @@ function FomoChatPageInner() {
 
       if (finalBlocks && !errored) {
         // Persist the assembled assistant turn, then swap the provisional
-        // message for the persisted row (real id + final blocks).
+        // message for the persisted row (real id + final blocks). Signed-out
+        // turns aren't persisted server-side; they just take the final blocks.
         const blocks = finalBlocks;
-        const aiRow = await addMessage(db, { role: "assistant", mode: CHAT_MODE, content: { blocks } });
-        setMessages((prev) =>
-          prev.map((m) =>
-            m.id === provisionalId && m.role === "assistant" ? { id: aiRow.id, role: "assistant", blocks } : m
-          )
-        );
+        if (isSignedIn) {
+          const aiRow = await addMessage(db, { role: "assistant", mode: CHAT_MODE, content: { blocks } });
+          setMessages((prev) =>
+            prev.map((m) =>
+              m.id === provisionalId && m.role === "assistant" ? { id: aiRow.id, role: "assistant", blocks } : m
+            )
+          );
+        } else {
+          updateProvisional(blocks);
+        }
       } else if (!errored) {
         updateProvisional([{ kind: "text", text: "Fomo didn't finish that reply. Please try again." }]);
       }
@@ -345,8 +421,9 @@ function FomoChatPageInner() {
   async function handleClearChat() {
     setClearing(true);
     try {
-      await clearMessages(db);
+      if (signedIn) await clearMessages(db);
       setMessages([]);
+      setSigninWall(false);
       setClearDialogOpen(false);
     } catch (err) {
       console.error("[fomo] clear chat failed", err);
@@ -355,12 +432,37 @@ function FomoChatPageInner() {
     }
   }
 
+  // `?q=…&send=1` (e.g. a shared/landing link) sends that question once, then
+  // drops the params so a refresh doesn't ask it again. Plain `?q=` only
+  // prefills the composer (see `input`'s initial value).
+  useEffect(() => {
+    if (!ready || didAutoSend.current) return;
+    if (searchParams.get("send") !== "1") return;
+    // Deferred so it isn't a synchronous setState in the effect body. The ref
+    // is only set when the timer fires, so strict mode's mount/unmount/mount
+    // (which clears the first timer) still sends exactly once.
+    const timer = setTimeout(() => {
+      if (didAutoSend.current) return;
+      didAutoSend.current = true;
+      const q = searchParams.get("q")?.trim();
+      const rest = new URLSearchParams(searchParams.toString());
+      rest.delete("q");
+      rest.delete("send");
+      const qs = rest.toString();
+      router.replace(qs ? `/fomo?${qs}` : "/fomo", { scroll: false });
+      if (q) void send(q);
+    }, 0);
+    return () => clearTimeout(timer);
+    // `send` is a fresh closure each render; this must fire once when history is ready.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ready]);
+
   const suggestions = seed ? suggestedQuestionsFor(seed.type) : ASK_FOMO_PROMPTS;
   const empty = ready && messages.length === 0;
 
   return (
     <div className="flex min-h-dvh flex-col">
-      <header className="sticky top-0 z-40 flex items-center justify-between gap-2 bg-background/90 px-5 min-h-[56px] pt-safe backdrop-blur-sm">
+      <header className="sticky top-0 z-40 flex items-center justify-between gap-2 bg-background/90 px-4 min-h-[56px] pt-safe backdrop-blur-sm">
         <div className="flex items-center gap-2">
           {seed ? (
             <button
@@ -388,7 +490,7 @@ function FomoChatPageInner() {
         ) : null}
       </header>
 
-      <main className="flex flex-1 flex-col gap-6 px-5 pt-4 pb-[220px]">
+      <main className="flex flex-1 flex-col gap-4 px-4 pt-4 pb-[220px]">
         {loadFailed ? (
           <p className="rounded-lg bg-surface-container px-3 py-2 text-label-sm text-on-surface-variant">
             Couldn&apos;t load your earlier messages. New ones will still send.
@@ -404,7 +506,7 @@ function FomoChatPageInner() {
             <p className="max-w-[300px] text-body-md text-on-surface-variant">
               {seed
                 ? "Try one of these, or type your own."
-                : "I know what's on in Edinburgh right now — deals, free things and this week's events."}
+                : `I know what's on in ${CITY.name} right now: deals, free things and this week's events.`}
             </p>
           </div>
         ) : null}
@@ -429,6 +531,8 @@ function FomoChatPageInner() {
             <AssistantTurn key={m.id} messageId={m.id} blocks={m.blocks} onQuickReply={(option) => void send(option)} />
           );
         })}
+
+        {signinWall && signedIn === false ? <SigninCard /> : null}
 
         {/* Seed context card — shown inline at the end of the conversation (not pinned above it) until the
             first send of this visit attaches it to that user message; see `pendingSeed`. */}
@@ -599,6 +703,21 @@ function AssistantTurn({
             </div>
           );
         }
+        if (block.kind === "places") {
+          return (
+            <div key={key} className="ml-10 flex max-w-[400px] flex-col gap-2 self-stretch">
+              {block.reason ? <p className="px-1 text-label-sm italic text-on-surface-variant">{block.reason}</p> : null}
+              {block.places.map((place) => (
+                <ChatPlaceCard key={place.id} place={place} />
+              ))}
+              {/* Google requires this attribution, and the disclosure for any summary shown. */}
+              <p className="px-1 text-label-sm text-on-surface-variant">
+                Results from {block.attribution}
+                {block.places.some((p) => p.summary) ? ` · ${placeDisclosure(block.places)}` : ""}
+              </p>
+            </div>
+          );
+        }
         if (block.kind === "quick_replies") {
           return (
             <div key={key} className="ml-10 flex w-full max-w-[400px] flex-col gap-1.5 self-start">
@@ -663,5 +782,73 @@ function ChatItemCard({ item }: { item: ChatItem }) {
       ) : null}
       <Icon name="chevron_right" size={18} className="shrink-0 text-on-surface-variant" />
     </Link>
+  );
+}
+
+const FOOD_TYPE = /restaurant|cafe|café|coffee|takeout|takeaway|bakery|food|diner|bistro|eatery|pizza|brunch|dessert|ice cream|sandwich|deli|curry|noodle|sushi|kebab|chippy|fish and chips/i;
+
+/** "4.5 (1.2k)" style rating text; null when Google gave no rating. */
+function ratingText(place: ChatPlace): string | null {
+  if (place.rating === null) return null;
+  const count = place.ratingCount;
+  const countText =
+    count === null ? "" : ` (${count >= 1000 ? `${(count / 1000).toFixed(1).replace(/\.0$/, "")}k` : count})`;
+  return `★ ${place.rating.toFixed(1)}${countText}`;
+}
+
+/** The disclosure Google attaches to its summaries (the first one present). */
+function placeDisclosure(places: ChatPlace[]): string {
+  return places.find((p) => p.summary && p.summaryDisclosure)?.summaryDisclosure ?? "Summarized with Gemini";
+}
+
+/** A Google Maps venue the reply pointed at — opens its Maps page in a new tab. */
+function ChatPlaceCard({ place }: { place: ChatPlace }) {
+  const facts = [
+    ratingText(place),
+    place.priceText,
+    place.openNow === true ? "Open now" : place.openNow === false ? "Closed now" : null,
+  ].filter(Boolean);
+  const body = (
+    <>
+      <div
+        className={`flex h-14 w-14 shrink-0 items-center justify-center rounded-lg ${
+          place.type && FOOD_TYPE.test(place.type) ? "bg-secondary-container/60 text-on-secondary-container" : "bg-primary-fixed text-primary"
+        }`}
+      >
+        <Icon name={place.type && FOOD_TYPE.test(place.type) ? "restaurant" : "place"} size={24} />
+      </div>
+      <div className="min-w-0 flex-1">
+        <p className="line-clamp-2 text-label-md font-bold text-on-surface">{place.name}</p>
+        {facts.length > 0 ? <p className="text-label-sm text-on-surface-variant">{facts.join(" · ")}</p> : null}
+        {place.summary ? <p className="line-clamp-2 text-label-sm text-on-surface-variant">{place.summary}</p> : null}
+      </div>
+      <Icon name="open_in_new" size={18} className="shrink-0 text-on-surface-variant" />
+    </>
+  );
+  const className =
+    "flex items-center gap-3 rounded-xl border border-outline-variant/50 bg-surface-container-lowest p-2.5 shadow-[0_1px_3px_rgba(3,22,50,0.05)] transition-colors hover:bg-surface-container-low";
+  if (!place.mapsUrl) return <div className={className}>{body}</div>;
+  return (
+    <a href={place.mapsUrl} target="_blank" rel="noopener noreferrer" className={className}>
+      {body}
+    </a>
+  );
+}
+
+/** Shown to a signed-out visitor once their free questions for the day are used up. */
+function SigninCard() {
+  return (
+    <div className="mx-auto flex w-full max-w-[320px] flex-col items-center gap-2 rounded-xl border border-outline-variant/60 bg-surface-container-lowest p-4 text-center">
+      <p className="text-label-md font-bold text-primary">Sign in to keep asking</p>
+      <p className="text-label-sm text-on-surface-variant">
+        That&apos;s your 3 free questions for today. Signing in gets you more and saves your chat.
+      </p>
+      <Link
+        href="/signin?next=/fomo&reason=fomo"
+        className="mt-1 rounded-full bg-primary px-5 py-2 text-label-md font-semibold text-on-primary transition-opacity hover:opacity-90"
+      >
+        Sign in
+      </Link>
+    </div>
   );
 }

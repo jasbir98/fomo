@@ -7,15 +7,16 @@ import { useSignedIn } from "@/lib/useSaved";
 import type { WeatherCondition } from "@/lib/weather";
 import { WEATHER_THEME } from "@/lib/weatherUi";
 import { FomoLogo, Icon } from "@/components/ui";
+import { InstallSheet } from "@/components/install/InstallSheet";
+import { useInstallState } from "@/lib/pwa/useInstallState";
 
-interface HeaderWeather {
+export interface HeaderWeather {
   condition: WeatherCondition;
   tempC: number | null;
 }
 
-// Module-scope, not per-mount state: every page that renders AppHeader (and
-// Home's own header, once it's swapped over — see the task brief) wants the
-// same "today in Edinburgh" forecast, so the first mount's request is shared
+// Module-scope, not per-mount state: every page that renders AppHeader
+// wants the same "today in Edinburgh" forecast, so the first mount's request is shared
 // rather than every mount in one page load firing its own /api/weather call.
 // Reset to null on failure so a later mount (or a retry) gets a fresh chance
 // rather than being stuck replaying a rejected promise forever.
@@ -40,31 +41,43 @@ function fetchWeatherOnce(): Promise<HeaderWeather | null> {
 export interface AppHeaderProps {
   /** Rendered as a second row/h1 under the bar (e.g. "Explore Edinburgh"). Omit for a bare bar like Home's. */
   title?: ReactNode;
+  /** Extra content beside the logo, e.g. Home's city picker pill. */
+  leading?: ReactNode;
+  /**
+   * Weather the page already has (Home fetches its own for the ambient
+   * backdrop). Pass it to skip this header's own /api/weather request; `null`
+   * means "loading or unavailable". Leave undefined to let the header fetch.
+   */
+  weather?: HeaderWeather | null;
   className?: string;
 }
 
 /**
- * Shared top app bar: Fomo wordmark, weather chip, Saved link, Profile/Sign
- * in — reproduces Home's inline header (app/(shell)/page.tsx) as a drop-in
- * component so other tabs (Explore now; Home/Deals/Reels once they're
- * swapped over) render the identical bar instead of each hand-rolling it.
- * Deliberately excludes the city picker pill: Home keeps that itself (it's
- * meaningless noise on every other tab, and with SUPPORTED_CITIES.length
- * === 1 today it never renders there anyway — see lib/city.ts).
+ * Shared top app bar used by every tab: Fomo wordmark, weather chip, Search
+ * link, "Get the app" chip (phones, until installed), Profile/Sign in.
+ * Home passes its city picker pill through `leading`; other tabs skip it (it's
+ * noise there, and with SUPPORTED_CITIES.length === 1 it never renders anyway,
+ * see lib/city.ts).
  */
-export function AppHeader({ title, className = "" }: AppHeaderProps) {
-  const [weather, setWeather] = useState<HeaderWeather | null>(null);
+export function AppHeader({ title, leading, weather: weatherProp, className = "" }: AppHeaderProps) {
+  const [fetchedWeather, setFetchedWeather] = useState<HeaderWeather | null>(null);
+  const weather = weatherProp !== undefined ? weatherProp : fetchedWeather;
   const signedIn = useSignedIn();
+  const { platform, installed } = useInstallState();
+  const [installOpen, setInstallOpen] = useState(false);
+  // Phones and tablets only, and only until the app is installed.
+  const showInstallChip = platform !== null && platform !== "desktop" && !installed;
 
   useEffect(() => {
+    if (weatherProp !== undefined) return;
     let cancelled = false;
     void fetchWeatherOnce().then((w) => {
-      if (!cancelled) setWeather(w);
+      if (!cancelled) setFetchedWeather(w);
     });
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [weatherProp]);
 
   return (
     <div
@@ -73,6 +86,7 @@ export function AppHeader({ title, className = "" }: AppHeaderProps) {
       <header className="flex min-h-[64px] items-center justify-between gap-2 px-4 pt-safe">
         <div className="flex min-w-0 items-center gap-2.5">
           <FomoLogo size={28} />
+          {leading}
         </div>
 
         <div className="flex shrink-0 items-center gap-1">
@@ -92,12 +106,25 @@ export function AppHeader({ title, className = "" }: AppHeaderProps) {
             </span>
           </div>
           <Link
-            href="/saved"
-            aria-label="Saved"
-            className="flex h-10 w-10 items-center justify-center rounded-full text-on-surface-variant transition-colors hover:bg-surface-container hover:text-on-surface"
+            href="/search"
+            aria-label="Search"
+            className="flex h-11 w-11 items-center justify-center rounded-full text-on-surface-variant transition-colors hover:bg-surface-container hover:text-on-surface"
           >
-            <Icon name="bookmark" size={22} />
+            <Icon name="search" size={24} />
           </Link>
+          {showInstallChip ? (
+            // Icon-only until there's room for the words; gone below 360px
+            // (the Sign in pill is the wide neighbour it competes with).
+            <button
+              type="button"
+              onClick={() => setInstallOpen(true)}
+              aria-label="Get the app"
+              className="flex h-10 items-center justify-center gap-1 rounded-full bg-primary-container/10 px-2.5 text-label-sm font-semibold text-primary transition-colors hover:bg-primary-container/20 max-[359px]:hidden"
+            >
+              <Icon name="install_mobile" size={18} />
+              <span className="hidden min-[420px]:inline">Get the app</span>
+            </button>
+          ) : null}
           {signedIn === null ? (
             // Auth state hasn't resolved yet — a neutral, non-interactive
             // placeholder (same footprint as the resolved states below)
@@ -127,10 +154,12 @@ export function AppHeader({ title, className = "" }: AppHeaderProps) {
       </header>
 
       {title ? (
-        <div className="px-5 pb-3">
+        <div className="px-4 pb-3">
           <h1 className="truncate text-headline-sm text-primary">{title}</h1>
         </div>
       ) : null}
+
+      <InstallSheet open={installOpen} onClose={() => setInstallOpen(false)} source="header" />
     </div>
   );
 }

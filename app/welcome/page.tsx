@@ -228,7 +228,7 @@ function WelcomeContent() {
       onTouchCancel={onTouchCancel}
     >
       {/* Brand lockup + persistent Skip */}
-      <div className="flex items-center justify-between px-6 pt-10 pb-4">
+      <div className="flex items-center justify-between px-6 pt-10 pb-4 [@media(max-height:640px)]:pt-6 [@media(max-height:640px)]:pb-2">
         <div className="w-12" aria-hidden="true" />
         <div className="flex items-center justify-center gap-2">
           <FomoLogo tone="light" size={30} />
@@ -259,9 +259,9 @@ function WelcomeContent() {
                 i === index ? "scale-100 opacity-100" : "scale-90 opacity-0"
               }`}
             >
-              <div className="mb-4 h-[min(50dvh,400px)] w-full max-w-[420px]">{s.scene}</div>
+              <div className="mb-3 h-[min(40dvh,400px)] w-full max-w-[420px] [@media(max-height:640px)]:h-[30dvh]">{s.scene}</div>
               <h1 className="mb-3 text-center text-headline-md text-on-surface">{s.title}</h1>
-              <p className="mx-auto max-w-[280px] text-center text-body-md text-on-surface-variant">
+              <p className="mx-auto max-w-[300px] text-center text-body-md text-on-surface-variant">
                 {s.body}
               </p>
             </section>
@@ -270,7 +270,7 @@ function WelcomeContent() {
       </div>
 
       {/* Bottom controls */}
-      <div className="flex flex-col items-center gap-6 px-6 pt-6 pb-6">
+      <div className="flex flex-col items-center gap-4 px-6 pt-4 pb-6">
         <ProgressDots count={SLIDES.length} active={index} tone="orange" />
         {sharedLink && (
           <p className="text-body-md text-on-surface-variant">
@@ -283,7 +283,7 @@ function WelcomeContent() {
         <Link
           href={publicNextOrHome(searchParams.get("next"))}
           onClick={markIntroSeen}
-          className="-mt-3 inline-flex min-h-12 w-full items-center justify-center rounded-xl border border-outline-variant text-label-lg font-semibold text-primary transition-colors hover:bg-surface-container-low active:bg-surface-container"
+          className="inline-flex min-h-12 w-full items-center justify-center rounded-xl border border-outline-variant text-label-lg font-semibold text-primary transition-colors hover:bg-surface-container-low active:bg-surface-container"
         >
           Not now, keep browsing
         </Link>

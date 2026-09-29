@@ -13,6 +13,8 @@ import { ensurePushSubscribed, pushReasonMessage, pushSupportReason } from "@/li
 import { MakeFomoYours } from "@/components/personalise/MakeFomoYours";
 import { INTEREST_LABEL } from "@/lib/personalise/interests";
 import { usePrefs } from "@/lib/personalise/usePrefs";
+import { InstallSheet } from "@/components/install/InstallSheet";
+import { useInstallState } from "@/lib/pwa/useInstallState";
 
 const AvatarCropModal = dynamic(() => import("@/components/fomo/AvatarCropModal").then((mod) => mod.AvatarCropModal), {
   ssr: false,
@@ -28,6 +30,8 @@ export default function ProfilePage() {
   const [resetOpen, setResetOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
   const [securityOpen, setSecurityOpen] = useState(false);
+  const [installOpen, setInstallOpen] = useState(false);
+  const { platform: installPlatform, installed: appInstalled } = useInstallState();
   const prefs = usePrefs();
   const [mfyOpen, setMfyOpen] = useState(false);
   // "Big on-sale alerts" (supabase/archive/add_push_alerts.sql) — a top-level
@@ -226,18 +230,18 @@ export default function ProfilePage() {
   }
 
   return (
-    <main className="mx-auto flex max-w-[480px] flex-col gap-6 pb-8">
+    <main className="mx-auto flex max-w-[480px] flex-col gap-4 pb-8">
       <PageHeader title="Profile" />
 
       {loading ? (
-        <div className="flex flex-col items-center gap-3 px-5 py-16 text-on-surface-variant">
+        <div className="flex flex-col items-center gap-3 px-4 py-16 text-on-surface-variant">
           <Icon name="hourglass_top" size={28} />
           <p className="text-body-md">Loading your profile…</p>
         </div>
       ) : (
         <>
           {/* Identity */}
-          <section className="flex flex-col items-center gap-3 px-5 text-center">
+          <section className="flex flex-col items-center gap-3 px-4 text-center">
             <div className="relative">
               <div className="h-28 w-28 overflow-hidden rounded-full border-4 border-surface-container shadow-lg">
                 {profile?.avatar_url ? (
@@ -305,7 +309,7 @@ export default function ProfilePage() {
             <h2 className="text-headline-md text-primary">{displayName}</h2>
           </section>
 
-          <div className="flex flex-col gap-4 px-5">
+          <div className="flex flex-col gap-4 px-4">
             {/* Make Fomo yours — replaces the old 4-chip "Deals for you"
                 selector (task brief). Drives the "You qualify" badges on
                 feed cards, the Home pick, Ask Fomo AND the ranking boost
@@ -332,7 +336,7 @@ export default function ProfilePage() {
 
           {/* Saved — now a dedicated page at /saved with its own AppHeader.
               The bottom-nav Saved tab points there. */}
-          <section className="flex flex-col gap-4 px-5">
+          <section className="flex flex-col gap-4 px-4">
             <a
               href="/saved"
               className="flex w-full items-center justify-between p-4 text-left"
@@ -348,7 +352,7 @@ export default function ProfilePage() {
           </section>
 
           {/* Account Settings */}
-          <section className="flex flex-col gap-4 px-5">
+          <section className="flex flex-col gap-4 px-4">
             <h3 className="text-headline-sm text-primary">Account Settings</h3>
             <Card noPadding className="divide-y divide-outline-variant/40">
               <button
@@ -377,6 +381,21 @@ export default function ProfilePage() {
                 </span>
                 <Icon name="chevron_right" className="text-on-surface-variant" />
               </button>
+              {installPlatform !== null && !appInstalled ? (
+                <button
+                  type="button"
+                  onClick={() => setInstallOpen(true)}
+                  className="flex w-full items-center justify-between p-4 text-left"
+                >
+                  <span className="flex items-center gap-4">
+                    <span className="flex h-10 w-10 items-center justify-center rounded-full bg-primary-container/10 text-primary">
+                      <Icon name="install_mobile" />
+                    </span>
+                    <span className="text-body-lg text-primary">Install Fomo on your phone</span>
+                  </span>
+                  <Icon name="chevron_right" className="text-on-surface-variant" />
+                </button>
+              ) : null}
               <a
                 href="/tip"
                 className="flex w-full items-center justify-between p-4 text-left"
@@ -414,6 +433,8 @@ export default function ProfilePage() {
           </section>
         </>
       )}
+
+      <InstallSheet open={installOpen} onClose={() => setInstallOpen(false)} source="profile" />
 
       <BottomSheet open={avatarOpen} onClose={() => setAvatarOpen(false)} title="Profile photo">
         <div className="flex flex-col gap-2">

@@ -5,15 +5,21 @@ import { usePathname } from "next/navigation";
 import { FomoFace } from "../onboarding/Characters";
 import { Icon } from "../ui/Icon";
 
-type NavItem = { href: string; icon: string; label: string };
+/**
+ * Each tab carries its own colour. Class strings are written out in full (not
+ * built from a colour name) so Tailwind's scanner sees them.
+ *  - `text`:   icon + active label colour (AA on white)
+ *  - `pill`:   tinted pill behind the icon when active (~12%)
+ */
+type NavItem = { href: string; icon: string; label: string; text: string; pill: string };
 
 const LEFT: NavItem[] = [
-  { href: "/", icon: "local_activity", label: "Feed" },
-  { href: "/saved", icon: "bookmark", label: "Saved" },
+  { href: "/", icon: "local_activity", label: "Feed", text: "text-brand-orange-ink", pill: "bg-brand-orange-ink/12" },
+  { href: "/saved", icon: "bookmark", label: "Saved", text: "text-cat-nightlife", pill: "bg-cat-nightlife/12" },
 ];
 const RIGHT: NavItem[] = [
-  { href: "/deals", icon: "sell", label: "Deals" },
-  { href: "/explore", icon: "explore", label: "Explore" },
+  { href: "/deals", icon: "sell", label: "Deals", text: "text-cat-sports", pill: "bg-cat-sports/12" },
+  { href: "/explore", icon: "explore", label: "Explore", text: "text-accent", pill: "bg-accent/12" },
 ];
 
 function isActive(pathname: string, href: string) {
@@ -26,12 +32,22 @@ function NavTab({ item, active }: { item: NavItem; active: boolean }) {
     <Link
       href={item.href}
       aria-current={active ? "page" : undefined}
-      className={`flex w-16 flex-col items-center justify-center gap-0.5 rounded-full py-1 transition-colors ${
-        active ? "text-secondary-container" : "text-on-surface-variant hover:text-on-surface"
-      }`}
+      className="flex min-w-0 flex-1 flex-col items-center justify-center gap-0.5 py-1 transition-colors"
     >
-      <Icon name={item.icon} filled={active} size={24} />
-      <span className="text-label-sm font-semibold">{item.label}</span>
+      <span
+        className={`flex h-8 w-14 items-center justify-center rounded-full transition-colors ${item.text} ${
+          active ? item.pill : "opacity-85"
+        }`}
+      >
+        <Icon name={item.icon} filled={active} size={26} />
+      </span>
+      <span
+        className={`max-w-full truncate text-label-sm font-semibold leading-none ${
+          active ? item.text : "text-on-surface-variant"
+        }`}
+      >
+        {item.label}
+      </span>
     </Link>
   );
 }
@@ -58,15 +74,15 @@ export function BottomNav() {
       className="fixed bottom-0 left-1/2 z-50 w-full max-w-[480px] -translate-x-1/2 bg-surface-container-lowest pb-safe shadow-[0_-6px_20px_rgba(0,32,70,0.08)]"
       aria-label="Primary"
     >
-      <div className="relative flex h-[64px] items-center justify-between px-4">
-        <div className="flex flex-1 justify-around">
+      <div className="relative flex h-[64px] items-center px-2">
+        <div className="flex min-w-0 flex-1">
           {LEFT.map((item) => (
             <NavTab key={item.href} item={item} active={isActive(pathname, item.href)} />
           ))}
         </div>
 
         {/* Center Fomo FAB — raised above the bar */}
-        <div className="flex w-16 shrink-0 justify-center">
+        <div className="flex w-[72px] shrink-0 justify-center">
           <Link
             href="/fomo"
             aria-label="Ask Fomo"
@@ -74,11 +90,11 @@ export function BottomNav() {
             className="absolute -top-6 flex h-16 w-16 flex-col items-center justify-center rounded-full bg-primary text-on-primary shadow-[0_6px_20px_rgba(27,54,93,0.35)] ring-4 ring-background transition-transform active:scale-95"
           >
             <FomoFace mood={fomoActive ? "grin" : "wow"} className="h-9 w-9" />
-            <span className="mt-0.5 text-[10px] font-semibold leading-none">Fomo</span>
+            <span className="text-label-sm font-semibold leading-none">Fomo</span>
           </Link>
         </div>
 
-        <div className="flex flex-1 justify-around">
+        <div className="flex min-w-0 flex-1">
           {RIGHT.map((item) => (
             <NavTab key={item.href} item={item} active={isActive(pathname, item.href)} />
           ))}

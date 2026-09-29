@@ -365,16 +365,16 @@ function SigninContent() {
   return (
     <div className="flex min-h-dvh w-full flex-col bg-background pb-safe">
       <header className="relative overflow-hidden bg-gradient-to-b from-primary to-[#1b365d] px-6 pt-safe text-center">
-        <div className="relative z-10 flex items-center justify-center gap-2 pt-8">
+        <div className="relative z-10 flex items-center justify-center gap-2 pt-8 [@media(max-height:640px)]:pt-4">
           <FomoLogo tone="dark" size={30} />
         </div>
-        <h1 className="relative z-10 mt-6 text-headline-md text-on-primary">
+        <h1 className="relative z-10 mt-6 text-headline-md [@media(max-height:640px)]:mt-3 text-on-primary">
           {step === "email" ? "Edinburgh’s on tonight" : "Check your email"}
         </h1>
         <p className="relative z-10 mt-1 text-body-md text-on-primary/75">
           {step === "email" ? "Sign in so you don’t miss it." : `We sent a code to ${email.trim()}.`}
         </p>
-        <div className="pointer-events-none -mx-6 mt-2 h-36">
+        <div className="pointer-events-none -mx-6 mt-2 h-36 [@media(max-height:640px)]:h-20">
           <SigninSkyline />
         </div>
       </header>

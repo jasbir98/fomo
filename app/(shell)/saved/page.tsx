@@ -13,7 +13,7 @@ import { SavedList } from "@/components/saved/SavedList";
  */
 export default function SavedPage() {
   return (
-    <div className="flex flex-col gap-5 pb-8">
+    <div className="flex flex-col gap-4 pb-6">
       <AppHeader title="Saved" />
 
       <div className="flex flex-col gap-4 px-4">

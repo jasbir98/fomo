@@ -141,7 +141,7 @@ export default function BookEarlyPage() {
   });
 
   return (
-    <div className="flex flex-col gap-5 pb-8">
+    <div className="flex flex-col gap-4 pb-6">
       <PageHeader title="Book early" showBack />
 
       <div className="flex flex-col gap-4 px-4">

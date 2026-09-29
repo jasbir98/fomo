@@ -99,10 +99,10 @@ export function DateFilterRow({ dates, selected, onSelect }: DateFilterRowProps)
                 : "bg-surface-container text-on-surface-variant border border-transparent hover:bg-surface-container-high"
             }`}
           >
-            <span className="h-3 text-[9px] font-bold uppercase leading-none tracking-wide opacity-70">
+            <span className="h-3.5 text-label-sm font-bold uppercase leading-none tracking-wide opacity-70">
               {showMonth ? month : ""}
             </span>
-            <span className="text-[10px] font-semibold uppercase leading-none">{weekday}</span>
+            <span className="text-label-sm font-semibold uppercase leading-none">{weekday}</span>
             <span className="text-label-md font-extrabold leading-none">{day}</span>
           </button>
         );

@@ -232,7 +232,7 @@ export function FomoCard({
               it here too just doubled up the same chip on one continuous
               amber block. */}
           {!(isHero && dark) ? (
-            <span className="rounded-full bg-secondary-container px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-on-secondary-container">
+            <span className="rounded-full bg-secondary-container px-2.5 py-1 text-label-sm font-bold uppercase tracking-wide text-on-secondary-container">
               {candidate.pill}
             </span>
           ) : (
@@ -258,7 +258,7 @@ export function FomoCard({
         >
           <div onClick={handleOpenDetails} className="flex cursor-pointer flex-col gap-1">
             {dark ? (
-              <span className="mb-1 w-fit rounded-full bg-secondary-container px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-on-secondary-container">
+              <span className="mb-1 w-fit rounded-full bg-secondary-container px-2.5 py-1 text-label-sm font-bold uppercase tracking-wide text-on-secondary-container">
                 {candidate.pill}
               </span>
             ) : null}
@@ -335,7 +335,7 @@ export function FomoCard({
             <button
               type="button"
               onClick={onDismiss}
-              className={`absolute right-2.5 top-2.5 rounded-full px-2.5 py-1 text-[11px] font-semibold backdrop-blur-sm transition-opacity hover:opacity-90 ${
+              className={`absolute right-2.5 top-2.5 rounded-full px-2.5 py-1 text-label-sm font-semibold backdrop-blur-sm transition-opacity hover:opacity-90 ${
                 dark ? "bg-on-primary/15 text-on-primary" : "bg-primary/70 text-on-primary"
               }`}
             >
@@ -359,7 +359,7 @@ export function FomoCard({
           </h3>
           {metaLine ? (
             <p
-              className={`line-clamp-1 text-[11px] ${dark ? "text-on-primary/75" : "text-on-surface-variant"}`}
+              className={`line-clamp-1 text-label-sm font-medium ${dark ? "text-on-primary/75" : "text-on-surface-variant"}`}
             >
               {metaLine}
             </p>

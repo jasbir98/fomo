@@ -96,7 +96,7 @@ function SavedListInner() {
           </div>
         </Card>
       ) : (
-        <div className="flex flex-col gap-5">
+        <div className="flex flex-col gap-4">
           {savedGroups.map((group) => (
             <div key={group.type}>
               <p className="mb-2 text-label-md font-bold text-on-surface-variant">{group.label}</p>

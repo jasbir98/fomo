@@ -90,6 +90,9 @@
      alternative — scattering the literal #2563eb across components — is how a
      second, invisible design system gets started. One named token instead. */
   --color-accent: #2563eb;
+  /* Brand orange: decorative fills; -ink is the AA-safe text/icon variant. */
+  --color-brand-orange: #fc8a40;
+  --color-brand-orange-ink: #c2410c;
   --color-on-accent: #ffffff;
 
   /* ---- Happening category accents ----
@@ -143,17 +146,17 @@
   --text-headline-lg--font-weight: 700;
   --text-headline-lg--letter-spacing: -0.02em;
 
-  --text-headline-lg-mobile: 1.5rem; /* 24px */
+  --text-headline-lg-mobile: 1.625rem; /* 26px */
   --text-headline-lg-mobile--line-height: 2rem; /* 32px */
   --text-headline-lg-mobile--font-weight: 700;
   --text-headline-lg-mobile--letter-spacing: -0.015em;
 
-  --text-headline-md: 1.25rem; /* 20px */
+  --text-headline-md: 1.375rem; /* 22px */
   --text-headline-md--line-height: 1.75rem; /* 28px */
   --text-headline-md--font-weight: 600;
   --text-headline-md--letter-spacing: -0.01em;
 
-  --text-headline-sm: 1rem; /* 16px */
+  --text-headline-sm: 1.125rem; /* 18px */
   --text-headline-sm--line-height: 1.5rem; /* 24px */
   --text-headline-sm--font-weight: 600;
   --text-headline-sm--letter-spacing: -0.005em;
@@ -162,33 +165,33 @@
   --text-title-md--line-height: 1.75rem; /* 28px */
   --text-title-md--font-weight: 600;
 
-  --text-body-lg: 1.0625rem; /* 17px */
-  --text-body-lg--line-height: 1.625rem; /* 26px */
+  --text-body-lg: 1.125rem; /* 18px */
+  --text-body-lg--line-height: 1.6875rem; /* 27px */
   --text-body-lg--font-weight: 400;
   --text-body-lg--letter-spacing: -0.005em;
 
-  --text-body-md: 0.9375rem; /* 15px */
-  --text-body-md--line-height: 1.375rem; /* 22px */
+  --text-body-md: 1rem; /* 16px */
+  --text-body-md--line-height: 1.5rem; /* 24px */
   --text-body-md--font-weight: 400;
 
-  --text-body-sm: 0.8125rem; /* 13px */
-  --text-body-sm--line-height: 1.125rem; /* 18px */
+  --text-body-sm: 0.875rem; /* 14px */
+  --text-body-sm--line-height: 1.25rem; /* 20px */
   --text-body-sm--font-weight: 400;
 
-  --text-label-lg: 0.875rem; /* 14px */
+  --text-label-lg: 0.9375rem; /* 15px */
   --text-label-lg--line-height: 1.25rem; /* 20px */
   --text-label-lg--font-weight: 600;
   --text-label-lg--letter-spacing: 0.01em;
 
-  --text-label-md: 0.75rem; /* 12px */
-  --text-label-md--line-height: 1rem; /* 16px */
+  --text-label-md: 0.875rem; /* 14px */
+  --text-label-md--line-height: 1.125rem; /* 18px */
   --text-label-md--font-weight: 600;
   --text-label-md--letter-spacing: 0.02em;
 
-  --text-label-sm: 0.6875rem; /* 11px */
-  --text-label-sm--line-height: 0.875rem; /* 14px */
+  --text-label-sm: 0.75rem; /* 12px */
+  --text-label-sm--line-height: 1rem; /* 16px */
   --text-label-sm--font-weight: 700;
-  --text-label-sm--letter-spacing: 0.04em;
+  --text-label-sm--letter-spacing: 0.02em;
 
   /* ---- Radii (Modern Maritime Edinburgh) ----
      md/lg/xl are unchanged by this design system — it specifies 0.75/1/1.5rem,

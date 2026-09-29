@@ -27,7 +27,7 @@ export function LayerSwitch({ value, onChange }: LayerSwitchProps) {
   const legendTypes = LAYER_PIN_TYPES[value];
   return (
     <div className="flex flex-col gap-2">
-      <div className="-mx-5 overflow-x-auto px-5 [&::-webkit-scrollbar]:hidden">
+      <div className="-mx-4 overflow-x-auto px-4 [&::-webkit-scrollbar]:hidden">
         <SegmentedControl value={value} options={LAYER_OPTIONS} onChange={onChange} />
       </div>
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1 px-1">

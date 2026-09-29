@@ -138,7 +138,7 @@ export default function PlaceDetailPage({ params }: { params: Promise<{ id: stri
     return (
       <div className="flex flex-col gap-4">
         <PageHeader title="Place" showBack />
-        <div className="flex flex-col items-center gap-3 px-5 py-16 text-center text-on-surface-variant">
+        <div className="flex flex-col items-center gap-3 px-4 py-16 text-center text-on-surface-variant">
           <Icon name="location_off" size={32} />
           <p className="text-body-md">We couldn&rsquo;t find this place.</p>
           <Link href="/explore" className="text-label-md font-medium text-secondary">
@@ -171,7 +171,7 @@ export default function PlaceDetailPage({ params }: { params: Promise<{ id: stri
   const shareText = `${[placeName, primaryBadge].filter(Boolean).join(" · ")} · via Fomo`;
 
   return (
-    <div className="flex flex-col gap-6 pb-6">
+    <div className="flex flex-col gap-4 pb-6">
       <PageHeader
         title={placeName}
         showBack
@@ -183,7 +183,7 @@ export default function PlaceDetailPage({ params }: { params: Promise<{ id: stri
         <PhotoCarousel key={place.id} photos={heroPhotos} />
         <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 h-20 bg-gradient-to-t from-background/90 to-transparent" />
         {primaryBadge ? (
-          <div className="absolute bottom-4 left-5 z-20">
+          <div className="absolute bottom-4 left-4 right-4 z-20 flex">
             <StatusPill
               label={primaryBadge}
               tone={isQuiet ? "success" : "info"}
@@ -193,7 +193,7 @@ export default function PlaceDetailPage({ params }: { params: Promise<{ id: stri
         ) : null}
       </section>
 
-      <div className="flex flex-col gap-6 px-5">
+      <div className="flex flex-col gap-4 px-4">
         {/* Description & stats */}
         <section className="rounded-2xl bg-surface-container-lowest p-5 shadow-level-1">
           <div className="mb-3 flex items-center justify-between gap-3">
@@ -319,14 +319,14 @@ export default function PlaceDetailPage({ params }: { params: Promise<{ id: stri
                 {reviews.length} total
               </span>
             </div>
-            <div className="-mx-5 flex gap-4 overflow-x-auto px-5 pb-2 [&::-webkit-scrollbar]:hidden">
+            <div className="-mx-4 flex gap-4 overflow-x-auto px-4 pb-2 [&::-webkit-scrollbar]:hidden">
               {reviews.map((review, i) => (
                 <div
                   key={i}
-                  className="min-w-[260px] rounded-2xl bg-surface-container-lowest p-4 shadow-level-1"
+                  className="min-w-[260px] rounded-2xl bg-surface-container-lowest p-3.5 shadow-level-1"
                 >
                   <div className="mb-2 flex items-center gap-3">
-                    <div className="flex h-9 w-9 items-center justify-center rounded-full bg-tertiary-fixed text-[11px] font-bold text-on-tertiary-fixed">
+                    <div className="flex h-9 w-9 items-center justify-center rounded-full bg-tertiary-fixed text-label-sm font-bold text-on-tertiary-fixed">
                       {review.author.slice(0, 2).toUpperCase()}
                     </div>
                     <p className="text-label-md text-on-surface">{review.author}</p>
@@ -364,12 +364,12 @@ export default function PlaceDetailPage({ params }: { params: Promise<{ id: stri
               <div className="absolute inset-0 flex items-center justify-center">
                 <Icon name="map" size={64} className="text-outline-variant" />
               </div>
-              <div className="absolute bottom-3 left-3 right-3 flex items-center justify-between rounded-lg bg-white/90 px-3 py-2 backdrop-blur-md">
-                <div>
-                  <p className="text-label-md text-primary">{place.station ?? place.name}</p>
+              <div className="absolute bottom-3 left-3 right-3 flex items-center justify-between gap-2 rounded-lg bg-white/90 px-3 py-2 backdrop-blur-md">
+                <div className="min-w-0">
+                  <p className="truncate text-label-md text-primary">{place.station ?? place.name}</p>
                   <p className="text-label-sm text-on-surface-variant">Tap to open directions</p>
                 </div>
-                <Icon name="open_in_new" className="text-primary" />
+                <Icon name="open_in_new" className="shrink-0 text-primary" />
               </div>
             </a>
           ) : (
@@ -381,9 +381,9 @@ export default function PlaceDetailPage({ params }: { params: Promise<{ id: stri
               <div className="absolute inset-0 flex items-center justify-center">
                 <Icon name="map" size={64} className="text-outline-variant" />
               </div>
-              <div className="absolute bottom-3 left-3 right-3 flex items-center justify-between rounded-lg bg-white/90 px-3 py-2 backdrop-blur-md">
-                <div>
-                  <p className="text-label-md text-primary">{place.station ?? place.name}</p>
+              <div className="absolute bottom-3 left-3 right-3 flex items-center justify-between gap-2 rounded-lg bg-white/90 px-3 py-2 backdrop-blur-md">
+                <div className="min-w-0">
+                  <p className="truncate text-label-md text-primary">{place.station ?? place.name}</p>
                   <p className="text-label-sm text-on-surface-variant">Location unavailable</p>
                 </div>
               </div>
@@ -393,7 +393,7 @@ export default function PlaceDetailPage({ params }: { params: Promise<{ id: stri
       </div>
 
       {/* Sticky bottom actions */}
-      <div className="sticky bottom-[calc(64px+env(safe-area-inset-bottom))] z-30 flex flex-col gap-2 border-t border-outline-variant/40 bg-surface-container-lowest/95 px-5 py-4 backdrop-blur-md shadow-[0_-4px_16px_rgba(3,22,50,0.08)]">
+      <div className="sticky bottom-[calc(64px+env(safe-area-inset-bottom))] z-30 flex flex-col gap-2 border-t border-outline-variant/40 bg-surface-container-lowest/95 px-4 py-4 backdrop-blur-md shadow-[0_-4px_16px_rgba(3,22,50,0.08)]">
         <div className="flex gap-3">
           {directionsUrl ? (
             <a

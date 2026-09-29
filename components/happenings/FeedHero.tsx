@@ -95,12 +95,12 @@ function EventHero({ event, reason, surface }: { event: EventItem; reason: strin
 
         <div className="absolute inset-x-3 top-3 flex items-start justify-between gap-2">
           <div className="flex min-w-0 flex-col items-start gap-1">
-            <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-primary-container/90 px-3 py-1 text-label-sm font-bold text-on-primary-container backdrop-blur-md">
+            <span className="inline-flex max-w-full min-w-0 items-center gap-1.5 rounded-full bg-primary-container/90 px-3 py-1 text-label-sm font-bold text-on-primary-container backdrop-blur-md">
               <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-secondary-fixed-dim animate-pulse" />
-              Fomo Pick · {eventDate}
+              <span className="min-w-0 truncate">Fomo Pick · {eventDate}</span>
             </span>
             {reason ? (
-              <span className="inline-flex max-w-full shrink-0 items-center truncate rounded-full bg-surface-container-lowest/85 px-2.5 py-0.5 text-label-sm font-semibold text-on-surface backdrop-blur-md">
+              <span className="block max-w-full truncate rounded-full bg-surface-container-lowest/85 px-2.5 py-0.5 text-label-sm font-semibold text-on-surface backdrop-blur-md">
                 {reason}
               </span>
             ) : null}
@@ -113,14 +113,14 @@ function EventHero({ event, reason, surface }: { event: EventItem; reason: strin
         </div>
 
         {event.venue_name ? (
-          <div className="absolute bottom-2.5 left-3.5 flex items-center gap-1 text-primary">
-            <Icon name="pin_drop" size={16} />
-            <span className="text-label-sm font-extrabold uppercase tracking-wider">{event.venue_name}</span>
+          <div className="absolute bottom-2.5 left-3.5 right-3.5 flex min-w-0 items-center gap-1 text-primary">
+            <Icon name="pin_drop" size={16} className="shrink-0" />
+            <span className="min-w-0 truncate text-label-sm font-extrabold uppercase tracking-wider">{event.venue_name}</span>
           </div>
         ) : null}
       </div>
 
-      <div className="flex flex-col gap-3 p-4 pt-2.5">
+      <div className="flex flex-col gap-3 p-3.5 pt-2.5">
         <div className="flex flex-col gap-1">
           <h2 className="line-clamp-2 text-headline-md font-extrabold leading-snug text-on-surface">{event.name}</h2>
           {event.description ? (

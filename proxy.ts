@@ -61,12 +61,14 @@ import type { SigninReason } from "@/lib/auth/signin-reason";
  */
 
 /**
- * Pages that need an account: chat and profile. Everything else — Feed,
- * Deals, Free, Explore, Saved, detail pages and shared links — is browsable
- * signed out (user decision 2026-09-15, re-confirmed 2026-09-26 for PMF);
- * sign-in is asked for only when Save, Notify me or Ask Fomo is tapped.
+ * Pages that need an account: profile only. Everything else — Feed, Deals,
+ * Free, Explore, Saved, detail pages, shared links and Ask Fomo (/fomo) — is
+ * browsable signed out (user decision 2026-09-15, re-confirmed 2026-09-26
+ * for PMF). Signed-out Ask Fomo gets 3 questions a day per IP with no stored
+ * history (app/api/chat/route.ts); sign-in is asked for when Save or Notify
+ * me is tapped, or the free questions run out.
  */
-const SIGNED_IN_PAGE_PREFIXES = ["/fomo", "/profile"];
+const SIGNED_IN_PAGE_PREFIXES = ["/profile"];
 
 /**
  * Which `reason` (lib/auth/signin-reason.ts) explains why a signed-out
@@ -75,7 +77,6 @@ const SIGNED_IN_PAGE_PREFIXES = ["/fomo", "/profile"];
  * shows its plain form.
  */
 const SIGNIN_REASON_BY_PREFIX: Partial<Record<string, SigninReason>> = {
-  "/fomo": "fomo",
   "/profile": "profile",
 };
 
@@ -97,8 +98,8 @@ function signinReasonForPath(pathname: string): SigninReason | null {
 /**
  * Read-only catalogue APIs the public pages call. GET/HEAD only; each serves
  * data RLS already grants `read_all` to anon, and handles a missing user
- * itself. Chat, saved, push and alerts stay behind a session — they cost
- * money per call or write per-user rows.
+ * itself. Saved, push and alerts stay behind a session — they write per-user
+ * rows. (Chat is public too, but POST-only; see PUBLIC_POST_PREFIXES.)
  */
 const PUBLIC_API_PREFIXES = [
   "/api/feed",
@@ -132,8 +133,11 @@ const PUBLIC_EVENT_ICS = /^\/api\/events\/[^/]+\/ics$/;
  * send/bounce/complaint events here — see app/api/resend/webhook/route.ts,
  * which verifies the Svix signature itself since there's no session to
  * gate on) need this — none of them have a session to gate on at all.
+ * /api/chat (Ask Fomo) is here so signed-out visitors can ask: the route
+ * checks the session itself and applies strict per-IP limits when there
+ * isn't one (3 questions and 1 Google lookup a day, plus site-wide caps).
  */
-const PUBLIC_POST_PREFIXES = ["/api/subscribe", "/api/tips", "/api/unsubscribe", "/api/resend/webhook"];
+const PUBLIC_POST_PREFIXES = ["/api/subscribe", "/api/tips", "/api/unsubscribe", "/api/resend/webhook", "/api/chat"];
 
 function isPublicApi(request: NextRequest): boolean {
   const { pathname } = request.nextUrl;

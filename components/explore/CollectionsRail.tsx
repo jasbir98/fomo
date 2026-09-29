@@ -16,7 +16,7 @@ export function CollectionsRail({ isRainy, onSelect }: CollectionsRailProps) {
     : EXPLORE_COLLECTIONS;
 
   return (
-    <div className="-mx-5 flex gap-3 overflow-x-auto px-5 pb-1 [&::-webkit-scrollbar]:hidden">
+    <div className="-mx-4 flex gap-3 overflow-x-auto px-4 pb-1 [&::-webkit-scrollbar]:hidden">
       {ordered.map((c) => (
         <button
           key={c.slug}

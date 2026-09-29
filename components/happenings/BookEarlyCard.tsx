@@ -38,7 +38,7 @@ export interface BookEarlyCardProps {
 /** Small filled pill for the tier label ("Just on sale" / "Tickets open 1 Oct" / "On sale now") — same visual weight as FeedListCard's TypeTag, distinct component since Book Early's label is a full sentence fragment, not a short type tag. */
 function TierPill({ label }: { label: string }) {
   return (
-    <span className="rounded-full bg-primary-container px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-on-primary-container">
+    <span className="rounded-full bg-primary-container px-2.5 py-0.5 text-label-sm font-bold uppercase tracking-wide text-on-primary-container">
       {label}
     </span>
   );
@@ -113,7 +113,7 @@ export function BookEarlyCard({ card, initialSubscribed = false, position }: Boo
           setEventPreview(event.id, eventToPreview(event, { priceLabel: price, whenLabel: card.dateLabel }));
           track("card_opened", { kind: "event", id: event.id, source: "event", surface: "book_early", position, price_band: priceBand(event.is_free) });
         }}
-        className="flex cursor-pointer gap-3 rounded-2xl bg-surface-container-lowest p-4 shadow-level-1 transition-shadow hover:shadow-level-2"
+        className="flex cursor-pointer gap-3 rounded-2xl bg-surface-container-lowest p-3.5 shadow-level-1 transition-shadow hover:shadow-level-2"
       >
         <Thumbnail src={thumbnail} alt="" />
         <div className="flex min-w-0 flex-1 flex-col gap-2">
@@ -167,7 +167,7 @@ export function BookEarlyCard({ card, initialSubscribed = false, position }: Boo
         setHappeningPreview(happening.id, happeningToPreview(happening, { priceLabel: priceBadge, whenLabel: card.dateLabel }));
         track("card_opened", { kind: "happening", id: happening.id, source: happening.kind, surface: "book_early", position, price_band: priceBand(happening.is_free) });
       }}
-      className="flex cursor-pointer gap-3 rounded-2xl bg-surface-container-lowest p-4 shadow-level-1 transition-shadow hover:shadow-level-2"
+      className="flex cursor-pointer gap-3 rounded-2xl bg-surface-container-lowest p-3.5 shadow-level-1 transition-shadow hover:shadow-level-2"
     >
       <Thumbnail src={thumbnail} alt="" />
       <div className="flex min-w-0 flex-1 flex-col gap-2">
@@ -178,7 +178,7 @@ export function BookEarlyCard({ card, initialSubscribed = false, position }: Boo
                 sentence this card used to print verbatim (still shown in full
                 on the detail page's own Sells Fast section). */}
             {happening.sellout_risk === "high" ? (
-              <span className="shrink-0 rounded-full bg-error-container px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-on-error-container">
+              <span className="shrink-0 rounded-full bg-error-container px-2 py-0.5 text-label-sm font-bold uppercase tracking-wide text-on-error-container">
                 Sells fast
               </span>
             ) : null}

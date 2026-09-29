@@ -103,7 +103,7 @@ function VenueDealSummary({
         {district ? ` · ${district}` : ""}
       </span>
       {qualifies ? (
-        <span className="inline-flex w-fit items-center gap-1 rounded-full bg-secondary-container/25 px-2 py-0.5 text-[11px] font-bold text-primary">
+        <span className="inline-flex w-fit items-center gap-1 rounded-full bg-secondary-container/25 px-2 py-0.5 text-label-sm font-bold text-primary">
           <Icon name="check_circle" filled size={12} />
           You qualify
         </span>

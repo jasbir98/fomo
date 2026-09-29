@@ -13,7 +13,7 @@
  * tampered with) renders nothing rather than blank or garbled copy.
  */
 const REASON_COPY = {
-  fomo: "Sign in to chat with Fomo — it knows everything on this week.",
+  fomo: "Sign in to keep chatting with Fomo. It knows everything on this week.",
   save: "Sign in to save this for later.",
   profile: "Sign in to see your profile.",
 } as const;

@@ -85,7 +85,7 @@ export default function FreeAnyTimePage() {
   });
 
   return (
-    <div className="flex flex-col gap-5 pb-8">
+    <div className="flex flex-col gap-4 pb-6">
       <PageHeader title="Free any time" showBack />
 
       <div className="flex flex-col gap-4 px-4">

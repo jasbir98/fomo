@@ -54,24 +54,24 @@ function TodaysDealCard({ card, surface, position }: { card: DealCardData; surfa
       <div className="relative h-20 w-full shrink-0 overflow-hidden rounded-xl border border-hairline bg-surface-container">
         <SmartImage src={thumbnail} alt="" width={144} height={80} className="h-full w-full object-cover" />
         {badge ? (
-          <span className="absolute right-1 top-1 rounded-full border border-hairline-strong bg-surface-container-lowest/95 px-2 py-0.5 text-[10px] font-extrabold text-primary shadow-xs">
+          <span className="absolute right-1 top-1 rounded-full border border-hairline-strong bg-surface-container-lowest/95 px-2 py-0.5 text-label-sm font-extrabold text-primary shadow-xs">
             {badge}
           </span>
         ) : null}
         {qualifies ? (
-          <span className="absolute bottom-1 left-1 flex items-center gap-0.5 rounded-full bg-secondary-container/90 px-1.5 py-0.5 text-[9px] font-bold text-primary shadow-xs">
+          <span className="absolute bottom-1 left-1 flex items-center gap-0.5 rounded-full bg-secondary-container/90 px-1.5 py-0.5 text-label-sm font-bold text-primary shadow-xs">
             <Icon name="check_circle" filled size={10} />
             You qualify
           </span>
         ) : null}
       </div>
       <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-        <div className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-wide">
+        <div className="flex items-center gap-1 text-label-sm font-bold uppercase tracking-wide">
           <Icon name={style.icon} size={11} className={style.textClass} />
           {time ? <span className="text-accent">{time}</span> : null}
         </div>
         <h5 className="line-clamp-2 text-label-md font-bold leading-snug text-on-surface">{happening.title}</h5>
-        {venue ? <p className="truncate text-[11px] text-on-surface-variant">{venue}</p> : null}
+        {venue ? <p className="truncate text-label-sm font-medium text-on-surface-variant">{venue}</p> : null}
       </div>
     </NavCard>
   );
@@ -119,23 +119,23 @@ function TodaysDealGroupCard({ group, surface, position }: { group: DealVenueGro
     >
       <div className="relative h-20 w-full shrink-0 overflow-hidden rounded-xl border border-hairline bg-surface-container">
         <SmartImage src={thumbnail} alt="" width={144} height={80} className="h-full w-full object-cover" />
-        <span className="absolute right-1 top-1 rounded-full border border-hairline-strong bg-surface-container-lowest/95 px-2 py-0.5 text-[10px] font-extrabold text-primary shadow-xs">
+        <span className="absolute right-1 top-1 rounded-full border border-hairline-strong bg-surface-container-lowest/95 px-2 py-0.5 text-label-sm font-extrabold text-primary shadow-xs">
           {group.offers.length} deals
         </span>
         {qualifies ? (
-          <span className="absolute bottom-1 left-1 flex items-center gap-0.5 rounded-full bg-secondary-container/90 px-1.5 py-0.5 text-[9px] font-bold text-primary shadow-xs">
+          <span className="absolute bottom-1 left-1 flex items-center gap-0.5 rounded-full bg-secondary-container/90 px-1.5 py-0.5 text-label-sm font-bold text-primary shadow-xs">
             <Icon name="check_circle" filled size={10} />
             You qualify
           </span>
         ) : null}
       </div>
       <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-        <div className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-wide">
+        <div className="flex items-center gap-1 text-label-sm font-bold uppercase tracking-wide">
           <Icon name={style.icon} size={11} className={style.textClass} />
           {time ? <span className="text-accent">{time}</span> : null}
         </div>
         <h5 className="line-clamp-2 text-label-md font-bold leading-snug text-on-surface">{group.placeName}</h5>
-        <p className="truncate text-[11px] text-on-surface-variant">{happening.title}</p>
+        <p className="truncate text-label-sm font-medium text-on-surface-variant">{happening.title}</p>
       </div>
     </NavCard>
   );

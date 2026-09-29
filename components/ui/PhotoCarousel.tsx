@@ -80,7 +80,7 @@ export function PhotoCarousel({ photos, className = "" }: PhotoCarouselProps) {
       ) : null}
 
       {active.credit ? (
-        <span className="absolute bottom-3 right-3 z-20 rounded-full bg-black/50 px-2 py-0.5 text-[10px] text-white backdrop-blur-sm">
+        <span className="absolute bottom-3 right-3 z-20 rounded-full bg-black/50 px-2 py-0.5 text-label-sm font-medium text-white backdrop-blur-sm">
           {active.credit}
         </span>
       ) : null}

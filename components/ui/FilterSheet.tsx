@@ -103,7 +103,7 @@ export function FilterSheet({ groups, resultCount, label = "Filters", className 
       ) : null}
 
       <BottomSheet open={open} onClose={() => setOpen(false)} title="Filters">
-        <div className="flex flex-col gap-5">
+        <div className="flex flex-col gap-4">
           {groups.map((g) => (
             <div key={g.key} className="flex flex-col gap-2">
               <h3 className="text-label-md font-semibold text-on-surface-variant">{g.title}</h3>

@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Plus_Jakarta_Sans } from "next/font/google";
 import { Analytics } from "@vercel/analytics/next";
 import { SpeedInsights } from "@vercel/speed-insights/next";
+import { InstallCapture } from "@/components/install/InstallCapture";
 import "./globals.css";
 
 const jakarta = Plus_Jakarta_Sans({
@@ -42,7 +43,7 @@ export const metadata: Metadata = {
       { rel: "icon", type: "image/svg+xml", url: "/icons/icon.svg" },
       { rel: "icon", type: "image/png", sizes: "192x192", url: "/icons/icon-192.png" },
     ],
-    apple: "/icons/icon-192.png",
+    apple: "/icons/apple-touch-icon-180.png",
   },
 };
 
@@ -104,6 +105,7 @@ export default function RootLayout({
         <div className="mx-auto flex min-h-dvh w-full max-w-[480px] flex-col bg-background">
           {children}
         </div>
+        <InstallCapture />
         <Analytics />
         <SpeedInsights />
       </body>

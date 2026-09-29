@@ -33,7 +33,7 @@ export function ConfirmDialog({
 }: ConfirmDialogProps) {
   return (
     <BottomSheet open={open} onClose={onCancel} title={title}>
-      <div className="flex flex-col gap-5">
+      <div className="flex flex-col gap-4">
         {description ? (
           <p className="text-body-md text-on-surface-variant">{description}</p>
         ) : null}

@@ -29,7 +29,7 @@ export function Card<T extends ElementType = "div">({
   return (
     <Component
       className={`relative overflow-hidden rounded-2xl bg-surface-container-lowest shadow-level-1 ${
-        noPadding ? "" : "p-4"
+        noPadding ? "" : "p-3.5"
       } ${accent ? "pl-5" : ""} ${className}`}
       {...props}
     >

@@ -72,10 +72,10 @@ function isWideScopeTag(tag: string): boolean {
  *  regardless of what they were. */
 function TypeTag({ tag, kind }: { tag: string; kind: HappeningKind }) {
   if (isWideScopeTag(tag)) {
-    return <span className="text-[10px] font-bold uppercase tracking-wider text-secondary">{tag}</span>;
+    return <span className="text-label-sm font-bold uppercase tracking-wider text-secondary">{tag}</span>;
   }
   return (
-    <span className={`rounded-full px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide ${kindStyle(kind).className}`}>
+    <span className={`rounded-full px-1.5 py-0.5 text-label-sm font-bold uppercase tracking-wide ${kindStyle(kind).className}`}>
       {tag}
     </span>
   );
@@ -100,14 +100,14 @@ function Thumbnail({ src, alt, size = 64 }: { src: string; alt: string; size?: n
 /** Small coloured category glyph — the other half of the "everything's blue" fix, next to the kind pill on every happening row. */
 function CategoryDot({ category }: { category: Happening["category"] }) {
   const style = categoryStyle(category);
-  return <Icon name={style.icon} size={13} className={style.textClass} />;
+  return <Icon name={style.icon} size={14} className={`shrink-0 ${style.textClass}`} />;
 }
 
 /** Tiny "On now" chip for the meta row — same pill scale as `TypeTag`, in the
  *  primary-accent tint so it reads as live without adding a new colour. */
 function OnNowPill() {
   return (
-    <span className="inline-flex items-center gap-1 rounded-full bg-accent/15 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-accent">
+    <span className="inline-flex items-center gap-1 rounded-full bg-accent/15 px-1.5 py-0.5 text-label-sm font-bold uppercase tracking-wide text-accent">
       <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-accent" />
       On now
     </span>
@@ -164,7 +164,7 @@ function CardShell({
       href={href}
       onPointerDown={onPointerDown}
       onNavigate={onNavigate}
-      className="flex cursor-pointer flex-col gap-2 rounded-2xl bg-surface-container-lowest p-4 shadow-level-1 transition-shadow hover:shadow-level-2"
+      className="flex cursor-pointer flex-col gap-2 rounded-2xl bg-surface-container-lowest p-3.5 shadow-level-1 transition-shadow hover:shadow-level-2"
     >
       {children}
     </NavCard>
@@ -217,7 +217,7 @@ function HappeningRow({
       <div className="flex items-start justify-between gap-3">
         <Thumbnail src={thumbnail} alt="" />
         <div className="flex min-w-0 flex-1 flex-col">
-          <div className="mb-1 flex items-center gap-1.5 text-[11px] font-medium text-on-surface-variant">
+          <div className="mb-1 flex min-w-0 items-center gap-1.5 overflow-hidden whitespace-nowrap text-label-sm font-medium text-on-surface-variant">
             <CategoryDot category={happening.category} />
             <TypeTag tag={tag} kind={happening.kind} />
             <OccurrenceWhen occurrence={occurrence} />
@@ -235,12 +235,12 @@ function HappeningRow({
 
       <div className="flex items-center justify-between gap-2">
         {eligibility && qualifies ? (
-          <span className="inline-flex w-fit items-center gap-1 rounded-full bg-secondary-container/25 px-2 py-0.5 text-[11px] font-bold text-primary">
+          <span className="inline-flex w-fit items-center gap-1 rounded-full bg-secondary-container/25 px-2 py-0.5 text-label-sm font-bold text-primary">
             <Icon name="check_circle" filled size={12} />
             You qualify · {eligibility}
           </span>
         ) : eligibility ? (
-          <span className="inline-flex w-fit items-center gap-1 rounded-full bg-surface-container px-2 py-0.5 text-[11px] font-bold text-secondary">
+          <span className="inline-flex w-fit items-center gap-1 rounded-full bg-surface-container px-2 py-0.5 text-label-sm font-bold text-secondary">
             <Icon name={ELIGIBILITY_ICON[happening.eligibility]} size={12} />
             {eligibility}
           </span>
@@ -255,7 +255,7 @@ function HappeningRow({
         />
       </div>
 
-      <span className="text-[10px] text-on-surface-variant/70">{checkedLabel(happening.verified_at)}</span>
+      <span className="text-label-sm font-medium text-on-surface-variant/70">{checkedLabel(happening.verified_at)}</span>
     </CardShell>
   );
 }
@@ -294,7 +294,7 @@ function SeriesRow({ card, surface, position }: { card: SeriesCardData; surface?
       <div className="flex items-start justify-between gap-3">
         <Thumbnail src={thumbnail} alt="" />
         <div className="flex min-w-0 flex-1 flex-col">
-          <div className="mb-1 flex items-center gap-1.5 text-[11px] font-medium text-on-surface-variant">
+          <div className="mb-1 flex min-w-0 items-center gap-1.5 overflow-hidden whitespace-nowrap text-label-sm font-medium text-on-surface-variant">
             <CategoryDot category={lead.category} />
             <TypeTag tag={tag} kind={lead.kind} />
             <OccurrenceWhen occurrence={occurrence} />
@@ -320,7 +320,7 @@ function SeriesRow({ card, surface, position }: { card: SeriesCardData; surface?
         />
       </div>
 
-      <span className="text-[10px] text-on-surface-variant/70">{checkedLabel(lead.verified_at)}</span>
+      <span className="text-label-sm font-medium text-on-surface-variant/70">{checkedLabel(lead.verified_at)}</span>
     </CardShell>
   );
 }
@@ -363,12 +363,12 @@ function RecurringRow({ card, surface, position }: { card: RecurringCardData; su
       <div className="flex items-start justify-between gap-3">
         <Thumbnail src={thumbnail} alt="" />
         <div className="flex min-w-0 flex-1 flex-col">
-          <div className="mb-1 flex items-center gap-1.5 text-[11px] font-medium text-on-surface-variant">
+          <div className="mb-1 flex min-w-0 items-center gap-1.5 overflow-hidden whitespace-nowrap text-label-sm font-medium text-on-surface-variant">
             <TypeTag tag={lead.kind === "event" ? "EVENT" : happeningTypeTag(lead.happening, lead.occurrence.exact)} kind={lead.kind === "happening" ? lead.happening.kind : "event"} />
             <span className="font-bold text-accent">{dateLabel}</span>
           </div>
           <h4 className="line-clamp-2 text-headline-sm font-bold leading-snug text-on-surface">{card.title}</h4>
-          {venue ? <p className="truncate text-[11px] text-on-surface-variant">{venue}</p> : null}
+          {venue ? <p className="truncate text-label-sm font-medium text-on-surface-variant">{venue}</p> : null}
         </div>
         <PriceTag label={priceLabel} />
       </div>
@@ -428,11 +428,11 @@ function FestivalRow({ happening, surface, position }: { happening: Happening; s
         sizes="(max-width: 480px) 100vw, 480px"
         className="h-28 w-full object-cover"
       />
-      <div className="flex flex-col gap-3 p-4">
+      <div className="flex flex-col gap-3 p-3.5">
       <div className="flex items-start justify-between gap-2">
         <div className="flex flex-col gap-1">
           <div className="flex items-center gap-2">
-            <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${kindStyle("festival").className}`}>
+            <span className={`rounded-full px-2 py-0.5 text-label-sm font-bold uppercase tracking-wide ${kindStyle("festival").className}`}>
               Festival
             </span>
             {happening.editorial_tag ? (
@@ -459,7 +459,7 @@ function FestivalRow({ happening, surface, position }: { happening: Happening; s
           <Icon name="public" size={17} className="text-accent" />
           <span className="truncate text-label-md font-bold text-on-surface">{sourceHost}</span>
         </div>
-        <div className="flex shrink-0 items-center gap-1 text-[10px] text-on-surface-variant/70">
+        <div className="flex shrink-0 items-center gap-1 text-label-sm font-medium text-on-surface-variant/70">
           <Icon name="verified" size={16} className="text-secondary" />
           {checkedLabel(happening.verified_at)}
         </div>
@@ -510,7 +510,7 @@ function EventRow({ event, surface, position }: { event: EventItem; surface?: Fe
       <div className="flex items-start justify-between gap-3">
         <Thumbnail src={thumbnail} alt="" />
         <div className="flex min-w-0 flex-1 flex-col">
-          <div className="mb-1 flex items-center gap-1.5 text-[11px] font-medium text-on-surface-variant">
+          <div className="mb-1 flex min-w-0 items-center gap-1.5 overflow-hidden whitespace-nowrap text-label-sm font-medium text-on-surface-variant">
             <TypeTag tag="EVENT" kind="event" />
             {eventLive ? <OnNowPill /> : <span className="font-bold text-accent">{eventDate}</span>}
             {event.venue_name ? (
@@ -532,7 +532,7 @@ function EventRow({ event, surface, position }: { event: EventItem; surface?: Fe
       ) : null}
 
       <div className="flex items-center justify-between border-t border-hairline pt-2 text-on-surface-variant">
-        <span className="flex items-center gap-1 text-[11px] font-medium">
+        <span className="flex items-center gap-1 text-label-sm font-medium">
           <Icon name="schedule" size={14} className="text-secondary" />
           {eventTime}
         </span>

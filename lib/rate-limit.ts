@@ -131,7 +131,7 @@ function secondsUntil(resetAt: string | null): number {
  */
 export function rateLimitedResponse(result: RateLimitResult): Response {
   const minutes = minutesUntil(result.resetAt);
-  const message = `You've hit the limit for now — try again in ${minutes} minute${minutes === 1 ? "" : "s"}.`;
+  const message = `You've hit the limit for now. Try again in ${minutes} minute${minutes === 1 ? "" : "s"}.`;
   return new Response(
     JSON.stringify({ error: "rate_limited", message, resetAt: result.resetAt }),
     {
