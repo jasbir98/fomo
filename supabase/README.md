@@ -27,6 +27,12 @@
    that stops users setting/changing their own `profiles.membership_tier`.
    Safe to re-run.
 
+3. **`lock_pipeline_2026_09.sql`** — drops the anon write policies still
+   live on `happenings_staging`, `places_staging`, `place_sources` and
+   `place_photos` (found by `verify_security.sql` on 2026-09-29), makes the
+   staging/provenance tables service-role only, keeps `place_photos`
+   read-only, and caps the `avatars` bucket at 5 MB / jpeg-png-webp.
+
 Then run **`verify_security.sql`** (read-only, one result set) and check it
 shows no `no_rls`, `anon_write_policy`, `legacy_table` or
 `anon_exec_definer_fn` rows.
