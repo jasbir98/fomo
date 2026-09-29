@@ -10,8 +10,22 @@
  *
  * Storage: every verified event is written to `email_events`
  * (supabase/archive/add_email_events.sql) — a plain append-only log for later
- * debugging/analytics, never read by any other route today.
+ * debugging/analytics, never read by any other route today. The insert also
+ * carries `svix_id` (the `svix-id` header, unique per delivery attempt — a
+ * *retried* delivery of the same event reuses the same svix-id, unlike
+ * `resend_email_id` which identifies the email, not the delivery). A
+ * unique index on that column (added by a separate SQL migration this
+ * route doesn't own) makes a replayed delivery hit a 23505 unique
+ * violation on insert; that's treated as "already processed" — see
+ * `isDuplicateDelivery` below — and the side effects (unsubscribe on
+ * bounce/complaint) are skipped rather than re-run, since they already ran
+ * on the first delivery. Because the migration may not be applied yet when
+ * this deploys, an insert that fails because the `svix_id` column doesn't
+ * exist (PostgREST `PGRST204`, or a message naming the column — see
+ * `isMissingSvixIdColumn`) retries once without it, so the webhook keeps
+ * working (just without dedupe) until the SQL is run.
  *
+
  * Suppression: on `email.bounced` (hard/permanent only — a soft/transient
  * bounce is often just "mailbox full this once" and shouldn't cost someone
  * their subscription) or `email.complained` (spam complaint — always
@@ -83,6 +97,20 @@ function isMissingTableError(err: unknown): boolean {
   return typeof e.message === "string" && /relation .*email_events.* does not exist/i.test(e.message);
 }
 
+/** True for a PostgREST "unknown column" error naming `svix_id` — the dedupe migration (a separate SQL file, not owned by this route) hasn't added the column yet. Triggers a one-time retry of the insert without it. */
+function isMissingSvixIdColumn(err: unknown): boolean {
+  const e = err as { code?: string; message?: string } | null;
+  if (!e) return false;
+  if (e.code === "PGRST204") return true;
+  return typeof e.message === "string" && /svix_id/i.test(e.message);
+}
+
+/** True for a Postgres unique-violation — here, a second delivery of the same Resend/Svix event hitting the `svix_id` unique index. */
+function isUniqueViolation(err: unknown): boolean {
+  const e = err as { code?: string } | null;
+  return e?.code === "23505";
+}
+
 export async function POST(request: Request) {
   const secret = process.env.RESEND_WEBHOOK_SECRET;
   if (!secret) {
@@ -94,9 +122,10 @@ export async function POST(request: Request) {
   // JSON.parse-then-stringify before verifying (that could reformat the
   // body and break the signature even for a genuine request).
   const rawBody = await request.text();
+  const svixId = request.headers.get("svix-id");
 
   const verification = verifyResendWebhookSignature({
-    id: request.headers.get("svix-id"),
+    id: svixId,
     timestamp: request.headers.get("svix-timestamp"),
     signature: request.headers.get("svix-signature"),
     rawBody,
@@ -123,13 +152,36 @@ export async function POST(request: Request) {
 
   const db: Db = supabaseAdmin();
 
-  const { error: insertError } = await db.from("email_events").insert({
+  let { error: insertError } = await db.from("email_events").insert({
     resend_email_id: resendEmailId,
     type,
     recipient,
     clicked_link: clickedLink,
     raw: event,
+    svix_id: svixId,
   });
+
+  // The dedupe migration may not be applied yet — retry once without the
+  // new column so the webhook keeps recording events (just without
+  // dedupe) rather than failing every delivery until the SQL is run.
+  if (insertError && isMissingSvixIdColumn(insertError)) {
+    console.warn("[api/resend/webhook] email_events.svix_id column missing — retrying insert without it");
+    ({ error: insertError } = await db.from("email_events").insert({
+      resend_email_id: resendEmailId,
+      type,
+      recipient,
+      clicked_link: clickedLink,
+      raw: event,
+    }));
+  }
+
+  if (insertError && isUniqueViolation(insertError)) {
+    // Same svix-id as a delivery already processed (Resend/Svix retry) —
+    // the side effects below already ran the first time; ack without
+    // repeating them (see this file's doc comment on `svix_id`).
+    return NextResponse.json({ ok: true });
+  }
+
   if (insertError) {
     if (isMissingTableError(insertError)) {
       console.warn("[api/resend/webhook] email_events table missing — run supabase/archive/add_email_events.sql");
@@ -139,7 +191,10 @@ export async function POST(request: Request) {
     // Not returned early / not a 5xx — a valid, correctly-signed webhook
     // whose only problem is "the log table isn't there yet" shouldn't
     // trigger Resend's retry loop; the suppression logic below still
-    // matters and doesn't depend on this insert having succeeded.
+    // matters and doesn't depend on this insert having succeeded. A
+    // duplicate delivery (23505 on svix_id) already returned above, before
+    // reaching here, so the side effects below only ever run once per
+    // event.
   }
 
   const shouldUnsubscribe = (type === "email.bounced" && isHardBounce(data)) || type === "email.complained";

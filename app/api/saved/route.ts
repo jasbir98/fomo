@@ -14,8 +14,8 @@
  *
  * A saved subject whose row was since deleted, or whose subject_type is one
  * of the removed kinds ("reel"/"experience"/"itinerary_item"/"practicality"
- * — the 2026-09 cleanup dropped their features; rows of those types still
- * exist in the DB until supabase/drop_legacy.sql runs), is silently dropped
+ * — the 2026-09 cleanup dropped their features and
+ * supabase/archive/drop_legacy.sql deleted their rows), is silently dropped
  * rather than rendered broken. That can make a resolved page shorter than
  * the underlying saved_items page, which can make lib/useInfiniteList.ts's
  * `rows.length >= pageSize` hasMore heuristic stop one page early — an

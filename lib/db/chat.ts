@@ -2,13 +2,10 @@ import type { Db } from "@/lib/supabase/types";
 import type { ChatMessage, ChatMessageInsert } from "@/lib/types";
 
 /**
- * Chat history, scoped by the signed-in caller rather than a trip — Fomo has
- * no trips anymore (see supabase/archive/decouple_chat_from_trips.sql, which drops
- * `chat_messages.trip_id`'s NOT NULL + its FK to `trips`; the column itself
- * is left in place, nullable and unused). `chat_messages.user_id` already
- * carries an `own_rows` RLS policy (supabase/archive/harden_rls.sql), so a plain,
- * unfiltered query is exactly as scoped as the old `.eq("trip_id", tripId)`
- * one was — same convention lib/db/saved.ts's `listSavedItems` uses.
+ * Chat history for the signed-in caller. `chat_messages.user_id` carries an
+ * `own_rows` RLS policy (supabase/archive/harden_rls.sql), so a plain,
+ * unfiltered query is already scoped to the caller — same convention as
+ * lib/db/saved.ts's `listSavedItems`.
  */
 export async function listMessages(db: Db): Promise<ChatMessage[]> {
   const { data, error } = await db
@@ -19,7 +16,7 @@ export async function listMessages(db: Db): Promise<ChatMessage[]> {
   return data ?? [];
 }
 
-/** Insert a chat message (user or assistant turn). `trip_id` is never set — the column default applies. */
+/** Insert a chat message (user or assistant turn). */
 export async function addMessage(db: Db, message: ChatMessageInsert): Promise<ChatMessage> {
   const { data, error } = await db.from("chat_messages").insert({ ...message }).select("*").single();
   if (error) throw error;

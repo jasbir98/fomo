@@ -49,9 +49,7 @@ export async function isSaved(
 
 /**
  * Save a card. Upserts on (user_id, subject_type, subject_id) — tapping Save
- * twice is a no-op, not a duplicate. `trip_id` is never written — Fomo has
- * no trips anymore; the column stays in the DB, unused, until
- * supabase/drop_legacy.sql drops it.
+ * twice is a no-op, not a duplicate.
  */
 export async function saveItem(db: Db, patch: SavedItemInsert): Promise<SavedItem> {
   const { data, error } = await db

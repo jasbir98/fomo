@@ -7,6 +7,7 @@ import { MakeFomoYours } from "@/components/personalise/MakeFomoYours";
 import { closeMakeFomoYours, useMakeFomoYoursOpen } from "@/lib/personalise/trigger";
 import { ConsentBar } from "@/components/analytics/ConsentBar";
 import { IdentifyUser } from "@/components/analytics/IdentifyUser";
+import { InstallHint } from "@/components/shell/InstallHint";
 import { track } from "@/lib/analytics/track";
 
 export type AppShellProps = {
@@ -52,6 +53,7 @@ export function AppShell({ children }: AppShellProps) {
       <BottomNav />
       <MakeFomoYours open={makeFomoYoursOpen} onClose={closeMakeFomoYours} />
       <ConsentBar />
+      <InstallHint />
     </div>
   );
 }

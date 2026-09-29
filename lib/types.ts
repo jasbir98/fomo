@@ -46,12 +46,7 @@ export type ChatRole = "user" | "assistant";
 
 export interface ChatMessage {
   id: string;
-  // Nullable + unused since supabase/archive/decouple_chat_from_trips.sql dropped
-  // its NOT NULL + FK to `trips` — Fomo has no trips anymore. The column is
-  // left in the DB (not dropped), so it stays here for the mirror, but
-  // nothing in app code reads or writes it; chat history is scoped by
-  // `user_id` (RLS's own_rows policy) instead. See lib/db/chat.ts.
-  trip_id: string | null;
+  // Chat history is scoped by `user_id` (RLS's own_rows policy). See lib/db/chat.ts.
   user_id: string;
   role: ChatRole;
   mode: string | null;
@@ -181,8 +176,8 @@ export type EventItemUpdate = Partial<
 // the kinds Fomo actually renders (2026-09 cleanup dropped `experience`,
 // `reel`, `itinerary_item` and `practicality` along with the features that
 // produced them) — see lib/db/saved.ts's GET /api/saved resolver, which
-// still safely skips any leftover row of one of those old types until
-// supabase/drop_legacy.sql removes them.
+// skips any unknown type (supabase/archive/drop_legacy.sql deleted the
+// rows of those old types).
 // ============================================================================
 export type CardSubjectType = "place" | "event" | "happening";
 
@@ -193,14 +188,10 @@ export type CardSubjectType = "place" | "event" | "happening";
 export interface SavedItem {
   id: string;
   user_id: string;
-  // Fomo has no trips anymore — the column stays in the DB (nullable,
-  // unused; supabase/drop_legacy.sql drops it), but lib/db/saved.ts's
-  // saveItem no longer writes it.
-  trip_id: string | null;
   subject_type: CardSubjectType;
   subject_id: string;
   note: string | null;
   created_at: string;
 }
 
-export type SavedItemInsert = Omit<SavedItem, "id" | "created_at" | "user_id" | "trip_id">;
+export type SavedItemInsert = Omit<SavedItem, "id" | "created_at" | "user_id">;

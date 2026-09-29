@@ -15,28 +15,28 @@
 
 ## Pending (run in order)
 
-1. **`drop_legacy.sql`** — drops the trip-planner-era tables (`trips`,
-   `itinerary_items`, `experiences`, `scraped_reels`, `social_posts`,
-   `country_practicalities`, etc. — full list in the file's own header).
-   **Not yet run.** Safe to run now: the code that stopped using these
-   tables (commit `8aada17`) is deployed. A JSON backup was taken first
-   (fomo-legacy-backup-2026-09-28.zip, kept outside git).
-2. **`tighten_public_inserts.sql`** — drops the now-redundant `anon_insert`
-   policies on `email_subscribers` and `tips`. Both tables' API routes
-   (`/api/subscribe`, `/api/tips`) already insert with the service-role
-   client, so the anon policy does nothing for the app except leave a hole:
-   anyone holding the public anon key could otherwise POST rows directly via
-   PostgREST, skipping the routes' rate limit, honeypot, and validation.
-   **Not yet run.** Run after the deploy where `/api/tips` switched to the
-   service-role client (the commit that added this file) is live. Safe to
-   re-run.
+1. **`tighten_public_inserts.sql`** — drops the `anon_insert` policies on
+   `email_subscribers` and `tips`. `/api/subscribe` and `/api/tips` insert
+   with the service-role client, so the policies only left a hole: anyone
+   with the public anon key could POST rows straight to PostgREST, skipping
+   the routes' rate limit, honeypot and validation. Safe to run now (the
+   `/api/tips` switch is deployed). Safe to re-run.
+2. **`harden_2026_09.sql`** — revokes EXECUTE on the trigger functions
+   (`handle_new_user`, `rls_auto_enable`) from anon/authenticated; adds
+   `email_events.svix_id` + unique index (webhook replay dedupe); a trigger
+   that stops users setting/changing their own `profiles.membership_tier`.
+   Safe to re-run.
+
+Then run **`verify_security.sql`** (read-only, one result set) and check it
+shows no `no_rls`, `anon_write_policy`, `legacy_table` or
+`anon_exec_definer_fn` rows.
 
 Once a pending file has been confirmed applied in every environment that
 matters, move it into `archive/` (see "How to add a migration" below).
 
 ## Current schema
 
-Tables as they exist after `drop_legacy.sql` (already live). "RLS model":
+Tables as they exist after `archive/drop_legacy.sql` (applied 2026-09-28). "RLS model":
 `own_rows` = scoped to `auth.uid()`, only the signed-in owner; `read_all` =
 `select` open to `anon, authenticated`, writes service-role only;
 `service-role-only` = no client-side access at all, read or write.

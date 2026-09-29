@@ -513,7 +513,11 @@ function UserBubble({ text, seed }: { text: string; seed?: SeedAttachment }) {
       {/* Compact attachment chip for the item this turn was asked about — only on the turn that carries it (see `pendingSeed`/`send`). */}
       {seed ? <SeedCard seed={seed} compact className="w-full max-w-[220px]" /> : null}
       <div className="rounded-xl rounded-tr-sm bg-primary px-5 py-3 text-on-primary shadow-sm">
-        <p className="whitespace-pre-wrap text-body-md">{renderInlineMarkdown(text)}</p>
+        {/* ph-mask: PostHog session replay masks text inside this class by
+            default (maskTextClass, posthog-js) — a user's own chat message
+            is free-text and must never render as plain text in a replay.
+            See instrumentation-client.ts's session_recording doc comment. */}
+        <p className="ph-mask whitespace-pre-wrap text-body-md">{renderInlineMarkdown(text)}</p>
       </div>
     </div>
   );
@@ -577,7 +581,10 @@ function AssistantTurn({
             <div key={key} className="flex max-w-[90%] items-end gap-2 self-start">
               <FomoAvatar />
               <div className="rounded-xl rounded-tl-sm border border-outline-variant/50 bg-surface px-5 py-4 text-on-surface shadow-[0_1px_3px_rgba(3,22,50,0.05)]">
-                <p className="whitespace-pre-wrap text-body-md">{renderInlineMarkdown(block.text)}</p>
+                {/* ph-mask: see UserBubble's matching comment above — the
+                    assistant's reply text is generated from (and can quote)
+                    the user's own message, so it's masked the same way. */}
+                <p className="ph-mask whitespace-pre-wrap text-body-md">{renderInlineMarkdown(block.text)}</p>
               </div>
             </div>
           );

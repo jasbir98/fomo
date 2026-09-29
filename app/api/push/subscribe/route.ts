@@ -10,12 +10,19 @@
  * in this app (see app/api/saved/route.ts). RLS's `own_rows` policy on
  * push_subscriptions (supabase/archive/add_push_alerts.sql) is the real scoping —
  * this route can't write another user's row even if it tried.
+ *
+ * Endpoint allowlist: `endpoint` is only accepted when it's an `https:` URL
+ * on a known push service (see lib/push/allowed-endpoint.ts) — the
+ * onsale-alerts Edge Function POSTs straight to whatever endpoint is on
+ * file with no further validation, so an arbitrary accepted URL would be
+ * an SSRF vector.
  */
 import "server-only";
 import { NextResponse } from "next/server";
 import { supabaseServer } from "@/lib/supabase/server";
 import { upsertPushSubscription, deletePushSubscriptionByEndpoint } from "@/lib/db/push";
 import { isUnauthorizedError } from "@/lib/supabase-error";
+import { isAllowedPushEndpoint } from "@/lib/push/allowed-endpoint";
 
 export const runtime = "nodejs";
 
@@ -47,12 +54,13 @@ export async function POST(request: Request) {
   if (!isNonEmptyString(body.endpoint) || !isNonEmptyString(body.p256dh) || !isNonEmptyString(body.auth)) {
     return NextResponse.json({ error: "endpoint, p256dh and auth are required strings" }, { status: 400 });
   }
-  // Endpoint is a URL a browser hands us — sanity-check its shape rather
-  // than trusting an arbitrary string into a unique-indexed column.
-  try {
-    new URL(body.endpoint);
-  } catch {
-    return NextResponse.json({ error: "endpoint must be a valid URL" }, { status: 400 });
+  // Endpoint is a URL a browser hands us — restricted to a known push
+  // service's host, not just "any valid URL". The onsale-alerts Edge
+  // Function later POSTs straight to whatever's on file with no further
+  // check, so an unchecked endpoint is an SSRF vector — see
+  // lib/push/allowed-endpoint.ts's doc comment.
+  if (!isAllowedPushEndpoint(body.endpoint)) {
+    return NextResponse.json({ error: "endpoint must be an https URL on a known push service" }, { status: 400 });
   }
 
   const userAgent = isNonEmptyString(body.userAgent) ? body.userAgent.slice(0, 500) : null;

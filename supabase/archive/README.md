@@ -83,7 +83,7 @@ still reflect the order they were originally written in).
 ---
 
 Superseded/legacy tables this archive's files created, later dropped by
-`../drop_legacy.sql` (2026-09-28 cleanup): `card_signals`, `user_location`,
+`drop_legacy.sql` (2026-09-28 cleanup, applied): `card_signals`, `user_location`,
 `device_location`, `travel_preferences`, `itinerary_items`, `roameo_rules`,
 `trips`, `practicality_dismissals`, `country_practicalities`, `arrival_tips`,
 `experiences`, `scraped_reels`, `social_posts`, `city_foods_staging`,

@@ -60,7 +60,17 @@ if (POSTHOG_KEY) {
     autocapture: true,
     capture_exceptions: true,
     session_recording: {
+      // Masks every input's value in replay (form fields — Tip us
+      // off/feedback, Fomo Friday email capture) by default; `true` here is
+      // also just posthog-js's own default, kept explicit.
       maskAllInputs: true,
+      // No maskTextSelector set here: posthog-js's own default
+      // (`maskTextClass: 'ph-mask'`, verified against the installed
+      // @posthog/types SessionRecordingOptions) already masks any element's
+      // text content when it carries the `ph-mask` class — chat message
+      // bubbles in app/(shell)/fomo/page.tsx use that class for exactly
+      // this, since the AI chat transcript is free text `maskAllInputs`
+      // doesn't cover (it's rendered text, not an input value).
     },
     // No consent yet — nothing written to cookies/localStorage until
     // ConsentBar flips this on accept. See this file's own doc comment.
