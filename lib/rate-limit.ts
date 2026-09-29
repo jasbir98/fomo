@@ -260,6 +260,40 @@ export async function consumeAnonRateLimit(
 }
 
 /**
+ * Gives back one unit of an anonymous IP-scoped limit — for a request that
+ * consumed a slot but then failed on our side (e.g. the AI call errored), so
+ * a signed-out visitor's handful of free questions isn't eaten by our own
+ * failures. Best effort: read-then-write rather than an atomic RPC (a race
+ * can only under-refund), and any error is swallowed. Window start mirrors
+ * consume_anon_rate_limit's fixed-window floor exactly.
+ */
+export async function refundAnonRateLimit(request: Request, route: string, windowSeconds: number): Promise<void> {
+  try {
+    const key = hashAnonKey(clientIp(request));
+    const windowStart = new Date(Math.floor(Date.now() / 1000 / windowSeconds) * windowSeconds * 1000).toISOString();
+    const db = supabaseAdmin();
+    const { data } = await db
+      .from("anon_rate_limits")
+      .select("count")
+      .eq("key", key)
+      .eq("route", route)
+      .eq("window_start", windowStart)
+      .maybeSingle();
+    const count = (data as { count?: number } | null)?.count ?? 0;
+    if (count <= 0) return;
+    await db
+      .from("anon_rate_limits")
+      .update({ count: count - 1 })
+      .eq("key", key)
+      .eq("route", route)
+      .eq("window_start", windowStart)
+      .eq("count", count);
+  } catch (err) {
+    console.warn(`[rate-limit] refund failed for "${route}"`, err);
+  }
+}
+
+/**
  * Site-wide rate limit shared by every caller regardless of identity —
  * app/api/chat's global daily cap, on top of its per-user limits. Reuses
  * `consume_anon_rate_limit`/`anon_rate_limits` with a fixed, non-secret key

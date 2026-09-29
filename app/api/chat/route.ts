@@ -34,6 +34,7 @@ import {
   rateLimitedResponse,
   consumeGlobalRateLimit,
   consumeAnonRateLimit,
+  refundAnonRateLimit,
   anonRateLimitedResponse,
 } from "@/lib/rate-limit";
 import { searchPlacesForChat } from "@/lib/places/chat-search";
@@ -822,6 +823,8 @@ export async function POST(req: Request): Promise<Response> {
       } catch (err) {
         const message = getStreamErrorMessage(err);
         console.warn("[api/chat] stream failed", message);
+        // Our failure, not the visitor's question: don't let it cost one of their free ones.
+        if (!signedIn) await refundAnonRateLimit(req, "chat:anon-day", CHAT_ANON_DAILY_LIMIT.windowSeconds);
         send({ type: "error", message });
       } finally {
         controller.close();
