@@ -49,6 +49,9 @@ import type { CardSubjectType } from "@/lib/types";
 import type { Db } from "@/lib/supabase/types";
 
 export const runtime = "nodejs";
+// Two model rounds plus a Google lookup can outrun Vercel's 10s default when
+// Fluid compute is off; a killed function cuts the stream mid-reply.
+export const maxDuration = 60;
 
 // Pre-public-deploy abuse guards (rate limiting + input caps) — see
 // lib/rate-limit.ts and supabase/archive/add_rate_limits.sql. Two windows checked
@@ -710,7 +713,9 @@ export async function POST(req: Request): Promise<Response> {
         // Round 1: catalogue answer, or a find_places call.
         const first = await streamRound({
           max_tokens: 1500,
-          thinking: { type: "adaptive" },
+          // Replies are 1-3 sentences plus tool calls; thinking roughly
+          // doubled time-to-first-token for no visible gain.
+          thinking: { type: "disabled" },
           tool_choice: { type: "auto" },
           messages,
         });
@@ -722,6 +727,7 @@ export async function POST(req: Request): Promise<Response> {
           blocks = assembleBlocks(first, catalogue);
         } else {
           // Only the first find_places runs; a second one in the same reply is refused.
+          send({ type: "status", text: "Checking Google Maps…" });
           const outcome = await runPlacesSearch((searchCall.input ?? {}) as Record<string, unknown>, db, req, signedIn);
 
           // DeepSeek 400s the whole request if any tool_use in history lacks a

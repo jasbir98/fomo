@@ -34,11 +34,11 @@ function renderInlineMarkdown(text: string): ReactNode[] {
 }
 
 /** Three-dot "thinking" indicator shown while a reply is streaming but no text has arrived yet. */
-function ThinkingDots() {
+function ThinkingDots({ label }: { label?: string | null }) {
   return (
     <div
       role="status"
-      aria-label="Fomo is thinking"
+      aria-label={label ?? "Fomo is thinking"}
       className="flex items-center gap-1 rounded-xl rounded-tl-sm border border-outline-variant/50 bg-surface px-5 py-4 shadow-[0_1px_3px_rgba(3,22,50,0.05)]"
     >
       {[0, 1, 2].map((i) => (
@@ -48,6 +48,7 @@ function ThinkingDots() {
           style={{ animationDelay: `${i * 120}ms` }}
         />
       ))}
+      {label ? <span className="ml-2 text-label-md text-on-surface-variant">{label}</span> : null}
     </div>
   );
 }
@@ -190,6 +191,10 @@ function FomoChatPageInner() {
   // Fomo" buttons) — fills the composer without sending, on first mount only.
   const [input, setInput] = useState(() => searchParams.get("q") ?? "");
   const [sending, setSending] = useState(false);
+  /** Server progress note for the in-flight reply, e.g. "Checking Google Maps…". */
+  const [pendingStatus, setPendingStatus] = useState<string | null>(null);
+  /** Text streamed so far for the in-flight reply; read by the error path so a dropped stream keeps it. */
+  const streamedSoFar = useRef("");
   const [ready, setReady] = useState(false);
   // null until the session check on mount finishes; false = signed out (chat
   // lives in sessionStorage, nothing touches `chat_messages`).
@@ -377,9 +382,13 @@ function FomoChatPageInner() {
           const event = JSON.parse(line) as
             | { type: "text_delta"; text: string }
             | { type: "done"; blocks: AiReplyBlock[] }
-            | { type: "error"; message: string };
-          if (event.type === "text_delta") {
+            | { type: "error"; message: string }
+            | { type: "status"; text: string };
+          if (event.type === "status") {
+            setPendingStatus(event.text);
+          } else if (event.type === "text_delta") {
             streamedText += event.text;
+            streamedSoFar.current = streamedText;
             updateProvisional([{ kind: "text", text: streamedText }]);
           } else if (event.type === "done") {
             finalBlocks = event.blocks;
@@ -410,9 +419,17 @@ function FomoChatPageInner() {
       }
     } catch (err) {
       console.error("[fomo] send failed", err);
-      updateProvisional([{ kind: "text", text: "Fomo hit a snag. Please try again in a moment." }]);
+      // Keep whatever reply already streamed in; only the unfinished tail is lost.
+      const note = "The connection dropped before Fomo finished. Please try again.";
+      updateProvisional(
+        streamedSoFar.current
+          ? [{ kind: "text", text: streamedSoFar.current }, { kind: "text", text: note }]
+          : [{ kind: "text", text: note }]
+      );
       setInput(trimmed);
     } finally {
+      streamedSoFar.current = "";
+      setPendingStatus(null);
       setSending(false);
     }
   }
@@ -523,7 +540,7 @@ function FomoChatPageInner() {
             return (
               <div key={m.id} className="flex max-w-[90%] items-end gap-2 self-start">
                 <FomoAvatar mood="hmm" />
-                <ThinkingDots />
+                <ThinkingDots label={pendingStatus} />
               </div>
             );
           }
