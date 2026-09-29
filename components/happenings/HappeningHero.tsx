@@ -151,12 +151,12 @@ export function HappeningHero({ happening, occurrence, variant = "fomo_pick", re
       }}
       className="relative flex flex-col overflow-hidden rounded-3xl bg-surface-container-lowest shadow-level-3 cursor-pointer"
     >
-      <div className="relative h-40 w-full shrink-0 overflow-hidden bg-surface-container">
+      <div className="relative h-32 w-full shrink-0 overflow-hidden bg-surface-container">
         <SmartImage
           src={heroImage}
           alt=""
           width={480}
-          height={160}
+          height={128}
           sizes="(max-width: 480px) 100vw, 480px"
           priority
           className="h-full w-full object-cover"
@@ -166,12 +166,12 @@ export function HappeningHero({ happening, occurrence, variant = "fomo_pick", re
 
         <div className="absolute inset-x-3 top-3 flex items-start justify-between gap-2">
           <div className="flex min-w-0 flex-col items-start gap-1">
-            <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-primary-container/90 px-3 py-1 text-label-sm font-bold text-on-primary-container backdrop-blur-md">
+            <span className="inline-flex max-w-full min-w-0 items-center gap-1.5 rounded-full bg-primary-container/90 px-3 py-1 text-label-sm font-bold text-on-primary-container backdrop-blur-md">
               <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-secondary-fixed-dim animate-pulse" />
-              {pickLabel}
+              <span className="min-w-0 truncate">{pickLabel}</span>
             </span>
             {visibleReason ? (
-              <span className="inline-flex max-w-full shrink-0 items-center truncate rounded-full bg-surface-container-lowest/85 px-2.5 py-0.5 text-label-sm font-semibold text-on-surface backdrop-blur-md">
+              <span className="block max-w-full truncate rounded-full bg-surface-container-lowest/85 px-2.5 py-0.5 text-label-sm font-semibold text-on-surface backdrop-blur-md">
                 {visibleReason}
               </span>
             ) : null}
@@ -183,7 +183,7 @@ export function HappeningHero({ happening, occurrence, variant = "fomo_pick", re
           ) : null}
         </div>
 
-        <div className="absolute bottom-2.5 left-3.5 right-3.5 flex min-w-0 items-center gap-2">
+        <div className="absolute bottom-2 left-3.5 right-3.5 flex min-w-0 items-center gap-2">
           <span className={`inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-label-sm font-bold backdrop-blur-md ${cat.badgeClass}`}>
             <Icon name={cat.icon} size={13} />
             {cat.label}
@@ -197,9 +197,9 @@ export function HappeningHero({ happening, occurrence, variant = "fomo_pick", re
         </div>
       </div>
 
-      <div className="flex flex-col gap-3 p-3.5 pt-2.5">
+      <div className="flex flex-col gap-2.5 p-3.5 pt-2.5">
         <div className="flex flex-col gap-1">
-          <h2 className="line-clamp-2 text-headline-md font-extrabold leading-snug text-on-surface">
+          <h2 className="line-clamp-2 text-headline-sm font-extrabold leading-snug text-on-surface">
             {heroHeadline(happening, occurrence, now)}
           </h2>
           {oneLinerSummary(happening.summary) ? (
@@ -242,19 +242,15 @@ export function HappeningHero({ happening, occurrence, variant = "fomo_pick", re
           </div>
         ) : null}
 
-        <div className="flex items-center gap-2.5 border-t border-hairline pt-2.5">
-          {/* Icon-only verified mark — the full "source · Checked Nd ago"
-              line moved to the detail page's own Provenance section; the
-              hero only needs a trust signal, not the sentence. Sits flush
-              against the CTA (not `justify-between`'d to the opposite edge)
-              so the footer row doesn't read as a big dead gap between two
-              small elements — the CTA fills the rest of the width instead. */}
+        <div className="flex items-center justify-between gap-2 border-t border-hairline pt-2.5">
+          {/* Verified mark + "Checked Nd ago" on the left, a small pill CTA on
+              the right — one compact row, not a full-width button. */}
           <span
-            className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-surface-container text-accent"
-            title={`Source: ${happening.source_name} · ${checkedLabel(happening.verified_at, now)}`}
-            aria-label={`Source: ${happening.source_name}, checked ${checkedLabel(happening.verified_at, now).toLowerCase()}`}
+            className="flex min-w-0 items-center gap-1 text-label-md font-medium text-on-surface-variant"
+            title={`Source: ${happening.source_name}`}
           >
-            <Icon name="verified" size={15} />
+            <Icon name="verified" size={15} className="shrink-0 text-accent" />
+            <span className="truncate">{checkedLabel(happening.verified_at, now)}</span>
           </span>
           {ctaHref ? (
             <a
@@ -265,10 +261,10 @@ export function HappeningHero({ happening, occurrence, variant = "fomo_pick", re
                 e.stopPropagation();
                 trackOutboundClicked("happening", happening.id, ctaHref, variant === "book_early" ? "book_now" : "hero_cta");
               }}
-              className="flex flex-1 items-center justify-center gap-1 rounded-lg bg-primary px-4 py-2.5 text-label-md font-bold text-on-primary shadow-sm transition-opacity hover:opacity-90 active:scale-95"
+              className="flex h-9 max-w-[60%] shrink-0 items-center justify-center gap-0.5 rounded-full bg-primary pl-4 pr-3 text-label-lg font-bold text-on-primary shadow-sm transition-opacity hover:opacity-90 active:scale-95"
             >
-              {ctaLabel}
-              <Icon name="arrow_forward" size={16} />
+              <span className="min-w-0 truncate">{ctaLabel}</span>
+              <Icon name="chevron_right" size={18} />
             </a>
           ) : null}
         </div>

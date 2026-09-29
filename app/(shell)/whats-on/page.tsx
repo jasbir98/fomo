@@ -274,19 +274,34 @@ function WhatsOnPageInner() {
   }
 
   return (
-    <div className="flex flex-col gap-4 pb-6">
+    <div className="flex flex-col pb-6">
       <PageHeader title="What's on" showBack />
 
-      <div className="flex flex-col gap-4 px-4">
+      <div className="flex flex-col gap-3 px-4 pt-1">
         <StickyFilterBar className="-mx-4 px-4">
-          <div className="flex flex-col gap-3">
-            <SegmentedControl value={feedWindow} options={WHATS_ON_WINDOWS} onChange={setFeedWindow} />
+          <div className="flex flex-col gap-2">
+            {/* The window control doubles as the section heading (Today /
+                Coming up), so the result count sits beside it rather than
+                in a second heading row. */}
+            <div className="flex items-center gap-2">
+              <SegmentedControl
+                value={feedWindow}
+                options={WHATS_ON_WINDOWS}
+                onChange={setFeedWindow}
+                className="flex-1"
+              />
+              {listReady && !listError ? (
+                <span className="shrink-0 rounded-full border border-hairline-strong bg-surface-container px-2.5 py-0.5 text-label-sm font-extrabold text-primary">
+                  {visibleTotal}
+                </span>
+              ) : null}
+            </div>
 
             {dates.length >= 2 ? (
               <DateFilterRow dates={dates} selected={dateFilter} onSelect={selectDateFilter} />
             ) : null}
 
-            <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1 [&::-webkit-scrollbar]:hidden">
+            <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-0.5 [&::-webkit-scrollbar]:hidden">
               <Chip
                 label="Free only"
                 leadingIcon="check_circle"
@@ -318,17 +333,6 @@ function WhatsOnPageInner() {
           </div>
         </StickyFilterBar>
 
-        <div className="flex items-center justify-between px-1">
-          <h2 className="text-headline-sm font-extrabold tracking-tight text-on-surface">
-            {feedWindow === "now" ? "Today" : "Coming up"}
-          </h2>
-          {listReady && !listError ? (
-            <span className="rounded-full border border-hairline-strong bg-surface-container px-2.5 py-0.5 text-label-sm font-extrabold text-primary">
-              {visibleTotal}
-            </span>
-          ) : null}
-        </div>
-
         {listError ? (
           <ErrorState
             title="Couldn't load what's on"
@@ -341,7 +345,7 @@ function WhatsOnPageInner() {
             }}
           />
         ) : !listReady ? (
-          <div className="flex flex-col gap-3 pt-2" role="status" aria-live="polite">
+          <div className="flex flex-col gap-3" role="status" aria-live="polite">
             <span className="sr-only">Loading what&rsquo;s on…</span>
             {[0, 1, 2].map((i) => (
               <div key={i} className="h-24 animate-pulse rounded-lg bg-surface-container" />
@@ -357,7 +361,7 @@ function WhatsOnPageInner() {
             <p className="text-body-md text-on-surface-variant">{emptyMessage()}</p>
           </div>
         ) : (
-          <div className="flex flex-col gap-3 pt-1">
+          <div className="flex flex-col gap-3">
             {visibleCards.slice(0, revealCount).map((card, i) => (
               <FeedListCard key={cardKey(card)} card={card} surface="whats_on" position={i} />
             ))}

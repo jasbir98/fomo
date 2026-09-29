@@ -514,7 +514,7 @@ export default function HomePage() {
   const windowSlideClass = switchDirection === 1 ? "feed-slide-in-right" : "feed-slide-in-left";
 
   return (
-    <div className="relative flex flex-col gap-4 pb-6">
+    <div className="relative flex flex-col gap-3 pb-6">
       {/* Ambient weather decoration — behind the header/hero region only
           (fixed height, not the whole page). `-z-10` (this `div` is now the
           positioned ancestor, via `relative` above) — drawn OVER the hero and
@@ -595,7 +595,7 @@ export default function HomePage() {
         onSelect={chooseCity}
       />
 
-      <div className="flex flex-col gap-4 px-4">
+      <div className="flex flex-col gap-3 px-4">
         {/* Window control — drives What's on, and on Book early the hero too
             (see `heroKind`). Labels grow their own count once known
             (`windowOptions`); the plain-words line underneath restates the
@@ -603,7 +603,18 @@ export default function HomePage() {
             comes with a reason, not just new cards. */}
         <div className="flex flex-col gap-1.5">
           <SegmentedControl value={feedWindow} options={windowOptions} onChange={handleWindowChange} />
-          <p className="px-1 text-label-sm text-on-surface-variant">{windowSummary()}</p>
+          {/* Summary line and the /weekend link share one row, rather than
+              a text line plus a full-width link bar stacked under it. */}
+          <div className="flex items-center justify-between gap-3 px-1">
+            <p className="min-w-0 text-label-md text-on-surface-variant">{windowSummary()}</p>
+            <Link
+              href="/weekend"
+              className="flex h-9 shrink-0 items-center gap-1 rounded-full border border-hairline bg-surface-container-low px-3 text-label-md font-semibold text-primary transition-opacity hover:opacity-80"
+            >
+              This weekend
+              <Icon name="chevron_right" size={18} />
+            </Link>
+          </div>
           {switchToast ? (
             <button
               type="button"
@@ -621,15 +632,6 @@ export default function HomePage() {
             </button>
           ) : null}
         </div>
-
-        {/* Link to /weekend */}
-        <Link
-          href="/weekend"
-          className="flex items-center gap-2 rounded-lg border border-hairline bg-surface-container-low px-4 py-3 transition-opacity hover:opacity-80"
-        >
-          <span className="flex-1 text-label-md font-semibold text-on-surface">This weekend in Edinburgh</span>
-          <Icon name="event" size={18} className="text-primary" />
-        </Link>
 
         {showHappeningHero && feed?.hero ? (
           // `key`'d + slid the same direction as the content below it — the
@@ -730,7 +732,7 @@ export default function HomePage() {
             keeps the sticky header from covering the section top when a
             window switch scrolls it into view (see the fetch effect above). */}
         {feedWindow !== "book_early" ? (
-          <div ref={whatsOnSectionRef} className="relative flex scroll-mt-20 flex-col gap-3">
+          <div ref={whatsOnSectionRef} className="relative flex scroll-mt-20 flex-col gap-2">
             {/* Thin indeterminate progress bar — cached (possibly stale)
                 content is already on screen below, so a background
                 revalidation gets this instead of dimming/replacing what's
@@ -832,16 +834,11 @@ export default function HomePage() {
           // conditional above unmounts it entirely on the way out), so the
           // slide-in plays on mount here rather than needing its own
           // `key={feedWindow}` the way What's on's inner content does above.
-          <section ref={bookEarlySectionRef} className={`${windowSlideClass} flex scroll-mt-20 flex-col gap-3`}>
-            <div className="flex items-start justify-between gap-2 px-1">
-              <div className="flex flex-col gap-0.5">
-                <div className="flex items-center gap-2">
-                  <Icon name="confirmation_number" size={20} className="text-accent" />
-                  <h3 className="text-headline-sm font-extrabold tracking-tight text-on-surface">Book early</h3>
-                </div>
-                <p className="text-label-sm text-on-surface-variant">
-                  Big dates worth booking before they sell out
-                </p>
+          <section ref={bookEarlySectionRef} className={`${windowSlideClass} flex scroll-mt-20 flex-col gap-2`}>
+            <div className="flex items-center justify-between gap-2 px-1">
+              <div className="flex items-center gap-2">
+                <Icon name="confirmation_number" size={20} className="text-accent" />
+                <h3 className="text-headline-sm font-extrabold tracking-tight text-on-surface">Book early</h3>
               </div>
               <SeeAllLink href="/book-early" total={bookEarlyAll.length} />
             </div>

@@ -5,9 +5,10 @@ import { eventIsInProgress, formatEventDate, formatEventPrice, formatEventTimeSp
 import {
   ELIGIBILITY_ICON,
   checkedLabel,
+  eventOnNowLabel,
   eligibilityLine,
   happeningDayLabel,
-  happeningLiveUntilLabel,
+  happeningOnNowLabel,
   happeningTimeLabel,
   happeningTypeTag,
   occurrenceRangeLabel,
@@ -103,38 +104,76 @@ function CategoryDot({ category }: { category: Happening["category"] }) {
   return <Icon name={style.icon} size={14} className={`shrink-0 ${style.textClass}`} />;
 }
 
-/** Tiny "On now" chip for the meta row — same pill scale as `TypeTag`, in the
- *  primary-accent tint so it reads as live without adding a new colour. */
-function OnNowPill() {
-  return (
-    <span className="inline-flex items-center gap-1 rounded-full bg-accent/15 px-1.5 py-0.5 text-label-sm font-bold uppercase tracking-wide text-accent">
-      <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-accent" />
-      On now
-    </span>
-  );
+/**
+ * The "when" text of a happening/series meta row: a live occurrence reads as
+ * one compact plain string ("On now · until 16 May", see
+ * `happeningOnNowLabel`); anything else its clock label ("Tonight 8pm", "Fri
+ * 3 Oct 7pm"), falling back to the bare day ("Today"/"Tomorrow"/"Fri 3 Oct")
+ * for occurrences with no clock time so every card states its date. Computed
+ * with `new Date()` at render — safe, because these cards only ever render
+ * after the client-side feed fetch (`useCachedJson`'s server snapshot is
+ * always empty), never in SSR HTML.
+ */
+function occurrenceWhenLabel(occurrence: Occurrence): string {
+  const now = new Date();
+  if (occurrenceIsLive(occurrence, now)) return happeningOnNowLabel(occurrence, now);
+  return happeningTimeLabel(occurrence, now) ?? happeningDayLabel(occurrence, now);
 }
 
 /**
- * The "when" segment of a happening/series meta row: a live occurrence shows
- * the "On now" pill (+ "until X" when known); anything else its clock label
- * ("Tonight 8pm", "Fri 3 Oct 7pm"), falling back to the bare day
- * ("Today"/"Tomorrow"/"Fri 3 Oct") for occurrences with no clock time so
- * every card states its date. Computed with `new Date()` at render — safe,
- * because these cards only ever render after the client-side feed fetch
- * (`useCachedJson`'s server snapshot is always empty), never in SSR HTML.
+ * The one-line meta row above a card title: [icon] [tag] WHEN • trailing.
+ * The date never truncates (it is the point of the row) — the trailing venue
+ * does — and the "•" only renders when there is something after it, so a
+ * card with no venue can't end on a dangling bullet.
  */
-function OccurrenceWhen({ occurrence }: { occurrence: Occurrence }) {
-  const now = new Date();
-  if (occurrenceIsLive(occurrence, now)) {
-    const until = happeningLiveUntilLabel(occurrence, now);
-    return (
-      <>
-        <OnNowPill />
-        {until ? <span className="font-bold text-accent">{until}</span> : null}
-      </>
-    );
-  }
-  return <span className="font-bold text-accent">{happeningTimeLabel(occurrence, now) ?? happeningDayLabel(occurrence, now)}</span>;
+function MetaRow({
+  icon,
+  tag,
+  when,
+  trailing,
+  trailingClassName = "",
+}: {
+  icon?: React.ReactNode;
+  tag?: React.ReactNode;
+  when: string;
+  trailing?: string | null;
+  trailingClassName?: string;
+}) {
+  return (
+    // One visible line: flex-wrap + a fixed height hides anything that wraps.
+    // The venue group needs ~5rem, so when a long date leaves less than that
+    // it drops to the hidden second line whole, instead of showing "• N".
+    <div className="mb-1 flex h-5 min-w-0 flex-wrap items-center gap-x-1.5 overflow-hidden whitespace-nowrap text-label-sm font-medium text-on-surface-variant">
+      {icon}
+      {tag}
+      <span className="shrink-0 font-bold text-accent">{when}</span>
+      {trailing ? (
+        <span className="flex min-w-[5rem] flex-1 basis-0 items-center gap-1.5">
+          <span aria-hidden className="shrink-0">•</span>
+          <span className={`min-w-0 truncate ${trailingClassName}`}>{trailing}</span>
+        </span>
+      ) : null}
+    </div>
+  );
+}
+
+/** Optional plain-text scope label for the meta row — the category icon already says what kind of thing this is, so only a wide-scope tag ("NATIONAL EVENT") is worth the width, as plain text. */
+function scopeTag(tag: string): React.ReactNode {
+  return isWideScopeTag(tag) ? <TypeTag tag={tag} kind="event" /> : null;
+}
+
+/**
+ * The card's single footer row — provenance/time on the left, the bookmark on
+ * the right, vertically centred in one 40px line (the save button used to sit
+ * on a row of its own, which read as dead whitespace).
+ */
+function CardFooter({ children, save }: { children?: React.ReactNode; save: React.ReactNode }) {
+  return (
+    <div className="flex min-w-0 items-center justify-between gap-2">
+      <div className="flex min-w-0 items-center gap-2 text-label-md text-on-surface-variant">{children}</div>
+      <div className="ml-auto shrink-0">{save}</div>
+    </div>
+  );
 }
 
 /** Makes the whole card row navigate to `href` while keeping its own inner
@@ -217,45 +256,43 @@ function HappeningRow({
       <div className="flex items-start justify-between gap-3">
         <Thumbnail src={thumbnail} alt="" />
         <div className="flex min-w-0 flex-1 flex-col">
-          <div className="mb-1 flex min-w-0 items-center gap-1.5 overflow-hidden whitespace-nowrap text-label-sm font-medium text-on-surface-variant">
-            <CategoryDot category={happening.category} />
-            <TypeTag tag={tag} kind={happening.kind} />
-            <OccurrenceWhen occurrence={occurrence} />
-            {venue ? <span>•</span> : null}
-            {venue ? <span className="truncate">{venue}</span> : null}
-          </div>
+          <MetaRow
+            icon={<CategoryDot category={happening.category} />}
+            tag={scopeTag(tag)}
+            when={occurrenceWhenLabel(occurrence)}
+            trailing={venue}
+          />
           <h4 className="line-clamp-2 text-headline-sm font-bold leading-snug text-on-surface">{happening.title}</h4>
         </div>
         <PriceTag label={priceLabel} />
       </div>
 
-      {oneLiner ? (
-        <p className="line-clamp-1 text-body-sm leading-relaxed text-on-surface-variant">{oneLiner}</p>
-      ) : null}
+      {oneLiner ? <p className="line-clamp-2 text-body-sm leading-snug text-on-surface-variant">{oneLiner}</p> : null}
 
-      <div className="flex items-center justify-between gap-2">
+      <CardFooter
+        save={
+          <SaveButton
+            subjectType="happening"
+            subjectId={happening.id}
+            interestHint={interestForHappeningCategory(happening.category)}
+            compact
+            className="-my-1 -mr-2"
+          />
+        }
+      >
+        <span className="shrink-0">{checkedLabel(happening.verified_at)}</span>
         {eligibility && qualifies ? (
-          <span className="inline-flex w-fit items-center gap-1 rounded-full bg-secondary-container/25 px-2 py-0.5 text-label-sm font-bold text-primary">
-            <Icon name="check_circle" filled size={12} />
-            You qualify · {eligibility}
+          <span className="inline-flex min-w-0 items-center gap-1 rounded-full bg-secondary-container/25 px-2 py-0.5 text-label-sm font-bold text-primary">
+            <Icon name="check_circle" filled size={12} className="shrink-0" />
+            <span className="truncate">You qualify · {eligibility}</span>
           </span>
         ) : eligibility ? (
-          <span className="inline-flex w-fit items-center gap-1 rounded-full bg-surface-container px-2 py-0.5 text-label-sm font-bold text-secondary">
-            <Icon name={ELIGIBILITY_ICON[happening.eligibility]} size={12} />
-            {eligibility}
+          <span className="inline-flex min-w-0 items-center gap-1 rounded-full bg-surface-container px-2 py-0.5 text-label-sm font-bold text-secondary">
+            <Icon name={ELIGIBILITY_ICON[happening.eligibility]} size={12} className="shrink-0" />
+            <span className="truncate">{eligibility}</span>
           </span>
-        ) : (
-          <span />
-        )}
-        <SaveButton
-          subjectType="happening"
-          subjectId={happening.id}
-          interestHint={interestForHappeningCategory(happening.category)}
-          className="-my-2 -mr-2"
-        />
-      </div>
-
-      <span className="text-label-sm font-medium text-on-surface-variant/70">{checkedLabel(happening.verified_at)}</span>
+        ) : null}
+      </CardFooter>
     </CardShell>
   );
 }
@@ -294,33 +331,33 @@ function SeriesRow({ card, surface, position }: { card: SeriesCardData; surface?
       <div className="flex items-start justify-between gap-3">
         <Thumbnail src={thumbnail} alt="" />
         <div className="flex min-w-0 flex-1 flex-col">
-          <div className="mb-1 flex min-w-0 items-center gap-1.5 overflow-hidden whitespace-nowrap text-label-sm font-medium text-on-surface-variant">
-            <CategoryDot category={lead.category} />
-            <TypeTag tag={tag} kind={lead.kind} />
-            <OccurrenceWhen occurrence={occurrence} />
-            <span>•</span>
-            <span className="truncate font-semibold text-secondary">{card.locationCount} locations</span>
-          </div>
+          <MetaRow
+            icon={<CategoryDot category={lead.category} />}
+            tag={scopeTag(tag)}
+            when={occurrenceWhenLabel(occurrence)}
+            trailing={`${card.locationCount} locations`}
+            trailingClassName="font-semibold text-secondary"
+          />
           <h4 className="line-clamp-2 text-headline-sm font-bold leading-snug text-on-surface">{card.title}</h4>
         </div>
         <PriceTag label={priceLabel} />
       </div>
 
-      <div className="flex items-center justify-between gap-2">
-        {oneLiner ? (
-          <p className="line-clamp-1 text-body-sm leading-relaxed text-on-surface-variant">{oneLiner}</p>
-        ) : (
-          <span />
-        )}
-        <SaveButton
-          subjectType="happening"
-          subjectId={lead.id}
-          interestHint={interestForHappeningCategory(lead.category)}
-          className="-my-2 -mr-2"
-        />
-      </div>
+      {oneLiner ? <p className="line-clamp-2 text-body-sm leading-snug text-on-surface-variant">{oneLiner}</p> : null}
 
-      <span className="text-label-sm font-medium text-on-surface-variant/70">{checkedLabel(lead.verified_at)}</span>
+      <CardFooter
+        save={
+          <SaveButton
+            subjectType="happening"
+            subjectId={lead.id}
+            interestHint={interestForHappeningCategory(lead.category)}
+            compact
+            className="-my-1 -mr-2"
+          />
+        }
+      >
+        <span className="shrink-0">{checkedLabel(lead.verified_at)}</span>
+      </CardFooter>
     </CardShell>
   );
 }
@@ -363,33 +400,36 @@ function RecurringRow({ card, surface, position }: { card: RecurringCardData; su
       <div className="flex items-start justify-between gap-3">
         <Thumbnail src={thumbnail} alt="" />
         <div className="flex min-w-0 flex-1 flex-col">
-          <div className="mb-1 flex min-w-0 items-center gap-1.5 overflow-hidden whitespace-nowrap text-label-sm font-medium text-on-surface-variant">
-            <TypeTag tag={lead.kind === "event" ? "EVENT" : happeningTypeTag(lead.happening, lead.occurrence.exact)} kind={lead.kind === "happening" ? lead.happening.kind : "event"} />
-            <span className="font-bold text-accent">{dateLabel}</span>
-          </div>
+          <MetaRow
+            icon={lead.kind === "happening" ? <CategoryDot category={lead.happening.category} /> : undefined}
+            tag={lead.kind === "event" ? <TypeTag tag="EVENT" kind="event" /> : scopeTag(happeningTypeTag(lead.happening, lead.occurrence.exact))}
+            when={dateLabel}
+          />
           <h4 className="line-clamp-2 text-headline-sm font-bold leading-snug text-on-surface">{card.title}</h4>
           {venue ? <p className="truncate text-label-sm font-medium text-on-surface-variant">{venue}</p> : null}
         </div>
         <PriceTag label={priceLabel} />
       </div>
 
-      <div className="flex items-center justify-between gap-2">
-        {oneLiner ? (
-          <p className="line-clamp-1 text-body-sm leading-relaxed text-on-surface-variant">{oneLiner}</p>
-        ) : (
-          <span />
-        )}
-        {lead.kind === "happening" ? (
-          <SaveButton
-            subjectType="happening"
-            subjectId={lead.happening.id}
-            interestHint={interestForHappeningCategory(lead.happening.category)}
-            className="-my-2 -mr-2"
-          />
-        ) : (
-          <SaveButton subjectType="event" subjectId={lead.event.id} className="-my-2 -mr-2" />
-        )}
-      </div>
+      {oneLiner ? <p className="line-clamp-2 text-body-sm leading-snug text-on-surface-variant">{oneLiner}</p> : null}
+
+      <CardFooter
+        save={
+          lead.kind === "happening" ? (
+            <SaveButton
+              subjectType="happening"
+              subjectId={lead.happening.id}
+              interestHint={interestForHappeningCategory(lead.happening.category)}
+              compact
+              className="-my-1 -mr-2"
+            />
+          ) : (
+            <SaveButton subjectType="event" subjectId={lead.event.id} compact className="-my-1 -mr-2" />
+          )
+        }
+      >
+        {lead.kind === "happening" ? <span className="shrink-0">{checkedLabel(lead.happening.verified_at)}</span> : null}
+      </CardFooter>
     </CardShell>
   );
 }
@@ -485,7 +525,7 @@ function FestivalRow({ happening, surface, position }: { happening: Happening; s
 
 function EventRow({ event, surface, position }: { event: EventItem; surface?: FeedCardSurface; position?: number }) {
   const eventDate = formatEventDate(event.starts_at);
-  // Client-render only (see OccurrenceWhen) — safe to read the clock here.
+  // Client-render only (see occurrenceWhenLabel) — safe to read the clock here.
   const eventLive = eventIsInProgress(event);
   const eventTime = formatEventTimeSpan(event.starts_at, event.ends_at);
   const priceLabel = priceLabelForEvent(event);
@@ -510,34 +550,24 @@ function EventRow({ event, surface, position }: { event: EventItem; surface?: Fe
       <div className="flex items-start justify-between gap-3">
         <Thumbnail src={thumbnail} alt="" />
         <div className="flex min-w-0 flex-1 flex-col">
-          <div className="mb-1 flex min-w-0 items-center gap-1.5 overflow-hidden whitespace-nowrap text-label-sm font-medium text-on-surface-variant">
-            <TypeTag tag="EVENT" kind="event" />
-            {eventLive ? <OnNowPill /> : <span className="font-bold text-accent">{eventDate}</span>}
-            {event.venue_name ? (
-              <>
-                <span>•</span>
-                <span className="truncate">{event.venue_name}</span>
-              </>
-            ) : null}
-          </div>
+          <MetaRow
+            tag={<TypeTag tag="EVENT" kind="event" />}
+            when={eventLive ? eventOnNowLabel(event.ends_at) : eventDate}
+            trailing={event.venue_name}
+          />
           <h4 className="line-clamp-2 text-headline-sm font-bold leading-snug text-on-surface">{event.name}</h4>
         </div>
         <PriceTag label={priceLabel} />
       </div>
 
       {oneLinerSummary(event.description) ? (
-        <p className="line-clamp-1 text-body-sm leading-relaxed text-on-surface-variant">
-          {oneLinerSummary(event.description)}
-        </p>
+        <p className="line-clamp-2 text-body-sm leading-snug text-on-surface-variant">{oneLinerSummary(event.description)}</p>
       ) : null}
 
-      <div className="flex items-center justify-between border-t border-hairline pt-2 text-on-surface-variant">
-        <span className="flex items-center gap-1 text-label-sm font-medium">
-          <Icon name="schedule" size={14} className="text-secondary" />
-          {eventTime}
-        </span>
-        <SaveButton subjectType="event" subjectId={event.id} className="-my-2 -mr-2" />
-      </div>
+      <CardFooter save={<SaveButton subjectType="event" subjectId={event.id} compact className="-my-1 -mr-2" />}>
+        <Icon name="schedule" size={14} className="shrink-0 text-secondary" />
+        <span className="truncate">{eventTime}</span>
+      </CardFooter>
     </CardShell>
   );
 }

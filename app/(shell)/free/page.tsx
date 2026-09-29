@@ -85,37 +85,42 @@ export default function FreeAnyTimePage() {
   });
 
   return (
-    <div className="flex flex-col gap-4 pb-6">
+    <div className="flex flex-col pb-6">
       <PageHeader title="Free any time" showBack />
 
-      <div className="flex flex-col gap-4 px-4">
-        <p className="text-body-sm text-on-surface-variant">Edinburgh classics with £0 admission</p>
+      <div className="flex flex-col gap-3 px-4 pt-1">
+        <p className="text-body-md text-on-surface-variant">Edinburgh classics with £0 admission</p>
 
         <StickyFilterBar className="-mx-4 px-4">
-          <div className="flex items-start justify-end gap-2">
-            <FreeAnyTimeFilters
-              typeLabel={typeBucket}
-              district={district}
-              typeOptions={typeOptions}
-              districtOptions={districtOptions}
-              onTypeChange={handleTypeChange}
-              onDistrictChange={handleDistrictChange}
-              resultCount={filteredItems.length}
-            />
-            <Link
-              href={ASK_FOMO_HREF}
-              className="flex shrink-0 items-center gap-1.5 rounded-full border border-primary/30 bg-surface px-3.5 py-1.5 text-label-sm font-semibold text-primary shadow-sm transition-colors hover:bg-surface-container"
-            >
-              <Icon name="chat" size={16} />
-              Ask Fomo
-            </Link>
+          <div className="flex items-start justify-between gap-2">
+            <span className="px-1 pt-1.5 text-label-lg font-semibold text-on-surface-variant">
+              {items ? `${filteredItems.length} ${filteredItems.length === 1 ? "place" : "places"}` : ""}
+            </span>
+            <div className="flex items-start gap-2">
+              <FreeAnyTimeFilters
+                typeLabel={typeBucket}
+                district={district}
+                typeOptions={typeOptions}
+                districtOptions={districtOptions}
+                onTypeChange={handleTypeChange}
+                onDistrictChange={handleDistrictChange}
+                resultCount={filteredItems.length}
+              />
+              <Link
+                href={ASK_FOMO_HREF}
+                className="flex shrink-0 items-center gap-1.5 rounded-full border border-primary/30 bg-surface px-3.5 py-1.5 text-label-sm font-semibold text-primary shadow-sm transition-colors hover:bg-surface-container"
+              >
+                <Icon name="chat" size={16} />
+                Ask Fomo
+              </Link>
+            </div>
           </div>
         </StickyFilterBar>
 
         {error ? (
           <ErrorState title="Couldn't load Free any time" onRetry={() => itemsResult.revalidate()} />
         ) : items === null ? (
-          <div className="flex flex-col gap-3 pt-2" role="status" aria-live="polite">
+          <div className="flex flex-col gap-3" role="status" aria-live="polite">
             <span className="sr-only">Loading Free any time…</span>
             {[0, 1, 2, 3].map((i) => (
               <div key={i} className="h-16 animate-pulse rounded-lg bg-surface-container" />
@@ -132,7 +137,7 @@ export default function FreeAnyTimePage() {
             <p className="text-body-sm text-on-surface-variant">Nothing matches. Clear filters</p>
           </div>
         ) : (
-          <div className="flex flex-col gap-2.5 pt-1">
+          <div className="flex flex-col gap-2.5">
             {filteredItems.slice(0, visibleCount).map((item) => (
               <FreeAnyTimeRow key={`${item.kind}-${item.id}`} item={item} />
             ))}

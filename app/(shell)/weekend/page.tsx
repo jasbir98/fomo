@@ -87,7 +87,7 @@ function WeekendPageInner() {
   const revealCount = useProgressiveReveal(cards?.length ?? 0, null, revealSentinelRef, { vertical: true, step: 20 });
 
   return (
-    <div className="flex flex-col gap-4 pb-6">
+    <div className="flex flex-col pb-6">
       <PageHeader title="This weekend" action={<ShareButton
             title="This weekend in Edinburgh · Fomo"
             text="Free & cheap things to do in Edinburgh this weekend, via Fomo"
@@ -95,7 +95,7 @@ function WeekendPageInner() {
             kind="weekend"
           />} />
 
-      <div className="flex flex-col gap-4 px-4">
+      <div className="flex flex-col gap-3 px-4 pt-1">
         <p className="text-body-md text-on-surface-variant">
           Free, cheap and discounted things to do in Edinburgh on {dayLabel(saturday)} and {dayLabel(sunday)}.
         </p>
@@ -103,25 +103,24 @@ function WeekendPageInner() {
         {dealCount ? (
           <Link
             href="/deals"
-            className="flex items-center gap-3 rounded-2xl bg-secondary-container px-4 py-3 text-on-secondary-container"
+            className="flex h-11 items-center gap-2 rounded-full bg-secondary-container px-4 text-on-secondary-container"
           >
-            <Icon name="sell" size={22} />
-            <span className="flex-1 text-title-sm font-bold">{dealCount} deals & offers running now</span>
-            <Icon name="chevron_right" size={22} />
+            <Icon name="sell" size={20} />
+            <span className="flex-1 text-label-lg font-bold">{dealCount} deals & offers running now</span>
+            <Icon name="chevron_right" size={20} />
           </Link>
         ) : null}
 
-        <div className="flex items-center justify-between px-1">
-          <h2 className="text-headline-sm font-extrabold tracking-tight text-on-surface">What&rsquo;s on</h2>
-          {cards ? (
-            <span className="rounded-full border border-hairline-strong bg-surface-container px-2.5 py-0.5 text-label-sm font-extrabold text-primary">
-              {cards.length}
-            </span>
-          ) : null}
-        </div>
-
         <StickyFilterBar className="-mx-4 px-4">
-          <div className="flex justify-end">
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2 px-1">
+              <h2 className="text-headline-sm font-extrabold tracking-tight text-on-surface">What&rsquo;s on</h2>
+              {cards ? (
+                <span className="rounded-full border border-hairline-strong bg-surface-container px-2.5 py-0.5 text-label-sm font-extrabold text-primary">
+                  {cards.length}
+                </span>
+              ) : null}
+            </div>
             <Chip
               label="Free only"
               leadingIcon="check_circle"
@@ -140,7 +139,7 @@ function WeekendPageInner() {
             }}
           />
         ) : cards === null ? (
-          <div className="flex flex-col gap-3 pt-2" role="status" aria-live="polite">
+          <div className="flex flex-col gap-3" role="status" aria-live="polite">
             <span className="sr-only">Loading this weekend…</span>
             {[0, 1, 2].map((i) => (
               <div key={i} className="h-24 animate-pulse rounded-lg bg-surface-container" />
@@ -156,7 +155,7 @@ function WeekendPageInner() {
             </p>
           </div>
         ) : (
-          <div className="flex flex-col gap-3 pt-1">
+          <div className="flex flex-col gap-3">
             {cards.slice(0, revealCount).map((card, i) => (
               <FeedListCard key={cardKey(card)} card={card} surface="weekend" position={i} />
             ))}

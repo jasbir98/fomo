@@ -118,16 +118,19 @@ export default function DealsPage() {
   });
 
   return (
-    <div className="flex flex-col gap-4 pb-6">
+    <div className="flex flex-col pb-6">
       <AppHeader title="Deals & Offers" />
 
-      <div className="flex flex-col gap-4 px-4">
-        <p className="text-body-sm text-on-surface-variant">
+      <div className="flex flex-col gap-3 px-4 pt-3">
+        <p className="text-body-md text-on-surface-variant">
           Discounts, promo codes &amp; concessions around Edinburgh
         </p>
 
         <StickyFilterBar className="-mx-4 px-4">
-          <div className="flex justify-end">
+          <div className="flex items-start justify-between gap-2">
+            <span className="px-1 pt-1.5 text-label-lg font-semibold text-on-surface-variant">
+              {deals ? `${dealItems.length} ${dealItems.length === 1 ? "deal" : "deals"}` : ""}
+            </span>
             <DealFilters
               what={dealWhat}
               who={dealWho}
@@ -141,7 +144,7 @@ export default function DealsPage() {
         {error ? (
           <ErrorState title="Couldn't load deals" onRetry={() => dealsResult.revalidate()} />
         ) : deals === null ? (
-          <div className="flex flex-col gap-3 pt-2" role="status" aria-live="polite">
+          <div className="flex flex-col gap-3" role="status" aria-live="polite">
             <span className="sr-only">Loading deals…</span>
             {[0, 1, 2].map((i) => (
               <div key={i} className="h-20 animate-pulse rounded-lg bg-surface-container" />
@@ -158,7 +161,7 @@ export default function DealsPage() {
             <p className="text-body-sm text-on-surface-variant">No deals match. Clear filters</p>
           </div>
         ) : (
-          <div className="flex flex-col gap-3 pt-1">
+          <div className="flex flex-col gap-3">
             {dealItems.slice(0, visibleCount).map((item, i) =>
               item.kind === "venue" ? (
                 <VenueDealCard

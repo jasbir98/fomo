@@ -91,7 +91,7 @@ export function SegmentedControl<T extends string = string>({
           >
             {opt.icon ? <Icon name={opt.icon} size={18} filled={active} /> : null}
             {opt.label}
-            {opt.count != null ? <span className="opacity-75 max-[359px]:hidden">· {opt.count}</span> : null}
+            {opt.count != null ? <span className="opacity-75 max-[419px]:hidden">· {opt.count}</span> : null}
           </button>
         );
       })}

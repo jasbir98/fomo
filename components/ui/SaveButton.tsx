@@ -15,6 +15,8 @@ export type SaveButtonProps = {
   className?: string;
   /** This card's personalisation interest (lib/personalise/interests.ts), when the caller has it handy — feeds the implicit-learning affinity counter (lib/personalise/affinity.ts) on a genuine save. Omit where the interest isn't readily available; nothing else here depends on it. */
   interestHint?: InterestKey | null;
+  /** 40px hit area instead of 44px — for a card footer row that shares its line with text. */
+  compact?: boolean;
 };
 
 /**
@@ -30,7 +32,7 @@ export type SaveButtonProps = {
  * unsaved→saved transition, never on unsave or a signed-out tap (which
  * redirects to sign-in instead of actually saving).
  */
-export function SaveButton({ subjectType, subjectId, className = "", interestHint = null }: SaveButtonProps) {
+export function SaveButton({ subjectType, subjectId, className = "", interestHint = null, compact = false }: SaveButtonProps) {
   const { isSaved, toggle, signedIn } = useSaved();
   const prefs = usePrefs();
   const saved = isSaved(subjectType, subjectId);
@@ -55,7 +57,7 @@ export function SaveButton({ subjectType, subjectId, className = "", interestHin
           recordAffinity(interestHint);
         });
       }}
-      className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-full transition-colors hover:bg-surface-container ${
+      className={`flex ${compact ? "h-10 w-10" : "h-11 w-11"} shrink-0 items-center justify-center rounded-full transition-colors hover:bg-surface-container ${
         saved ? "text-primary" : "text-on-surface-variant"
       } ${className}`}
     >

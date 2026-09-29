@@ -403,6 +403,44 @@ export function happeningLiveUntilLabel(
   return null;
 }
 
+/**
+ * "until 16 May" for a day within the next 12 months, "until May 2027" beyond
+ * that — the year only earns its width when it disambiguates.
+ */
+function untilDayLabel(lastDayDate: string, today: string): string {
+  if (lastDayDate <= addDays(today, 365)) return `until ${dayOfMonth(lastDayDate)} ${monthShort(lastDayDate)}`;
+  return `until ${monthShort(lastDayDate)} ${lastDayDate.slice(0, 4)}`;
+}
+
+/**
+ * The single compact "when" text for a live occurrence on a feed card:
+ * "On now · until 16 May" / "On now · until 4pm" / "On now" when no end is
+ * known. Replaces the old pill + `happeningLiveUntilLabel` pair, which read as
+ * clutter next to the category icon and type tag.
+ */
+export function happeningOnNowLabel(
+  occurrence: Pick<Occurrence, "dayDate" | "lastDayDate" | "endsAt">,
+  now: Date = new Date(),
+  timeZone: string = CITY.timezone
+): string {
+  const today = localDayDate(now, timeZone);
+  if (occurrence.lastDayDate > today) return `On now · ${untilDayLabel(occurrence.lastDayDate, today)}`;
+  if (occurrence.endsAt && !isMidnightUtc(occurrence.endsAt)) {
+    return `On now · until ${formatClockTime(occurrence.endsAt, timeZone)}`;
+  }
+  return "On now";
+}
+
+/** `happeningOnNowLabel` for a provider event, which only has an `ends_at` instant (no occurrence span). */
+export function eventOnNowLabel(endsAt: string | null, now: Date = new Date(), timeZone: string = CITY.timezone): string {
+  if (!endsAt || Number.isNaN(new Date(endsAt).getTime())) return "On now";
+  const today = localDayDate(now, timeZone);
+  const endDay = localDayDate(new Date(endsAt), timeZone);
+  if (endDay > today) return `On now · ${untilDayLabel(endDay, today)}`;
+  if (!isMidnightUtc(endsAt)) return `On now · until ${formatClockTime(endsAt, timeZone)}`;
+  return "On now";
+}
+
 /** "Tue 29 Sep" — no year (unlike `occurrenceDateLabel`, which is for a
  *  happening's own detail page); the compact date label used on feed cards. */
 export function shortDayLabel(dayDate: string): string {

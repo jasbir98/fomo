@@ -80,12 +80,12 @@ function EventHero({ event, reason, surface }: { event: EventItem; reason: strin
       }}
       className="relative flex flex-col overflow-hidden rounded-3xl bg-surface-container-lowest shadow-level-3 cursor-pointer"
     >
-      <div className="relative h-40 w-full shrink-0 overflow-hidden bg-surface-container">
+      <div className="relative h-32 w-full shrink-0 overflow-hidden bg-surface-container">
         <SmartImage
           src={heroImage}
           alt=""
           width={480}
-          height={160}
+          height={128}
           sizes="(max-width: 480px) 100vw, 480px"
           priority
           className="h-full w-full object-cover"
@@ -113,33 +113,34 @@ function EventHero({ event, reason, surface }: { event: EventItem; reason: strin
         </div>
 
         {event.venue_name ? (
-          <div className="absolute bottom-2.5 left-3.5 right-3.5 flex min-w-0 items-center gap-1 text-primary">
+          <div className="absolute bottom-2 left-3.5 right-3.5 flex min-w-0 items-center gap-1 text-primary">
             <Icon name="pin_drop" size={16} className="shrink-0" />
             <span className="min-w-0 truncate text-label-sm font-extrabold uppercase tracking-wider">{event.venue_name}</span>
           </div>
         ) : null}
       </div>
 
-      <div className="flex flex-col gap-3 p-3.5 pt-2.5">
+      <div className="flex flex-col gap-2.5 p-3.5 pt-2.5">
         <div className="flex flex-col gap-1">
-          <h2 className="line-clamp-2 text-headline-md font-extrabold leading-snug text-on-surface">{event.name}</h2>
+          <h2 className="line-clamp-2 text-headline-sm font-extrabold leading-snug text-on-surface">{event.name}</h2>
           {event.description ? (
             <p className="line-clamp-1 text-body-sm text-on-surface-variant">{event.description}</p>
           ) : null}
         </div>
 
-        <div className="flex items-center gap-2.5 border-t border-hairline pt-2.5">
-          <span className="flex items-center gap-1 text-label-sm font-medium text-on-surface-variant">
-            <Icon name="schedule" size={15} className="text-secondary" />
-            {eventTime}
+        <div className="flex items-center justify-between gap-2 border-t border-hairline pt-2.5">
+          <span className="flex min-w-0 items-center gap-1 text-label-md font-medium text-on-surface-variant">
+            <Icon name="schedule" size={15} className="shrink-0 text-secondary" />
+            <span className="truncate">{eventTime}</span>
           </span>
           <button
             type="button"
             onClick={goToEvent}
-            className="flex flex-1 items-center justify-center gap-1 rounded-lg bg-primary px-4 py-2.5 text-label-md font-bold text-on-primary shadow-sm transition-opacity hover:opacity-90 active:scale-95"
+            aria-label={`View event: ${event.name}`}
+            className="flex h-9 shrink-0 items-center justify-center gap-0.5 rounded-full bg-primary pl-4 pr-3 text-label-lg font-bold text-on-primary shadow-sm transition-opacity hover:opacity-90 active:scale-95"
           >
-            View Event
-            <Icon name="arrow_forward" size={16} />
+            View
+            <Icon name="chevron_right" size={18} />
           </button>
         </div>
       </div>

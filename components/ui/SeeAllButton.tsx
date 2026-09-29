@@ -26,10 +26,10 @@ export function SeeAllButton({ href, total, shown, className = "" }: SeeAllButto
   return (
     <Link
       href={href}
-      className={`flex min-h-[44px] w-full items-center justify-center gap-1 rounded-xl bg-secondary-container px-4 text-label-md font-semibold text-on-secondary-container transition-opacity hover:opacity-90 ${className}`}
+      className={`flex h-11 w-full items-center justify-center gap-1 rounded-xl bg-secondary-container px-4 text-label-lg font-semibold text-on-secondary-container transition-opacity hover:opacity-90 ${className}`}
     >
       See all {total}
-      <Icon name="chevron_right" size={18} />
+      <Icon name="chevron_right" size={20} />
     </Link>
   );
 }

@@ -34,7 +34,7 @@ export function AnyDaySection({ cards, surface }: AnyDaySectionProps) {
   const hidden = cards.length - ANY_DAY_CAP;
 
   return (
-    <section aria-label="Any day" className="flex flex-col gap-2 pt-2">
+    <section aria-label="Any day" className="flex flex-col gap-2 pt-1">
       <div className="flex flex-col gap-0.5 px-1">
         <h3 className="text-body-lg font-extrabold tracking-tight text-on-surface">Any day</h3>
         <p className="text-label-sm text-on-surface-variant">Always on, go whenever suits</p>
@@ -47,7 +47,7 @@ export function AnyDaySection({ cards, surface }: AnyDaySectionProps) {
           type="button"
           aria-expanded={expanded}
           onClick={() => setExpanded((v) => !v)}
-          className="flex min-h-[44px] w-full items-center justify-center rounded-xl bg-secondary-container px-4 text-label-md font-semibold text-on-secondary-container transition-opacity hover:opacity-90"
+          className="flex h-11 w-full items-center justify-center rounded-xl bg-secondary-container px-4 text-label-lg font-semibold text-on-secondary-container transition-opacity hover:opacity-90"
         >
           {expanded ? "Show fewer" : `Show ${hidden} more`}
         </button>

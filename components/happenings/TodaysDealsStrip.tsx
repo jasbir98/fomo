@@ -156,7 +156,7 @@ export function TodaysDealsStrip({ deals, at = new Date(), surface }: TodaysDeal
   const weekdayName = WEEKDAY_LABEL[weekdayOf(localDayDate(at, CITY.timezone))];
 
   return (
-    <section className="flex flex-col gap-3">
+    <section className="flex flex-col gap-2">
       <div className="flex items-center justify-between gap-2 px-1">
         <h3 className="text-headline-sm font-extrabold tracking-tight text-on-surface">
           Today&apos;s deals

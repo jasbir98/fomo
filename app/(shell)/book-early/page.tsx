@@ -141,41 +141,46 @@ export default function BookEarlyPage() {
   });
 
   return (
-    <div className="flex flex-col gap-4 pb-6">
+    <div className="flex flex-col pb-6">
       <PageHeader title="Book early" showBack />
 
-      <div className="flex flex-col gap-4 px-4">
-        <p className="text-body-sm text-on-surface-variant">
+      <div className="flex flex-col gap-3 px-4 pt-1">
+        <p className="text-body-md text-on-surface-variant">
           Big dates worth booking before they sell out
         </p>
 
         <StickyFilterBar className="-mx-4 px-4">
-          <div className="flex items-start justify-end gap-2">
-            <BookEarlyFilters
-              timing={timing}
-              category={category}
-              month={month}
-              categoryOptions={categoryOptions}
-              monthOptions={monthOptions}
-              onTimingChange={handleTimingChange}
-              onCategoryChange={handleCategoryChange}
-              onMonthChange={handleMonthChange}
-              resultCount={filteredCards.length}
-            />
-            <Link
-              href={ASK_FOMO_HREF}
-              className="flex shrink-0 items-center gap-1.5 rounded-full border border-primary/30 bg-surface px-3.5 py-1.5 text-label-sm font-semibold text-primary shadow-sm transition-colors hover:bg-surface-container"
-            >
-              <Icon name="chat" size={16} />
-              Ask Fomo
-            </Link>
+          <div className="flex items-start justify-between gap-2">
+            <span className="px-1 pt-1.5 text-label-lg font-semibold text-on-surface-variant">
+              {cards ? `${filteredCards.length} ${filteredCards.length === 1 ? "date" : "dates"}` : ""}
+            </span>
+            <div className="flex items-start gap-2">
+              <BookEarlyFilters
+                timing={timing}
+                category={category}
+                month={month}
+                categoryOptions={categoryOptions}
+                monthOptions={monthOptions}
+                onTimingChange={handleTimingChange}
+                onCategoryChange={handleCategoryChange}
+                onMonthChange={handleMonthChange}
+                resultCount={filteredCards.length}
+              />
+              <Link
+                href={ASK_FOMO_HREF}
+                className="flex shrink-0 items-center gap-1.5 rounded-full border border-primary/30 bg-surface px-3.5 py-1.5 text-label-sm font-semibold text-primary shadow-sm transition-colors hover:bg-surface-container"
+              >
+                <Icon name="chat" size={16} />
+                Ask Fomo
+              </Link>
+            </div>
           </div>
         </StickyFilterBar>
 
         {error ? (
           <ErrorState title="Couldn't load Book early" onRetry={() => cardsResult.revalidate()} />
         ) : cards === null ? (
-          <div className="flex flex-col gap-3 pt-2" role="status" aria-live="polite">
+          <div className="flex flex-col gap-3" role="status" aria-live="polite">
             <span className="sr-only">Loading Book early…</span>
             {[0, 1, 2].map((i) => (
               <div key={i} className="h-24 animate-pulse rounded-lg bg-surface-container" />
@@ -192,7 +197,7 @@ export default function BookEarlyPage() {
             <p className="text-body-sm text-on-surface-variant">Nothing matches. Clear filters</p>
           </div>
         ) : (
-          <div className="flex flex-col gap-3 pt-1">
+          <div className="flex flex-col gap-3">
             {filteredCards.slice(0, visibleCount).map((card, i) => (
               <BookEarlyCard
                 key={bookEarlyCardKey(card)}
