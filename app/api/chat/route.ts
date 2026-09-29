@@ -18,6 +18,8 @@
  * history (the client keeps it in sessionStorage).
  *
  * Transport: the response body is a stream of newline-delimited JSON events —
+ *   {"type":"quota","remaining":2,"limit":3}  (signed-out only, first event)
+ *   {"type":"status","text":"..."}        (0..n, progress note e.g. Google lookup)
  *   {"type":"text_delta","text":"..."}   (0..n, streamed as the model types)
  *   {"type":"done","blocks":[...]}        (final, assembled AiReplyBlock[])
  *   {"type":"error","message":"..."}      (on failure, client shows a fallback)
@@ -34,9 +36,11 @@ import {
   rateLimitedResponse,
   consumeGlobalRateLimit,
   consumeAnonRateLimit,
+  peekAnonRateLimit,
   refundAnonRateLimit,
   anonRateLimitedResponse,
 } from "@/lib/rate-limit";
+import { CHAT_ANON_DAILY_LIMIT, CHAT_ANON_ROUTE, anonWindowResetsAt } from "@/lib/chat/limits";
 import { searchPlacesForChat } from "@/lib/places/chat-search";
 import { CITY } from "@/lib/city";
 import { listLiveHappenings } from "@/lib/db/happenings";
@@ -86,9 +90,6 @@ const CHAT_FAIL_CLOSED = process.env.NODE_ENV === "production";
  * own calls to the same underlying limiter.
  */
 const CHAT_GLOBAL_DAILY_LIMIT = { limit: 1500, windowSeconds: 24 * 60 * 60 };
-
-/** Signed-out visitors: 3 questions a day per IP, and no history is stored server-side. */
-const CHAT_ANON_DAILY_LIMIT = { limit: 3, windowSeconds: 24 * 60 * 60 };
 
 /**
  * Google Places lookups (the `find_places` tool) cost real money per call, so
@@ -563,7 +564,28 @@ function getStreamErrorMessage(err: unknown): string {
   return fallback;
 }
 
+/** Set once a signed-out request holds a consumed anon slot that only the stream (which refunds on its own failure) may keep. */
+interface AnonSlot {
+  held: boolean;
+}
+
+/**
+ * Wraps the handler so an unexpected throw between consuming a signed-out
+ * visitor's free question and handing back the stream refunds it: the client
+ * tells them "it didn't count", and that has to be true.
+ */
 export async function POST(req: Request): Promise<Response> {
+  const slot: AnonSlot = { held: false };
+  try {
+    return await handleChat(req, slot);
+  } catch (err) {
+    console.error("[api/chat] request failed", err);
+    if (slot.held) await refundAnonRateLimit(req, CHAT_ANON_ROUTE, CHAT_ANON_DAILY_LIMIT.windowSeconds);
+    return jsonError("Something went wrong.", 500);
+  }
+}
+
+async function handleChat(req: Request, slot: AnonSlot): Promise<Response> {
   let body: ChatRequestBody;
   try {
     body = (await req.json()) as ChatRequestBody;
@@ -634,7 +656,7 @@ export async function POST(req: Request): Promise<Response> {
     const daily = await consumeRateLimit(db, "chat:day", { ...CHAT_RATE_LIMIT_DAILY, failClosed: CHAT_FAIL_CLOSED });
     if (!daily.allowed) return rateLimitedResponse(daily);
   } else {
-    const anon = await consumeAnonRateLimit(req, "chat:anon-day", { ...CHAT_ANON_DAILY_LIMIT, failClosed: true });
+    const anon = await consumeAnonRateLimit(req, CHAT_ANON_ROUTE, { ...CHAT_ANON_DAILY_LIMIT, failClosed: true });
     if (!anon.allowed) {
       // `signin: true` tells the chat screen to show its "Sign in to keep asking" card.
       return new Response(
@@ -642,6 +664,8 @@ export async function POST(req: Request): Promise<Response> {
           error: "rate_limited",
           message: `That's your ${CHAT_ANON_DAILY_LIMIT.limit} free questions for today. Sign in to keep asking.`,
           signin: true,
+          limit: CHAT_ANON_DAILY_LIMIT.limit,
+          resetsAt: anonWindowResetsAt(CHAT_ANON_DAILY_LIMIT.windowSeconds),
         }),
         {
           status: 429,
@@ -652,6 +676,7 @@ export async function POST(req: Request): Promise<Response> {
         }
       );
     }
+    slot.held = true;
   }
 
   // Site-wide backstop, last — see CHAT_GLOBAL_DAILY_LIMIT's doc comment.
@@ -660,6 +685,11 @@ export async function POST(req: Request): Promise<Response> {
   // own limits.
   const global = await consumeGlobalRateLimit("chat:global-day", { ...CHAT_GLOBAL_DAILY_LIMIT, failClosed: CHAT_FAIL_CLOSED });
   if (!global.allowed) {
+    // Not the visitor's doing: give the free question back.
+    if (slot.held) {
+      slot.held = false;
+      await refundAnonRateLimit(req, CHAT_ANON_ROUTE, CHAT_ANON_DAILY_LIMIT.windowSeconds);
+    }
     return anonRateLimitedResponse(
       "Fomo's really busy right now. Please try again tomorrow.",
       CHAT_GLOBAL_DAILY_LIMIT.windowSeconds
@@ -682,6 +712,19 @@ export async function POST(req: Request): Promise<Response> {
     { role: "user" as const, content: body.userText },
   ];
 
+  // Signed-out visitors are told how many free questions they have left, as
+  // the stream's first event (the slot for this question is already consumed).
+  const anonQuota = signedIn
+    ? null
+    : {
+        limit: CHAT_ANON_DAILY_LIMIT.limit,
+        remaining: Math.max(
+          0,
+          CHAT_ANON_DAILY_LIMIT.limit -
+            (await peekAnonRateLimit(req, CHAT_ANON_ROUTE, CHAT_ANON_DAILY_LIMIT.windowSeconds))
+        ),
+      };
+
   const encoder = new TextEncoder();
 
   const stream = new ReadableStream<Uint8Array>({
@@ -691,6 +734,7 @@ export async function POST(req: Request): Promise<Response> {
       };
 
       try {
+        if (anonQuota) send({ type: "quota", ...anonQuota });
         const client = getAnthropic();
 
         // One streaming model call; text deltas go straight to the client.
@@ -824,7 +868,7 @@ export async function POST(req: Request): Promise<Response> {
         const message = getStreamErrorMessage(err);
         console.warn("[api/chat] stream failed", message);
         // Our failure, not the visitor's question: don't let it cost one of their free ones.
-        if (!signedIn) await refundAnonRateLimit(req, "chat:anon-day", CHAT_ANON_DAILY_LIMIT.windowSeconds);
+        if (!signedIn) await refundAnonRateLimit(req, CHAT_ANON_ROUTE, CHAT_ANON_DAILY_LIMIT.windowSeconds);
         send({ type: "error", message });
       } finally {
         controller.close();
@@ -832,6 +876,8 @@ export async function POST(req: Request): Promise<Response> {
     },
   });
 
+  // From here the stream owns the refund (its catch, above).
+  slot.held = false;
   return new Response(stream, {
     headers: {
       "content-type": "application/x-ndjson; charset=utf-8",

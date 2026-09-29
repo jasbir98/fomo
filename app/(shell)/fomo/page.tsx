@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { Fragment, Suspense, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { ConfirmDialog, Icon, SmartImage } from "@/components/ui";
@@ -81,10 +81,40 @@ function isSeedAttachment(v: unknown): v is SeedAttachment {
  *   assistant turn → content = { blocks: AiReplyBlock[] }
  * `seed` is only ever present on the first user turn of a seeded visit (see
  * `pendingSeed`); older rows simply don't have it and render unchanged.
+ * `signin` marks a local-only assistant turn (limit hit, session expired) that
+ * carries a sign-in card for `question`; it lives in sessionStorage with the
+ * rest of a signed-out chat and is never written to `chat_messages`.
  */
 type UiMessage =
   | { id: string; role: "user"; text: string; seed?: SeedAttachment }
-  | { id: string; role: "assistant"; blocks: AiReplyBlock[] };
+  | { id: string; role: "assistant"; blocks: AiReplyBlock[]; signin?: { question: string; expired?: boolean } };
+
+/** A signed-out visitor's free questions left today (from /api/chat/quota and the chat stream's `quota` event). */
+interface Quota {
+  remaining: number;
+  limit: number;
+}
+
+/** null when signed in, on any failure, or if the route isn't there: the quota line just doesn't show. */
+async function loadQuota(): Promise<Quota | null> {
+  try {
+    const res = await fetch("/api/chat/quota", { cache: "no-store" });
+    if (!res.ok) return null;
+    const data = (await res.json()) as { signedIn?: boolean; remaining?: number; limit?: number };
+    if (data.signedIn !== false || typeof data.remaining !== "number" || typeof data.limit !== "number") return null;
+    return { remaining: data.remaining, limit: data.limit };
+  } catch {
+    return null;
+  }
+}
+
+/** Sign-in link that lands back on Ask Fomo and asks `question` once signed in (`/fomo?q=…&send=1`). */
+function signinHref(question: string): string {
+  return `/signin?next=${encodeURIComponent(`/fomo?q=${encodeURIComponent(question)}&send=1`)}&reason=fomo`;
+}
+
+/** Shown when a reply stream ends early; the question is put back in the composer alongside it. */
+const DROPPED_NOTE = "The connection dropped before I finished. Your question's still in the box, just hit send again.";
 
 /** Only the most recent turns are sent as API history — keeps each request's token cost bounded. */
 const MAX_HISTORY_MESSAGES = 12;
@@ -199,8 +229,8 @@ function FomoChatPageInner() {
   // null until the session check on mount finishes; false = signed out (chat
   // lives in sessionStorage, nothing touches `chat_messages`).
   const [signedIn, setSignedIn] = useState<boolean | null>(null);
-  // Set when the server says a signed-out visitor is out of free questions.
-  const [signinWall, setSigninWall] = useState(false);
+  // Signed-out visitors only: free questions left today. Null until the quota fetch lands (or when signed in).
+  const [quota, setQuota] = useState<Quota | null>(null);
   const [loadFailed, setLoadFailed] = useState(false);
   const [clearDialogOpen, setClearDialogOpen] = useState(false);
   const [clearing, setClearing] = useState(false);
@@ -242,6 +272,17 @@ function FomoChatPageInner() {
       cancelled = true;
     };
   }, [db]);
+
+  useEffect(() => {
+    if (signedIn !== false) return;
+    let cancelled = false;
+    void loadQuota().then((q) => {
+      if (!cancelled && q) setQuota(q);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [signedIn]);
 
   // Signed-out chats are mirrored to sessionStorage once a reply has settled.
   useEffect(() => {
@@ -307,6 +348,20 @@ function FomoChatPageInner() {
         prev.map((m) => (m.id === provisionalId && m.role === "assistant" ? { ...m, blocks } : m))
       );
     };
+    // Replaces the provisional reply with `text` and a sign-in card that re-asks this question afterwards.
+    const showSignin = (text: string, expired = false) => {
+      setMessages((prev) =>
+        prev.map((m) =>
+          m.id === provisionalId && m.role === "assistant"
+            ? { ...m, blocks: [{ kind: "text", text }], signin: { question: trimmed, expired } }
+            : m
+        )
+      );
+    };
+    // Only signed-out visitors have a free-question allowance; the server refunds it whenever the failure was ours.
+    const notCounted = isSignedIn ? "" : " It didn't count towards your free questions.";
+    // Set on failure paths, so the quota line is re-read from the server afterwards.
+    let failed = false;
 
     try {
       // Persist + append the user turn, with a provisional assistant turn
@@ -334,31 +389,56 @@ function FomoChatPageInner() {
         }),
       });
 
-      // Rate limited — show the server's "try again in N minutes" message and
-      // keep the question in the composer so it can be resent later.
+      // Rate limited. Out of free questions (signed out): keep the question in
+      // the chat and offer sign-in, which re-asks it. Otherwise show the
+      // server's "try again in N minutes" message and keep the question in the
+      // composer so it can be resent later.
       if (res.status === 429) {
         let message = "You've hit the limit for now. Try again in a few minutes.";
         let needsSignin = false;
+        let limit: number | null = null;
         try {
-          const data = (await res.json()) as { message?: string; signin?: boolean };
+          const data = (await res.json()) as { message?: string; signin?: boolean; limit?: number };
           if (typeof data?.message === "string") message = data.message;
           needsSignin = data?.signin === true;
+          if (typeof data?.limit === "number") limit = data.limit;
         } catch {
           // Keep the fallback message above.
         }
-        setInput(trimmed);
         if (needsSignin) {
-          // Out of free questions: drop this turn and show the sign-in card instead.
-          setMessages((prev) => prev.filter((m) => m.id !== provisionalId && m.id !== userTurnId));
-          setSigninWall(true);
+          const total = limit ?? quota?.limit ?? 3;
+          setQuota({ remaining: 0, limit: total });
+          showSignin(
+            `You've used your ${total} free questions for today. Sign in with your email (no password needed) and I'll answer this one straight away.`,
+          );
         } else {
+          setInput(trimmed);
           updateProvisional([{ kind: "text", text: message }]);
         }
         return;
       }
 
+      if (res.status === 401) {
+        setInput(trimmed);
+        showSignin("Your session ran out. Sign in again and I'll pick up where we left off.", true);
+        return;
+      }
+
       if (!res.ok || !res.body) {
-        throw new Error(`chat request failed: ${res.status}`);
+        failed = true;
+        setInput(trimmed);
+        // A 400 carries its own reason (e.g. message too long); anything else is on our side.
+        let text = `Something went wrong on our side. Your question's still in the box below, just hit send again.${notCounted}`;
+        if (res.status === 400) {
+          try {
+            const data = (await res.json()) as { message?: string };
+            if (typeof data?.message === "string" && data.message) text = data.message;
+          } catch {
+            // Keep the generic message.
+          }
+        }
+        updateProvisional([{ kind: "text", text }]);
+        return;
       }
 
       const reader = res.body.getReader();
@@ -383,8 +463,11 @@ function FomoChatPageInner() {
             | { type: "text_delta"; text: string }
             | { type: "done"; blocks: AiReplyBlock[] }
             | { type: "error"; message: string }
-            | { type: "status"; text: string };
-          if (event.type === "status") {
+            | { type: "status"; text: string }
+            | { type: "quota"; remaining: number; limit: number };
+          if (event.type === "quota") {
+            setQuota({ remaining: event.remaining, limit: event.limit });
+          } else if (event.type === "status") {
             setPendingStatus(event.text);
           } else if (event.type === "text_delta") {
             streamedText += event.text;
@@ -394,7 +477,9 @@ function FomoChatPageInner() {
             finalBlocks = event.blocks;
           } else if (event.type === "error") {
             errored = true;
-            updateProvisional([{ kind: "text", text: event.message }]);
+            failed = true;
+            setInput(trimmed);
+            updateProvisional([{ kind: "text", text: `${event.message}${notCounted}` }]);
           }
         }
       }
@@ -405,7 +490,11 @@ function FomoChatPageInner() {
         // turns aren't persisted server-side; they just take the final blocks.
         const blocks = finalBlocks;
         if (isSignedIn) {
-          const aiRow = await addMessage(db, { role: "assistant", mode: CHAT_MODE, content: { blocks } });
+          const aiRow = await addMessage(db, {
+            role: "assistant",
+            mode: CHAT_MODE,
+            content: { blocks },
+          });
           setMessages((prev) =>
             prev.map((m) =>
               m.id === provisionalId && m.role === "assistant" ? { id: aiRow.id, role: "assistant", blocks } : m
@@ -415,19 +504,23 @@ function FomoChatPageInner() {
           updateProvisional(blocks);
         }
       } else if (!errored) {
-        updateProvisional([{ kind: "text", text: "Fomo didn't finish that reply. Please try again." }]);
+        // Stream ended with neither a reply nor an error (e.g. the server timed out).
+        failed = true;
+        setInput(trimmed);
+        updateProvisional([{ kind: "text", text: DROPPED_NOTE }]);
       }
     } catch (err) {
       console.error("[fomo] send failed", err);
       // Keep whatever reply already streamed in; only the unfinished tail is lost.
-      const note = "The connection dropped before Fomo finished. Please try again.";
+      failed = true;
       updateProvisional(
         streamedSoFar.current
-          ? [{ kind: "text", text: streamedSoFar.current }, { kind: "text", text: note }]
-          : [{ kind: "text", text: note }]
+          ? [{ kind: "text", text: streamedSoFar.current }, { kind: "text", text: DROPPED_NOTE }]
+          : [{ kind: "text", text: DROPPED_NOTE }]
       );
       setInput(trimmed);
     } finally {
+      if (failed && !isSignedIn) void loadQuota().then((q) => q && setQuota(q));
       streamedSoFar.current = "";
       setPendingStatus(null);
       setSending(false);
@@ -440,7 +533,6 @@ function FomoChatPageInner() {
     try {
       if (signedIn) await clearMessages(db);
       setMessages([]);
-      setSigninWall(false);
       setClearDialogOpen(false);
     } catch (err) {
       console.error("[fomo] clear chat failed", err);
@@ -476,6 +568,8 @@ function FomoChatPageInner() {
 
   const suggestions = seed ? suggestedQuestionsFor(seed.type) : ASK_FOMO_PROMPTS;
   const empty = ready && messages.length === 0;
+  // Out of free questions: the composer is switched off until they sign in.
+  const exhausted = signedIn === false && quota?.remaining === 0;
 
   return (
     <div className="flex min-h-dvh flex-col">
@@ -545,11 +639,12 @@ function FomoChatPageInner() {
             );
           }
           return (
-            <AssistantTurn key={m.id} messageId={m.id} blocks={m.blocks} onQuickReply={(option) => void send(option)} />
+            <Fragment key={m.id}>
+              <AssistantTurn messageId={m.id} blocks={m.blocks} onQuickReply={(option) => void send(option)} />
+              {m.signin ? <SigninCard question={m.signin.question} expired={m.signin.expired} /> : null}
+            </Fragment>
           );
         })}
-
-        {signinWall && signedIn === false ? <SigninCard /> : null}
 
         {/* Seed context card — shown inline at the end of the conversation (not pinned above it) until the
             first send of this visit attaches it to that user message; see `pendingSeed`. */}
@@ -564,15 +659,15 @@ function FomoChatPageInner() {
       </main>
 
       {/* Composer: suggested prompts + input bar, fixed above the bottom nav (and its safe-area inset). */}
-      <div className="fixed bottom-[calc(64px+env(safe-area-inset-bottom))] left-1/2 z-40 w-full max-w-[480px] -translate-x-1/2 bg-gradient-to-t from-background via-background to-transparent px-5 pb-3 pt-6">
-        {suggestions.length > 0 ? (
+      <div className="fixed bottom-[calc(64px+env(safe-area-inset-bottom))] left-1/2 z-40 w-full max-w-[480px] -translate-x-1/2 bg-gradient-to-t from-background via-background to-transparent px-4 pb-3 pt-6">
+        {suggestions.length > 0 && !exhausted ? (
           <div className="no-scrollbar mb-2 flex gap-2 overflow-x-auto">
             {suggestions.map((s) => (
               <button
                 key={s}
                 type="button"
                 onClick={() => void send(s)}
-                disabled={sending}
+                disabled={sending || exhausted}
                 className="whitespace-nowrap rounded-full border border-outline-variant/60 bg-surface px-4 py-2 text-label-sm font-semibold text-on-surface-variant transition-colors hover:bg-surface-container disabled:opacity-40"
               >
                 {s}
@@ -581,31 +676,57 @@ function FomoChatPageInner() {
           </div>
         ) : null}
 
-        <div className="flex items-end gap-2 rounded-2xl border border-outline-variant/60 bg-surface p-2 shadow-[0_2px_12px_rgba(3,22,50,0.06)] focus-within:border-primary focus-within:ring-1 focus-within:ring-primary">
-          <textarea
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && !e.shiftKey) {
-                e.preventDefault();
-                void send(input);
-              }
-            }}
-            rows={1}
-            aria-label="Message Fomo"
-            placeholder="Ask about deals, free things, what's on…"
-            className="max-h-[120px] min-h-[44px] flex-1 resize-none border-none bg-transparent p-2 text-body-md text-on-surface outline-none placeholder:text-outline focus:ring-0"
-          />
-          <button
-            type="button"
-            aria-label="Send"
-            onClick={() => void send(input)}
-            disabled={sending || !input.trim()}
-            className="shrink-0 rounded-xl bg-secondary-container p-3 text-on-secondary-container shadow-sm transition-opacity hover:opacity-90 disabled:opacity-40"
-          >
-            <Icon name="arrow_upward" filled />
-          </button>
-        </div>
+        {signedIn === false && quota && !exhausted ? (
+          <p className="mb-2 px-1 text-center text-label-md text-on-surface-variant">
+            {quota.remaining >= 2 ? `${quota.remaining} free questions left today` : "Last free question today"}
+            {" · "}
+            <Link href="/signin?next=/fomo&reason=fomo" className="font-semibold text-primary underline">
+              Sign in for more
+            </Link>
+          </p>
+        ) : null}
+
+        {/* Out of free questions: a real way forward instead of a greyed-out box. */}
+        {exhausted ? (
+          <div className="flex flex-col items-center gap-2 rounded-2xl border border-outline-variant/60 bg-surface p-3 text-center shadow-[0_2px_12px_rgba(3,22,50,0.06)]">
+            <p className="text-label-md text-on-surface-variant">
+              That&apos;s your free questions for today. They reset tomorrow.
+            </p>
+            <Link
+              href="/signin?next=/fomo&reason=fomo"
+              className="inline-flex min-h-11 w-full items-center justify-center rounded-xl bg-primary text-label-lg font-semibold text-on-primary transition-opacity hover:opacity-90"
+            >
+              Sign in to keep asking
+            </Link>
+          </div>
+        ) : (
+          <div className="flex items-end gap-2 rounded-2xl border border-outline-variant/60 bg-surface p-2 shadow-[0_2px_12px_rgba(3,22,50,0.06)] focus-within:border-primary focus-within:ring-1 focus-within:ring-primary">
+            <textarea
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && !e.shiftKey) {
+                  e.preventDefault();
+                  void send(input);
+                }
+              }}
+              rows={1}
+              aria-label="Message Fomo"
+              disabled={exhausted}
+              placeholder={exhausted ? "Sign in to keep asking" : "Ask about deals, free things, what's on…"}
+              className="max-h-[120px] min-h-[44px] flex-1 resize-none border-none bg-transparent p-2 text-body-md text-on-surface outline-none placeholder:text-outline focus:ring-0"
+            />
+            <button
+              type="button"
+              aria-label="Send"
+              onClick={() => void send(input)}
+              disabled={sending || exhausted || !input.trim()}
+              className="shrink-0 rounded-xl bg-secondary-container p-3 text-on-secondary-container shadow-sm transition-opacity hover:opacity-90 disabled:opacity-40"
+            >
+              <Icon name="arrow_upward" filled />
+            </button>
+          </div>
+        )}
       </div>
 
       <ConfirmDialog
@@ -852,19 +973,21 @@ function ChatPlaceCard({ place }: { place: ChatPlace }) {
   );
 }
 
-/** Shown to a signed-out visitor once their free questions for the day are used up. */
-function SigninCard() {
+/** Under Fomo's limit-hit (or session-expired) message: sign in, and `question` is asked again on the way back. */
+function SigninCard({ question, expired = false }: { question: string; expired?: boolean }) {
   return (
     <div className="mx-auto flex w-full max-w-[320px] flex-col items-center gap-2 rounded-xl border border-outline-variant/60 bg-surface-container-lowest p-4 text-center">
-      <p className="text-label-md font-bold text-primary">Sign in to keep asking</p>
+      <p className="text-label-md font-bold text-primary">{expired ? "Sign in again" : "Keep asking Fomo"}</p>
       <p className="text-label-sm text-on-surface-variant">
-        That&apos;s your 3 free questions for today. Signing in gets you more and saves your chat.
+        {expired
+          ? "It only takes a moment, and your chat is saved."
+          : "Signing in is free. You get way more questions and your chat is saved."}
       </p>
       <Link
-        href="/signin?next=/fomo&reason=fomo"
+        href={signinHref(question)}
         className="mt-1 rounded-full bg-primary px-5 py-2 text-label-md font-semibold text-on-primary transition-opacity hover:opacity-90"
       >
-        Sign in
+        Sign in to continue
       </Link>
     </div>
   );

@@ -110,6 +110,8 @@ const PUBLIC_API_PREFIXES = [
   // itself (app/unsubscribe/page.tsx) calls this on mount with no session.
   // The POST half (RFC 8058 one-click) is in PUBLIC_POST_PREFIXES below.
   "/api/unsubscribe",
+  // Signed-out visitors' remaining free Ask Fomo questions (GET only; the chat POST itself is in PUBLIC_POST_PREFIXES).
+  "/api/chat/quota",
 ];
 const PUBLIC_PLACE_OFFERS = /^\/api\/places\/[^/]+\/offers$/;
 // Only the .ics download off a single event is public — the bare

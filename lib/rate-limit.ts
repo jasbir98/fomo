@@ -260,28 +260,55 @@ export async function consumeAnonRateLimit(
 }
 
 /**
+ * Reads this caller's row for the current fixed window of an anonymous
+ * IP-scoped limit, or count 0 when there's no row yet. Window start mirrors
+ * consume_anon_rate_limit's floor exactly, so it addresses the same row.
+ * Shared by `peekAnonRateLimit` and `refundAnonRateLimit`.
+ */
+async function readAnonWindow(
+  request: Request,
+  route: string,
+  windowSeconds: number
+): Promise<{ key: string; windowStart: string; count: number }> {
+  const key = hashAnonKey(clientIp(request));
+  const windowStart = new Date(Math.floor(Date.now() / 1000 / windowSeconds) * windowSeconds * 1000).toISOString();
+  const { data } = await supabaseAdmin()
+    .from("anon_rate_limits")
+    .select("count")
+    .eq("key", key)
+    .eq("route", route)
+    .eq("window_start", windowStart)
+    .maybeSingle();
+  return { key, windowStart, count: (data as { count?: number } | null)?.count ?? 0 };
+}
+
+/**
+ * How many of an anonymous IP-scoped limit's slots this caller has used in
+ * the current window, without consuming one — for showing "N free questions
+ * left". Returns 0 when there's no row or the read fails (display only; the
+ * consume call is what actually enforces the limit).
+ */
+export async function peekAnonRateLimit(request: Request, route: string, windowSeconds: number): Promise<number> {
+  try {
+    return (await readAnonWindow(request, route, windowSeconds)).count;
+  } catch (err) {
+    console.warn(`[rate-limit] peek failed for "${route}"`, err);
+    return 0;
+  }
+}
+
+/**
  * Gives back one unit of an anonymous IP-scoped limit — for a request that
  * consumed a slot but then failed on our side (e.g. the AI call errored), so
  * a signed-out visitor's handful of free questions isn't eaten by our own
  * failures. Best effort: read-then-write rather than an atomic RPC (a race
- * can only under-refund), and any error is swallowed. Window start mirrors
- * consume_anon_rate_limit's fixed-window floor exactly.
+ * can only under-refund), and any error is swallowed.
  */
 export async function refundAnonRateLimit(request: Request, route: string, windowSeconds: number): Promise<void> {
   try {
-    const key = hashAnonKey(clientIp(request));
-    const windowStart = new Date(Math.floor(Date.now() / 1000 / windowSeconds) * windowSeconds * 1000).toISOString();
-    const db = supabaseAdmin();
-    const { data } = await db
-      .from("anon_rate_limits")
-      .select("count")
-      .eq("key", key)
-      .eq("route", route)
-      .eq("window_start", windowStart)
-      .maybeSingle();
-    const count = (data as { count?: number } | null)?.count ?? 0;
+    const { key, windowStart, count } = await readAnonWindow(request, route, windowSeconds);
     if (count <= 0) return;
-    await db
+    await supabaseAdmin()
       .from("anon_rate_limits")
       .update({ count: count - 1 })
       .eq("key", key)
