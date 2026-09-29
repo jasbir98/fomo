@@ -108,6 +108,7 @@ import {
   extractMetaDescription,
 } from "./lib/describe.mjs";
 import { httpUrlOrNull } from "./lib/http-url.mjs";
+import { isJunkDescription } from "./lib/junk-description.mjs";
 
 if (process.argv.includes("--help") || process.argv.includes("-h")) {
   console.log(`Usage: node --env-file=.env.local scripts/daily-sources.mjs [options]
@@ -1682,6 +1683,7 @@ function stripDiacritics(s) {
  * rows alike — so a gig discovered by both a scrape and a provider API
  * collapses onto one row too.
  */
+// KEEP IN SYNC with lib/events/identity.ts (TS port used by the app's read-time dedupe).
 function normalizeEventTitle(name, venueName) {
   let t = stripDiacritics(String(name ?? "")).toLowerCase().trim();
 
@@ -1758,6 +1760,7 @@ function crossSourceKey(row) {
 // aggregator with its own canonical listing) outrank general discovery
 // scrapes, which outrank allevents.in (already flagged elsewhere in this
 // file as the noisiest/least precise source).
+// KEEP IN SYNC with PROVIDER_PRIORITY in lib/events/identity.ts.
 const PROVIDER_PRIORITY = { ticketmaster: 3, skiddle: 3, songkick: 2, luma: 1, eventbrite: 1, allevents: 0 };
 
 /** True if `candidate` should replace `existing` for the same cross-source key. */
@@ -1821,7 +1824,12 @@ const MAX_BACKFILL_FETCHES = 150;
 const DESCRIPTION_MIN_LENGTH = 40; // matches the measurement threshold: "empty or very short (<40 chars)"
 
 function needsBackfill(row) {
-  return !row.description || row.description.trim().length < DESCRIPTION_MIN_LENGTH;
+  // A placeholder ("summary of the event", "TBC", ...) counts as empty.
+  return (
+    !row.description ||
+    row.description.trim().length < DESCRIPTION_MIN_LENGTH ||
+    isJunkDescription(row.description, row.name)
+  );
 }
 
 /** Best-effort {description, startDate} from the first schema.org Event object found on an already-fetched page. */
@@ -1914,6 +1922,9 @@ async function backfillDescriptions(rows, now) {
     // worth attempting" trigger) is kept as-is, never replaced by the
     // fallback — the fallback is for rows with truly nothing, not for
     // trimming a legitimately short real description.
+    // A placeholder that survived (shouldn't post-cleanDescription, but be
+    // safe) is treated as empty rather than being stored.
+    if (row.description && isJunkDescription(row.description, row.name)) row.description = null;
     if (!row.description) {
       row.description = fallbackDescription(row);
       stats.fallbackUsed += 1;

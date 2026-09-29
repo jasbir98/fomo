@@ -135,8 +135,8 @@ function zoneOffsetMs(at: Date, timeZone: string): number {
  * one in force at *local* midnight: on a DST-shift day the first guess lands
  * on the wrong side of the transition, and re-resolving the offset at that
  * candidate corrects it. Needed by the feed's window ranges, which must start
- * and end on true day boundaries so "Now" (today + tomorrow) and "Coming up"
- * (everything after) can't overlap or leave a gap between them.
+ * and end on true day boundaries so "Today" (`window=now`) and "Coming up"
+ * (tomorrow onwards) can't overlap or leave a gap between them.
  */
 export function startOfLocalDay(dayDate: string, timeZone: string = CITY.timezone): Date {
   const [y, m, d] = dayDate.split("-").map(Number);
@@ -237,6 +237,38 @@ const DEFAULT_OCCURRENCE_DURATION_MS = 2 * 60 * 60 * 1000;
 function isMidnightUtc(iso: string): boolean {
   const d = new Date(iso);
   return !Number.isNaN(d.getTime()) && d.getUTCHours() === 0 && d.getUTCMinutes() === 0 && d.getUTCSeconds() === 0;
+}
+
+/**
+ * True when an occurrence is actually IN PROGRESS at `at` — its real start
+ * instant has passed and its effective end (`endsAt`, else start + the 2h
+ * default) hasn't. Powers the feed's small "On now" pill on the Today tab.
+ *
+ * Only exact occurrences (a concrete `startsAt`) can be live: a rule-derived
+ * one ("Mondays") has no clock time to compare against, so it's never
+ * claimed as "on now" just because today is one of its days. Date-only rows
+ * (start or end stored at 00:00 UTC — see `isMidnightUtc`) run all day, so
+ * they're live for every local day in `[dayDate, lastDayDate]` once started,
+ * rather than for a 2h sliver after 00:00 UTC.
+ */
+export function occurrenceIsLive(
+  occurrence: Pick<Occurrence, "exact" | "startsAt" | "endsAt" | "dayDate" | "lastDayDate">,
+  at: Date = new Date(),
+  timeZone: string = CITY.timezone
+): boolean {
+  if (!occurrence.exact || !occurrence.startsAt) return false;
+  const startMs = new Date(occurrence.startsAt).getTime();
+  if (Number.isNaN(startMs) || startMs > at.getTime()) return false;
+
+  const allDay = occurrence.endsAt ? isMidnightUtc(occurrence.endsAt) : isMidnightUtc(occurrence.startsAt);
+  if (allDay) {
+    const today = localDayDate(at, timeZone);
+    return occurrence.dayDate <= today && today <= occurrence.lastDayDate;
+  }
+  const endMs = occurrence.endsAt
+    ? new Date(occurrence.endsAt).getTime()
+    : startMs + DEFAULT_OCCURRENCE_DURATION_MS;
+  return !Number.isNaN(endMs) && at.getTime() < endMs;
 }
 
 /**

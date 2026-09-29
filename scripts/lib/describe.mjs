@@ -13,6 +13,8 @@
  * adapters.
  */
 
+import { isJunkDescription } from "./junk-description.mjs";
+
 // Max length of a cleaned description, matching the "1-2 lines" brief.
 export const MAX_DESCRIPTION_LENGTH = 220;
 // Below this, a candidate is "too short to be worth keeping" rather than
@@ -238,6 +240,9 @@ export function cleanDescription(raw, { title, venueName } = {}) {
   s = collapseWhitespace(withoutBoilerplateSentences);
 
   if (s.length < MIN_USEFUL_LENGTH) return null;
+  // Source placeholders ("summary of the event", "TBC", ...) count as empty
+  // so the row falls through to the backfill-from-own-page step.
+  if (isJunkDescription(s, title)) return null;
   if (isJustTitleOrVenue(s, title, venueName)) return null;
 
   return trimToLength(s);

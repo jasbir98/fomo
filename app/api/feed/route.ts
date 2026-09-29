@@ -34,10 +34,16 @@
  *                 the default `price=all` shows the whole merged catalogue
  *                 regardless of price — see `whatsOnHappeningPasses`'s doc
  *                 comment and `FeedPrice`'s own doc comment in feed-types.ts.
+ *   anyDay      — the "Any day" section (lib/happenings/everyday.ts): cards from
+ *                 the same pool as `whatsOn` that run essentially every day
+ *                 (a walking tour that runs 7 days a week, a nightly comedy
+ *                 club), pulled out so they don't top the dated list daily.
+ *                 On `coming_up`, items already available today are omitted
+ *                 (Today's section shows them). Null when empty/book_early.
  *   bookEarly   — always-on, independent of `window`. Ranking/labels live in
  *                 lib/happenings/book-early.ts. Home only renders it under
  *                 "Coming up" (it's a section about future on-sales, so it
- *                 has no business under a today/tomorrow tab), but the field
+ *                 has no business under the Today tab), but the field
  *                 stays window-independent because /book-early, /deals and
  *                 /free all read this same route with `window=now` and
  *                 depend on getting the full list back.
@@ -53,9 +59,11 @@
  * `window` was a three-way Now/This month/Coming up control and is now a
  * two-way Now/Coming up one, because the three overlapped: all of them
  * expanded occurrences from `now`, and both "This month" and "Coming up"
- * re-rendered the same today/tomorrow cards "Now" had just shown. The two
- * that remain partition the calendar — `now` is exactly today + tomorrow,
- * `coming_up` starts the day after — so no card can appear under both.
+ * re-rendered the same today cards "Now" had just shown. The two
+ * that remain partition the calendar — `now` is exactly the rest of TODAY
+ * (the "Today" tab; the URL value stays `now` for compatibility),
+ * `coming_up` starts at the top of tomorrow — so no card can appear under
+ * both.
  * "This month" survives as `range`, which only caps `coming_up`'s lookahead
  * at the end of the current month.
  *
@@ -90,7 +98,6 @@ import {
 } from "@/lib/happenings/occurrence";
 import { eventHasEnded } from "@/lib/events/format";
 import {
-  bucketForDayDate,
   formatPlaceCategoryLabel,
   oneLinerSummary,
   shortLocationLine,
@@ -102,6 +109,7 @@ import { dealFacets, isGenuineDeal } from "@/lib/happenings/groups";
 import { groupHappeningsIntoSeries, seriesLookup, type HappeningSeriesGroup } from "@/lib/happenings/series";
 import { dedupeProviderEvents, mergeProviderEventsIntoCards, normalizeText, type MergeableCard } from "@/lib/happenings/merge-events";
 import { groupRecurringCards } from "@/lib/happenings/recurring";
+import { everydayCardRunsOn, isEverydayCard, isEverydayRecurrence } from "@/lib/happenings/everyday";
 import {
   buildBookEarlyEventCard,
   buildBookEarlyHappeningCard,
@@ -176,7 +184,7 @@ function monthEndDayDate(today: string): string {
  * The occurrence-expansion range for a feed window, anchored to `now`.
  *
  * The two windows are DISJOINT by construction — `now` ends at the close of
- * tomorrow and `coming_up` starts at the top of the day after — which is what
+ * today and `coming_up` starts at the top of tomorrow — which is what
  * stops the same card rendering under both tabs. Previously every window
  * started at `now`, so today's occurrences were expanded for all three and
  * the overlap was only partly papered over by `bucketOrder` afterwards.
@@ -203,10 +211,13 @@ function occurrenceWindowRange(
   const today = localDayDate(now, timeZone);
 
   if (window === "now") {
-    return { from: now, to: endOfLocalDay(addDays(today, 1), timeZone) };
+    // Floor stays at `now` (not start of day): things already in progress
+    // (spans, exhibitions that started earlier and haven't ended) are still
+    // "on today"; things that finished this morning are not.
+    return { from: now, to: endOfLocalDay(today, timeZone) };
   }
 
-  const from = startOfLocalDay(addDays(today, 2), timeZone);
+  const from = startOfLocalDay(addDays(today, 1), timeZone);
   const lastDay = range === "month" ? monthEndDayDate(today) : addDays(today, COMING_UP_LOOKAHEAD_DAYS);
   return { from, to: endOfLocalDay(lastDay, timeZone) };
 }
@@ -319,8 +330,8 @@ function pickSeriesLeads(groups: HappeningSeriesGroup[], now: Date, timeZone: st
  * usual `HERO_*_LOOKAHEAD_DAYS` cap, never wider than either alone. This is
  * what makes the hero reflect the active tab: on `window=now` a happening
  * whose next occurrence is next week no longer wins the slot just because it
- * scores well, and on `window=coming_up` today/tomorrow's occurrences (the
- * `now` tab's own territory) are excluded from the running rather than
+ * scores well, and on `window=coming_up` today's occurrences (the
+ * `now`/Today tab's own territory) are excluded from the running rather than
  * winning there too, which is how the exact same "today only" hero used to
  * show up on Coming up before this. `null` (the route's own `book_early`
  * request) keeps the unrestricted, `now`-anchored search — that result is
@@ -350,7 +361,7 @@ function pickHero(
   // spurious "Property does not exist on type 'never'" at the read site.
   // Collecting candidates into a plain array and reducing in a second, non-
   // nested loop sidesteps that entirely.
-  const candidates: { card: FeedHeroCard; score: number; startMs: number }[] = [];
+  const candidates: { card: FeedHeroCard; score: number; startMs: number; everyday: boolean }[] = [];
 
   for (const h of happenings) {
     if (!isDated(h)) continue;
@@ -365,7 +376,12 @@ function pickHero(
     const startMs = occurrence.startsAt
       ? new Date(occurrence.startsAt).getTime()
       : startOfLocalDay(occurrence.dayDate, timeZone).getTime();
-    candidates.push({ card: { kind: "happening", happening: h, occurrence, reason }, score, startMs });
+    candidates.push({
+      card: { kind: "happening", happening: h, occurrence, reason },
+      score,
+      startMs,
+      everyday: isEverydayRecurrence(h.recurrence),
+    });
   }
 
   for (const e of events) {
@@ -373,11 +389,15 @@ function pickHero(
     if (Number.isNaN(startMs) || startMs < eventFrom || startMs > eventCutoff) continue;
     if (priceSignalForEvent(e) !== "cheap") continue; // free-or-cheap only, never a guessed-cheap sports exemption
     const { score, reason } = eventRecommendationScore(e, now, timeZone);
-    candidates.push({ card: { kind: "event", event: e, reason }, score, startMs });
+    candidates.push({ card: { kind: "event", event: e, reason }, score, startMs, everyday: false });
   }
 
+  // Something on every day (a daily guided walk, the free walking tour) is
+  // never the pick while anything else qualifies — it'd lead the page every
+  // single day. It lives in the "Any day" section instead (everyday.ts).
+  const pool = candidates.some((c) => !c.everyday) ? candidates.filter((c) => !c.everyday) : candidates;
   let best: (typeof candidates)[number] | null = null;
-  for (const c of candidates) {
+  for (const c of pool) {
     if (!best || c.score > best.score || (c.score === best.score && c.startMs < best.startMs)) {
       best = c;
     }
@@ -836,6 +856,7 @@ export async function GET(request: Request) {
     // when `whatsOn` is going to render as empty anyway, so it's skipped
     // outright rather than computed and discarded.
     let whatsOn: FeedBucket[] = [];
+    let anyDay: FeedBucket | null = null;
     if (window !== "book_early") {
       const { from, to } = occurrenceWindowRange(window, range, now, timeZone);
 
@@ -878,7 +899,7 @@ export async function GET(request: Request) {
       // no price filter at all — see `FeedPrice`'s own doc comment.
       //
       // Bounded by the window's own `from`, not `now`: on "Coming up" that's
-      // the day after tomorrow, so the `limit` budget isn't spent on today's
+      // tomorrow, so the `limit` budget isn't spent on today's
       // events only for them to be discarded by the bucket filter below —
       // which used to be able to starve the section empty on a busy day.
       // Skipped entirely for an inverted range ("This month", selected with
@@ -954,15 +975,18 @@ export async function GET(request: Request) {
       // (Home, app/(shell)/page.tsx) is what now lets the caller narrow to a
       // weekend or a single day, client-side, over this one list. `now`
       // keeps its own single bucket, belt-and-braces filtered by
-      // `bucketForDayDate` in case a card's local day lands on the window
+      // the card's local day in case it lands on the window
       // boundary differently than its raw timestamp suggests (the range
       // itself already excludes days outside it via `occurrenceWindowRange`).
       const bucketKey: FeedBucketKey = window === "now" ? "today_tomorrow" : "coming_up";
       const cards = allCards
         .filter((card) => !cardHasEnded(card, now, timeZone)) // final "no ended items ever leave an API" guard
         .filter((card) => {
-          const key = bucketForDayDate(dayDateOf(card), now, timeZone);
-          return window === "now" ? key === "today_tomorrow" : key !== "today_tomorrow";
+          // Direct day comparison (not `bucketForDayDate`, which still groups
+          // today + tomorrow for hero scoring): Today = today's day, Coming
+          // up = tomorrow onwards.
+          const day = dayDateOf(card);
+          return window === "now" ? day === todayStr : day > todayStr;
         })
         .sort((a, b) => {
           const dayCmp = dayDateOf(a).localeCompare(dayDateOf(b));
@@ -979,10 +1003,38 @@ export async function GET(request: Request) {
       // see lib/happenings/recurring.ts's module doc.
       const groupedCards = groupRecurringCards(cards, timeZone);
 
-      if (groupedCards.length > 0) {
-        const title = window === "now" ? "Happening Today & Tomorrow" : "Coming Up";
-        const meta = window === "now" ? `${groupedCards.length} active` : null;
-        whatsOn = [{ key: bucketKey, title, meta, cards: groupedCards }];
+      // "Any day" split (lib/happenings/everyday.ts): a card that's on
+      // essentially every day (free walking tour, a nightly comedy club) is
+      // pulled out of the chronological list — it started ~10am every day
+      // and so topped Today forever — into its own trailing section. Run
+      // AFTER groupRecurringCards so a daily provider listing (collapsed to
+      // one `recurring` card with `dates`) is judged as the one card it is.
+      const windowStartDay = window === "now" ? todayStr : addDays(todayStr, 1);
+      const seriesMembers = (key: string) => seriesGroups.find((g) => g.key === key)?.members ?? [];
+      const mainCards: FeedCardData[] = [];
+      const anyDayCards: FeedCardData[] = [];
+      for (const card of groupedCards) {
+        if (!isEverydayCard(card, { windowStartDay, seriesMembers })) {
+          mainCards.push(card);
+          continue;
+        }
+        // Coming up: an everyday item whose recurrence rule already runs
+        // today is in Today's Any day section — repeating it under Coming up
+        // forever would just be noise, so it's dropped here (not moved back
+        // into the dated list either). A weekday-only (5-day) item, when
+        // today is a weekend day, doesn't run today, so it stays. A dates-
+        // based `recurring` card has no rule to check and stays.
+        if (window === "coming_up" && everydayCardRunsOn(card, todayStr, seriesMembers)) continue;
+        anyDayCards.push(card);
+      }
+
+      if (mainCards.length > 0) {
+        const title = window === "now" ? "Today" : "Coming Up";
+        const meta = window === "now" ? `${mainCards.length} active` : null;
+        whatsOn = [{ key: bucketKey, title, meta, cards: mainCards }];
+      }
+      if (anyDayCards.length > 0) {
+        anyDay = { key: "any_day", title: "Any day", meta: "Runs most days", cards: anyDayCards };
       }
     }
 
@@ -1052,7 +1104,7 @@ export async function GET(request: Request) {
     const freeAnyTime = await buildFreeAnyTime(db, happenings, seriesByMemberId, seriesLeads, placesById, now, timeZone);
 
     return cachedJson<FeedResponse>(
-      { hero: responseHero, heroKind, whatsOn, bookEarly, deals, freeAnyTime },
+      { hero: responseHero, heroKind, whatsOn, anyDay, bookEarly, deals, freeAnyTime },
       CACHE_PRIVATE_NO_STORE
     );
   } catch (err) {
@@ -1070,6 +1122,7 @@ export async function GET(request: Request) {
       {
         hero: null,
         whatsOn: [],
+        anyDay: null,
         bookEarly: [],
         deals: { venueGroups: [], singles: [] },
         freeAnyTime: [],

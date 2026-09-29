@@ -34,8 +34,8 @@ async function fetchFeed(window: Exclude<FeedWindow, "book_early">, signal?: Abo
  * This weekend in Edinburgh — the public, time-first page the Instagram
  * link-in-bio and the weekly email point at (askfomo.com/weekend).
  *
- * The feed's two date windows are disjoint (`now` = today + tomorrow,
- * `coming_up` = after), so on Fri–Sun the weekend straddles both. Fetches
+ * The feed's two date windows are disjoint (`now` = the rest of today,
+ * `coming_up` = tomorrow onwards), so on Fri–Sun the weekend straddles both. Fetches
  * both under the same `feed:${window}` cache keys Home and What's on use,
  * merges, dedupes and keeps cards on this Saturday or Sunday.
  */

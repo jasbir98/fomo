@@ -1,18 +1,21 @@
 "use client";
 
 import { Icon, NavCard, SaveButton, SmartImage } from "@/components/ui";
-import { formatEventDate, formatEventPrice, formatEventTimeSpan, formatEventWhen } from "@/lib/events/format";
+import { eventIsInProgress, formatEventDate, formatEventPrice, formatEventTimeSpan, formatEventWhen } from "@/lib/events/format";
 import {
   ELIGIBILITY_ICON,
   checkedLabel,
   eligibilityLine,
+  happeningDayLabel,
+  happeningLiveUntilLabel,
   happeningTimeLabel,
   happeningTypeTag,
-  monthShort,
   occurrenceRangeLabel,
   oneLinerSummary,
   savingBadgeLabel,
+  shortDayLabel,
 } from "@/lib/happenings/format";
+import { occurrenceIsLive } from "@/lib/happenings/occurrence";
 import { categoryDefaultImage, categoryStyle, kindStyle } from "@/lib/happenings/category-style";
 import { priceLabelForCard, priceLabelForEvent, priceLabelForHappening } from "@/lib/happenings/price-label";
 import { PriceTag } from "@/components/happenings/PriceTag";
@@ -29,7 +32,7 @@ import { track, priceBand, trackOutboundClicked } from "@/lib/analytics/track";
 /** Where this list is mounted — sent as `card_opened`'s `surface` so
  *  analytics can tell a Home "What's on" tap apart from the same card
  *  rendered on /whats-on, /weekend, /deals, /free or /book-early. */
-export type FeedCardSurface = "home_whats_on" | "whats_on" | "weekend" | "free" | "deals" | "book_early";
+export type FeedCardSurface = "home_whats_on" | "whats_on" | "weekend" | "free" | "deals" | "book_early" | "home_any_day" | "whats_on_any_day";
 
 export interface FeedListCardProps {
   card: FeedCardData;
@@ -100,6 +103,39 @@ function CategoryDot({ category }: { category: Happening["category"] }) {
   return <Icon name={style.icon} size={13} className={style.textClass} />;
 }
 
+/** Tiny "On now" chip for the meta row — same pill scale as `TypeTag`, in the
+ *  primary-accent tint so it reads as live without adding a new colour. */
+function OnNowPill() {
+  return (
+    <span className="inline-flex items-center gap-1 rounded-full bg-accent/15 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-accent">
+      <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-accent" />
+      On now
+    </span>
+  );
+}
+
+/**
+ * The "when" segment of a happening/series meta row: a live occurrence shows
+ * the "On now" pill (+ "until X" when known); anything else its clock label
+ * ("Tonight 8pm", "Fri 3 Oct 7pm"), falling back to the bare day
+ * ("Today"/"Tomorrow"/"Fri 3 Oct") for occurrences with no clock time so
+ * every card states its date. Computed with `new Date()` at render — safe,
+ * because these cards only ever render after the client-side feed fetch
+ * (`useCachedJson`'s server snapshot is always empty), never in SSR HTML.
+ */
+function OccurrenceWhen({ occurrence }: { occurrence: Occurrence }) {
+  const now = new Date();
+  if (occurrenceIsLive(occurrence, now)) {
+    const until = happeningLiveUntilLabel(occurrence, now);
+    return (
+      <>
+        <OnNowPill />
+        {until ? <span className="font-bold text-accent">{until}</span> : null}
+      </>
+    );
+  }
+  return <span className="font-bold text-accent">{happeningTimeLabel(occurrence, now) ?? happeningDayLabel(occurrence, now)}</span>;
+}
 
 /** Makes the whole card row navigate to `href` while keeping its own inner
  *  buttons/links working — see components/ui/NavCard.tsx's doc comment for
@@ -147,7 +183,6 @@ function HappeningRow({
   position?: number;
 }) {
   const tag = happeningTypeTag(happening, occurrence.exact);
-  const time = happeningTimeLabel(occurrence);
   const venue = happening.venue_name ?? happening.district;
   const priceLabel = priceLabelForHappening(happening);
   const eligibility = eligibilityLine(happening);
@@ -185,8 +220,8 @@ function HappeningRow({
           <div className="mb-1 flex items-center gap-1.5 text-[11px] font-medium text-on-surface-variant">
             <CategoryDot category={happening.category} />
             <TypeTag tag={tag} kind={happening.kind} />
-            {time ? <span className="font-bold text-accent">{time}</span> : null}
-            {(time || tag) && venue ? <span>•</span> : null}
+            <OccurrenceWhen occurrence={occurrence} />
+            {venue ? <span>•</span> : null}
             {venue ? <span className="truncate">{venue}</span> : null}
           </div>
           <h4 className="line-clamp-2 text-headline-sm font-bold leading-snug text-on-surface">{happening.title}</h4>
@@ -237,7 +272,6 @@ function HappeningRow({
 function SeriesRow({ card, surface, position }: { card: SeriesCardData; surface?: FeedCardSurface; position?: number }) {
   const { lead, occurrence } = card;
   const tag = happeningTypeTag(lead, occurrence.exact);
-  const time = happeningTimeLabel(occurrence);
   const thumbnail = lead.image_url ?? categoryDefaultImage(lead.category);
   const oneLiner = oneLinerSummary(lead.summary);
   // The lead's own price stands in for the whole series (a "Parkrun ·
@@ -263,7 +297,7 @@ function SeriesRow({ card, surface, position }: { card: SeriesCardData; surface?
           <div className="mb-1 flex items-center gap-1.5 text-[11px] font-medium text-on-surface-variant">
             <CategoryDot category={lead.category} />
             <TypeTag tag={tag} kind={lead.kind} />
-            {time ? <span className="font-bold text-accent">{time}</span> : null}
+            <OccurrenceWhen occurrence={occurrence} />
             <span>•</span>
             <span className="truncate font-semibold text-secondary">{card.locationCount} locations</span>
           </div>
@@ -289,17 +323,6 @@ function SeriesRow({ card, surface, position }: { card: SeriesCardData; surface?
       <span className="text-[10px] text-on-surface-variant/70">{checkedLabel(lead.verified_at)}</span>
     </CardShell>
   );
-}
-
-/** "Tue 29 Sep" — no year, unlike lib/happenings/format.ts's own
- *  `occurrenceDateLabel` (that one's for a happening's own detail page,
- *  which has room to be explicit); this is a compact meta-line/pill label. */
-function shortDayLabel(dayDate: string): string {
-  const [y, m, d] = dayDate.split("-").map(Number);
-  const weekday = new Intl.DateTimeFormat("en-GB", { weekday: "short", timeZone: "UTC" }).format(
-    new Date(Date.UTC(y, m - 1, d))
-  );
-  return `${weekday} ${d} ${monthShort(dayDate)}`;
 }
 
 /**
@@ -462,6 +485,8 @@ function FestivalRow({ happening, surface, position }: { happening: Happening; s
 
 function EventRow({ event, surface, position }: { event: EventItem; surface?: FeedCardSurface; position?: number }) {
   const eventDate = formatEventDate(event.starts_at);
+  // Client-render only (see OccurrenceWhen) — safe to read the clock here.
+  const eventLive = eventIsInProgress(event);
   const eventTime = formatEventTimeSpan(event.starts_at, event.ends_at);
   const priceLabel = priceLabelForEvent(event);
   // EventItem (Skiddle/Ticketmaster) has no HappeningCategory-shaped column —
@@ -487,7 +512,7 @@ function EventRow({ event, surface, position }: { event: EventItem; surface?: Fe
         <div className="flex min-w-0 flex-1 flex-col">
           <div className="mb-1 flex items-center gap-1.5 text-[11px] font-medium text-on-surface-variant">
             <TypeTag tag="EVENT" kind="event" />
-            <span className="font-bold text-accent">{eventDate}</span>
+            {eventLive ? <OnNowPill /> : <span className="font-bold text-accent">{eventDate}</span>}
             {event.venue_name ? (
               <>
                 <span>•</span>

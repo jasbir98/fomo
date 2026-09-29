@@ -11,6 +11,7 @@ import { getEvent } from "@/lib/db";
 import { useSaved } from "@/lib/useSaved";
 import { categoryDefaultImage } from "@/lib/happenings/category-style";
 import { formatEventPrice, formatEventWhen, isDateOnlyStart } from "@/lib/events/format";
+import { buildEventFallbackDescription } from "@/lib/events/description";
 import type { EventItem } from "@/lib/types";
 import { Button, ErrorState, FomoLoader, Icon, PageHeader, PhotoCarousel, ShareButton, StatusPill } from "@/components/ui";
 import type { CarouselPhoto } from "@/components/ui";
@@ -244,10 +245,14 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
               {[event.venue_name, event.city].filter(Boolean).join(", ")}
             </p>
           ) : null}
-          <p className="mb-4 text-body-md text-on-surface-variant">
-            {event.description ??
-              `${event.category ?? "Event"} at ${event.venue_name ?? event.city ?? "this venue"}.`}
-          </p>
+          {/* No usable description from the source (already null after
+              lib/db/events.ts's placeholder cleaning): a plain factual line
+              built only from fields we hold, styled slightly muted. */}
+          {event.description ? (
+            <p className="mb-4 text-body-md text-on-surface-variant">{event.description}</p>
+          ) : (
+            <p className="mb-4 text-body-md text-on-surface-variant/80">{buildEventFallbackDescription(event)}</p>
+          )}
           <div className="grid grid-cols-2 gap-4 border-t border-outline-variant/30 pt-4">
             <div className="flex items-center gap-3">
               <Icon name="schedule" className="text-primary" />

@@ -1,6 +1,17 @@
 import type { Db } from "@/lib/supabase/types";
 import type { EventItem } from "@/lib/types";
 import { eventIsLive, DEFAULT_EVENT_DURATION_MS } from "@/lib/events/format";
+import { cleanEventDescription } from "@/lib/events/description";
+
+/**
+ * Single mapping point for every function below that returns EventItem rows:
+ * nulls a source-placeholder description ("summary of the event", "TBC",
+ * ...) so no surface ever renders it — see lib/events/description.ts.
+ */
+function withCleanDescription(row: EventItem): EventItem {
+  const cleaned = cleanEventDescription(row.description, row.name);
+  return cleaned === row.description ? row : { ...row, description: cleaned };
+}
 
 /**
  * The query-layer half of "is this event still running as of `at`" — kept
@@ -77,7 +88,7 @@ export async function listUpcomingEvents(
   // query change that loosens the DB-level filter. Every list route reading
   // this function (feed/now/explore/discover/chat) inherits this guard for
   // free rather than re-implementing it per caller.
-  const live = (data ?? []).filter((row) => eventIsLive(row, fromDate));
+  const live = (data ?? []).filter((row) => eventIsLive(row, fromDate)).map(withCleanDescription);
   return limit ? live.slice(0, limit) : live;
 }
 
@@ -85,7 +96,7 @@ export async function listUpcomingEvents(
 export async function getEvent(db: Db, id: string): Promise<EventItem | null> {
   const { data, error } = await db.from("events").select("*").eq("id", id).maybeSingle();
   if (error) throw error;
-  return data;
+  return data ? withCleanDescription(data) : null;
 }
 
 /**
@@ -96,5 +107,5 @@ export async function listEventsByIds(db: Db, ids: string[]): Promise<EventItem[
   if (ids.length === 0) return [];
   const { data, error } = await db.from("events").select("*").in("id", ids);
   if (error) throw error;
-  return data ?? [];
+  return (data ?? []).map(withCleanDescription);
 }

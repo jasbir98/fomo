@@ -308,6 +308,27 @@ export default function HappeningDetailPage({ params }: { params: Promise<{ id: 
   const badge = savingBadgeLabel(happening);
   const district = happening.district ?? districtFromAddress(happening.address);
   const eligibilityLabel = ELIGIBILITY_FALLBACK[happening.eligibility];
+  // No summary AND nothing else explanatory (saving label, redemption or
+  // eligibility note): fall back to one plain line built only from fields the
+  // row itself holds. Null when there is nothing beyond the kind word.
+  const KIND_FALLBACK_LABEL: Record<Happening["kind"], string> = {
+    deal: "A deal",
+    free_access: "Free access",
+    festival: "A festival event",
+    activity: "An activity",
+    tour: "A tour",
+    event: "An event",
+  };
+  const factualFallback =
+    !happening.summary && !happening.saving_label && !happening.redemption_note && !happening.eligibility_note && (happening.venue_name || eligibilityLabel)
+      ? `${[
+          KIND_FALLBACK_LABEL[happening.kind] ?? "An event",
+          happening.venue_name ? `at ${happening.venue_name}` : null,
+          eligibilityLabel ? `for ${eligibilityLabel.toLowerCase()}` : null,
+        ]
+          .filter(Boolean)
+          .join(" ")}.`
+      : null;
   const directionsUrl = directionsUrlFor({ lat: happening.lat, lng: happening.lng, query: happening.address ?? happening.venue_name });
   // booking_url/source_url come from scrapers/APIs — validate before ever
   // handing them to window.open/location (see lib/http/safe-url.ts). A
@@ -464,6 +485,8 @@ export default function HappeningDetailPage({ params }: { params: Promise<{ id: 
           ) : null}
           {happening.summary ? (
             <p className="mt-2 text-body-md text-on-surface-variant">{happening.summary}</p>
+          ) : factualFallback ? (
+            <p className="mt-2 text-body-md text-on-surface-variant/80">{factualFallback}</p>
           ) : null}
 
           {(happening.venue_name || happening.address) ? (

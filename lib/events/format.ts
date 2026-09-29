@@ -73,6 +73,16 @@ export function eventIsLive(e: Pick<EventItem, "starts_at" | "ends_at">, at: Dat
   return eventEffectiveEndMs(e) > at.getTime();
 }
 
+/** True while `e` is actually IN PROGRESS at `at` — started, and not yet at
+ *  its effective end (see `eventEffectiveEndMs`). The strict "happening right
+ *  now" check behind the feed's "On now" pill; `eventIsLive` alone is also
+ *  true for a future event, so it can't be used for this. */
+export function eventIsInProgress(e: Pick<EventItem, "starts_at" | "ends_at">, at: Date = new Date()): boolean {
+  const startMs = new Date(e.starts_at).getTime();
+  // A date-only row (00:00 UTC, no real clock time) is never claimed as "on now".
+  return !Number.isNaN(startMs) && !isDateOnlyStart(e.starts_at) && startMs <= at.getTime() && eventIsLive(e, at);
+}
+
 /**
  * THE "has this event ended as of `at`" predicate — the events-table half of
  * the "no ended items ever leave an API" guard (see lib/happenings/

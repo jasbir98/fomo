@@ -10,7 +10,7 @@ import { distinctCategoryFacets, matchesCategoryFilter, type CategoryFacetKey } 
 import { useCachedJson } from "@/lib/http/clientCache";
 import { useProgressiveReveal } from "@/lib/useProgressiveReveal";
 import { Chip, ErrorState, FeedbackLink, PageHeader, SegmentedControl, StickyFilterBar } from "@/components/ui";
-import { DateFilterRow, FeedListCard } from "@/components/happenings";
+import { AnyDaySection, DateFilterRow, FeedListCard } from "@/components/happenings";
 import { FomoSpot } from "@/components/fomo/FomoSpot";
 import { cardOnDay, cardPillDate } from "@/components/happenings/DateFilterRow";
 import { usePrefs } from "@/lib/personalise/usePrefs";
@@ -22,7 +22,7 @@ import { track } from "@/lib/analytics/track";
  *  separate tab with its own dedicated page (/book-early), never reachable
  *  from here. Mirrors app/(shell)/page.tsx's own WINDOW_OPTIONS gating. */
 const WHATS_ON_WINDOWS: { value: Exclude<FeedWindow, "book_early">; label: string }[] = [
-  { value: "now", label: "Today & tomorrow" },
+  { value: "now", label: "Today" },
   { value: "coming_up", label: "Coming up" },
 ];
 
@@ -119,7 +119,7 @@ function WhatsOnPageInner() {
 
   // Both windows, always — not just the active tab's. `now`/`coming_up` are
   // disjoint by construction (occurrenceWindowRange in app/api/feed/route.ts
-  // starts `coming_up` the day after `now` ends), so "This weekend" straddles
+  // starts `coming_up` the day after `now` ends (today vs tomorrow onwards)), so "This weekend" straddles
   // both windows on a Fri/Sat/Sun visit (Fri: only Sun matches; Sat/Sun: only
   // today's own window has today's own weekend day) — same fix as
   // app/(shell)/weekend/page.tsx, whose merge-and-dedupe this mirrors. Same
@@ -139,6 +139,11 @@ function WhatsOnPageInner() {
     () => (feedResult.data ? (feedResult.data.whatsOn[0]?.cards ?? []) : null),
     [feedResult.data]
   );
+  // "Any day" (lib/happenings/everyday.ts): the active window's everyday cards,
+  // kept out of `cards` so the date chips/list never see them. Independent of
+  // the date filter (a specific day chip still shows them — they're on every
+  // day), but subject to the category / Free only / For you controls.
+  const anyDayAll = useMemo(() => feedResult.data?.anyDay?.cards ?? [], [feedResult.data]);
   const error = feedResult.error != null && feedResult.data === undefined;
   // Same "nothing cached and the last attempt failed" contract as `error`
   // above, but over both windows — what "This weekend" actually needs.
@@ -200,7 +205,10 @@ function WhatsOnPageInner() {
   const listReady = dateFilter === "weekend" ? weekendCards !== null : cards !== null;
   const listError = dateFilter === "weekend" ? weekendError : error;
 
-  const categoryOptions = useMemo(() => distinctCategoryFacets(dateFilteredCards), [dateFilteredCards]);
+  const categoryOptions = useMemo(
+    () => distinctCategoryFacets([...dateFilteredCards, ...anyDayAll]),
+    [dateFilteredCards, anyDayAll]
+  );
 
   const filteredCards = useMemo(
     () =>
@@ -208,6 +216,11 @@ function WhatsOnPageInner() {
         (c) => matchesCategoryFilter(c, categoryFilter) && (!freeOnly || isFreeCard(c))
       ),
     [dateFilteredCards, categoryFilter, freeOnly]
+  );
+
+  const filteredAnyDay = useMemo(
+    () => anyDayAll.filter((c) => matchesCategoryFilter(c, categoryFilter) && (!freeOnly || isFreeCard(c))),
+    [anyDayAll, categoryFilter, freeOnly]
   );
 
   // "For you" (task brief §3) — a genuine re-sort by `personalBoost`, not
@@ -225,6 +238,18 @@ function WhatsOnPageInner() {
       .map((entry) => entry.card);
   }, [filteredCards, forYou, boostPrefs]);
 
+  // Same "For you" sort, applied within the Any day section on its own.
+  const visibleAnyDay = useMemo(() => {
+    if (!forYou) return filteredAnyDay;
+    return filteredAnyDay
+      .map((card, index) => ({ card, index, score: personalBoost(card, boostPrefs) }))
+      .sort((a, b) => b.score - a.score || a.index - b.index)
+      .map((entry) => entry.card);
+  }, [filteredAnyDay, forYou, boostPrefs]);
+
+  // Count = dated list + Any day (matches Home's tab badge).
+  const visibleTotal = visibleCards.length + visibleAnyDay.length;
+
   // Renders in chunks of 20 rather than mounting the whole (potentially
   // large, uncapped — see the pagination audit in the caller's report) list
   // at once.
@@ -235,8 +260,8 @@ function WhatsOnPageInner() {
   });
 
   function emptyMessage(): string {
-    if (listReady && visibleCards.length === 0 && (dateFilter === "weekend" ? (weekendCards?.length ?? 0) > 0 : (cards?.length ?? 0) > 0)) {
-      if (dateFilter !== "all" && dateFilteredCards.length === 0) {
+    if (listReady && visibleTotal === 0 && (dateFilter === "weekend" ? (weekendCards?.length ?? 0) : (cards?.length ?? 0)) + anyDayAll.length > 0) {
+      if (dateFilter !== "all" && dateFilteredCards.length === 0 && anyDayAll.length === 0) {
         return dateFilter === "weekend" ? "Nothing this weekend — try another date." : "Nothing on that day — try another date.";
       }
       if (freeOnly) return "Nothing free matches — turn off Free only.";
@@ -244,7 +269,7 @@ function WhatsOnPageInner() {
     }
     if (dateFilter === "weekend") return "Nothing lined up for this weekend yet — check back soon.";
     return feedWindow === "now"
-      ? "Nothing lined up for today & tomorrow yet — try Coming up."
+      ? "Nothing lined up for today yet — try Coming up."
       : "Nothing lined up yet — check back soon.";
   }
 
@@ -295,11 +320,11 @@ function WhatsOnPageInner() {
 
         <div className="flex items-center justify-between px-1">
           <h2 className="text-headline-sm font-extrabold tracking-tight text-on-surface">
-            {feedWindow === "now" ? "Today & tomorrow" : "Coming up"}
+            {feedWindow === "now" ? "Today" : "Coming up"}
           </h2>
           {listReady && !listError ? (
             <span className="rounded-full border border-hairline-strong bg-surface-container px-2.5 py-0.5 text-label-sm font-extrabold text-primary">
-              {visibleCards.length}
+              {visibleTotal}
             </span>
           ) : null}
         </div>
@@ -322,10 +347,10 @@ function WhatsOnPageInner() {
               <div key={i} className="h-24 animate-pulse rounded-lg bg-surface-container" />
             ))}
           </div>
-        ) : visibleCards.length === 0 ? (
+        ) : visibleTotal === 0 ? (
           <div className="flex flex-col items-center gap-2 rounded-2xl border border-dashed border-hairline-strong p-8 text-center">
             <FomoSpot
-              mood={(dateFilter === "weekend" ? (weekendCards?.length ?? 0) : (cards?.length ?? 0)) > 0 ? "hmm" : "meh"}
+              mood={(dateFilter === "weekend" ? (weekendCards?.length ?? 0) : (cards?.length ?? 0)) + anyDayAll.length > 0 ? "hmm" : "meh"}
               pose="shrug"
               className="h-20 w-20"
             />
@@ -337,6 +362,10 @@ function WhatsOnPageInner() {
               <FeedListCard key={cardKey(card)} card={card} surface="whats_on" position={i} />
             ))}
             {revealCount < visibleCards.length ? <div ref={revealSentinelRef} className="h-1" /> : null}
+            {visibleCards.length === 0 ? (
+              <p className="px-1 text-body-sm text-on-surface-variant">Nothing dated matches — just the always-on things below.</p>
+            ) : null}
+            <AnyDaySection cards={visibleAnyDay} surface="whats_on_any_day" />
           </div>
         )}
       {/* Footer */}

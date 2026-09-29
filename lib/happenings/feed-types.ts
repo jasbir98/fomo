@@ -17,8 +17,8 @@
  * WINDOWS ARE NOW DISJOINT. There were three (`now`/`month`/`coming_up`) and
  * all three expanded occurrences from `now`, so today's cards appeared under
  * every one of them. There are two now, and they partition the calendar with
- * no overlap: `now` is exactly today + tomorrow, `coming_up` starts at the
- * day after tomorrow. Nothing can ever render under both.
+ * no overlap: `now` is exactly the rest of today (the "Today" tab; the
+ * URL value stays `now`), `coming_up` starts at the top of tomorrow. Nothing can ever render under both.
  */
 import type { EventItem } from "@/lib/types";
 import type { Happening, Occurrence, HappeningCategory } from "@/lib/happenings/types";
@@ -39,12 +39,12 @@ export type FeedWindow = "now" | "coming_up" | "book_early";
 /**
  * Date-range filter for the `coming_up` window only — the old "This month"
  * tab, demoted to a filter because as a third tab it was almost entirely
- * redundant: it re-rendered the same today/tomorrow cards as "Now" plus a
+ * redundant: it re-rendered the same today cards as "Today" plus a
  * subset of "Coming up". As a filter it does the one thing the tab was
  * actually useful for — capping the lookahead at the end of the current
  * month — without duplicating anything.
  *
- * Ignored for `window: "now"`, which is always exactly today + tomorrow.
+ * Ignored for `window: "now"`, which is always exactly the rest of today.
  */
 export type FeedRange = "all" | "month";
 
@@ -208,8 +208,10 @@ export interface FeedResponse {
   hero: FeedHeroCard | null;
   /** Which presentation `hero` should render with. Absent (the ordinary case) means the ranked-across-everything "Fomo Pick" card; `"book_early"` means `hero` is a Book Early candidate and the client should render HappeningHero's Book Early copy/CTA instead — only ever set on `window=book_early`. */
   heroKind?: "book_early";
-  /** Window-driven date-bucketed section: one chronologically sorted bucket for `now` (today + tomorrow) or `coming_up` (everything after, no weekend/later split — Home applies its own client-side date filter over this single list) — activities, tours, events, festivals, dated free_access, cheap Skiddle/Ticketmaster events, and sports events/happenings regardless of price (lib/cards/price.ts's WHATS_ON_PRICE_EXEMPT_CATEGORIES). Excludes every `kind: "deal"` happening — those live in `deals` now, never duplicated here. */
+  /** Window-driven date-bucketed section: one chronologically sorted bucket for `now` (rest of today) or `coming_up` (everything after, no weekend/later split — Home applies its own client-side date filter over this single list) — activities, tours, events, festivals, dated free_access, cheap Skiddle/Ticketmaster events, and sports events/happenings regardless of price (lib/cards/price.ts's WHATS_ON_PRICE_EXEMPT_CATEGORIES). Excludes every `kind: "deal"` happening — those live in `deals` now, never duplicated here. */
   whatsOn: FeedBucket[];
+  /** "Any day" — cards that are on essentially every day (a free walking tour that runs 7 days a week, a nightly comedy club), pulled OUT of `whatsOn` so they stop topping the chronological list every day (lib/happenings/everyday.ts has the rule). Same window as `whatsOn`; null when the window has none (and always null on `book_early`). On `coming_up` it omits anything Today's own Any day section already shows, so it doesn't repeat forever. Optional so a client-cached response from before this field existed still type-checks — read it as `anyDay ?? null`. */
+  anyDay?: FeedBucket | null;
   /** Always-on, independent of `window` — see lib/happenings/book-early.ts for the ranking/label rules. */
   bookEarly: BookEarlyCardData[];
   /** Always-on, independent of `window`. Replaces the old `standingDeals` — every `kind: "deal"` happening (dated or standing), venue-grouped where a `place_id` resolves. */

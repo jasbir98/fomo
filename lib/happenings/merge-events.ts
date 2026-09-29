@@ -35,6 +35,7 @@
 import type { EventItem } from "@/lib/types";
 import type { HappeningCardData, SeriesCardData } from "@/lib/happenings/feed-types";
 import { localDayDate } from "@/lib/happenings/occurrence";
+import { NO_VENUE_KEY, PROVIDER_PRIORITY, normalizeEventTitle, normalizeVenueKey } from "@/lib/events/identity";
 
 /** The two What's-on card kinds a provider event can be merged into — never
  *  `EventCardData`, which is what's being merged AWAY. */
@@ -304,26 +305,80 @@ export function mergeProviderEventsIntoCards(
   return { cards: mergedCards, unmatchedEvents };
 }
 
+/** Two rows only count as the same performance when their starts are within
+ *  this of each other — keeps a matinee and an evening show apart. */
+export const DEDUPE_MAX_START_GAP_MS = 3 * 60 * 60 * 1000;
+
+/** True if `candidate` should replace `existing` when both describe the same
+ *  event: has a price > has an image > provider priority > earlier start. */
+function isBetterProviderEvent(candidate: EventItem, existing: EventItem): boolean {
+  const cPrice = candidate.price_from != null;
+  const ePrice = existing.price_from != null;
+  if (cPrice !== ePrice) return cPrice;
+
+  const cImage = candidate.image_url != null;
+  const eImage = existing.image_url != null;
+  if (cImage !== eImage) return cImage;
+
+  const cPri = PROVIDER_PRIORITY[candidate.provider] ?? 0;
+  const ePri = PROVIDER_PRIORITY[existing.provider] ?? 0;
+  if (cPri !== ePri) return cPri > ePri;
+
+  // Final tiebreak: the earlier start (the door/on-sale time most likely to
+  // be correct when times disagree slightly).
+  return new Date(candidate.starts_at).getTime() < new Date(existing.starts_at).getTime();
+}
+
 /**
- * Collapses provider-vs-provider duplicates — Ticketmaster and Skiddle both
- * regularly list the same gig. Unlike the happening/event merge above, there
- * is no curated row to defer to here, so this intentionally uses an EXACT
- * normalised-title + same-day key rather than the fuzzy threshold: with two
- * unverified rows and no authoritative one to prefer, a wrong merge would
- * silently destroy one provider's own booking link with no way to recover
- * it, so this only merges when the titles agree after normalisation, not
- * merely when they're similar. Keeps the earliest `starts_at` per key (the
- * on-sale/door time most likely to be correct when times disagree slightly).
+ * Collapses provider-vs-provider duplicates — Ticketmaster, Skiddle and
+ * Songkick regularly list the same gig, and because each provider upserts on
+ * its own (provider, provider_event_id) the DB holds them as separate rows
+ * (the ingest-time cross-source dedupe in scripts/daily-sources.mjs only
+ * works within one run).
+ *
+ * Two rows are the same event when their normalised titles (venue/city
+ * suffixes stripped — see lib/events/identity.ts, "Don Broco @ Edinburgh Corn
+ * Exchange" == "Don Broco"), local calendar day and venue key all agree AND
+ * their start times are within `DEDUPE_MAX_START_GAP_MS`, so a matinee and an
+ * evening show at one venue stay separate, as do two different acts on one
+ * night. If either row has no venue, title + day + the time guard decide.
+ * On a collapse the better row is kept (`isBetterProviderEvent`); order of
+ * first appearance is preserved.
  */
 export function dedupeProviderEvents(events: EventItem[], timeZone: string): EventItem[] {
-  const byKey = new Map<string, EventItem>();
+  const out: EventItem[] = [];
+  // title|day -> indexes into `out` of the kept rows in that bucket
+  const buckets = new Map<string, number[]>();
+  const venueKeys: string[] = [];
+
   for (const event of events) {
     const dayDate = localDayDate(new Date(event.starts_at), timeZone);
-    const key = `${normalizeText(event.name)}|${dayDate}`;
-    const existing = byKey.get(key);
-    if (!existing || new Date(event.starts_at).getTime() < new Date(existing.starts_at).getTime()) {
-      byKey.set(key, event);
+    const title = normalizeText(normalizeEventTitle(event.name, event.venue_name)) || event.name.trim().toLowerCase();
+    const venueKey = normalizeVenueKey(event.venue_name);
+    const bucketKey = `${title}|${dayDate}`;
+    const startMs = new Date(event.starts_at).getTime();
+
+    const bucket = buckets.get(bucketKey) ?? [];
+    const matchIdx = bucket.find((idx) => {
+      const other = out[idx];
+      const otherKey = venueKeys[idx];
+      const venueCompatible = venueKey === NO_VENUE_KEY || otherKey === NO_VENUE_KEY || venueKey === otherKey;
+      if (!venueCompatible) return false;
+      return Math.abs(new Date(other.starts_at).getTime() - startMs) <= DEDUPE_MAX_START_GAP_MS;
+    });
+
+    if (matchIdx === undefined) {
+      bucket.push(out.length);
+      buckets.set(bucketKey, bucket);
+      out.push(event);
+      venueKeys.push(venueKey);
+    } else if (isBetterProviderEvent(event, out[matchIdx])) {
+      out[matchIdx] = event;
+      // Keep a real venue key if the survivor lacked one.
+      if (venueKey !== NO_VENUE_KEY) venueKeys[matchIdx] = venueKey;
+    } else if (venueKeys[matchIdx] === NO_VENUE_KEY) {
+      venueKeys[matchIdx] = venueKey;
     }
   }
-  return Array.from(byKey.values());
+  return out;
 }

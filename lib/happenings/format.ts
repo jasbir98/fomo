@@ -317,8 +317,8 @@ function localHour(iso: string, timeZone: string): number {
 }
 
 /**
- * "Today 12:30pm" / "Tonight 8:30pm" / "Tomorrow 8:30pm" / "Sat 8:30pm" for
- * an occurrence with a real clock time; null for a dateless/recurring
+ * "Today 12:30pm" / "Tonight 8:30pm" / "Tomorrow 8:30pm" / "Sat 3 Oct 8:30pm"
+ * for an occurrence with a real clock time (date-only rows: "Sat 3 Oct"); null for a dateless/recurring
  * occurrence (weekly deals with no fixed hour, "always" rows) — the card
  * shows only its venue line then, matching the Brass Monkey card in the
  * mockup. Same-day only reads "Tonight" from `EVENING_HOUR` on — previously
@@ -360,11 +360,57 @@ export function happeningTimeLabel(
     return `${label}${clock}`;
   }
   if (occurrence.dayDate === tomorrow) return `Tomorrow${clock}`;
-  const [y, m, d] = occurrence.dayDate.split("-").map(Number);
+  // Beyond tomorrow: weekday + day number + month ("Fri 3 Oct 7pm") — a bare
+  // weekday is ambiguous across the 90-day Coming up list. A date-only row
+  // (no clock) is just "Fri 3 Oct".
+  return `${shortDayLabel(occurrence.dayDate)}${clock}`;
+}
+
+/**
+ * The card-level date fallback for an occurrence with no clock time
+ * (`happeningTimeLabel` returns null for those): "Today" / "Tomorrow" /
+ * "Fri 3 Oct". Ensures every What's on card states WHEN it is without the
+ * reader opening it. A day already behind today (only possible for a
+ * still-running span the caller floored to today) reads "Today".
+ */
+export function happeningDayLabel(
+  occurrence: Pick<Occurrence, "dayDate">,
+  now: Date = new Date(),
+  timeZone: string = CITY.timezone
+): string {
+  const today = localDayDate(now, timeZone);
+  if (occurrence.dayDate <= today) return "Today";
+  if (occurrence.dayDate === addDays(today, 1)) return "Tomorrow";
+  return shortDayLabel(occurrence.dayDate);
+}
+
+/**
+ * The "until X" tail shown next to the "On now" pill: the span's last day
+ * ("until 16 May 2027") for a multi-day occurrence still running, else the
+ * end clock time ("until 3pm") when a real, non-date-only `endsAt` is known,
+ * else null (no end known — the pill stands alone).
+ */
+export function happeningLiveUntilLabel(
+  occurrence: Pick<Occurrence, "dayDate" | "lastDayDate" | "endsAt">,
+  now: Date = new Date(),
+  timeZone: string = CITY.timezone
+): string | null {
+  const today = localDayDate(now, timeZone);
+  if (occurrence.lastDayDate > today) return `until ${shortDateLabel(occurrence.lastDayDate)}`;
+  if (occurrence.endsAt && !isMidnightUtc(occurrence.endsAt)) {
+    return `until ${formatClockTime(occurrence.endsAt, timeZone)}`;
+  }
+  return null;
+}
+
+/** "Tue 29 Sep" — no year (unlike `occurrenceDateLabel`, which is for a
+ *  happening's own detail page); the compact date label used on feed cards. */
+export function shortDayLabel(dayDate: string): string {
+  const [y, m, d] = dayDate.split("-").map(Number);
   const weekday = new Intl.DateTimeFormat("en-GB", { weekday: "short", timeZone: "UTC" }).format(
     new Date(Date.UTC(y, m - 1, d))
   );
-  return `${weekday}${clock}`;
+  return `${weekday} ${d} ${monthShort(dayDate)}`;
 }
 
 /** True for an instant at exactly 00:00:00 UTC — how the pipeline stores a date with no time. */
@@ -498,10 +544,10 @@ export function shortStartTimeFromNote(timeNote: string | null): string | null {
 }
 
 // ---------------------------------------------------------------------------
-// Date buckets ("Happening Today & Tomorrow", "This Weekend (26–27 Sep)")
+// Date buckets ("Today & Tomorrow" for hero scoring, "This Weekend (26–27 Sep)")
 // ---------------------------------------------------------------------------
 
-export type FeedBucketKey = "today_tomorrow" | "this_weekend" | "coming_up";
+export type FeedBucketKey = "today_tomorrow" | "this_weekend" | "coming_up" | "any_day";
 
 /**
  * The Saturday/Sunday of the CURRENT (already-started, if today is itself a
@@ -568,7 +614,10 @@ export function weekendBucketTitle(saturday: string, sunday: string): string {
 }
 
 /**
- * Which section a calendar day falls into. "always"-recurrence happenings
+ * Which section a calendar day falls into. NOTE: `today_tomorrow` still spans
+ * both days — that grouping is for hero scoring only; the feed's own Today/
+ * Coming up split is a direct day comparison in app/api/feed/route.ts.
+ * "always"-recurrence happenings
  * are never passed in here — they never compete for a dated bucket, they
  * live in the trailing Free Any Time zone instead (see the feed route).
  */

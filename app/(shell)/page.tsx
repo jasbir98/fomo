@@ -12,7 +12,7 @@ import type { WeatherCondition } from "@/lib/weather";
 import { WEATHER_THEME } from "@/lib/weatherUi";
 import { CityPicker, ErrorState, FeedbackLink, FomoLogo, Icon, SeeAllButton, SegmentedControl } from "@/components/ui";
 import { FomoSpot } from "@/components/fomo/FomoSpot";
-import { FeedHero, FeedListCard, FreeAnyTimeList, BookEarlyCard, SubscribeCard } from "@/components/happenings";
+import { AnyDaySection, FeedHero, FeedListCard, FreeAnyTimeList, BookEarlyCard, SubscribeCard } from "@/components/happenings";
 import { TodaysDealsStrip } from "@/components/happenings/TodaysDealsStrip";
 import { todaysDeals } from "@/lib/happenings/today-deals";
 import { AmbientWeather } from "@/components/weather/AmbientWeather";
@@ -57,14 +57,14 @@ function scheduleIdle(cb: () => void): () => void {
 /**
  * Three tabs, not a window plus a bolted-on list. "This month" used to be a
  * tab here, then a range filter chip inside Coming up; both are gone now.
- * Now/Coming up are disjoint by construction server-side (see
+ * Today/Coming up are disjoint by construction (Today = the rest of today, `window=now` in the URL/API; Coming up = tomorrow onwards) server-side (see
  * occurrenceWindowRange in app/api/feed/route.ts). `book_early` is the third
  * tab, added because Book early competed for attention as a section wedged
  * under Coming up — it's not a date window at all (the route returns an
  * empty `whatsOn` for it), it swaps out What's on entirely for the ranked
  * Book early list.
  *
- * Neither Now nor Coming up has any per-day/category filtering here anymore
+ * Neither Today nor Coming up has any per-day/category filtering here anymore
  * — that used to be an in-place "Show all N" expander plus (Coming up only)
  * a sticky date-pill row bolted onto this page. Both moved to their own
  * destination, app/(shell)/whats-on/page.tsx, reached via each list's
@@ -72,19 +72,19 @@ function scheduleIdle(cb: () => void): () => void {
  * wedged into Home.
  */
 const WINDOW_OPTIONS: { value: FeedWindow; label: string }[] = [
-  { value: "now", label: "Now" },
+  { value: "now", label: "Today" },
   { value: "coming_up", label: "Coming up" },
   { value: "book_early", label: "Book early" },
 ];
 
 /** What's on section header — deliberately its own wording (not the segmented
- *  control's own labels) so the header reads as "what you're looking at" ("Today
- *  & tomorrow") rather than echoing the tab name ("Now") back at the user.
+ *  control's own labels) so the header reads as "what you're looking at" rather than echoing the tab
+ *  name back at the user.
  *  `book_early` still needs an entry (this is a `Record<FeedWindow, string>`),
  *  but What's on is never rendered on that tab — see the section gating below
  *  — so this value is unreachable rather than a real piece of copy. */
 const WHATS_ON_WINDOW_LABEL: Record<FeedWindow, string> = {
-  now: "Today & tomorrow",
+  now: "Today",
   coming_up: "Coming up",
   book_early: "Book early",
 };
@@ -170,9 +170,9 @@ function SeeAllLink({ href, total }: { href: string; total: number }) {
 
 /**
  * Fomo Home — a clean, tab-driven skim: a hero card → then, depending on the
- * window control, either What's on (Now/Coming up) or the Book early list
+ * window control, either What's on (Today/Coming up) or the Book early list
  * (its own tab, not a section wedged under Coming up) → Free any time, shown
- * only on Now so it doesn't repeat itself under every tab. Every list here
+ * only on Today so it doesn't repeat itself under every tab. Every list here
  * (What's on, Book early) shows only its first SECTION_CAP cards, followed —
  * only when there's more than that — by a "See all N" link out to that
  * section's own dedicated page (/whats-on, /book-early), which owns the full
@@ -250,7 +250,7 @@ export default function HomePage() {
   const [cityPickerOpen, setCityPickerOpen] = useState(false);
 
   // What's on / Book early — one cache key per window, which is what makes
-  // Now → Coming up feel instant: switching `feedWindow` just points
+  // Today → Coming up feel instant: switching `feedWindow` just points
   // `useCachedJson` at a different (often already-warm, see the prefetch
   // effect below) key, so cached data reappears synchronously in the same
   // render as the switch, no dim/skeleton needed. `feedError` again only
@@ -355,6 +355,7 @@ export default function HomePage() {
   const showHappeningHero = feed?.hero != null;
   const heroKind = feed?.heroKind ?? "fomo_pick";
   const whatsOnBucket = feed?.whatsOn[0] ?? null;
+  const anyDayBucket = feed?.anyDay ?? null;
   const bookEarlyAll = feed?.bookEarly ?? [];
   const freeAnyTime = feed?.freeAnyTime ?? [];
 
@@ -390,6 +391,16 @@ export default function HomePage() {
     () => reorderWithBoost(whatsOnCards, (card) => personalBoost(card, boostPrefs)),
     [whatsOnCards, boostPrefs]
   );
+  // "Any day" (lib/happenings/everyday.ts) — boosted within its own section,
+  // never merged into the dated list above.
+  const anyDayCards = useMemo(() => anyDayBucket?.cards ?? [], [anyDayBucket]);
+  const boostedAnyDayCards = useMemo(
+    () => reorderWithBoost(anyDayCards, (card) => personalBoost(card, boostPrefs)),
+    [anyDayCards, boostPrefs]
+  );
+  // Tab count / badge = dated list + Any day, so the number never shrinks just
+  // because an item moved sections. Same rule as /whats-on.
+  const whatsOnTotal = whatsOnCards.length + anyDayCards.length;
   const boostedTodaysDeals = useMemo(
     () =>
       reorderWithBoost(todaysDealsList, (item: RankedDealItem) =>
@@ -421,11 +432,11 @@ export default function HomePage() {
   function countFor(w: FeedWindow): number | null {
     const data = w === feedWindow ? feed : w === "now" ? peekedNow : w === "coming_up" ? peekedComingUp : peekedBookEarly;
     if (!data) return null;
-    return w === "book_early" ? data.bookEarly.length : (data.whatsOn[0]?.cards.length ?? 0);
+    return w === "book_early" ? data.bookEarly.length : (data.whatsOn[0]?.cards.length ?? 0) + (data.anyDay?.cards.length ?? 0);
   }
 
   function toastLabelFor(w: FeedWindow, count: number): string {
-    const noun = w === "book_early" ? `${count === 1 ? "thing" : "things"} to book early` : w === "coming_up" ? "coming up" : "on now";
+    const noun = w === "book_early" ? `${count === 1 ? "thing" : "things"} to book early` : w === "coming_up" ? "coming up" : "on today";
     return `Showing ${count} ${noun} ↓`;
   }
 
@@ -478,8 +489,8 @@ export default function HomePage() {
     }
     if (feedWindow === "now") {
       return count != null
-        ? `${count} ${count === 1 ? "thing" : "things"} on today & tomorrow`
-        : "What's on today & tomorrow";
+        ? `${count} ${count === 1 ? "thing" : "things"} on today`
+        : "What's on today";
     }
     // coming_up — COMING_UP_LOOKAHEAD_DAYS in app/api/feed/route.ts is 90
     // days; "next few months" is the honest, human-readable rounding of that
@@ -794,7 +805,7 @@ export default function HomePage() {
                     here, Book early below). */}
                 <div className="flex items-center gap-2">
                   <span className="rounded-full border border-hairline-strong bg-surface-container px-2.5 py-0.5 text-label-sm font-extrabold text-primary">
-                    {whatsOnCards.length}
+                    {whatsOnTotal}
                   </span>
                   <SeeAllLink href={`/whats-on?window=${feedWindow}`} total={whatsOnCards.length} />
                 </div>
@@ -849,6 +860,7 @@ export default function HomePage() {
                     />
                   </>
                 )}
+                <AnyDaySection cards={boostedAnyDayCards} surface="home_any_day" />
               </div>
             )}
           </div>
@@ -914,9 +926,9 @@ export default function HomePage() {
           </section>
         ) : null}
 
-        {/* Free any time — Now only. It used to render under every tab,
+        {/* Free any time — Today only. It used to render under every tab,
             which read as repetition once Coming up and Book early each had
-            their own primary content to focus on; Now (today + tomorrow) is
+            their own primary content to focus on; Today is
             the one tab short enough that "here's what's always free" still
             earns its place at the bottom rather than padding out the scroll. */}
         {feedWindow === "now" ? <FreeAnyTimeList items={freeAnyTime} /> : null}
