@@ -94,7 +94,7 @@ export function MakeFomoYours({ open, onClose }: MakeFomoYoursProps) {
       onClose();
     } catch (err) {
       console.error("[personalise] save prefs failed", err);
-      setError("Couldn't save that — try again.");
+      setError("Couldn't save that. Try again.");
     } finally {
       setSaving(false);
     }

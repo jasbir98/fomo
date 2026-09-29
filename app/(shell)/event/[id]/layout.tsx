@@ -24,7 +24,7 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
         event.description,
       ]
         .filter(Boolean)
-        .join(" — ") || undefined;
+        .join(" · ") || undefined;
     // Always a concrete image — the event's own photo, or the branded
     // default OG image — same reasoning as the happening layout's own doc
     // comment: an explicit `openGraph.images` here replaces rather than

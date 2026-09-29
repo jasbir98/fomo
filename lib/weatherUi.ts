@@ -33,7 +33,7 @@ export const WEATHER_THEME: Record<WeatherCondition, WeatherTheme> = {
       "bg-gradient-to-b from-secondary-container/20 via-surface to-surface",
     iconClass: "text-secondary",
     chipClass: "bg-secondary-container/15 text-secondary-container",
-    moodLine: "Clear skies and good light — a fine afternoon to be outside.",
+    moodLine: "Clear skies and good light. A fine afternoon to be outside.",
   },
   cloudy: {
     icon: "cloud",
@@ -42,7 +42,7 @@ export const WEATHER_THEME: Record<WeatherCondition, WeatherTheme> = {
       "bg-gradient-to-b from-surface-container-high via-surface to-surface",
     iconClass: "text-on-surface-variant",
     chipClass: "bg-surface-container text-on-surface-variant",
-    moodLine: "Soft overcast light — easy conditions for wandering around.",
+    moodLine: "Soft overcast light, easy for wandering around.",
   },
   rainy: {
     icon: "rainy",
@@ -51,7 +51,7 @@ export const WEATHER_THEME: Record<WeatherCondition, WeatherTheme> = {
       "bg-gradient-to-b from-error-container/60 via-surface to-surface",
     iconClass: "text-error",
     chipClass: "bg-error-container/50 text-on-error-container",
-    moodLine: "Wet out there — a good excuse for something indoors.",
+    moodLine: "Wet out there. Good excuse for something indoors.",
   },
   windy: {
     icon: "air",
@@ -60,6 +60,6 @@ export const WEATHER_THEME: Record<WeatherCondition, WeatherTheme> = {
       "bg-gradient-to-b from-tertiary-fixed/50 via-surface to-surface",
     iconClass: "text-tertiary",
     chipClass: "bg-tertiary-fixed/40 text-on-tertiary-fixed-variant",
-    moodLine: "Crisp breeze today — perfect conditions for a brisk walk.",
+    moodLine: "Crisp breeze today. Good for a brisk walk.",
   },
 };

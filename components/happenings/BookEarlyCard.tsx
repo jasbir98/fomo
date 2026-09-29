@@ -67,7 +67,7 @@ export function BookEarlyCard({ card, initialSubscribed = false, position }: Boo
     setNotifyError(null);
     const result = await ensurePushSubscribed();
     if (!result.ok) {
-      setNotifyError(pushReasonMessage(result.reason) ?? "Couldn't turn on alerts — try again.");
+      setNotifyError(pushReasonMessage(result.reason) ?? "Couldn't turn on alerts. Try again.");
       return;
     }
     try {
@@ -80,7 +80,7 @@ export function BookEarlyCard({ card, initialSubscribed = false, position }: Boo
       setSubscribed(true);
     } catch (err) {
       console.error("[book-early] create alert failed", err);
-      setNotifyError("Couldn't turn on alerts — try again.");
+      setNotifyError("Couldn't turn on alerts. Try again.");
     }
   }
 
@@ -96,7 +96,7 @@ export function BookEarlyCard({ card, initialSubscribed = false, position }: Boo
       setSubscribed(false);
     } catch (err) {
       console.error("[book-early] remove alert failed", err);
-      setNotifyError("Couldn't turn off the alert — try again.");
+      setNotifyError("Couldn't turn off the alert. Try again.");
     }
   }
 

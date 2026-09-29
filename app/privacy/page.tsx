@@ -50,7 +50,7 @@ export default function PrivacyPage() {
           <ul className="list-disc space-y-2 pl-5">
             <li>
               <strong>Account details.</strong>{" "}If you sign in, we (via our auth provider, Supabase)
-              store your email address, and — if you sign in with Google — the name and profile
+              store your email address, and (if you sign in with Google) the name and profile
               photo Google shares with us. You can also add or change your display name and photo
               yourself on your Profile.
             </li>
@@ -78,7 +78,7 @@ export default function PrivacyPage() {
             <li>
               <strong>Fomo Friday email signup.</strong>{" "}If you join our weekly digest, we store the
               email address you give us and where you signed up. This works without an account and is
-              a separate opt-in from having one — you can unsubscribe any time via the link in every
+              a separate opt-in from having one. You can unsubscribe any time via the link in every
               email.
             </li>
             <li>
@@ -89,13 +89,13 @@ export default function PrivacyPage() {
             <li>
               <strong>Product analytics.</strong>{" "}We use Vercel Analytics (page views, no cookies, no
               personal identification) and PostHog, hosted in the EU, to understand how people use
-              Fomo — which pages and features get used, session recordings with every input masked, and
+              Fomo: which pages and features get used, session recordings with every input masked, and
               (via a survey pop-up) feedback you choose to give us. PostHog only starts saving anything
               across visits once you accept the cookie banner (see &ldquo;Cookies&rdquo; below); before
               that, or if you decline, nothing is written to your device. If you&rsquo;re signed in, the
               events PostHog records are linked to your account status (student/working, budget,
               whether you&rsquo;ve set preferences) so we can see which features matter to which kind of
-              visitor — never your email or chat content.
+              visitor, never your email or chat content.
             </li>
           </ul>
         </Section>
@@ -103,7 +103,7 @@ export default function PrivacyPage() {
         <Section title="Cookies">
           <p>
             We use two kinds of cookies. The authentication cookie our auth provider (Supabase) sets to
-            keep you signed in is essential to the service — without it, you&rsquo;d have to sign in
+            keep you signed in is essential to the service. Without it, you&rsquo;d have to sign in
             again on every page, and it isn&rsquo;t something you can opt out of. The second is
             PostHog&rsquo;s analytics cookie, which only gets set once you tap &ldquo;OK&rdquo; on the
             cookie bar at the bottom of the screen; tapping &ldquo;No thanks&rdquo; means nothing is
@@ -127,7 +127,7 @@ export default function PrivacyPage() {
             We share data with the processors that make the app work: Supabase (hosting, database,
             authentication), our AI provider (DeepSeek, or Anthropic) for Ask Fomo replies, Vercel
             (hosting, anonymous analytics and performance monitoring), PostHog (EU-hosted product
-            analytics, session replay and surveys), and — if you book something through the app — the
+            analytics, session replay and surveys), and, if you book something through the app, the
             relevant booking partner (e.g. Viator). We don&rsquo;t sell your data, and we don&rsquo;t
             share it for third-party advertising.
           </p>
@@ -155,7 +155,7 @@ export default function PrivacyPage() {
           </ul>
           <p>
             To delete your account or exercise any of these rights, email{" "}
-            <strong><a href="mailto:support@askfomo.com">support@askfomo.com</a></strong>{" "}— there&rsquo;s no self-serve delete-account button
+            <strong><a href="mailto:support@askfomo.com">support@askfomo.com</a></strong>. There&rsquo;s no self-serve delete-account button
             in the app yet, so we&rsquo;ll do it for you by hand.
           </p>
         </Section>

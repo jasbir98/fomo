@@ -89,8 +89,8 @@ function WeekendPageInner() {
   return (
     <div className="flex flex-col gap-5 pb-8">
       <PageHeader title="This weekend" action={<ShareButton
-            title="This weekend in Edinburgh — Fomo"
-            text="Free & cheap things to do in Edinburgh this weekend — found on Fomo"
+            title="This weekend in Edinburgh · Fomo"
+            text="Free & cheap things to do in Edinburgh this weekend, via Fomo"
             url={typeof window === "undefined" ? "/weekend" : `${window.location.origin}/weekend`}
             kind="weekend"
           />} />
@@ -151,8 +151,8 @@ function WeekendPageInner() {
             <FomoSpot mood="meh" pose="shrug" className="h-20 w-20" />
             <p className="text-body-md text-on-surface-variant">
               {freeOnly
-                ? "Nothing free matches — turn off Free only."
-                : "Nothing lined up for this weekend yet — check back soon."}
+                ? "Nothing free matches. Turn off Free only."
+                : "Nothing lined up for this weekend yet. Check back soon."}
             </p>
           </div>
         ) : (

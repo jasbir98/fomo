@@ -64,7 +64,7 @@ export default function TipPage() {
 
       if (!res.ok || !body?.ok) {
         setStatus("error");
-        setErrorMessage(body?.error ?? "Couldn't save that — try again.");
+        setErrorMessage(body?.error ?? "Couldn't save that. Try again.");
         return;
       }
 
@@ -82,7 +82,7 @@ export default function TipPage() {
       });
     } catch {
       setStatus("error");
-      setErrorMessage("Couldn't save that — check your connection and try again.");
+      setErrorMessage("Couldn't save that. Check your connection and try again.");
     }
   }
 
@@ -253,7 +253,7 @@ export default function TipPage() {
               inputMode="email"
               autoComplete="email"
               maxLength={254}
-              placeholder="optional — only if you want a reply"
+              placeholder="optional, only if you want a reply"
               value={formData.contact_email}
               onChange={handleInputChange}
               disabled={status === "sending"}

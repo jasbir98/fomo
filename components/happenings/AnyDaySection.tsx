@@ -37,7 +37,7 @@ export function AnyDaySection({ cards, surface }: AnyDaySectionProps) {
     <section aria-label="Any day" className="flex flex-col gap-2 pt-2">
       <div className="flex flex-col gap-0.5 px-1">
         <h3 className="text-body-lg font-extrabold tracking-tight text-on-surface">Any day</h3>
-        <p className="text-label-sm text-on-surface-variant">Always on — go whenever suits</p>
+        <p className="text-label-sm text-on-surface-variant">Always on, go whenever suits</p>
       </div>
       {visible.map((card, i) => (
         <FeedListCard key={cardKey(card)} card={card} surface={surface} position={i} />

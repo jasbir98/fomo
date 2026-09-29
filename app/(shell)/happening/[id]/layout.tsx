@@ -14,7 +14,7 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
   try {
     const happening = await getHappeningById(await supabaseServer(), id);
     if (!happening) return {};
-    const description = [happening.saving_label, happening.summary].filter(Boolean).join(" — ") || undefined;
+    const description = [happening.saving_label, happening.summary].filter(Boolean).join(" · ") || undefined;
     // Always a concrete image: the happening's own photo, or the branded
     // default OG image (app/opengraph-image.tsx) rather than leaving
     // `images` undefined — an explicit `openGraph.images` here REPLACES

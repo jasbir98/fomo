@@ -168,7 +168,7 @@ export default function PlaceDetailPage({ params }: { params: Promise<{ id: stri
   // App isn't deployed yet — window.location.origin is the correct base for
   // a shareable link until there's a real production host.
   const shareUrl = typeof window !== "undefined" ? `${window.location.origin}${pathname}` : "";
-  const shareText = `${[placeName, primaryBadge].filter(Boolean).join(" · ")} — found on Fomo`;
+  const shareText = `${[placeName, primaryBadge].filter(Boolean).join(" · ")} · via Fomo`;
 
   return (
     <div className="flex flex-col gap-6 pb-6">
@@ -200,7 +200,7 @@ export default function PlaceDetailPage({ params }: { params: Promise<{ id: stri
             <div className="flex items-center gap-2 text-secondary">
               <Icon name="star" filled size={18} />
               <span className="text-label-md text-on-surface-variant">
-                {place.rating ?? "—"} ({reviews.length ? `${reviews.length}+ reviews` : "New"})
+                {place.rating ?? "–"} ({reviews.length ? `${reviews.length}+ reviews` : "New"})
               </span>
             </div>
             <div className="flex flex-wrap justify-end gap-2">
@@ -227,7 +227,7 @@ export default function PlaceDetailPage({ params }: { params: Promise<{ id: stri
               <Icon name="schedule" className="text-primary" />
               <div>
                 <p className="text-label-sm text-on-surface-variant">Hours</p>
-                <p className="text-label-md text-on-surface">{place.hours ?? "—"}</p>
+                <p className="text-label-md text-on-surface">{place.hours ?? "–"}</p>
               </div>
             </div>
             {directionsUrl ? (

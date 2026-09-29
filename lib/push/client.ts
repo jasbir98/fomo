@@ -150,7 +150,7 @@ export function pushReasonMessage(reason: PushUnsupportedReason | string | null 
     case "ios_not_standalone":
       return "Add Fomo to your Home Screen to get alerts.";
     case "permission_denied":
-      return "Notifications are blocked — enable them in your browser settings to get alerts.";
+      return "Notifications are blocked. Enable them in your browser settings to get alerts.";
     case "no_service_worker":
     case "no_push_manager":
     case "no_notification_api":
@@ -159,7 +159,7 @@ export function pushReasonMessage(reason: PushUnsupportedReason | string | null 
       return "Alerts aren't set up yet.";
     case "subscribe_failed":
     case "save_failed":
-      return "Couldn't turn on alerts — try again.";
+      return "Couldn't turn on alerts. Try again.";
     default:
       return null;
   }

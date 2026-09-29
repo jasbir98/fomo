@@ -1,0 +1,37 @@
+[
+  {
+    "table": "happenings",
+    "id": "fd386120-9760-426e-8a55-b73eeea6de94",
+    "column": "summary",
+    "before": "Free weekly drop-in family sessions at the Scottish National Gallery — sensory play for under-3s in the morning and hands-on making with artists for ages 3+ in the afternoon.",
+    "after": "Free weekly drop-in family sessions at the Scottish National Gallery, sensory play for under-3s in the morning and hands-on making with artists for ages 3+ in the afternoon."
+  },
+  {
+    "table": "happenings",
+    "id": "da79f0fc-079f-498e-ad65-46165297d4bf",
+    "column": "title",
+    "before": "Resident Days 2026 — EH postcode rewards",
+    "after": "Resident Days 2026: EH postcode rewards"
+  },
+  {
+    "table": "happenings",
+    "id": "7154a6c2-1242-4274-9060-b281d049bddd",
+    "column": "summary",
+    "before": "A free weekly Saturday improv jam at Monkey Barrel open to all levels — perform by dropping your name in the bucket, or just watch.",
+    "after": "A free weekly Saturday improv jam at Monkey Barrel open to all levels, perform by dropping your name in the bucket, or just watch."
+  },
+  {
+    "table": "happenings",
+    "id": "2553e6f6-336b-4801-89a7-30b49f31e1b4",
+    "column": "eligibility_note",
+    "before": "No invitation required — turn up, sign up and get your team on stage. 16+ (Guideline).",
+    "after": "No invitation required, turn up, sign up and get your team on stage. 16+ (Guideline)."
+  },
+  {
+    "table": "happenings",
+    "id": "2553e6f6-336b-4801-89a7-30b49f31e1b4",
+    "column": "venue_name",
+    "before": "Monkey Barrel Comedy — MB1 Improv Theatre",
+    "after": "Monkey Barrel Comedy. MB1 Improv Theatre"
+  }
+]

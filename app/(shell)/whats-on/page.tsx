@@ -262,15 +262,15 @@ function WhatsOnPageInner() {
   function emptyMessage(): string {
     if (listReady && visibleTotal === 0 && (dateFilter === "weekend" ? (weekendCards?.length ?? 0) : (cards?.length ?? 0)) + anyDayAll.length > 0) {
       if (dateFilter !== "all" && dateFilteredCards.length === 0 && anyDayAll.length === 0) {
-        return dateFilter === "weekend" ? "Nothing this weekend — try another date." : "Nothing on that day — try another date.";
+        return dateFilter === "weekend" ? "Nothing this weekend. Try another date." : "Nothing on that day. Try another date.";
       }
-      if (freeOnly) return "Nothing free matches — turn off Free only.";
-      return "Nothing matches — try a different filter.";
+      if (freeOnly) return "Nothing free matches. Turn off Free only.";
+      return "Nothing matches. Try a different filter.";
     }
-    if (dateFilter === "weekend") return "Nothing lined up for this weekend yet — check back soon.";
+    if (dateFilter === "weekend") return "Nothing lined up for this weekend yet. Check back soon.";
     return feedWindow === "now"
-      ? "Nothing lined up for today yet — try Coming up."
-      : "Nothing lined up yet — check back soon.";
+      ? "Nothing lined up for today yet. Try Coming up."
+      : "Nothing lined up yet. Check back soon.";
   }
 
   return (
@@ -363,7 +363,7 @@ function WhatsOnPageInner() {
             ))}
             {revealCount < visibleCards.length ? <div ref={revealSentinelRef} className="h-1" /> : null}
             {visibleCards.length === 0 ? (
-              <p className="px-1 text-body-sm text-on-surface-variant">Nothing dated matches — just the always-on things below.</p>
+              <p className="px-1 text-body-sm text-on-surface-variant">Nothing dated matches, just the always-on things below.</p>
             ) : null}
             <AnyDaySection cards={visibleAnyDay} surface="whats_on_any_day" />
           </div>

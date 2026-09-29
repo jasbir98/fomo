@@ -33,7 +33,7 @@ function SignedOutSaved() {
         <FomoSpot mood="wow" pose="cheer" className="h-20 w-20" />
         <h2 className="text-title-sm font-extrabold text-on-surface">Keep track of what you want to do</h2>
         <p className="text-body-md text-on-surface-variant">
-          Sign in to save deals, events and places &mdash; they&apos;ll wait here for you.
+          Sign in to save deals, events and places. They&apos;ll wait here for you.
         </p>
         <Button fullWidth onClick={() => router.push("/signin?next=%2Fsaved")}>
           Sign in

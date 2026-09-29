@@ -238,18 +238,18 @@ function renderHtml({ picks, deals, unsubscribeUrl }) {
 
 function renderText({ picks, deals, unsubscribeUrl }) {
   const lines = [];
-  lines.push("FOMO FRIDAY — Edinburgh, free & cheap");
+  lines.push("FOMO FRIDAY · Edinburgh, free & cheap");
   lines.push("");
   lines.push("THIS WEEKEND");
   for (const p of picks) {
-    lines.push(`- ${p.title}${p.price ? ` [${p.price}]` : ""}${p.when ? ` — ${p.when}` : ""}${p.venue ? ` — ${p.venue}` : ""}`);
+    lines.push(`- ${p.title}${p.price ? ` [${p.price}]` : ""}${p.when ? ` · ${p.when}` : ""}${p.venue ? ` · ${p.venue}` : ""}`);
     lines.push(`  ${p.url}`);
   }
   if (deals.length > 0) {
     lines.push("");
     lines.push("THIS WEEK'S DEALS");
     for (const d of deals) {
-      lines.push(`- ${d.title}${d.price ? ` [${d.price}]` : ""}${d.venue ? ` — ${d.venue}` : ""}`);
+      lines.push(`- ${d.title}${d.price ? ` [${d.price}]` : ""}${d.venue ? ` · ${d.venue}` : ""}`);
       lines.push(`  ${d.url}`);
     }
   }

@@ -90,7 +90,7 @@ function welcomeHtml(email: string, weekendUrl: string, unsubscribeUrl: string):
   <tr>
     <td style="padding:28px 24px 8px;">
       <div style="font-size:18px;font-weight:800;color:${NAVY};">You're on the list</div>
-      <p style="color:#3d4552;font-size:14px;line-height:1.6;margin:8px 0 0;">Every Friday we'll send you Fomo Friday — the free and cheap things worth doing in Edinburgh that weekend. No spam, just what's actually on.</p>
+      <p style="color:#3d4552;font-size:14px;line-height:1.6;margin:8px 0 0;">Every Friday we'll send you Fomo Friday: the free and cheap things worth doing in Edinburgh that weekend. No spam, just what's actually on.</p>
     </td>
   </tr>
   <tr>
@@ -114,11 +114,11 @@ function welcomeHtml(email: string, weekendUrl: string, unsubscribeUrl: string):
 
 function welcomeText(email: string, weekendUrl: string, unsubscribeUrl: string): string {
   return [
-    "FOMO — Edinburgh, free & cheap",
+    "FOMO · Edinburgh, free & cheap",
     "",
     "You're on the list.",
     "",
-    "Every Friday we'll send you Fomo Friday — the free and cheap things worth doing in Edinburgh that weekend. No spam, just what's actually on.",
+    "Every Friday we'll send you Fomo Friday: the free and cheap things worth doing in Edinburgh that weekend. No spam, just what's actually on.",
     "",
     `See this weekend: ${weekendUrl}`,
     "",
@@ -159,7 +159,7 @@ async function sendWelcomeEmail(email: string, unsubscribeToken: string): Promis
         from: FOMO_FROM_EMAIL,
         reply_to: "support@askfomo.com",
         to: [email],
-        subject: "Welcome to Fomo — free & cheap things in Edinburgh",
+        subject: "Welcome to Fomo: free & cheap things in Edinburgh",
         html: welcomeHtml(email, weekendUrl, unsubscribeUrl),
         text: welcomeText(email, weekendUrl, unsubscribeUrl),
         headers: {
@@ -234,7 +234,7 @@ export async function POST(request: Request) {
 
   const rate = await consumeAnonRateLimit(request, "subscribe", RATE_LIMIT);
   if (!rate.allowed) {
-    return anonRateLimitedResponse("Too many signups from this connection — try again later.", RATE_LIMIT.windowSeconds);
+    return anonRateLimitedResponse("Too many signups from this connection. Try again later.", RATE_LIMIT.windowSeconds);
   }
 
   if (!isNonEmptyString(body.email) || body.email.length > MAX_EMAIL_LENGTH) {
@@ -264,12 +264,12 @@ export async function POST(request: Request) {
     if (isMissingTableError(error)) {
       console.warn("[api/subscribe] email_subscribers table missing — run supabase/archive/add_email_subscribers.sql");
       return NextResponse.json(
-        { error: "Signups aren't set up yet — try again later" },
+        { error: "Signups aren't set up yet. Try again later." },
         { status: 503 }
       );
     }
     console.error("[api/subscribe] insert failed", error);
-    return NextResponse.json({ error: "Couldn't save that — try again" }, { status: 500 });
+    return NextResponse.json({ error: "Couldn't save that. Try again." }, { status: 500 });
   }
 
   // New subscriber (not a duplicate — that path already returned above) —

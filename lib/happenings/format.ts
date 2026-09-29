@@ -665,9 +665,9 @@ export function heroHeadline(
   timeZone: string = CITY.timezone
 ): string {
   const daysLeft = daysUntilLastChance(occurrence, now, timeZone);
-  if (daysLeft <= 0) return `${h.title} — today only.`;
-  if (daysLeft === 1) return `${h.title} — last chance tomorrow.`;
-  if (daysLeft <= 3) return `${h.title} — won't last the week.`;
+  if (daysLeft <= 0) return `${h.title}: today only.`;
+  if (daysLeft === 1) return `${h.title}: last chance tomorrow.`;
+  if (daysLeft <= 3) return `${h.title}: won't last the week.`;
   return h.title;
 }
 

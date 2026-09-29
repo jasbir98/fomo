@@ -14,13 +14,13 @@ const jakarta = Plus_Jakarta_Sans({
 export const metadata: Metadata = {
   // Absolute base for OG/Twitter image URLs on shared links.
   metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL ?? "https://askfomo.com"),
-  title: { default: "Fomo — free, cheap and deals in Edinburgh", template: "%s · Fomo" },
-  description: "What's on in Edinburgh that's free, cheap or discounted — events, student deals and things to do this weekend.",
+  title: { default: "Fomo · Free and cheap stuff in Edinburgh", template: "%s · Fomo" },
+  description: "What's on in Edinburgh that's free, cheap or discounted. Events, student deals and things to do this weekend.",
   openGraph: {
     siteName: "Fomo",
     type: "website",
     locale: "en_GB",
-    title: "Fomo — free, cheap and deals in Edinburgh",
+    title: "Fomo · Free and cheap stuff in Edinburgh",
     description: "Never miss the £4 cinema weekend again. What's on in Edinburgh, free, cheap or discounted.",
     // No static `images` here — app/opengraph-image.tsx (next/og) is
     // picked up automatically per-route as the branded default and

@@ -2,7 +2,7 @@
   "id": "/",
   "name": "Fomo",
   "short_name": "Fomo",
-  "description": "Fomo — what's on in Edinburgh: events, free things and deals.",
+  "description": "Fomo: what's on in Edinburgh. Events, free things and deals.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",

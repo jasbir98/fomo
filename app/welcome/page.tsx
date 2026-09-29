@@ -1,6 +1,7 @@
 "use client";
 
 import { Suspense, useEffect, useRef, useState, type ReactNode, type TouchEvent } from "react";
+import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Button, FomoLogo, ProgressDots } from "@/components/ui";
 import { BookEarlyScene, DealsScene, WhatsOnScene } from "@/components/onboarding/Characters";
@@ -49,13 +50,13 @@ type Slide = {
  */
 const BOOK_EARLY_BODY = NOTIFY_ME_ENABLED ? (
   <>
-    Get told when tickets go live —
+    Get a ping when tickets go live,
     <br />
-    plus Ask Fomo for ideas.
+    and ask Fomo for ideas.
   </>
 ) : (
   <>
-    Save the good stuff — it&rsquo;s all
+    Save the good stuff. It&rsquo;s all
     <br />
     in one place when you need it.
   </>
@@ -143,13 +144,12 @@ function WelcomeContent() {
   // iOS PWA): drops straight back to browsing instead of funnelling through
   // sign-in like Skip/"Get started" do. Back to whatever `next` was pointing
   // at if a signed-out visitor can actually see it, else Home.
-  function notNow() {
+  function markIntroSeen() {
     try {
       window.localStorage.setItem(SEEN_INTRO_KEY, "1");
     } catch {
       // ignore — see `finish()`'s identical try/catch above.
     }
-    router.push(publicNextOrHome(searchParams.get("next")));
   }
 
   function finish() {
@@ -280,13 +280,13 @@ function WelcomeContent() {
         <Button variant="orange" fullWidth size="md" onClick={goNext}>
           {isLast ? "Get started" : "Next"}
         </Button>
-        <button
-          type="button"
-          onClick={notNow}
-          className="text-label-md font-medium text-on-surface-variant underline underline-offset-2"
+        <Link
+          href={publicNextOrHome(searchParams.get("next"))}
+          onClick={markIntroSeen}
+          className="-mt-3 inline-flex min-h-12 w-full items-center justify-center rounded-xl border border-outline-variant text-label-lg font-semibold text-primary transition-colors hover:bg-surface-container-low active:bg-surface-container"
         >
-          Not now — keep browsing
-        </button>
+          Not now, keep browsing
+        </Link>
       </div>
     </div>
   );

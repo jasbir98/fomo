@@ -75,7 +75,7 @@ export function SubscribeCard({ source, className = "" }: SubscribeCardProps) {
       const body = (await res.json().catch(() => null)) as { ok?: boolean; error?: string } | null;
       if (!res.ok || !body?.ok) {
         setStatus("error");
-        setErrorMessage(body?.error ?? "Couldn't save that — try again.");
+        setErrorMessage(body?.error ?? "Couldn't save that. Try again.");
         return;
       }
       rememberSubscribed();
@@ -83,7 +83,7 @@ export function SubscribeCard({ source, className = "" }: SubscribeCardProps) {
       setStatus("done");
     } catch {
       setStatus("error");
-      setErrorMessage("Couldn't save that — check your connection and try again.");
+      setErrorMessage("Couldn't save that. Check your connection and try again.");
     }
   }
 
@@ -93,7 +93,7 @@ export function SubscribeCard({ source, className = "" }: SubscribeCardProps) {
         className={`flex items-center gap-3 rounded-2xl bg-primary-container px-4 py-3 text-on-primary-container ${className}`}
       >
         <Icon name="check_circle" size={22} filled />
-        <p className="text-body-md font-semibold">You&rsquo;re in — see you Friday.</p>
+        <p className="text-body-md font-semibold">You&rsquo;re in. See you Friday.</p>
       </div>
     );
   }

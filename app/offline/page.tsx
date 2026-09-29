@@ -11,7 +11,7 @@ export default function OfflinePage() {
       <h1 className="text-headline-md text-on-surface">You&rsquo;re offline</h1>
       <p className="max-w-xs text-body-md text-on-surface-variant">
         Fomo can&rsquo;t reach the network right now. Reconnect to see
-        what&rsquo;s on — nothing you&rsquo;ve saved is lost.
+        what&rsquo;s on. Nothing you&rsquo;ve saved is lost.
       </p>
     </main>
   );

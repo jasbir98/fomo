@@ -45,7 +45,7 @@ export function eventHeadline(name: string, cityName: string): string {
     .filter(Boolean)
     .filter((p) => !city || p.toLowerCase() !== city);
   if (parts.length === 0) return name.trim();
-  return parts.join(" — ").replace(/\s*\(\s*([^)]+)\s*\)\s*$/, (m, inner: string) =>
+  return parts.join(" · ").replace(/\s*\(\s*([^)]+)\s*\)\s*$/, (m, inner: string) =>
     inner.trim().toLowerCase() === city ? "" : m
   );
 }

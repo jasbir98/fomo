@@ -38,7 +38,7 @@ export default function TermsPage() {
         <Section title="Information is best-effort">
           <p>
             We pull prices, opening times, dates and details from venues, event listings and other
-            public sources, and keep them as fresh as we reasonably can — but things change without
+            public sources, and keep them as fresh as we reasonably can, but things change without
             notice, and we can&rsquo;t guarantee everything you see is accurate or currently
             available. Always double-check price, availability and timing with the venue or organiser
             directly before you rely on it, especially for anything you&rsquo;re paying for or
@@ -57,7 +57,7 @@ export default function TermsPage() {
         <Section title="Affiliate and booking links">
           <p>
             Some listings link out to third-party booking partners (for example Viator). Some of
-            these are affiliate links — we may earn a commission if you book through them, at no
+            these are affiliate links, so we may earn a commission if you book through them, at no
             extra cost to you. Any booking you make is a contract between you and that third party,
             not with us; their own terms and cancellation policy apply.
           </p>
@@ -68,8 +68,8 @@ export default function TermsPage() {
             You can send us tips about deals or events we&rsquo;re missing. By submitting a tip, you
             confirm it&rsquo;s accurate to the best of your knowledge and that you have the right to
             share it, and you give us permission to publish it (edited as needed) on Fomo. Don&rsquo;t
-            submit anything false, misleading, spammy, or that infringes someone else&rsquo;s rights —
-            we can remove or ignore any tip at our discretion.
+            submit anything false, misleading, spammy, or that infringes someone else&rsquo;s rights.
+            We can remove or ignore any tip at our discretion.
           </p>
         </Section>
 

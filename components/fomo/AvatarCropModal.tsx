@@ -95,7 +95,7 @@ export function AvatarCropModal({ imageSrc, fileName, onCancel, onConfirm }: Ava
       onConfirm(file);
     } catch (err) {
       console.error("[avatar-crop] crop failed", err);
-      setError(err instanceof Error ? err.message : "Couldn't crop that image — try again.");
+      setError(err instanceof Error ? err.message : "Couldn't crop that image. Try again.");
       setProcessing(false);
     }
   }

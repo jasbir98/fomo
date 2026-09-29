@@ -395,7 +395,7 @@ export default function ExplorePage() {
 
         {degraded === "explore-error" ? (
           <p className="text-label-sm text-on-surface-variant">
-            Couldn&apos;t reach live data — showing what we have.
+            Couldn&apos;t reach live data. Showing what we have.
           </p>
         ) : null}
       </div>

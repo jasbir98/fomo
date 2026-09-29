@@ -401,7 +401,7 @@ function ctaSlide() {
       h(
         "div",
         { style: { fontSize: 30, color: "#c7d2e3", marginTop: 36, display: "flex" } },
-        "Free, cheap & deals — Edinburgh, every weekend."
+        "Free, cheap & deals in Edinburgh, every weekend."
       )
     ),
   ]);
@@ -428,7 +428,7 @@ function buildCaption(picks) {
   lines.push("This weekend in Edinburgh 👀");
   lines.push("");
   for (const p of picks) {
-    lines.push(`${p.price === "FREE" ? "🆓" : p.price ? "💷" : "📍"} ${p.title}${p.when ? ` — ${p.when}` : ""}`);
+    lines.push(`${p.price === "FREE" ? "🆓" : p.price ? "💷" : "📍"} ${p.title}${p.when ? ` · ${p.when}` : ""}`);
   }
   lines.push("");
   lines.push("Full list + more free/cheap things every week: askfomo.com/weekend");

@@ -342,7 +342,7 @@ async function main() {
 function printTextReport(m) {
   const lines = [];
 
-  lines.push(`Fomo weekly — ${m.thisWeek.start} to ${m.thisWeek.end}`);
+  lines.push(`Fomo weekly: ${m.thisWeek.start} to ${m.thisWeek.end}`);
   lines.push("(vs previous week " + m.lastWeek.start + " to " + m.lastWeek.end + ")");
   lines.push("");
 

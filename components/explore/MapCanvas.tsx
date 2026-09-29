@@ -239,7 +239,7 @@ export const MapCanvas = forwardRef<MapCanvasHandle, MapCanvasProps>(function Ma
       >
         <Icon name="map" size={40} className="text-outline-variant" />
         <p className="max-w-[240px] text-label-md text-on-surface-variant">
-          The map isn&apos;t available right now — the list below still works.
+          The map isn&apos;t available right now. The list below still works.
         </p>
       </div>
     );

@@ -417,7 +417,7 @@ export default function HomePage() {
   }
 
   function whatsOnEmptyMessage(): string {
-    return `Nothing lined up for ${WHATS_ON_WINDOW_LABEL[feedWindow].toLowerCase()} yet — try another tab.`;
+    return `Nothing lined up for ${WHATS_ON_WINDOW_LABEL[feedWindow].toLowerCase()} yet. Try another tab.`;
   }
 
   // Peek (never fetch) the other two windows' feed cache so the segmented
@@ -571,7 +571,7 @@ export default function HomePage() {
           >
             <Icon name={weather ? WEATHER_THEME[weather.condition].icon : "partly_cloudy_day"} size={16} />
             <span className="text-label-sm font-semibold">
-              {weather?.tempC != null ? `${Math.round(weather.tempC)}°` : "—°"}
+              {weather?.tempC != null ? `${Math.round(weather.tempC)}°` : "–°"}
             </span>
           </div>
           <Link
@@ -615,7 +615,7 @@ export default function HomePage() {
         <div className="mx-4 flex items-center gap-2 rounded-xl border border-hairline bg-surface-container-low px-3 py-2">
           <Icon name="location_off" size={18} className="text-on-surface-variant" />
           <p className="flex-1 text-body-sm text-on-surface-variant">
-            Couldn&rsquo;t detect your location — showing {city.name}.
+            Couldn&rsquo;t detect your location. Showing {city.name}.
           </p>
           <button
             type="button"
@@ -907,7 +907,7 @@ export default function HomePage() {
               <div className="flex flex-col items-center gap-2 px-1 text-center">
                 <FomoSpot mood="meh" pose="shrug" className="h-16 w-16" />
                 <p className="text-body-sm text-on-surface-variant">
-                  Nothing worth booking early right now — check back soon.
+                  Nothing worth booking early right now. Check back soon.
                 </p>
               </div>
             ) : (

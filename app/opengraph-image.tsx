@@ -3,7 +3,7 @@ import { renderBrandOgImage, OG_IMAGE_SIZE } from "@/lib/og/brand-image";
 // Node runtime pinned explicitly (the mascot is embedded, so no fs access is needed).
 export const runtime = "nodejs";
 
-export const alt = "Fomo — free & cheap in Edinburgh";
+export const alt = "Fomo · Free & cheap in Edinburgh";
 export const size = OG_IMAGE_SIZE;
 export const contentType = "image/png";
 

@@ -106,7 +106,7 @@ export async function POST(request: Request) {
 
   const rate = await consumeAnonRateLimit(request, "tips", RATE_LIMIT);
   if (!rate.allowed) {
-    return anonRateLimitedResponse("Too many tips from this connection — try again later.", RATE_LIMIT.windowSeconds);
+    return anonRateLimitedResponse("Too many tips from this connection. Try again later.", RATE_LIMIT.windowSeconds);
   }
 
   // Title is required, others optional.
@@ -178,12 +178,12 @@ export async function POST(request: Request) {
     if (isMissingTableError(error)) {
       console.warn("[api/tips] tips table missing — run supabase/archive/add_tips.sql");
       return NextResponse.json(
-        { error: "Tips aren't set up yet — try again later" },
+        { error: "Tips aren't set up yet. Try again later." },
         { status: 503 }
       );
     }
     console.error("[api/tips] insert failed", error);
-    return NextResponse.json({ error: "Couldn't save that — try again" }, { status: 500 });
+    return NextResponse.json({ error: "Couldn't save that. Try again." }, { status: 500 });
   }
 
   return NextResponse.json({ ok: true });

@@ -37,7 +37,7 @@ export function CityPicker({ open, onClose, cities, currentSlug, currentSource, 
       <div className="flex flex-col gap-1">
         {cities.length === 1 ? (
           <p className="px-3 pb-2 text-body-sm text-on-surface-variant">
-            Fomo currently covers one city — more are on the way.
+            Fomo currently covers one city. More are on the way.
           </p>
         ) : null}
         {cities.map((city) => {

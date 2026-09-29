@@ -61,7 +61,7 @@ export async function GET(request: Request) {
     // this is a caller error, so it gets a 400 same as the missing-param
     // case above.
     return NextResponse.json(
-      { error: `unsupported destination — this app only serves ${CITY.name}` },
+      { error: `unsupported destination. This app only serves ${CITY.name}` },
       { status: 400 }
     );
   }

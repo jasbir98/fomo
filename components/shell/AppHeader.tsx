@@ -88,7 +88,7 @@ export function AppHeader({ title, className = "" }: AppHeaderProps) {
           >
             <Icon name={weather ? WEATHER_THEME[weather.condition].icon : "partly_cloudy_day"} size={16} />
             <span className="text-label-sm font-semibold">
-              {weather?.tempC != null ? `${Math.round(weather.tempC)}°` : "—°"}
+              {weather?.tempC != null ? `${Math.round(weather.tempC)}°` : "–°"}
             </span>
           </div>
           <Link

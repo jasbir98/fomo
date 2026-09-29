@@ -3,7 +3,7 @@
 import { Suspense, useEffect, useRef, useState } from "react";
 import Script from "next/script";
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import type { AuthError } from "@supabase/supabase-js";
 import { Button, FomoLogo, Input } from "@/components/ui";
 import { FomoPeek, SigninSkyline } from "@/components/onboarding/Characters";
@@ -44,6 +44,8 @@ function clearPendingSignin() {
 // Left unset, the Google button falls back to the existing
 // `signInWithOAuth` redirect flow unchanged (see `signInWithProvider`).
 const GOOGLE_CLIENT_ID = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
+/** How long Google's own button gets to render before the redirect button replaces it. */
+const GIS_RENDER_TIMEOUT_MS = 3500;
 
 // Apple sign-in isn't configured in Supabase yet — showing the button would
 // send users into a raw "provider is not enabled" error. Flip this back to
@@ -60,7 +62,7 @@ function friendlyOtpError(err: AuthError): string {
       return "That code has expired or is wrong. Request a new one and try again.";
     case "over_email_send_rate_limit":
     case "over_request_rate_limit":
-      return "Too many attempts — wait a moment before requesting another code.";
+      return "Too many attempts. Give it a minute before asking for another code.";
     default:
       break;
   }
@@ -68,7 +70,7 @@ function friendlyOtpError(err: AuthError): string {
     return "That code has expired or is wrong. Request a new one and try again.";
   }
   if (/rate limit/i.test(err.message)) {
-    return "Too many attempts — wait a moment before requesting another code.";
+    return "Too many attempts. Give it a minute before asking for another code.";
   }
   return err.message;
 }
@@ -106,14 +108,11 @@ function AppleLogo() {
 }
 
 function SigninContent() {
-  const router = useRouter();
   const searchParams = useSearchParams();
   const nextParam = safeNext(searchParams.get("next"));
   const reasonCopy = signinReasonCopy(searchParams.get("reason"));
 
-  function handleNotNow() {
-    router.push(publicNextOrHome(searchParams.get("next")));
-  }
+  const notNowHref = publicNextOrHome(searchParams.get("next"));
 
   const [step, setStep] = useState<Step>("email");
   const [email, setEmail] = useState("");
@@ -124,7 +123,7 @@ function SigninContent() {
   // retries anything, so it never lingers past the attempt it describes.
   const [callbackError, setCallbackError] = useState<string | null>(() =>
     searchParams.get("error") === "auth_callback"
-      ? "Sign-in didn't complete — please try again."
+      ? "Sign-in didn't finish. Please try again."
       : null,
   );
   const [sending, setSending] = useState(false);
@@ -241,6 +240,17 @@ function SigninContent() {
       cancelled = true;
     };
   }, [gisLoaded]);
+
+  // Safety net: if Google's button still hasn't drawn anything after a few
+  // seconds (script blocked, origin not authorised for the client id, FedCM
+  // quirks), swap in the redirect button so the slot is never left blank.
+  useEffect(() => {
+    if (!GOOGLE_CLIENT_ID || gisFailed) return;
+    const timer = setTimeout(() => {
+      if (!googleButtonRef.current?.childElementCount) setGisFailed(true);
+    }, GIS_RENDER_TIMEOUT_MS);
+    return () => clearTimeout(timer);
+  }, [gisFailed]);
 
   function startCooldown() {
     setCooldown(RESEND_COOLDOWN_SECONDS);
@@ -472,15 +482,14 @@ function SigninContent() {
               <Script
                 src="https://accounts.google.com/gsi/client"
                 strategy="afterInteractive"
-                onLoad={() => setGisLoaded(true)}
+                // onReady, not onLoad: next/script caches loaded scripts and
+                // skips onLoad on every later mount, so a client-side revisit
+                // to /signin (e.g. "Sign in to save") never rendered the button.
+                onReady={() => setGisLoaded(true)}
                 onError={() => setGisFailed(true)}
               />
               {gisFailed ? (
-                <>
-                  <p className="text-center text-label-sm text-on-surface-variant">
-                    Google sign-in didn&rsquo;t load — continuing with redirect.
-                  </p>
-                  <button
+                <button
                     type="button"
                     onClick={() => signInWithProvider("google")}
                     disabled={oauthLoading !== null}
@@ -489,7 +498,6 @@ function SigninContent() {
                     <GoogleLogo />
                     {oauthLoading === "google" ? "Redirecting…" : "Continue with Google"}
                   </button>
-                </>
               ) : (
                 // Google's own official button, rendered by GIS into this
                 // container — not hand-drawn, per Google's brand guidelines.
@@ -522,7 +530,14 @@ function SigninContent() {
           ) : null}
         </div>
 
-        <p className="mt-2 text-center text-label-sm text-on-surface-variant">
+        <Link
+          href={notNowHref}
+          className="inline-flex min-h-12 w-full items-center justify-center rounded-xl border border-outline-variant text-label-lg font-semibold text-primary transition-colors hover:bg-surface-container-low active:bg-surface-container"
+        >
+          Not now, keep browsing
+        </Link>
+
+        <p className="text-center text-label-sm text-on-surface-variant">
           By continuing you agree to our{" "}
           <Link href="/terms" className="underline underline-offset-2">
             Terms
@@ -534,13 +549,6 @@ function SigninContent() {
           .
         </p>
 
-        <button
-          type="button"
-          onClick={handleNotNow}
-          className="mt-1 text-center text-label-md font-medium text-on-surface-variant underline underline-offset-2"
-        >
-          Not now — keep browsing
-        </button>
         </div>
       </main>
     </div>

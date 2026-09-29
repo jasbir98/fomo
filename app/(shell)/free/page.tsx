@@ -124,12 +124,12 @@ export default function FreeAnyTimePage() {
         ) : items.length === 0 ? (
           <div className="flex flex-col items-center gap-2 rounded-2xl border border-dashed border-hairline-strong p-8 text-center">
             <FomoSpot mood="meh" pose="shrug" className="h-20 w-20" />
-            <p className="text-body-md text-on-surface-variant">Nothing free to show right now — check back soon.</p>
+            <p className="text-body-md text-on-surface-variant">Nothing free to show right now. Check back soon.</p>
           </div>
         ) : filteredItems.length === 0 ? (
           <div className="flex flex-col items-center gap-2 rounded-2xl border border-dashed border-hairline-strong py-6 text-center">
             <FomoSpot mood="hmm" pose="shrug" className="h-16 w-16" />
-            <p className="text-body-sm text-on-surface-variant">Nothing matches — clear filters</p>
+            <p className="text-body-sm text-on-surface-variant">Nothing matches. Clear filters</p>
           </div>
         ) : (
           <div className="flex flex-col gap-2.5 pt-1">

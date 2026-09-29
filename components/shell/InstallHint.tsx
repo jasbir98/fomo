@@ -210,13 +210,13 @@ export function InstallHint() {
     >
       {platform === "ios" ? (
         <p className="flex-1 text-label-sm text-on-surface-variant">
-          Add Fomo to your home screen — tap{" "}
+          Add Fomo to your home screen: tap{" "}
           <Icon name="ios_share" size={16} className="align-text-bottom" /> then &ldquo;Add to Home
           Screen&rdquo;.
         </p>
       ) : (
         <p className="flex-1 text-label-sm text-on-surface-variant">
-          Add Fomo to your home screen — opens instantly, like an app.
+          Add Fomo to your home screen. Opens instantly, like an app.
         </p>
       )}
       <div className="flex shrink-0 items-center gap-2">

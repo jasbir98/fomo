@@ -48,7 +48,7 @@ export function NotifyMeButton({ subscribed, onNotify, onUnnotify }: NotifyMeBut
       onClick={handleClick}
       disabled={pending}
       aria-pressed={subscribed}
-      aria-label={subscribed ? "Alert on — tap to turn off" : "Notify me when tickets open"}
+      aria-label={subscribed ? "Alert on, tap to turn off" : "Notify me when tickets open"}
       className="flex min-h-11 shrink-0 items-center gap-1.5 rounded-lg border border-hairline-strong px-3 py-2 text-label-sm font-bold text-secondary transition-colors hover:bg-surface-container disabled:opacity-70"
     >
       <Icon name={subscribed ? "notifications_active" : "notifications"} size={16} filled={subscribed} />

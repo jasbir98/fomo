@@ -208,7 +208,7 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
   const shareUrl = typeof window !== "undefined" ? `${window.location.origin}${pathname}` : "";
   const shareText = `${[event.name, formatEventWhen(event.starts_at, event.ends_at), price]
     .filter(Boolean)
-    .join(" · ")} — found on Fomo`;
+    .join(" · ")} · via Fomo`;
 
   return (
     <div className="flex flex-col gap-6 pb-6">
@@ -268,7 +268,7 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
               <div>
                 <p className="text-label-sm text-on-surface-variant">Venue</p>
                 <p className="text-label-md text-on-surface">
-                  {event.venue_name ?? event.address ?? "—"}
+                  {event.venue_name ?? event.address ?? "–"}
                 </p>
               </div>
             </div>

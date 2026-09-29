@@ -73,7 +73,7 @@ export async function uploadAvatar(db: Db, userId: string, file: File): Promise<
     throw new Error("Please choose an image file.");
   }
   if (file.size > MAX_AVATAR_BYTES) {
-    throw new Error("Image is too large — please choose one under 5MB.");
+    throw new Error("Image is too large. Please choose one under 5MB.");
   }
 
   const path = `${userId}/${Date.now()}.${safeExtension(file)}`;

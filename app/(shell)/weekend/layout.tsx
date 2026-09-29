@@ -2,9 +2,9 @@ import type { Metadata } from "next";
 
 export const metadata: Metadata = {
   title: "This weekend in Edinburgh",
-  description: "Free, cheap and discounted things to do in Edinburgh this weekend — events, student deals and offers.",
+  description: "Free, cheap and discounted things to do in Edinburgh this weekend. Events, student deals and offers.",
   openGraph: {
-    title: "This weekend in Edinburgh — Fomo",
+    title: "This weekend in Edinburgh · Fomo",
     description: "Free, cheap and discounted things to do in Edinburgh this weekend.",
   },
 };

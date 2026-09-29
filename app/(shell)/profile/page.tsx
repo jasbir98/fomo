@@ -99,7 +99,7 @@ export default function ProfilePage() {
       setProfile(updated);
     } catch (err) {
       console.error("[profile] avatar upload failed", err);
-      setAvatarError(err instanceof Error ? err.message : "Upload failed — try again.");
+      setAvatarError(err instanceof Error ? err.message : "Upload failed. Try again.");
     } finally {
       setAvatarUploading(false);
     }
@@ -112,7 +112,7 @@ export default function ProfilePage() {
       setProfile(updated);
     } catch (err) {
       console.error("[profile] remove avatar failed", err);
-      setAvatarError("Couldn't remove photo — try again.");
+      setAvatarError("Couldn't remove photo. Try again.");
     }
   }
 
@@ -137,7 +137,7 @@ export default function ProfilePage() {
     try {
       const result = await ensurePushSubscribed();
       if (!result.ok) {
-        setBigOnsaleAlertsError(pushReasonMessage(result.reason) ?? "Couldn't turn on alerts — try again.");
+        setBigOnsaleAlertsError(pushReasonMessage(result.reason) ?? "Couldn't turn on alerts. Try again.");
         return;
       }
       await upsertProfile(db, { big_onsale_alerts: true });
@@ -145,7 +145,7 @@ export default function ProfilePage() {
       setNotificationPermission(Notification.permission);
     } catch (err) {
       console.error("[profile] save big_onsale_alerts failed", err);
-      setBigOnsaleAlertsError("Couldn't turn on alerts — try again.");
+      setBigOnsaleAlertsError("Couldn't turn on alerts. Try again.");
     } finally {
       setBigOnsaleAlertsBusy(false);
     }
@@ -210,7 +210,7 @@ export default function ProfilePage() {
     }
     if (prefs.budget === "free") parts.push("free only");
     else if (prefs.budget === "under10") parts.push("under £10");
-    return parts.length > 0 ? parts.join(" · ") : "Not set up yet — tell Fomo what you're into.";
+    return parts.length > 0 ? parts.join(" · ") : "Not set up yet. Tell Fomo what you're into.";
   }
 
   async function handleResetConfirm() {
@@ -252,7 +252,7 @@ export default function ProfilePage() {
                       // A broken storage URL (e.g. an un-encoded path) fails
                       // to load silently for <img> — surface it and fall
                       // back to the placeholder instead of a blank circle.
-                      setAvatarError("Couldn't load your photo — try uploading it again.");
+                      setAvatarError("Couldn't load your photo. Try uploading it again.");
                       setProfile((prev) => (prev ? { ...prev, avatar_url: null } : prev));
                     }}
                   />
@@ -483,7 +483,7 @@ export default function ProfilePage() {
                   {notificationPermission === "granted"
                     ? "allowed"
                     : notificationPermission === "denied"
-                      ? "blocked — enable them in your browser settings"
+                      ? "blocked. Turn them on in your browser settings"
                       : notificationPermission === "unsupported"
                         ? "not supported on this device/browser"
                         : "not requested yet"}
@@ -505,14 +505,14 @@ export default function ProfilePage() {
       >
         <div className="flex flex-col gap-4">
           <p className="text-body-md text-on-surface-variant">
-            Your Fomo account is tied to a real login now — this is the identity behind it.
+            Your Fomo account is tied to a real login now. This is the identity behind it.
           </p>
           <div className="flex flex-col gap-3 rounded-lg bg-surface-container-low p-4">
             <div className="flex flex-col gap-1">
               <span className="text-label-sm text-on-surface-variant">Account</span>
               <div className="flex items-center justify-between gap-2">
                 <span className="truncate text-body-md text-on-surface">
-                  {accountEmail ?? accountId ?? "—"}
+                  {accountEmail ?? accountId ?? "–"}
                 </span>
                 <button
                   type="button"

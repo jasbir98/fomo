@@ -163,7 +163,7 @@ export default function HappeningDetailPage({ params }: { params: Promise<{ id: 
     setNotifyError(null);
     const result = await ensurePushSubscribed();
     if (!result.ok) {
-      setNotifyError(pushReasonMessage(result.reason) ?? "Couldn't turn on alerts — try again.");
+      setNotifyError(pushReasonMessage(result.reason) ?? "Couldn't turn on alerts. Try again.");
       return;
     }
     try {
@@ -176,7 +176,7 @@ export default function HappeningDetailPage({ params }: { params: Promise<{ id: 
       setNotifySubscribed(true);
     } catch (err) {
       console.error("[happening] create alert failed", err);
-      setNotifyError("Couldn't turn on alerts — try again.");
+      setNotifyError("Couldn't turn on alerts. Try again.");
     }
   }
 
@@ -192,7 +192,7 @@ export default function HappeningDetailPage({ params }: { params: Promise<{ id: 
       setNotifySubscribed(false);
     } catch (err) {
       console.error("[happening] remove alert failed", err);
-      setNotifyError("Couldn't turn off the alert — try again.");
+      setNotifyError("Couldn't turn off the alert. Try again.");
     }
   }
 
@@ -379,7 +379,7 @@ export default function HappeningDetailPage({ params }: { params: Promise<{ id: 
     badge,
   ]
     .filter(Boolean)
-    .join(" · ")} — found on Fomo`;
+    .join(" · ")} · via Fomo`;
 
   // Hero image fallback chain (task: no more flat navy/ticket-icon block for
   // a happening with no image): the happening's own `image_url` (already
@@ -462,7 +462,7 @@ export default function HappeningDetailPage({ params }: { params: Promise<{ id: 
           <div role="status" className="flex items-start gap-2.5 rounded-2xl bg-error-container/40 p-4 text-on-surface">
             <Icon name="event_busy" size={20} className="mt-0.5 shrink-0 text-error" />
             <p className="text-body-md">
-              <span className="font-bold">This has ended.</span> It&apos;s no longer running — check the official
+              <span className="font-bold">This has ended.</span> It&apos;s no longer running. Check the official
               page before you go.
             </p>
           </div>
@@ -530,7 +530,7 @@ export default function HappeningDetailPage({ params }: { params: Promise<{ id: 
             </div>
             {copyFailed ? (
               <p className="mt-2 text-label-sm text-on-surface-variant">
-                Couldn&apos;t copy automatically — press and hold the code to copy it.
+                Couldn&apos;t copy automatically. Press and hold the code to copy it.
               </p>
             ) : null}
             {happening.redemption_note ? (
@@ -652,7 +652,7 @@ export default function HappeningDetailPage({ params }: { params: Promise<{ id: 
             // One expression container sidesteps that JSX whitespace quirk
             // entirely.
             <p className="text-body-md text-on-surface-variant">
-              {`Runs at ${siblings.length + 1} locations across Edinburgh — see each one’s own days/times below.`}
+              {`Runs at ${siblings.length + 1} locations across Edinburgh. See each one’s own days/times below.`}
             </p>
           ) : isAlways ? (
             (() => {
@@ -701,7 +701,7 @@ export default function HappeningDetailPage({ params }: { params: Promise<{ id: 
               </div>
             ) : (
               <p className="text-body-md text-on-surface-variant">
-                No upcoming dates in the next year — this offer may have ended.
+                No upcoming dates in the next year. This offer may have ended.
               </p>
             )
           ) : upcoming.length > 0 ? (
@@ -743,7 +743,7 @@ export default function HappeningDetailPage({ params }: { params: Promise<{ id: 
             })()
           ) : (
             <p className="text-body-md text-on-surface-variant">
-              No upcoming dates in the next year — this offer may have ended.
+              No upcoming dates in the next year. This offer may have ended.
             </p>
           )}
         </section>

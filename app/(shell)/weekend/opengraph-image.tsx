@@ -2,7 +2,7 @@ import { renderBrandOgImage, OG_IMAGE_SIZE } from "@/lib/og/brand-image";
 
 export const runtime = "nodejs";
 
-export const alt = "Fomo — this weekend in Edinburgh";
+export const alt = "Fomo · This weekend in Edinburgh";
 export const size = OG_IMAGE_SIZE;
 export const contentType = "image/png";
 
