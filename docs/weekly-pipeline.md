@@ -56,7 +56,9 @@ python3 scraper/weekly_edinburgh.py --stage --publish
 
 ## Scheduling later
 
-No scheduler is installed. Pick one of the following only when ready to automate the post-review command.
+**GitHub Actions (current):** `.github/workflows/weekly-research.yml` runs `--stage --workers 1` every Monday 05:23 UTC. It never publishes: the report lands in the run summary and as an artifact. Approve rows with the report's SQL, then run the workflow manually with `mode: promote` (and the batch id) to publish them. Needs `DEEPSEEK_API_KEY`, `NEXT_PUBLIC_SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` on the Production environment.
+
+The local options below remain for running it off GitHub.
 
 ### launchd (macOS)
 

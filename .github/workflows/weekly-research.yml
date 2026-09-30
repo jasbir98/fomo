@@ -1,0 +1,115 @@
+name: Weekly Edinburgh research
+
+# Runs scraper/weekly_edinburgh.py (docs/weekly-pipeline.md): lifecycle sweep,
+# publisher pages, ~32 narrow DeepSeek topics, source re-verification, then
+# upserts candidates into `happenings_staging`. It never publishes on the
+# schedule: every publish is reviewed first (approve rows with the SQL in the
+# run's report), then promoted with a manual "promote" run.
+on:
+  schedule:
+    # Monday 05:23 UTC, so the staged batch is ready to review before the
+    # Wednesday carousel and Friday email (weekly-content.yml).
+    - cron: "23 5 * * 1"
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "stage (research + stage for review), dry-run (no API/DB), or promote (publish approved rows)"
+        required: true
+        default: "stage"
+        type: choice
+        options:
+          - stage
+          - dry-run
+          - promote
+      batch_id:
+        description: "promote only: batch id from the report, e.g. edi-weekly-2026-10-05 (blank = every approved row)"
+        required: false
+        default: ""
+
+# Least privilege: jobs only check out code and upload artifacts.
+permissions:
+  contents: read
+
+# Never two research runs at once: they'd both spend the DeepSeek budget.
+concurrency:
+  group: weekly-research
+  cancel-in-progress: false
+
+jobs:
+  research:
+    if: ${{ github.event_name == 'schedule' || inputs.mode != 'promote' }}
+    runs-on: ubuntu-latest
+    environment: Production
+    # --workers 1: concurrent DeepSeek research calls have crashed the
+    # streaming path (seen 2026-09-14), so topics run one at a time.
+    timeout-minutes: 240
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: scraper/requirements.txt
+
+      # Playwright (in requirements.txt) isn't used by this script; skip the
+      # browser download.
+      - name: Install dependencies
+        run: pip install "requests>=2.31,<3" "python-dotenv>=1.0,<2" "anthropic>=0.40,<1"
+
+      - name: Run weekly research
+        env:
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL || secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          MODE: ${{ inputs.mode || 'stage' }}
+        run: |
+          if [[ "$MODE" == "dry-run" ]]; then
+            python3 scraper/weekly_edinburgh.py --dry-run
+          else
+            if [[ -z "$DEEPSEEK_API_KEY" ]]; then
+              echo "::error::DEEPSEEK_API_KEY is not set on the Production environment."
+              exit 1
+            fi
+            python3 scraper/weekly_edinburgh.py --stage --workers 1
+          fi
+
+      - name: Add report to the run summary
+        if: always()
+        run: |
+          report=$(ls -t scraper/out/edi-weekly-*/weekly-report.md 2>/dev/null | head -n 1)
+          if [[ -n "$report" ]]; then cat "$report" >> "$GITHUB_STEP_SUMMARY"; fi
+
+      - name: Upload batch output
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: weekly-research-${{ github.run_number }}
+          path: scraper/out/edi-weekly-*/
+          if-no-files-found: ignore
+          retention-days: 30
+
+  promote:
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.mode == 'promote' }}
+    runs-on: ubuntu-latest
+    environment: Production
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      # Only rows already marked approved = true in happenings_staging move.
+      - name: Promote approved rows
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL || secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          BATCH_ID: ${{ inputs.batch_id }}
+        run: |
+          if [[ -n "$BATCH_ID" ]]; then
+            node scripts/promote-happenings.mjs --batch-id "$BATCH_ID"
+          else
+            node scripts/promote-happenings.mjs
+          fi
