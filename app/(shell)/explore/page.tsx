@@ -294,7 +294,7 @@ function ExploreContent() {
   const showStatusPill = loading || sortedPins.length === 0;
 
   return (
-    <div className="flex flex-col gap-4 pb-6">
+    <div className="flex flex-col gap-4 overflow-x-clip pb-6">
       <AppHeader title="Explore Edinburgh" />
 
       <div className="flex flex-col gap-4 px-4">

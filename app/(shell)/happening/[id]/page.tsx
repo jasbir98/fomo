@@ -16,6 +16,7 @@ import {
   savingBadgeLabel,
   shortStartTimeFromNote,
   stripLeadingPatternEcho,
+  weeklyEchoLabel,
 } from "@/lib/happenings/format";
 import { categoryDefaultImage } from "@/lib/happenings/category-style";
 import type { HappeningResponse } from "@/app/api/happenings/[id]/route";
@@ -303,6 +304,9 @@ export default function HappeningDetailPage({ params }: { params: Promise<{ id: 
   const isAlways = rec.type === "always";
   const pattern = recurrencePatternLabel(rec);
   const isSeries = siblings.length > 0;
+  // Date chips drop the year when it's the current one ("Thu 1 Oct").
+  const thisYear = String(now.getFullYear());
+  const chipLabel = (occ: Occurrence) => occurrenceRangeLabel(occ).replace(new RegExp(` ${thisYear}$`), "");
 
   const tag = happeningTypeTag(happening, primaryOccurrence?.exact ?? false);
   const badge = savingBadgeLabel(happening);
@@ -607,43 +611,10 @@ export default function HappeningDetailPage({ params }: { params: Promise<{ id: 
 
         {/* When */}
         <section className="rounded-2xl bg-surface-container-lowest p-5 shadow-level-1">
-          <div className="mb-3 flex items-center justify-between gap-2">
-            <h2 className="flex items-center gap-2 text-headline-sm text-primary">
-              <Icon name="calendar_month" size={19} />
-              When
-            </h2>
-            {icsUrl ? (
-              <div className="flex items-center gap-2">
-                {/* Primary: the .ics route, plain <a href> with no
-                    target="_blank" — that's what makes iOS Safari open the
-                    native Add Event sheet instead of just downloading the
-                    file to a new tab. Works the same on Android (opens the
-                    device's calendar app's own import). */}
-                <a
-                  href={icsUrl}
-                  onClick={() => track("calendar_added", { type: "ics", kind: "happening" })}
-                  className="flex min-h-10 items-center gap-1 rounded-full border border-hairline-strong px-3 text-label-sm font-bold text-primary hover:bg-surface-container"
-                >
-                  <Icon name="event_available" size={16} />
-                  Add to calendar
-                </a>
-                {/* Secondary: unchanged Google Calendar web link, for anyone
-                    who specifically wants that app over the device's native
-                    one. */}
-                {calendarUrl ? (
-                  <a
-                    href={calendarUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    onClick={() => track("calendar_added", { type: "google", kind: "happening" })}
-                    className="text-label-sm font-medium text-on-surface-variant underline-offset-2 hover:underline"
-                  >
-                    Google Calendar
-                  </a>
-                ) : null}
-              </div>
-            ) : null}
-          </div>
+          <h2 className="mb-3 flex items-center gap-2 text-headline-sm text-primary">
+            <Icon name="calendar_month" size={19} />
+            When
+          </h2>
           {isSeries ? (
             // A plain template literal, not "Runs at {n} locations…" JSX text
             // — the mixed text/expression/text form silently lost the space
@@ -662,11 +633,11 @@ export default function HappeningDetailPage({ params }: { params: Promise<{ id: 
               const note = stripLeadingPatternEcho("Every day", happening.time_note);
               return (
                 <div className="rounded-lg bg-surface-container p-3">
-                  <p className="text-body-md font-bold text-on-surface">Every day</p>
+                  <p className="text-body-md font-semibold text-on-surface">Every day</p>
                   {note ? (
-                    <p className="mt-0.5 flex items-center gap-1 text-label-md text-on-surface-variant">
-                      <Icon name="schedule" size={14} />
-                      {note}
+                    <p className="mt-1 flex items-start gap-1.5 text-body-sm text-on-surface-variant">
+                      <Icon name="schedule" size={14} className="mt-0.5 shrink-0" />
+                      <span className="min-w-0">{note}</span>
                     </p>
                   ) : null}
                 </div>
@@ -685,9 +656,9 @@ export default function HappeningDetailPage({ params }: { params: Promise<{ id: 
                     <div className="flex flex-col">
                       <span className="text-body-md font-bold text-on-surface">{occurrenceRangeLabel(occ)}</span>
                       {happening.time_note ? (
-                        <span className="mt-0.5 flex items-center gap-1 text-label-md text-on-surface-variant">
-                          <Icon name="schedule" size={14} />
-                          {happening.time_note}
+                        <span className="mt-1 flex items-start gap-1.5 text-body-sm text-on-surface-variant">
+                          <Icon name="schedule" size={14} className="mt-0.5 shrink-0" />
+                          <span className="min-w-0">{happening.time_note}</span>
                         </span>
                       ) : null}
                     </div>
@@ -712,16 +683,16 @@ export default function HappeningDetailPage({ params }: { params: Promise<{ id: 
             // start…"), that leading echo is stripped so it's never printed
             // twice — see stripLeadingPatternEcho.
             (() => {
-              const note = stripLeadingPatternEcho(pattern, happening.time_note);
+              const note = stripLeadingPatternEcho(weeklyEchoLabel(rec), stripLeadingPatternEcho(pattern, happening.time_note));
               return (
                 <div className="flex max-w-[480px] flex-col gap-3">
                   {pattern || note ? (
                     <div className="rounded-2xl bg-surface-container p-3">
-                      {pattern ? <p className="text-body-md font-bold text-on-surface">{pattern}</p> : null}
+                      {pattern ? <p className="text-body-md font-semibold text-on-surface">{pattern}</p> : null}
                       {note ? (
-                        <p className="mt-0.5 flex items-center gap-1 text-label-md text-on-surface-variant">
-                          <Icon name="schedule" size={14} />
-                          {note}
+                        <p className="mt-1 flex items-start gap-1.5 text-body-sm text-on-surface-variant">
+                          <Icon name="schedule" size={14} className="mt-0.5 shrink-0" />
+                          <span className="min-w-0">{note}</span>
                         </p>
                       ) : null}
                     </div>
@@ -730,11 +701,11 @@ export default function HappeningDetailPage({ params }: { params: Promise<{ id: 
                     {upcoming.slice(0, 8).map((occ, i) => (
                       <span
                         key={`${occ.dayDate}-${i}`}
-                        className={`rounded-full px-3 py-1.5 text-label-sm font-bold ${
+                        className={`rounded-full px-3 py-1.5 text-label-md font-semibold ${
                           i === 0 ? "bg-primary text-on-primary" : "bg-surface-container text-on-surface"
                         }`}
                       >
-                        {occurrenceRangeLabel(occ)}
+                        {chipLabel(occ)}
                       </span>
                     ))}
                   </div>
@@ -746,6 +717,38 @@ export default function HappeningDetailPage({ params }: { params: Promise<{ id: 
               No upcoming dates in the next year. This offer may have ended.
             </p>
           )}
+          {icsUrl ? (
+            <div className="mt-3 flex flex-wrap gap-2">
+              {/* Primary: the .ics route, plain <a href> with no
+                  target="_blank" — that's what makes iOS Safari open the
+                  native Add Event sheet instead of just downloading the
+                  file to a new tab. Works the same on Android (opens the
+                  device's calendar app's own import). */}
+              <a
+                href={icsUrl}
+                onClick={() => track("calendar_added", { type: "ics", kind: "happening" })}
+                className="inline-flex h-9 items-center gap-1.5 whitespace-nowrap rounded-full border border-hairline-strong px-3 text-label-md font-semibold text-primary hover:bg-surface-container"
+              >
+                <Icon name="event_available" size={16} />
+                Add to calendar
+              </a>
+              {/* Secondary: unchanged Google Calendar web link, for anyone
+                  who specifically wants that app over the device's native
+                  one. */}
+              {calendarUrl ? (
+                <a
+                  href={calendarUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={() => track("calendar_added", { type: "google", kind: "happening" })}
+                  className="inline-flex h-9 items-center gap-1.5 whitespace-nowrap rounded-full border border-hairline-strong px-3 text-label-md font-semibold text-on-surface-variant hover:bg-surface-container"
+                >
+                  <Icon name="open_in_new" size={16} />
+                  Google Calendar
+                </a>
+              ) : null}
+            </div>
+          ) : null}
         </section>
 
         {/* Locations — series only (lib/happenings/series.ts); one entry per

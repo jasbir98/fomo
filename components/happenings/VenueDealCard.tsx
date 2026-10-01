@@ -2,8 +2,9 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Icon, NavCard, SmartImage } from "@/components/ui";
-import { WHO_GROUP_LABEL, type DealWhoGroup } from "@/lib/happenings/groups";
+import { Icon, NavCard } from "@/components/ui";
+import { DealPhoto } from "@/components/happenings/DealPhoto";
+import { dealGroupSubtitle } from "@/lib/happenings/deal-label";
 import { savingBadgeLabel } from "@/lib/happenings/format";
 import { priceLabelForHappening, type PriceLabel } from "@/lib/happenings/price-label";
 import { PriceTag } from "@/components/happenings/PriceTag";
@@ -19,7 +20,8 @@ export interface VenueDealCardProps {
   placeId: string | null;
   placeName: string;
   placeImageUrl: string | null;
-  district: string | null;
+  /** Kept for caller compatibility; no longer rendered (the subtitle now carries the offer, not the area). */
+  district?: string | null;
   /** The subset of this venue's offers that currently match the active WHAT/WHO filters — the caller (app/(shell)/page.tsx) does the filtering so this component never needs to know about filter state, just what to render. */
   offers: DealCardData[];
   /** 0-based index within the /deals list — `card_opened`'s `position`. */
@@ -47,44 +49,30 @@ function bestSaving(offers: DealCardData[]): PriceLabel | null {
   return priceLabelForHappening(pick.happening);
 }
 
-function VenueThumbnail({ placeImageUrl }: { placeImageUrl: string | null }) {
-  const [imgError, setImgError] = useState(false);
-  const showImage = placeImageUrl && !imgError;
+/** Photo order: any offer's own image, the linked place's photo, then the category default photo (DealPhoto appends it) — never a glyph tile. */
+function VenueThumbnail({ placeImageUrl, offers }: { placeImageUrl: string | null; offers: DealCardData[] }) {
+  const sources = [...offers.map((o) => o.happening.image_url), placeImageUrl];
   return (
     <div className="h-16 w-16 shrink-0 overflow-hidden rounded-lg border border-hairline bg-surface-container">
-      {showImage ? (
-        <SmartImage
-          src={placeImageUrl}
-          alt=""
-          width={64}
-          height={64}
-          className="h-full w-full object-cover"
-          onError={() => setImgError(true)}
-        />
-      ) : (
-        <div className="flex h-full w-full items-center justify-center">
-          <Icon name="storefront" size={22} className="text-outline" />
-        </div>
-      )}
+      <DealPhoto sources={sources} category={offers[0]?.happening.category} width={64} height={64} className="h-full w-full object-cover" />
     </div>
   );
 }
 
 function VenueDealSummary({
   placeName,
-  district,
   offers,
   priceLabel,
 }: {
   placeName: string;
-  district: string | null;
   offers: DealCardData[];
   priceLabel: PriceLabel | null;
 }) {
   const who = useEffectiveWho();
-  const whoLabels = Array.from(
-    new Set(offers.map((o) => o.who).filter((w): w is DealWhoGroup => w != null))
-  ).map((w) => WHO_GROUP_LABEL[w]);
+  // Offer in plain words + count ("Up to 30% off · 2 deals"); the title above is the venue.
+  const best = dealGroupSubtitle(offers.map((o) => o.happening));
+  const count = `${offers.length} deal${offers.length === 1 ? "" : "s"}`;
+  const subtitle = best ? `${best} · ${count}` : count;
   // "You qualify" (task brief §3) — true when ANY of this venue's offers
   // matches the visitor's own eligibility set (lib/useSaved.ts's `who`,
   // derived from lib/personalise/usePrefs.ts) — a group card headlines one
@@ -95,20 +83,15 @@ function VenueDealSummary({
   return (
     <div className="flex min-w-0 flex-1 flex-col justify-center gap-0.5">
       <div className="flex items-center justify-between gap-1">
-        <h5 className="truncate text-label-lg font-bold text-on-surface">{placeName}</h5>
+        <h5 className="line-clamp-2 text-label-lg font-bold leading-snug text-on-surface">{placeName}</h5>
         <PriceTag label={priceLabel} variant="compact" />
       </div>
-      <span className="text-label-sm text-on-surface-variant">
-        {offers.length} offer{offers.length === 1 ? "" : "s"}
-        {district ? ` · ${district}` : ""}
-      </span>
+      <span className="line-clamp-1 text-body-sm text-on-surface-variant">{subtitle}</span>
       {qualifies ? (
         <span className="inline-flex w-fit items-center gap-1 rounded-full bg-secondary-container/25 px-2 py-0.5 text-label-sm font-bold text-primary">
           <Icon name="check_circle" filled size={12} />
           You qualify
         </span>
-      ) : whoLabels.length > 0 ? (
-        <span className="truncate text-label-sm text-secondary">{whoLabels.join(" · ")}</span>
       ) : null}
     </div>
   );
@@ -134,7 +117,7 @@ function ExpandedOfferRow({ offer }: { offer: DealCardData }) {
 
 /**
  * One card per venue with multiple live deals (Home restructure task 3) —
- * venue photo, name, district, "N offers", best saving badge, a summary of
+ * venue photo (own image, place photo, else category default photo), venue name, best saving badge, offer subtitle + deal count, a summary of
  * which WHO groups its offers cover.
  *
  * Taps through to `/place/[id]` when `placeId` resolved to a real place,
@@ -143,7 +126,7 @@ function ExpandedOfferRow({ offer }: { offer: DealCardData }) {
  * `VenueDealCardProps`'s doc comment), there's nowhere to send the tap, so
  * the card expands in place instead, listing each offer with its own link.
  */
-export function VenueDealCard({ placeId, placeName, placeImageUrl, district, offers, position }: VenueDealCardProps) {
+export function VenueDealCard({ placeId, placeName, placeImageUrl, offers, position }: VenueDealCardProps) {
   const [expanded, setExpanded] = useState(false);
   const priceLabel = bestSaving(offers);
 
@@ -164,8 +147,8 @@ export function VenueDealCard({ placeId, placeName, placeImageUrl, district, off
         }
         className="flex cursor-pointer items-center gap-3.5 rounded-2xl bg-surface-container-lowest p-3.5 shadow-level-1 transition-shadow hover:shadow-level-2"
       >
-        <VenueThumbnail placeImageUrl={placeImageUrl} />
-        <VenueDealSummary placeName={placeName} district={district} offers={offers} priceLabel={priceLabel} />
+        <VenueThumbnail placeImageUrl={placeImageUrl} offers={offers} />
+        <VenueDealSummary placeName={placeName} offers={offers} priceLabel={priceLabel} />
       </NavCard>
     );
   }
@@ -178,8 +161,8 @@ export function VenueDealCard({ placeId, placeName, placeImageUrl, district, off
         onClick={() => setExpanded((v) => !v)}
         className="flex w-full cursor-pointer items-center gap-3.5 text-left"
       >
-        <VenueThumbnail placeImageUrl={placeImageUrl} />
-        <VenueDealSummary placeName={placeName} district={district} offers={offers} priceLabel={priceLabel} />
+        <VenueThumbnail placeImageUrl={placeImageUrl} offers={offers} />
+        <VenueDealSummary placeName={placeName} offers={offers} priceLabel={priceLabel} />
         <Icon name={expanded ? "expand_less" : "expand_more"} size={20} className="shrink-0 text-outline" />
       </button>
       {expanded ? (

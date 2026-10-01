@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { happeningDayLabel, happeningLiveUntilLabel, happeningTimeLabel } from "@/lib/happenings/format";
+import { weekdaySummaryLabel, happeningDayLabel, happeningLiveUntilLabel, happeningTimeLabel } from "@/lib/happenings/format";
 import { occurrenceIsLive } from "@/lib/happenings/occurrence";
 import type { Occurrence } from "@/lib/happenings/types";
 
@@ -74,4 +74,18 @@ test("happeningLiveUntilLabel: end clock when same-day endsAt is known", () => {
   const o = occ({ startsAt: "2026-09-29T09:00:00Z", endsAt: "2026-09-29T15:00:00Z" });
   assert.equal(happeningLiveUntilLabel(o, NOW, TZ), "until 4pm");
   assert.equal(happeningLiveUntilLabel(occ({ startsAt: "2026-09-29T12:00:00Z" }), NOW, TZ), null);
+});
+
+test("weekdaySummaryLabel compresses weekday sets", () => {
+  assert.equal(weekdaySummaryLabel([0, 1, 2, 3, 4, 5]), "Every day except Saturday");
+  assert.equal(weekdaySummaryLabel([1, 2, 3, 4, 5]), "Weekdays");
+  assert.equal(weekdaySummaryLabel([6, 0]), "Weekends");
+  assert.equal(weekdaySummaryLabel([0, 1, 2, 3, 4, 5, 6]), "Every day");
+  assert.equal(weekdaySummaryLabel([4, 1, 3, 2]), "Mon to Thu");
+  assert.equal(weekdaySummaryLabel([5, 6, 0]), "Fri to Sun");
+  assert.equal(weekdaySummaryLabel([1, 3, 5]), "Mon, Wed & Fri");
+  assert.equal(weekdaySummaryLabel([5, 1]), "Mon & Fri");
+  assert.equal(weekdaySummaryLabel([6]), "Every Saturday");
+  assert.equal(weekdaySummaryLabel([1, 2, 3, 4, 5, 6]), "Every day except Sunday");
+  assert.equal(weekdaySummaryLabel([]), "");
 });

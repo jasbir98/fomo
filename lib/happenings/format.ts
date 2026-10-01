@@ -490,9 +490,51 @@ export function occurrenceRangeLabel(occurrence: Pick<Occurrence, "dayDate" | "l
 }
 
 const WEEKDAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+const WEEKDAY_SHORT = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
+/** Calendar position with Monday first (Mon=0 .. Sun=6), so Fri/Sat/Sun reads as one run. */
+const mondayFirst = (d: number) => (d + 6) % 7;
 
 /**
- * The ONE-LINE recurrence pattern — "Every Saturday", "Every Mon & Fri",
+ * Compact weekday summary for a weekly recurrence (`days` = 0 Sun .. 6 Sat, any
+ * order, duplicates ignored): "Every day", "Every day except Saturday",
+ * "Weekdays", "Weekends", "Mon to Thu" (a run of 3+), otherwise short names
+ * "Mon, Wed & Fri". A single day stays "Every Saturday". Returns "" for no days.
+ */
+export function weekdaySummaryLabel(days: readonly number[]): string {
+  const sorted = [...new Set(days)].filter((d) => d >= 0 && d <= 6).sort((a, b) => mondayFirst(a) - mondayFirst(b));
+  const n = sorted.length;
+  if (n === 0) return "";
+  if (n === 7) return "Every day";
+  if (n === 1) return `Every ${WEEKDAY_NAMES[sorted[0]]}`;
+  const set = new Set(sorted);
+  if (n === 6) {
+    const missing = [0, 1, 2, 3, 4, 5, 6].find((d) => !set.has(d)) as number;
+    return `Every day except ${WEEKDAY_NAMES[missing]}`;
+  }
+  if (n === 5 && [1, 2, 3, 4, 5].every((d) => set.has(d))) return "Weekdays";
+  if (n === 2 && set.has(0) && set.has(6)) return "Weekends";
+  const contiguous = mondayFirst(sorted[n - 1]) - mondayFirst(sorted[0]) === n - 1;
+  if (n >= 3 && contiguous) return `${WEEKDAY_SHORT[sorted[0]]} to ${WEEKDAY_SHORT[sorted[n - 1]]}`;
+  const names = sorted.map((d) => WEEKDAY_SHORT[d]);
+  return `${names.slice(0, -1).join(", ")} & ${names[n - 1]}`;
+}
+
+/**
+ * The long-hand "Every Sunday, Monday & Friday" form of a weekly pattern, which
+ * source `time_note`s tend to echo at their start. Only used to strip that echo
+ * (see stripLeadingPatternEcho); never shown.
+ */
+export function weeklyEchoLabel(recurrence: Recurrence): string | null {
+  if (recurrence.type !== "weekly") return null;
+  const names = [...recurrence.days].sort((a, b) => a - b).map((d) => WEEKDAY_NAMES[d]);
+  if (names.length === 7) return "Every day";
+  if (names.length === 1) return `Every ${names[0]}`;
+  return `Every ${names.slice(0, -1).join(", ")} & ${names[names.length - 1]}`;
+}
+
+/**
+ * The ONE-LINE recurrence pattern — "Every Saturday", "Mon & Fri", "Weekdays",
  * "Every 30 Nov", "On selected dates" — for the happening detail page's
  * When section. Shown ONCE above a compact list of the actual upcoming
  * dates, replacing the old behaviour of repeating `time_note` on every
@@ -503,14 +545,8 @@ const WEEKDAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "
  */
 export function recurrencePatternLabel(recurrence: Recurrence): string | null {
   switch (recurrence.type) {
-    case "weekly": {
-      // `days` is whatever order the source data listed — sort to calendar
-      // order (Sun..Sat) so "Every Fri & Mon" never prints out of sequence.
-      const names = [...recurrence.days].sort((a, b) => a - b).map((d) => WEEKDAY_NAMES[d]);
-      if (names.length === 7) return "Every day";
-      if (names.length === 1) return `Every ${names[0]}`;
-      return `Every ${names.slice(0, -1).join(", ")} & ${names[names.length - 1]}`;
-    }
+    case "weekly":
+      return weekdaySummaryLabel(recurrence.days) || null;
     case "annual": {
       const start = `${recurrence.day} ${monthAbbr(recurrence.month)}`;
       if (recurrence.endDay && recurrence.endDay !== recurrence.day) {

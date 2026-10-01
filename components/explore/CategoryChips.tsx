@@ -11,9 +11,10 @@ export interface CategoryChipsProps {
 /** Multi-select Edinburgh category chips (Food & drink, Cafés, Pubs & bars, …) — real `places.category` groupings, see lib/explore/categories.ts's header for where they came from. Selecting more than one is OR, not AND. */
 export function CategoryChips({ selected, onToggle }: CategoryChipsProps) {
   return (
-    <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 [&::-webkit-scrollbar]:hidden">
+    <div className="-mx-4 flex touch-pan-x snap-x snap-mandatory gap-2 overflow-x-auto overscroll-x-contain scroll-pl-4 px-4 pb-1 [&::-webkit-scrollbar]:hidden">
       {EXPLORE_CATEGORIES.map((c) => (
         <Chip
+          className="shrink-0 snap-start"
           key={c.slug}
           label={c.label}
           leadingIcon={c.icon}

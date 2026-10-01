@@ -110,7 +110,7 @@ export function SubscribeCard({ source, className = "" }: SubscribeCardProps) {
         </p>
       </div>
 
-      <div className="flex items-center gap-2">
+      <div className="flex min-w-0 items-center gap-2">
         <label htmlFor="subscribe-email" className="sr-only">
           Email address
         </label>
@@ -125,7 +125,7 @@ export function SubscribeCard({ source, className = "" }: SubscribeCardProps) {
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           disabled={status === "sending"}
-          className="min-h-11 flex-1 rounded-lg border border-outline-variant bg-surface-container-lowest px-3 text-body-md text-on-surface placeholder:text-outline focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30 disabled:opacity-70"
+          className="min-h-11 min-w-0 flex-1 rounded-lg border border-outline-variant bg-surface-container-lowest px-3 text-body-md text-on-surface placeholder:text-outline focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30 disabled:opacity-70"
         />
         {/* Honeypot — hidden from sighted and assistive visitors alike. A
             real form-filler never sees or reaches this field; a bot that

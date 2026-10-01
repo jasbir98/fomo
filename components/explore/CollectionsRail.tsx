@@ -16,13 +16,13 @@ export function CollectionsRail({ isRainy, onSelect }: CollectionsRailProps) {
     : EXPLORE_COLLECTIONS;
 
   return (
-    <div className="-mx-4 flex gap-3 overflow-x-auto px-4 pb-1 [&::-webkit-scrollbar]:hidden">
+    <div className="-mx-4 flex touch-pan-x snap-x snap-mandatory gap-3 overflow-x-auto overscroll-x-contain scroll-pl-4 px-4 pb-1 [&::-webkit-scrollbar]:hidden">
       {ordered.map((c) => (
         <button
           key={c.slug}
           type="button"
           onClick={() => onSelect(c)}
-          className="flex w-[132px] shrink-0 flex-col items-start gap-2 rounded-xl border border-outline-variant bg-surface-container-lowest p-3 text-left shadow-sm transition-shadow hover:shadow-md"
+          className="flex w-[132px] shrink-0 snap-start flex-col items-start gap-2 rounded-xl border border-outline-variant bg-surface-container-lowest p-3 text-left shadow-sm transition-shadow hover:shadow-md"
         >
           <span className="flex h-9 w-9 items-center justify-center rounded-full bg-primary-container text-on-primary-container">
             <Icon name={c.icon} size={20} />

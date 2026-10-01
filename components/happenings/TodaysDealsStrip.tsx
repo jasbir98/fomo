@@ -1,8 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { Icon, NavCard, SmartImage } from "@/components/ui";
-import { categoryDefaultImage, categoryStyle } from "@/lib/happenings/category-style";
+import { Icon, NavCard } from "@/components/ui";
+import { categoryStyle } from "@/lib/happenings/category-style";
+import { DealPhoto } from "@/components/happenings/DealPhoto";
+import { dealCardTitle, dealGroupSubtitle, dealSubtitle } from "@/lib/happenings/deal-label";
 import { savingBadgeLabel, shortStartTimeFromNote } from "@/lib/happenings/format";
 import { weekdayOf, localDayDate } from "@/lib/happenings/occurrence";
 import { CITY } from "@/lib/city";
@@ -31,9 +33,10 @@ function TodaysDealCard({ card, surface, position }: { card: DealCardData; surfa
   const { happening, who: cardWho } = card;
   const badge = savingBadgeLabel(happening);
   const style = categoryStyle(happening.category);
-  const thumbnail = happening.image_url ?? categoryDefaultImage(happening.category);
   const time = shortStartTimeFromNote(happening.time_note);
-  const venue = happening.venue_name ?? happening.district;
+  // Title = venue short name, subtitle = the offer in plain words (lib/happenings/deal-label.ts).
+  const title = dealCardTitle(happening);
+  const subtitle = dealSubtitle(happening);
   // "You qualify" (task brief §3) — same eligibility check as
   // FeedListCard's HappeningRow and VenueDealCard, reading the precomputed
   // `who` facet this card already carries rather than re-deriving it.
@@ -49,10 +52,10 @@ function TodaysDealCard({ card, surface, position }: { card: DealCardData; surfa
         setHappeningPreview(happening.id, happeningToPreview(happening, { priceLabel: badge, whenLabel: time }));
         track("card_opened", { kind: "happening", id: happening.id, source: happening.kind, surface, position, price_band: priceBand(happening.is_free) });
       }}
-      className="flex w-40 shrink-0 cursor-pointer flex-col gap-2 rounded-2xl bg-surface-container-lowest p-3 shadow-level-1 transition-shadow hover:shadow-level-2"
+      className="flex w-44 shrink-0 cursor-pointer flex-col gap-2 rounded-2xl bg-surface-container-lowest p-3 shadow-level-1 transition-shadow hover:shadow-level-2"
     >
       <div className="relative h-20 w-full shrink-0 overflow-hidden rounded-xl border border-hairline bg-surface-container">
-        <SmartImage src={thumbnail} alt="" width={144} height={80} className="h-full w-full object-cover" />
+        <DealPhoto sources={[happening.image_url]} category={happening.category} width={160} height={80} className="h-full w-full object-cover" />
         {badge ? (
           <span className="absolute right-1 top-1 rounded-full border border-hairline-strong bg-surface-container-lowest/95 px-2 py-0.5 text-label-sm font-extrabold text-primary shadow-xs">
             {badge}
@@ -70,8 +73,8 @@ function TodaysDealCard({ card, surface, position }: { card: DealCardData; surfa
           <Icon name={style.icon} size={11} className={style.textClass} />
           {time ? <span className="text-accent">{time}</span> : null}
         </div>
-        <h5 className="line-clamp-2 text-label-md font-bold leading-snug text-on-surface">{happening.title}</h5>
-        {venue ? <p className="truncate text-label-sm font-medium text-on-surface-variant">{venue}</p> : null}
+        <h5 className="line-clamp-2 text-label-lg font-bold leading-snug text-on-surface">{title}</h5>
+        {subtitle ? <p className="line-clamp-1 text-body-sm font-medium text-on-surface-variant">{subtitle}</p> : null}
       </div>
     </NavCard>
   );
@@ -97,7 +100,9 @@ function TodaysDealGroupCard({ group, surface, position }: { group: DealVenueGro
   const headline = bestOffer(group.offers);
   const { happening } = headline;
   const style = categoryStyle(happening.category);
-  const thumbnail = group.placeImageUrl ?? happening.image_url ?? categoryDefaultImage(happening.category);
+  // Photo order: any grouped deal's own image (headline first), the linked place's photo, then the category default photo (DealPhoto appends it).
+  const photoSources = [happening.image_url, ...group.offers.map((o) => o.happening.image_url), group.placeImageUrl];
+  const subtitle = dealGroupSubtitle(group.offers.map((o) => o.happening));
   const time = shortStartTimeFromNote(happening.time_note);
   const href = group.placeId ? `/place/${group.placeId}` : "/deals";
   // Same "You qualify" rule as VenueDealCard's own group summary — true when
@@ -115,10 +120,10 @@ function TodaysDealGroupCard({ group, surface, position }: { group: DealVenueGro
           track("card_opened", { kind: "place", id: group.placeId, source: "venue_group", surface, position, price_band: priceBand(happening.is_free) });
         }
       }}
-      className="flex w-40 shrink-0 cursor-pointer flex-col gap-2 rounded-2xl bg-surface-container-lowest p-3 shadow-level-1 transition-shadow hover:shadow-level-2"
+      className="flex w-44 shrink-0 cursor-pointer flex-col gap-2 rounded-2xl bg-surface-container-lowest p-3 shadow-level-1 transition-shadow hover:shadow-level-2"
     >
       <div className="relative h-20 w-full shrink-0 overflow-hidden rounded-xl border border-hairline bg-surface-container">
-        <SmartImage src={thumbnail} alt="" width={144} height={80} className="h-full w-full object-cover" />
+        <DealPhoto sources={photoSources} category={happening.category} width={160} height={80} className="h-full w-full object-cover" />
         <span className="absolute right-1 top-1 rounded-full border border-hairline-strong bg-surface-container-lowest/95 px-2 py-0.5 text-label-sm font-extrabold text-primary shadow-xs">
           {group.offers.length} deals
         </span>
@@ -134,8 +139,8 @@ function TodaysDealGroupCard({ group, surface, position }: { group: DealVenueGro
           <Icon name={style.icon} size={11} className={style.textClass} />
           {time ? <span className="text-accent">{time}</span> : null}
         </div>
-        <h5 className="line-clamp-2 text-label-md font-bold leading-snug text-on-surface">{group.placeName}</h5>
-        <p className="truncate text-label-sm font-medium text-on-surface-variant">{happening.title}</p>
+        <h5 className="line-clamp-2 text-label-lg font-bold leading-snug text-on-surface">{group.placeName}</h5>
+        {subtitle ? <p className="line-clamp-1 text-body-sm font-medium text-on-surface-variant">{subtitle}</p> : null}
       </div>
     </NavCard>
   );
