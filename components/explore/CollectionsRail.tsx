@@ -16,7 +16,7 @@ export function CollectionsRail({ isRainy, onSelect }: CollectionsRailProps) {
     : EXPLORE_COLLECTIONS;
 
   return (
-    <div className="-mx-4 flex touch-pan-x snap-x snap-mandatory gap-3 overflow-x-auto overscroll-x-contain scroll-pl-4 px-4 pb-1 [&::-webkit-scrollbar]:hidden">
+    <div className="-mx-4 flex touch-pan-x snap-x snap-mandatory gap-3 overflow-x-auto overscroll-x-contain scroll-pl-4 px-4 pb-1 [&::-webkit-scrollbar]:hidden lg:mx-0 lg:flex-wrap lg:overflow-visible lg:px-0">
       {ordered.map((c) => (
         <button
           key={c.slug}

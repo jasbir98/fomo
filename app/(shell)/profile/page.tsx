@@ -230,7 +230,7 @@ export default function ProfilePage() {
   }
 
   return (
-    <main className="mx-auto flex max-w-[480px] flex-col gap-4 pb-8">
+    <main className="mx-auto flex max-w-[480px] flex-col gap-4 pb-8 lg:max-w-2xl lg:px-8">
       <PageHeader title="Profile" />
 
       {loading ? (

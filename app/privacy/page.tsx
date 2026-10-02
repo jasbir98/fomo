@@ -30,7 +30,7 @@ export default function PrivacyPage() {
   return (
     <div className="flex min-h-dvh w-full flex-col bg-background pb-safe">
       <PageHeader title="Privacy Policy" showBack />
-      <main className="mx-auto flex w-full max-w-sm flex-1 flex-col gap-6 px-5 pb-12">
+      <main className="mx-auto flex w-full max-w-sm flex-1 flex-col gap-6 px-5 pb-12 lg:max-w-3xl lg:px-8 lg:py-12">
         <p className="text-label-sm text-on-surface-variant">Last updated 28 September 2026.</p>
 
         <Section title="Who we are">

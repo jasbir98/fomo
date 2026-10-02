@@ -363,25 +363,25 @@ function SigninContent() {
   }
 
   return (
-    <div className="flex min-h-dvh w-full flex-col bg-background pb-safe">
-      <header className="relative overflow-hidden bg-gradient-to-b from-primary to-[#1b365d] px-6 pt-safe text-center">
-        <div className="relative z-10 flex items-center justify-center gap-2 pt-8 [@media(max-height:640px)]:pt-4">
+    <div className="flex min-h-dvh w-full flex-col bg-background pb-safe lg:grid lg:grid-cols-2 lg:min-h-dvh lg:bg-surface-container-lowest">
+      <header className="relative overflow-hidden bg-gradient-to-b from-primary to-[#1b365d] px-6 pt-safe text-center lg:min-h-dvh lg:flex lg:flex-col lg:justify-center lg:px-16 lg:py-0 lg:text-left">
+        <div className="relative z-10 flex items-center justify-center gap-2 pt-8 [@media(max-height:640px)]:pt-4 lg:justify-start lg:pt-0">
           <FomoLogo tone="dark" size={30} />
         </div>
-        <h1 className="relative z-10 mt-6 text-headline-md [@media(max-height:640px)]:mt-3 text-on-primary">
+        <h1 className="relative z-10 mt-6 text-headline-md [@media(max-height:640px)]:mt-3 text-on-primary lg:text-headline-lg lg:mt-8">
           {step === "email" ? "Edinburgh’s on tonight" : "Check your email"}
         </h1>
-        <p className="relative z-10 mt-1 text-body-md text-on-primary/75">
+        <p className="relative z-10 mt-1 text-body-md text-on-primary/75 lg:mt-3">
           {step === "email" ? "Sign in so you don’t miss it." : `We sent a code to ${email.trim()}.`}
         </p>
-        <div className="pointer-events-none -mx-6 mt-2 h-36 [@media(max-height:640px)]:h-20">
+        <div className="pointer-events-none -mx-6 mt-2 h-36 [@media(max-height:640px)]:h-20 lg:mt-auto lg:mx-0">
           <SigninSkyline />
         </div>
       </header>
 
-      <main className="relative z-10 mx-auto -mt-8 flex w-full max-w-sm flex-1 flex-col px-4">
+      <main className="relative z-10 mx-auto -mt-8 flex w-full max-w-sm flex-1 flex-col px-4 lg:mt-0 lg:flex lg:flex-col lg:justify-center lg:w-full lg:max-w-md lg:mx-auto lg:px-8">
         <div className="relative flex flex-col gap-5 rounded-3xl bg-surface-container-lowest px-5 pt-10 pb-6 shadow-[0_12px_40px_-12px_rgba(0,32,70,0.25)]">
-          <div className="absolute -top-[61px] left-1/2 h-[68px] w-28 -translate-x-1/2">
+          <div className="absolute -top-[61px] left-1/2 h-[68px] w-28 -translate-x-1/2 lg:hidden">
             <FomoPeek mood={step === "email" ? "grin" : "wow"} />
           </div>
           {reasonCopy && step === "email" ? (

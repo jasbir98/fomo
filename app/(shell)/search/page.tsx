@@ -201,7 +201,7 @@ function SearchContent() {
   return (
     <div className="flex min-h-dvh flex-col">
       <div className="sticky top-0 z-40 border-b border-hairline bg-surface-container-lowest/95 pt-safe backdrop-blur-xl">
-        <div className="flex items-center gap-1 px-2 py-2">
+        <div className="flex items-center gap-1 px-2 py-2 lg:mx-auto lg:max-w-[900px]">
           <button
             type="button"
             onClick={handleBack}
@@ -243,7 +243,7 @@ function SearchContent() {
         </div>
       </div>
 
-      <div className="flex flex-col gap-4 px-4 py-4">
+      <div className="flex flex-col gap-4 px-4 py-4 lg:mx-auto lg:max-w-[900px] lg:px-8">
         {searching ? (
           <>
             <Link
