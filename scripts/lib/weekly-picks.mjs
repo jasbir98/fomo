@@ -79,7 +79,17 @@ function makeRest(supabaseUrl, serviceRoleKey) {
     "Content-Type": "application/json",
   };
   return async function rest(path) {
-    const res = await fetch(`${base}/rest/v1/${path}`, { headers });
+    let res;
+    // sb_secret_ keys: Supabase's gateway mints a short-lived JWT per request, and
+    // gateway/PostgREST clock skew occasionally rejects it as "issued at future"
+    // (PGRST303). Transient — retry a few times before failing the run.
+    for (let attempt = 1; ; attempt++) {
+      res = await fetch(`${base}/rest/v1/${path}`, { headers });
+      if (res.status !== 401 || attempt === 4) break;
+      const body = await res.clone().text();
+      if (!body.includes("PGRST303")) break;
+      await new Promise((r) => setTimeout(r, attempt * 2000));
+    }
     if (!res.ok) {
       const body = await res.text();
       throw new Error(`GET ${path} -> ${res.status}: ${body}`);
