@@ -77,7 +77,7 @@ export function ExploreSheet({ pin, onClose }: ExploreSheetProps) {
                 alt={pin.title}
                 width={480}
                 height={140}
-                sizes="(max-width: 480px) 100vw, 480px"
+                sizes="(min-width: 1024px) 512px, (max-width: 480px) 100vw, 480px"
                 className="h-full w-full object-cover"
               />
             ) : (

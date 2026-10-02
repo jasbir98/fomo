@@ -196,9 +196,9 @@ export function FomoCard({
   const photoWidth = isHero ? 480 : variant === "grid" ? 214 : 168;
   const photoPx = isHero ? 208 : variant === "grid" ? 128 : 112;
   const photoSizes = isHero
-    ? "(max-width: 480px) 100vw, 480px"
+    ? "(min-width: 1024px) 480px, (max-width: 480px) 100vw, 480px"
     : variant === "grid"
-      ? "(max-width: 480px) 45vw, 214px"
+      ? "(min-width: 1024px) 280px, (max-width: 480px) 45vw, 214px"
       : "168px";
 
   return (

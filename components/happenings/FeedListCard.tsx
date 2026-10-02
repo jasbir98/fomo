@@ -465,7 +465,7 @@ function FestivalRow({ happening, surface, position }: { happening: Happening; s
         alt=""
         width={480}
         height={112}
-        sizes="(max-width: 480px) 100vw, 480px"
+        sizes="(min-width: 1024px) 560px, (max-width: 480px) 100vw, 480px"
         className="h-28 w-full object-cover"
       />
       <div className="flex flex-col gap-3 p-3.5">

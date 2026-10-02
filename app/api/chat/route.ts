@@ -50,7 +50,9 @@ import { eligibilityLine, happeningTimeLabel, recurrencePatternLabel, savingBadg
 import { parseWhoGroups, WHO_GROUP_LABEL, type DealWhoGroup } from "@/lib/happenings/groups";
 import { formatEventPrice, formatEventWhen, eventHasEnded } from "@/lib/events/format";
 import type { AiReplyBlock, ChatItem, ChatPlace } from "@/lib/fomo-ai";
-import type { CardSubjectType } from "@/lib/types";
+import type { Happening } from "@/lib/happenings/types";
+import { resolveHappeningCoords, loadPlacesForHappenings } from "@/lib/explore/coords";
+import type { CardSubjectType, Place } from "@/lib/types";
 import type { Db } from "@/lib/supabase/types";
 
 export const runtime = "nodejs";
@@ -181,15 +183,31 @@ async function buildCatalogue(db: Db, now: Date): Promise<Catalogue> {
   const lines: string[] = [];
   const items = new Map<string, ChatItem>();
 
+  // Resolve each happening's next occurrence up front so the coordinate
+  // fallback (one batched places query for linked venues) only covers rows
+  // that will actually make the catalogue.
+  const live: { h: Happening; occurrence: NonNullable<ReturnType<typeof nextOccurrence>> }[] = [];
   for (const h of happenings) {
     const occurrence = nextOccurrence(h, now, to, CITY.timezone);
     if (!occurrence) continue;
     if (happeningHasEnded(h, now, CITY.timezone)) continue; // final "no ended items ever leave an API" guard
+    live.push({ h, occurrence });
+  }
+  let placesById = new Map<string, Place>();
+  try {
+    placesById = await loadPlacesForHappenings(db, live.map((l) => l.h));
+  } catch (err) {
+    // Coordinates are a map nicety; a failed lookup just leaves them null.
+    console.error("[api/chat] happening coordinate lookup failed", err);
+  }
+
+  for (const { h, occurrence } of live) {
     const when =
       happeningTimeLabel(occurrence) ?? recurrencePatternLabel(normalizeRecurrence(h.recurrence)) ?? "any time";
     const where = h.venue_name ?? h.district ?? null;
     const badge = h.is_free ? "Free" : savingBadgeLabel(h);
     const key = `H:${h.id}`;
+    const coords = resolveHappeningCoords(h, placesById);
     lines.push(
       [
         key,
@@ -210,6 +228,8 @@ async function buildCatalogue(db: Db, now: Date): Promise<Catalogue> {
       badge,
       image_url: h.image_url,
       href: `/happening/${h.id}`,
+      lat: coords?.lat ?? null,
+      lng: coords?.lng ?? null,
     });
   }
 
@@ -237,6 +257,8 @@ async function buildCatalogue(db: Db, now: Date): Promise<Catalogue> {
       badge: price,
       image_url: e.image_url,
       href: `/event/${e.id}`,
+      lat: e.lat ?? null,
+      lng: e.lng ?? null,
     });
   }
 

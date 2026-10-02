@@ -46,7 +46,7 @@ export function PhotoCarousel({ photos, className = "" }: PhotoCarouselProps) {
         alt={active.alt ?? ""}
         width={480}
         height={256}
-        sizes="(max-width: 480px) 100vw, 480px"
+        sizes="(min-width: 1024px) 720px, (max-width: 480px) 100vw, 480px"
         priority={index === 0}
         className="h-full w-full object-cover"
       />

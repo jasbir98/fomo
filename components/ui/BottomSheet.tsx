@@ -25,11 +25,19 @@ export type BottomSheetProps = {
   className?: string;
   /** Accessible name for the dialog when `title` isn't a plain string (or is absent) — falls back to "Dialog". Ignored when `title` is a string, which is used directly via aria-labelledby. */
   ariaLabel?: string;
+  /** Width of the dialog at lg and up, where the sheet becomes a centred modal: "md" (default) = max-w-lg, "lg" = max-w-2xl. Has no effect on phones. */
+  size?: "md" | "lg";
 };
 
 /**
  * Slide-up bottom modal sheet with backdrop + drag-handle affordance.
  * Stays within the max-w-[480px] phone column. Esc / backdrop click closes.
+ *
+ * From lg (1024px) up it is a centred dialog instead: vertically centred,
+ * rounded on every corner, `size`-capped width, no drag handle, and it fades
+ * and scales in (the backdrop wrapper already fades; the panel adds a 95% ->
+ * 100% scale) rather than sliding up from the bottom edge. Callers need no
+ * changes — every behaviour below (Esc, focus trap, scroll lock) is shared.
  *
  * Portals to document.body: `position: fixed` is scoped to the nearest
  * ancestor with a transform/filter/backdrop-filter (a CSS containing-block
@@ -39,7 +47,7 @@ export type BottomSheetProps = {
  * get the "fixed" overlay pinned to the header's own small box instead of
  * the viewport. Portaling sidesteps that regardless of call site.
  */
-export function BottomSheet({ open, onClose, title, children, className = "", ariaLabel }: BottomSheetProps) {
+export function BottomSheet({ open, onClose, title, children, className = "", ariaLabel, size = "md" }: BottomSheetProps) {
   const mounted = useMounted();
   const titleId = useId();
   const panelRef = useRef<HTMLDivElement>(null);
@@ -106,7 +114,7 @@ export function BottomSheet({ open, onClose, title, children, className = "", ar
 
   return createPortal(
     <div
-      className={`fixed inset-0 z-[60] flex items-end justify-center transition-opacity duration-200 motion-reduce:transition-none ${
+      className={`fixed inset-0 z-[60] flex items-end justify-center lg:items-center transition-opacity duration-200 motion-reduce:transition-none ${
         open ? "opacity-100" : "pointer-events-none opacity-0"
       }`}
       aria-hidden={!open}
@@ -127,15 +135,15 @@ export function BottomSheet({ open, onClose, title, children, className = "", ar
         aria-labelledby={titleIsString ? titleId : undefined}
         aria-label={!titleIsString ? (ariaLabel ?? "Dialog") : undefined}
         tabIndex={-1}
-        className={`relative flex max-h-[calc(100dvh-env(safe-area-inset-top)-1rem)] w-full max-w-[480px] flex-col rounded-t-xl bg-surface-container-lowest shadow-[0_-8px_32px_rgba(3,22,50,0.18)] transition-transform duration-300 motion-reduce:transition-none focus:outline-none ${
-          open ? "translate-y-0" : "translate-y-full"
-        } ${className}`}
+        className={`relative flex max-h-[calc(100dvh-env(safe-area-inset-top)-1rem)] w-full max-w-[480px] flex-col rounded-t-xl bg-surface-container-lowest shadow-[0_-8px_32px_rgba(3,22,50,0.18)] transition-transform duration-300 motion-reduce:transition-none focus:outline-none lg:max-h-[min(85dvh,760px)] lg:rounded-xl lg:shadow-level-3 lg:duration-200 ${
+          size === "lg" ? "lg:max-w-2xl" : "lg:max-w-lg"
+        } ${open ? "translate-y-0 lg:scale-100" : "translate-y-full lg:translate-y-0 lg:scale-95"} ${className}`}
       >
-        <div className="flex shrink-0 justify-center pt-3 pb-1">
+        <div className="flex shrink-0 justify-center pt-3 pb-1 lg:hidden">
           <span className="h-1.5 w-10 rounded-full bg-outline-variant" aria-hidden="true" />
         </div>
         {title ? (
-          <h2 id={titleIsString ? titleId : undefined} className="shrink-0 px-4 pb-2 pt-1 text-headline-sm text-on-surface">
+          <h2 id={titleIsString ? titleId : undefined} className="shrink-0 px-4 pb-2 pt-1 text-headline-sm text-on-surface lg:px-6 lg:pt-5">
             {title}
           </h2>
         ) : null}
@@ -143,7 +151,7 @@ export function BottomSheet({ open, onClose, title, children, className = "", ar
             locked while open, so without an inner scroller tall sheets spilled off
             the top of short phones. Bottom safe-area lives here so the last
             control clears the home indicator when scrolled to the end. */}
-        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-[calc(1rem+env(safe-area-inset-bottom))] pt-2">
+        <div className={`min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-[calc(1rem+env(safe-area-inset-bottom))] pt-2 lg:px-6 lg:pb-6 ${title ? "" : "lg:pt-6"}`}>
           {children}
         </div>
       </div>

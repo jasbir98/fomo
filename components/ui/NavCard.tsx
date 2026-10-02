@@ -43,6 +43,13 @@ export type NavCardProps = {
 export function NavCard({ href, children, className = "", ariaLabel, onPointerDown, onNavigate }: NavCardProps) {
   const router = useRouter();
 
+  // Pointer-hover prefetch, for desktop: the cursor is on a card a beat before
+  // the click, the same head start `onPointerDown` gives a touch. A no-op on
+  // touch (no hover), and Next dedupes repeat prefetches of the same href.
+  function handleMouseEnter() {
+    router.prefetch(href);
+  }
+
   function handleClick() {
     // A nested interactive element (button/anchor) that wants to own its
     // own click calls `event.stopPropagation()` in its own handler, which
@@ -70,6 +77,7 @@ export function NavCard({ href, children, className = "", ariaLabel, onPointerDo
       onClick={handleClick}
       onKeyDown={handleKeyDown}
       onPointerDown={onPointerDown}
+      onMouseEnter={handleMouseEnter}
       className={`${className} focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary`}
     >
       {children}

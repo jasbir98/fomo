@@ -42,7 +42,7 @@
 import "server-only";
 import { supabaseServer } from "@/lib/supabase/server";
 import { CITY } from "@/lib/city";
-import { listPlacesByCity, listPlacesByIds } from "@/lib/db/places";
+import { listPlacesByCity } from "@/lib/db/places";
 import { listLiveHappenings } from "@/lib/db/happenings";
 import { listUpcomingEvents } from "@/lib/db/events";
 import {
@@ -60,6 +60,7 @@ import {
   parseExploreCategories,
   type ExploreCategorySlug,
 } from "@/lib/explore/categories";
+import { resolveHappeningCoords, loadPlacesForHappenings } from "@/lib/explore/coords";
 import type { ExploreLayer, ExplorePin, ExploreResponse } from "@/lib/explore/types";
 import type { Place, EventItem } from "@/lib/types";
 import type { Happening } from "@/lib/happenings/types";
@@ -109,16 +110,6 @@ function matchesAnyCategory(
   test: (slug: ExploreCategorySlug) => boolean
 ): boolean {
   return categories.length === 0 || categories.some(test);
-}
-
-/** A happening's own lat/lng wins; otherwise borrows its linked place's coordinates (`placesById`, batch-fetched once — mirrors app/api/feed/route.ts's `withPlaceImageFallback` pattern, just for coordinates instead of a photo). Null when neither resolves — that happening can't be pinned on a map at all. */
-function resolveCoords(h: Happening, placesById: Map<string, Place>): { lat: number; lng: number } | null {
-  if (h.lat != null && h.lng != null) return { lat: h.lat, lng: h.lng };
-  if (h.place_id) {
-    const p = placesById.get(h.place_id);
-    if (p?.lat != null && p?.lng != null) return { lat: p.lat, lng: p.lng };
-  }
-  return null;
 }
 
 function placeBadge(p: Place): string | null {
@@ -208,17 +199,10 @@ export async function GET(request: Request) {
     // their own — one batched lookup covering every such row, same pattern
     // as the feed route's place-image fallback.
     let placesById = new Map<string, Place>();
-    const placeIdsNeeded = new Set<string>();
-    for (const h of happenings) {
-      if (h.place_id && (h.lat == null || h.lng == null)) placeIdsNeeded.add(h.place_id);
-    }
-    if (placeIdsNeeded.size > 0) {
-      try {
-        const resolved = await listPlacesByIds(db, Array.from(placeIdsNeeded));
-        placesById = new Map(resolved.map((p) => [p.id, p]));
-      } catch (err) {
-        console.error("[api/explore] happening coordinate lookup failed", err);
-      }
+    try {
+      placesById = await loadPlacesForHappenings(db, happenings);
+    } catch (err) {
+      console.error("[api/explore] happening coordinate lookup failed", err);
     }
 
     // Places -----------------------------------------------------------
@@ -249,7 +233,7 @@ export async function GET(request: Request) {
         const occurrence = dated ? nextOccurrence(h, now, dealTo, timeZone) : nextOccurrence(h, now, now, timeZone);
         if (!occurrence) continue;
         if (happeningHasEnded(h, now, timeZone)) continue; // final "no ended items" guard
-        const coords = resolveCoords(h, placesById);
+        const coords = resolveHappeningCoords(h, placesById);
         if (!coords) continue;
         if (!withinBbox(coords.lat, coords.lng, bbox)) continue;
         if (!matchesQuery(h.title, q)) continue;
@@ -284,7 +268,7 @@ export async function GET(request: Request) {
       for (const h of happenings) {
         if (normalizeRecurrence(h.recurrence).type !== "always" || h.is_free !== true) continue;
         if (happeningHasEnded(h, now, timeZone)) continue; // final "no ended items" guard
-        const coords = resolveCoords(h, placesById);
+        const coords = resolveHappeningCoords(h, placesById);
         if (!coords) continue;
         if (!withinBbox(coords.lat, coords.lng, bbox)) continue;
         if (!matchesQuery(h.title, q)) continue;
@@ -339,7 +323,7 @@ export async function GET(request: Request) {
         const occurrence = nextOccurrence(h, now, eventsTo, timeZone);
         if (!occurrence) continue;
         if (happeningHasEnded(h, now, timeZone)) continue; // final "no ended items" guard
-        const coords = resolveCoords(h, placesById);
+        const coords = resolveHappeningCoords(h, placesById);
         if (!coords) continue;
         if (!withinBbox(coords.lat, coords.lng, bbox)) continue;
         if (!matchesQuery(h.title, q)) continue;

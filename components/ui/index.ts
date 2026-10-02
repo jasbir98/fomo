@@ -26,6 +26,8 @@ export { PageHeader } from "./PageHeader";
 export type { PageHeaderProps } from "./PageHeader";
 export { StickyFilterBar } from "./StickyFilterBar";
 export type { StickyFilterBarProps } from "./StickyFilterBar";
+export { ScrollRail } from "./ScrollRail";
+export type { ScrollRailProps } from "./ScrollRail";
 export { SeeAllButton } from "./SeeAllButton";
 export type { SeeAllButtonProps } from "./SeeAllButton";
 export { PhotoCarousel } from "./PhotoCarousel";

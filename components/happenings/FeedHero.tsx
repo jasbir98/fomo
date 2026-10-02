@@ -86,7 +86,7 @@ function EventHero({ event, reason, surface }: { event: EventItem; reason: strin
           alt=""
           width={480}
           height={128}
-          sizes="(max-width: 480px) 100vw, 480px"
+          sizes="(min-width: 1024px) 760px, (max-width: 480px) 100vw, 480px"
           priority
           className="h-full w-full object-cover"
           onError={() => setImgError(true)}
