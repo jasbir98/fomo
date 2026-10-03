@@ -69,3 +69,54 @@ export function subjectTypeForPin(pin: Pick<ExplorePin, "href">): CardSubjectTyp
 export function directionsUrlForPin(pin: Pick<ExplorePin, "lat" | "lng">): string {
   return directionsUrlFor({ lat: pin.lat, lng: pin.lng })!;
 }
+
+/** Brand navy — fill of the numbered "Fomo's pick" markers. */
+export const PICK_MARKER_COLOR = "#1b365d";
+/** Accent ring around a highlighted pick/pin marker (hover or selection). */
+export const MARKER_HIGHLIGHT_RING = "#fc8a40";
+
+const PICK_MARKER_SIZE = 32;
+
+/**
+ * Builds the DOM for one numbered pick marker: an outer 32px box that Mapbox
+ * positions (it owns that element's `transform`, so nothing visual lives on
+ * it) and an inner circle that carries the look and scales when highlighted.
+ */
+export function createPickMarkerElement(rank: number, title: string): { el: HTMLDivElement; inner: HTMLDivElement } {
+  const el = document.createElement("div");
+  el.style.width = `${PICK_MARKER_SIZE}px`;
+  el.style.height = `${PICK_MARKER_SIZE}px`;
+  el.style.cursor = "pointer";
+  el.style.zIndex = "10";
+  el.tabIndex = 0;
+  el.setAttribute("role", "button");
+  el.setAttribute("aria-label", `${rank}. ${title}`);
+
+  const inner = document.createElement("div");
+  inner.textContent = String(rank);
+  inner.style.width = "100%";
+  inner.style.height = "100%";
+  inner.style.display = "flex";
+  inner.style.alignItems = "center";
+  inner.style.justifyContent = "center";
+  inner.style.boxSizing = "border-box";
+  inner.style.borderRadius = "50%";
+  inner.style.background = PICK_MARKER_COLOR;
+  inner.style.color = "#ffffff";
+  inner.style.font = "700 14px/1 system-ui, sans-serif";
+  inner.style.border = "2px solid #ffffff";
+  inner.style.transition = "transform 120ms ease-out, box-shadow 120ms ease-out";
+  el.appendChild(inner);
+  stylePickMarker(el, inner, false);
+  return { el, inner };
+}
+
+/** Normal vs highlighted look (scale 1.25 + accent ring) for a marker built by `createPickMarkerElement`. */
+export function stylePickMarker(el: HTMLElement, inner: HTMLElement, highlighted: boolean): void {
+  inner.style.transform = highlighted ? "scale(1.25)" : "scale(1)";
+  inner.style.boxShadow = highlighted
+    ? `0 0 0 3px ${MARKER_HIGHLIGHT_RING}, 0 3px 10px rgba(3,22,50,0.5)`
+    : "0 2px 6px rgba(3,22,50,0.45)";
+  // Above every other pick while highlighted so overlapping numbers stay readable.
+  el.style.zIndex = highlighted ? "20" : "10";
+}

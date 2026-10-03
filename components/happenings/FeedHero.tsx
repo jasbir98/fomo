@@ -10,6 +10,7 @@ import type { FeedHeroCard } from "@/lib/happenings/feed-types";
 import type { EventItem } from "@/lib/types";
 import { eventToPreview, prefetchEvent, setEventPreview } from "@/lib/events/preview-cache";
 import { track, priceBand } from "@/lib/analytics/track";
+import { tryOpenDetail } from "@/lib/detail-overlay/store";
 import type { FeedCardSurface } from "./FeedListCard";
 
 export interface FeedHeroProps {
@@ -66,7 +67,7 @@ function EventHero({ event, reason, surface }: { event: EventItem; reason: strin
     // as that would have.
     setEventPreview(event.id, eventToPreview(event, { priceLabel: price, whenLabel: formatEventWhen(event.starts_at, event.ends_at) }));
     trackOpen();
-    router.push(`/event/${event.id}`);
+    if (!tryOpenDetail(`/event/${event.id}`)) router.push(`/event/${event.id}`);
   }
 
   return (
@@ -78,9 +79,9 @@ function EventHero({ event, reason, surface }: { event: EventItem; reason: strin
         setEventPreview(event.id, eventToPreview(event, { priceLabel: price, whenLabel: formatEventWhen(event.starts_at, event.ends_at) }));
         trackOpen();
       }}
-      className="relative flex flex-col overflow-hidden rounded-3xl bg-surface-container-lowest shadow-level-3 cursor-pointer"
+      className="relative flex flex-col overflow-hidden rounded-3xl bg-surface-container-lowest shadow-level-3 cursor-pointer lg:flex-row lg:transition-transform lg:hover:-translate-y-0.5"
     >
-      <div className="relative h-32 w-full shrink-0 overflow-hidden bg-surface-container">
+      <div className="relative h-32 w-full shrink-0 overflow-hidden bg-surface-container lg:h-auto lg:min-h-[260px] lg:w-[44%]">
         <SmartImage
           src={heroImage}
           alt=""
@@ -88,10 +89,10 @@ function EventHero({ event, reason, surface }: { event: EventItem; reason: strin
           height={128}
           sizes="(min-width: 1024px) 760px, (max-width: 480px) 100vw, 480px"
           priority
-          className="h-full w-full object-cover"
+          className="h-full w-full object-cover lg:absolute lg:inset-0"
           onError={() => setImgError(true)}
         />
-        <div className="absolute inset-0 bg-gradient-to-t from-surface-container-lowest via-surface-container-lowest/15 to-transparent" />
+        <div className="absolute inset-0 bg-gradient-to-t from-surface-container-lowest via-surface-container-lowest/15 to-transparent lg:from-black/55 lg:via-transparent" />
 
         <div className="absolute inset-x-3 top-3 flex items-start justify-between gap-2">
           <div className="flex min-w-0 flex-col items-start gap-1">
@@ -113,18 +114,18 @@ function EventHero({ event, reason, surface }: { event: EventItem; reason: strin
         </div>
 
         {event.venue_name ? (
-          <div className="absolute bottom-2 left-3.5 right-3.5 flex min-w-0 items-center gap-1 text-primary">
+          <div className="absolute bottom-2 left-3.5 right-3.5 flex min-w-0 items-center gap-1 text-primary lg:text-white">
             <Icon name="pin_drop" size={16} className="shrink-0" />
             <span className="min-w-0 truncate text-label-sm font-extrabold uppercase tracking-wider">{event.venue_name}</span>
           </div>
         ) : null}
       </div>
 
-      <div className="flex flex-col gap-2.5 p-3.5 pt-2.5">
+      <div className="flex flex-col gap-2.5 p-3.5 pt-2.5 lg:min-w-0 lg:flex-1 lg:justify-between lg:gap-4 lg:p-6">
         <div className="flex flex-col gap-1">
-          <h2 className="line-clamp-2 text-headline-sm font-extrabold leading-snug text-on-surface">{event.name}</h2>
+          <h2 className="line-clamp-2 text-headline-sm font-extrabold leading-snug text-on-surface lg:line-clamp-3 lg:text-headline-md">{event.name}</h2>
           {event.description ? (
-            <p className="line-clamp-1 text-body-sm text-on-surface-variant">{event.description}</p>
+            <p className="line-clamp-1 text-body-sm text-on-surface-variant lg:line-clamp-3 lg:text-body-md">{event.description}</p>
           ) : null}
         </div>
 

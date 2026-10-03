@@ -2,7 +2,12 @@
 
 import { forwardRef } from "react";
 import type { ExplorePin } from "@/lib/explore/types";
-import { MapCanvas, type MapBounds, type MapCanvasHandle } from "@/components/explore/MapCanvas";
+import {
+  MapCanvas,
+  type MapBounds,
+  type MapCanvasHandle,
+  type MapCanvasProps,
+} from "@/components/explore/MapCanvas";
 import { Icon } from "@/components/ui";
 
 export interface MapStageProps {
@@ -15,6 +20,21 @@ export interface MapStageProps {
   onSearchThisArea: () => void;
   onNearMe: () => void;
   nearMeAvailable: boolean;
+  /** Map box sizing. Defaults to the phone hero's ~52vh; the desktop workspace passes `h-full`. */
+  heightClassName?: string;
+  /** Extra classes for the wrapper (the desktop workspace passes `h-full`). */
+  className?: string;
+  /** Edge-to-edge map (no rounded corners / border) for the desktop workspace. */
+  flush?: boolean;
+  // Desktop workspace pass-throughs to MapCanvas; see its props for details.
+  picks?: MapCanvasProps["picks"];
+  highlightedPickKey?: MapCanvasProps["highlightedPickKey"];
+  onPickClick?: MapCanvasProps["onPickClick"];
+  onPickHover?: MapCanvasProps["onPickHover"];
+  onMapReady?: MapCanvasProps["onMapReady"];
+  dimPins?: MapCanvasProps["dimPins"];
+  hidePins?: MapCanvasProps["hidePins"];
+  highlightedPinId?: MapCanvasProps["highlightedPinId"];
 }
 
 /**
@@ -39,11 +59,22 @@ export const MapStage = forwardRef<MapCanvasHandle, MapStageProps>(function MapS
     onSearchThisArea,
     onNearMe,
     nearMeAvailable,
+    heightClassName = "h-[52vh] min-h-[320px]",
+    className = "",
+    flush = false,
+    picks,
+    highlightedPickKey,
+    onPickClick,
+    onPickHover,
+    onMapReady,
+    dimPins,
+    hidePins,
+    highlightedPinId,
   },
   ref
 ) {
   return (
-    <div className="relative">
+    <div className={className ? `relative ${className}` : "relative"}>
       <MapCanvas
         ref={ref}
         center={center}
@@ -51,7 +82,16 @@ export const MapStage = forwardRef<MapCanvasHandle, MapStageProps>(function MapS
         selectedPinId={selectedPinId}
         onPinClick={onPinClick}
         onBoundsChange={onBoundsChange}
-        heightClassName="h-[52vh] min-h-[320px]"
+        heightClassName={heightClassName}
+        flush={flush}
+        picks={picks}
+        highlightedPickKey={highlightedPickKey}
+        onPickClick={onPickClick}
+        onPickHover={onPickHover}
+        onMapReady={onMapReady}
+        dimPins={dimPins}
+        hidePins={hidePins}
+        highlightedPinId={highlightedPinId}
       />
 
       {showSearchThisArea ? (

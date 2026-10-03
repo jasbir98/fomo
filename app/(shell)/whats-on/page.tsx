@@ -277,8 +277,8 @@ function WhatsOnPageInner() {
     <div className="flex flex-col pb-6">
       <PageHeader title="What's on" showBack />
 
-      <div className="flex flex-col gap-3 px-4 pt-1">
-        <StickyFilterBar className="-mx-4 px-4">
+      <div className="flex flex-col gap-3 px-4 pt-1 lg:mx-auto lg:w-full lg:max-w-[1200px] lg:px-8 lg:pt-2">
+        <StickyFilterBar className="-mx-4 px-4 lg:-mx-8 lg:px-8">
           <div className="flex flex-col gap-2">
             {/* The window control doubles as the section heading (Today /
                 Coming up), so the result count sits beside it rather than
@@ -288,7 +288,7 @@ function WhatsOnPageInner() {
                 value={feedWindow}
                 options={WHATS_ON_WINDOWS}
                 onChange={setFeedWindow}
-                className="flex-1"
+                className="flex-1 lg:w-80 lg:flex-none"
               />
               {listReady && !listError ? (
                 <span className="shrink-0 rounded-full border border-hairline-strong bg-surface-container px-2.5 py-0.5 text-label-sm font-extrabold text-primary">
@@ -301,7 +301,7 @@ function WhatsOnPageInner() {
               <DateFilterRow dates={dates} selected={dateFilter} onSelect={selectDateFilter} />
             ) : null}
 
-            <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-0.5 [&::-webkit-scrollbar]:hidden">
+            <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-0.5 [&::-webkit-scrollbar]:hidden lg:flex-wrap lg:overflow-visible">
               <Chip
                 label="Free only"
                 leadingIcon="check_circle"
@@ -345,10 +345,10 @@ function WhatsOnPageInner() {
             }}
           />
         ) : !listReady ? (
-          <div className="flex flex-col gap-3" role="status" aria-live="polite">
+          <div className="flex flex-col gap-3 lg:grid lg:grid-cols-2 lg:gap-4 xl:grid-cols-3" role="status" aria-live="polite">
             <span className="sr-only">Loading what&rsquo;s on…</span>
-            {[0, 1, 2].map((i) => (
-              <div key={i} className="h-24 animate-pulse rounded-lg bg-surface-container" />
+            {[0, 1, 2, 3, 4, 5].map((i) => (
+              <div key={i} className={`h-24 animate-pulse rounded-lg bg-surface-container ${i === 3 ? "hidden lg:block" : i === 4 || i === 5 ? "hidden xl:block" : ""}`} />
             ))}
           </div>
         ) : visibleTotal === 0 ? (
@@ -361,24 +361,24 @@ function WhatsOnPageInner() {
             <p className="text-body-md text-on-surface-variant">{emptyMessage()}</p>
           </div>
         ) : (
-          <div className="flex flex-col gap-3">
+          <div className="flex flex-col gap-3 lg:grid lg:grid-cols-2 lg:items-start lg:gap-4 xl:grid-cols-3">
             {visibleCards.slice(0, revealCount).map((card, i) => (
               <FeedListCard key={cardKey(card)} card={card} surface="whats_on" position={i} />
             ))}
-            {revealCount < visibleCards.length ? <div ref={revealSentinelRef} className="h-1" /> : null}
+            {revealCount < visibleCards.length ? <div ref={revealSentinelRef} className="h-1 lg:col-span-full" /> : null}
             {visibleCards.length === 0 ? (
-              <p className="px-1 text-body-sm text-on-surface-variant">Nothing dated matches, just the always-on things below.</p>
+              <p className="px-1 text-body-sm text-on-surface-variant lg:col-span-full">Nothing dated matches, just the always-on things below.</p>
             ) : null}
-            <AnyDaySection cards={visibleAnyDay} surface="whats_on_any_day" />
+            <AnyDaySection cards={visibleAnyDay} surface="whats_on_any_day" desktopGrid gridClassName="xl:col-span-3 xl:grid-cols-3" />
           </div>
         )}
       {/* Footer */}
-      <div className="flex flex-col gap-3 border-t border-outline-variant px-4 pt-6 pb-4">
+      <div className="flex flex-col gap-3 border-t border-outline-variant px-4 pt-6 pb-4 lg:flex-row lg:items-center lg:justify-between lg:gap-6 lg:px-0">
         <div className="flex flex-col gap-1">
           <p className="text-label-md font-semibold text-on-surface">Help us improve</p>
           <p className="text-body-sm text-on-surface-variant">Missing something? Have feedback?</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 lg:w-80">
           <Link
             href="/tip"
             className="flex-1 flex items-center justify-center rounded-lg bg-primary px-3 py-2 text-label-md font-semibold text-on-primary transition-opacity hover:opacity-90"

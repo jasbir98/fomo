@@ -7,7 +7,9 @@ import { FomoFace } from "@/components/onboarding/Characters";
 import { ChatComposer } from "@/components/fomo/chat/ChatComposer";
 import { ChatThread } from "@/components/fomo/chat/ChatThread";
 import { readChatSeed, type ChatSeed } from "@/lib/chat-seed";
-import { useFomoChat } from "@/lib/fomo-chat/useFomoChat";
+import { useFomoChat, type UseFomoChatOptions } from "@/lib/fomo-chat/useFomoChat";
+import { ExploreWorkspace } from "@/components/explore/desktop/ExploreWorkspace";
+import { useIsDesktop } from "@/lib/useMediaQuery";
 
 export default function FomoChatPage() {
   return (
@@ -20,21 +22,24 @@ export default function FomoChatPage() {
 function FomoChatPageInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const isDesktop = useIsDesktop();
   // Ask Fomo seed — set when this page was opened from a card's "Ask Fomo"
   // action rather than the plain FAB. Drives the inline seed context card,
   // the suggested-question chips, and the system prompt's context (all in
   // `useFomoChat`).
   const seed: ChatSeed | null = useMemo(() => readChatSeed(searchParams), [searchParams]);
 
-  const chat = useFomoChat({
+  const chatOptions: UseFomoChatOptions = {
     seed,
     // Plain-text prefill (`?q=` from Book Early / Free Any Time's own "Ask
     // Fomo" buttons) — fills the composer without sending, on first mount only.
     initialInput: searchParams.get("q") ?? "",
     // `?q=…&send=1` (e.g. a shared/landing link) sends that question once, then
-    // drops the params so a refresh doesn't ask it again.
+    // drops the params so a refresh doesn't ask it again. Held back until the
+    // media query has resolved: until then the (CSS-hidden) phone tree is what
+    // renders, and on desktop it must not claim the send before the workspace mounts.
     autoSend:
-      searchParams.get("send") === "1"
+      searchParams.get("send") === "1" && isDesktop !== null
         ? {
             question: searchParams.get("q")?.trim(),
             onStart: () => {
@@ -46,7 +51,22 @@ function FomoChatPageInner() {
             },
           }
         : null,
-  });
+  };
+
+  // Only one tree is ever mounted. Until the media query resolves the phone
+  // tree renders inside `lg:hidden`, so desktop never flashes it (a no-op on phones).
+  if (isDesktop === true) return <ExploreWorkspace initialTab="ask" chatOptions={chatOptions} />;
+  return (
+    <div className="lg:hidden">
+      <MobileFomoChat seed={seed} chatOptions={chatOptions} />
+    </div>
+  );
+}
+
+/** The phone Ask Fomo page: full-height thread with the composer fixed above the bottom nav. */
+function MobileFomoChat({ seed, chatOptions }: { seed: ChatSeed | null; chatOptions: UseFomoChatOptions }) {
+  const router = useRouter();
+  const chat = useFomoChat(chatOptions);
 
   return (
     <div className="flex min-h-dvh flex-col">

@@ -123,7 +123,7 @@ export function FreeAnyTimeList({ items }: FreeAnyTimeListProps) {
         </Link>
       </div>
 
-      <div className="flex flex-col gap-2.5">
+      <div className="flex flex-col gap-2.5 lg:grid lg:grid-cols-2 lg:items-start lg:gap-4">
         {visible.map((item) => (
           <FreeAnyTimeRow key={`${item.kind}-${item.id}`} item={item} />
         ))}

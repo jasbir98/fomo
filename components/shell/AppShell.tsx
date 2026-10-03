@@ -10,6 +10,7 @@ import { closeMakeFomoYours, useMakeFomoYoursOpen } from "@/lib/personalise/trig
 import { ConsentBar } from "@/components/analytics/ConsentBar";
 import { IdentifyUser } from "@/components/analytics/IdentifyUser";
 import { InstallHint } from "@/components/shell/InstallHint";
+import { DetailOverlayProvider } from "@/components/detail/DetailOverlayProvider";
 import { track } from "@/lib/analytics/track";
 
 export type AppShellProps = {
@@ -66,6 +67,7 @@ export function AppShell({ children }: AppShellProps) {
       <MakeFomoYours open={makeFomoYoursOpen} onClose={closeMakeFomoYours} />
       <ConsentBar />
       <InstallHint />
+      <DetailOverlayProvider />
     </div>
   );
 }

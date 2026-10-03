@@ -4,8 +4,13 @@ import { forwardRef, useEffect, useImperativeHandle, useRef } from "react";
 import mapboxgl from "mapbox-gl";
 import "mapbox-gl/dist/mapbox-gl.css";
 import type { Place } from "@/lib/types";
-import type { ExplorePin } from "@/lib/explore/types";
-import { PIN_TYPE_STYLE } from "@/lib/explore/pin-style";
+import type { ExplorePin, MapPick } from "@/lib/explore/types";
+import {
+  MARKER_HIGHLIGHT_RING,
+  PIN_TYPE_STYLE,
+  createPickMarkerElement,
+  stylePickMarker,
+} from "@/lib/explore/pin-style";
 import { Icon } from "@/components/ui";
 
 /** Marker tint per category slug (default-marker color) — the old Japan-trip
@@ -55,7 +60,27 @@ export interface MapCanvasProps {
   onPinClick?: (pin: ExplorePin) => void;
   /** Taller Explore-mode map. Defaults to the legacy h-64 (256px) box. */
   heightClassName?: string;
+  // Desktop workspace props. All optional and inert when absent, so phone callers render exactly as before.
+  /** Numbered "Fomo's picks" markers drawn above the normal pins. Memoise it: a new array re-drops the picks. */
+  picks?: MapPick[];
+  /** Pick key to emphasise (scaled up + accent ring) — set from a chat card hover or a marker hover. */
+  highlightedPickKey?: string | null;
+  onPickClick?: (key: string) => void;
+  /** Fires with the pick's key on marker pointer enter, `null` on leave. */
+  onPickHover?: (key: string | null) => void;
+  /** Fires once the map instance exists (camera calls such as flyTo work from then on). */
+  onMapReady?: () => void;
+  /** Fade the normal pins back (picks are the focus). */
+  dimPins?: boolean;
+  /** Hide the normal pins entirely. */
+  hidePins?: boolean;
+  /** Pin id to emphasise (a hovered browse row). Unlike `selectedPinId` it never re-drops markers. */
+  highlightedPinId?: string | null;
+  /** Drop the rounded corners and border so the map can sit edge to edge in a panel layout. */
+  flush?: boolean;
 }
+
+const DIMMED_PIN_FILTER = "opacity(0.35)";
 
 /**
  * The Mapbox GL canvas. Renders a clear placeholder when
@@ -78,17 +103,41 @@ export const MapCanvas = forwardRef<MapCanvasHandle, MapCanvasProps>(function Ma
     selectedPinId,
     onPinClick,
     heightClassName = "h-64",
+    picks,
+    highlightedPickKey = null,
+    onPickClick,
+    onPickHover,
+    onMapReady,
+    dimPins = false,
+    hidePins = false,
+    highlightedPinId = null,
+    flush = false,
   },
   ref
 ) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<mapboxgl.Map | null>(null);
   const markersRef = useRef<mapboxgl.Marker[]>([]);
+  // Per-id handles on the pin / pick marker elements so highlight, dim and
+  // hide changes restyle them in place instead of re-dropping every marker.
+  const pinElsRef = useRef<Map<string, HTMLElement>>(new Map());
+  const pickMarkersRef = useRef<mapboxgl.Marker[]>([]);
+  const pickElsRef = useRef<Map<string, { el: HTMLElement; inner: HTMLElement }>>(new Map());
   // Latest callback in a ref so the one-time map-init effect (and the
   // moveend listener it attaches) never has to re-run just because a parent
   // re-render passed a new function identity.
   const onBoundsChangeRef = useRef(onBoundsChange);
   onBoundsChangeRef.current = onBoundsChange;
+  // Same for the marker callbacks: the marker effects below deliberately don't
+  // re-run on a callback identity change, so they read the latest one here.
+  const onPinClickRef = useRef(onPinClick);
+  onPinClickRef.current = onPinClick;
+  const onPickClickRef = useRef(onPickClick);
+  onPickClickRef.current = onPickClick;
+  const onPickHoverRef = useRef(onPickHover);
+  onPickHoverRef.current = onPickHover;
+  const onMapReadyRef = useRef(onMapReady);
+  onMapReadyRef.current = onMapReady;
 
   // Initialize the map exactly once (when a token + container exist).
   useEffect(() => {
@@ -118,7 +167,15 @@ export const MapCanvas = forwardRef<MapCanvasHandle, MapCanvasProps>(function Ma
       });
     };
     map.on("moveend", handleMoveEnd);
+    // A flex-sized container (desktop workspace) can change size without the
+    // window resizing — e.g. the side panel toggling — which mapbox's own
+    // window-resize listener never sees.
+    const container = containerRef.current;
+    const resizeObserver = typeof ResizeObserver !== "undefined" ? new ResizeObserver(() => map.resize()) : null;
+    resizeObserver?.observe(container);
+    onMapReadyRef.current?.();
     return () => {
+      resizeObserver?.disconnect();
       map.off("moveend", handleMoveEnd);
       map.remove();
       mapRef.current = null;
@@ -165,6 +222,7 @@ export const MapCanvas = forwardRef<MapCanvasHandle, MapCanvasProps>(function Ma
     if (!map) return;
     markersRef.current.forEach((m) => m.remove());
     markersRef.current = [];
+    pinElsRef.current.clear();
     for (const pin of pins) {
       const isSelected = pin.id === selectedPinId;
       const el = document.createElement("div");
@@ -182,11 +240,70 @@ export const MapCanvas = forwardRef<MapCanvasHandle, MapCanvasProps>(function Ma
       const marker = new mapboxgl.Marker({ element: el })
         .setLngLat([pin.lng, pin.lat])
         .addTo(map);
-      el.addEventListener("click", () => onPinClick?.(pin));
+      el.addEventListener("click", () => onPinClickRef.current?.(pin));
       markersRef.current.push(marker);
+      pinElsRef.current.set(pin.id, el);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- onPinClick intentionally excluded, it's stable per-render-cycle enough and including it would re-drop markers on every parent re-render.
   }, [pins, selectedPinId]);
+
+  // Browse-pin emphasis for the desktop workspace: hovered row (bigger + ring),
+  // dimmed behind Fomo's picks, or hidden. Restyles the existing elements, and
+  // re-applies after every re-drop (it runs after the effect above). With the
+  // props absent it only clears styles that were never set.
+  useEffect(() => {
+    pinElsRef.current.forEach((el, id) => {
+      const highlighted = id === highlightedPinId;
+      const selected = id === selectedPinId;
+      el.style.visibility = hidePins ? "hidden" : "";
+      el.style.filter = dimPins && !highlighted && !selected ? DIMMED_PIN_FILTER : "";
+      el.style.zIndex = highlighted ? "5" : "";
+      if (highlighted && !selected) {
+        el.style.width = "28px";
+        el.style.height = "28px";
+        el.style.boxShadow = `0 0 0 3px ${MARKER_HIGHLIGHT_RING}, 0 2px 8px rgba(3,22,50,0.45)`;
+      } else if (!selected) {
+        el.style.width = "22px";
+        el.style.height = "22px";
+        el.style.boxShadow = "0 1px 4px rgba(3,22,50,0.35)";
+      }
+    });
+  }, [pins, selectedPinId, highlightedPinId, dimPins, hidePins]);
+
+  // Numbered "Fomo's picks" — their own marker set, above the normal pins.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+    pickMarkersRef.current.forEach((m) => m.remove());
+    pickMarkersRef.current = [];
+    pickElsRef.current.clear();
+    for (const pick of picks ?? []) {
+      const { el, inner } = createPickMarkerElement(pick.rank, pick.title);
+      const marker = new mapboxgl.Marker({ element: el }).setLngLat([pick.lng, pick.lat]).addTo(map);
+      el.addEventListener("click", () => onPickClickRef.current?.(pick.key));
+      el.addEventListener("keydown", (e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          onPickClickRef.current?.(pick.key);
+        }
+      });
+      el.addEventListener("mouseenter", () => onPickHoverRef.current?.(pick.key));
+      el.addEventListener("mouseleave", () => onPickHoverRef.current?.(null));
+      el.addEventListener("focus", () => onPickHoverRef.current?.(pick.key));
+      el.addEventListener("blur", () => onPickHoverRef.current?.(null));
+      pickMarkersRef.current.push(marker);
+      pickElsRef.current.set(pick.key, { el, inner });
+    }
+    const pickEls = pickElsRef.current;
+    return () => {
+      pickMarkersRef.current.forEach((m) => m.remove());
+      pickMarkersRef.current = [];
+      pickEls.clear();
+    };
+  }, [picks]);
+
+  useEffect(() => {
+    pickElsRef.current.forEach(({ el, inner }, key) => stylePickMarker(el, inner, key === highlightedPickKey));
+  }, [picks, highlightedPickKey]);
 
   // Re-drop markers when the place set (or category color) changes — legacy
   // path, untouched, only runs when the caller passes `places` and not `pins`.
@@ -248,7 +365,9 @@ export const MapCanvas = forwardRef<MapCanvasHandle, MapCanvasProps>(function Ma
   return (
     <div
       ref={containerRef}
-      className={`${heightClassName} w-full overflow-hidden rounded-xl border border-outline-variant/60 bg-surface-container`}
+      className={`${heightClassName} w-full overflow-hidden bg-surface-container${
+        flush ? "" : " rounded-xl border border-outline-variant/60"
+      }`}
     />
   );
 });

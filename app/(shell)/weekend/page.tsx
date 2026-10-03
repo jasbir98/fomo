@@ -95,7 +95,7 @@ function WeekendPageInner() {
             kind="weekend"
           />} />
 
-      <div className="flex flex-col gap-3 px-4 pt-1">
+      <div className="flex flex-col gap-3 px-4 pt-1 lg:mx-auto lg:w-full lg:max-w-[1200px] lg:px-8 lg:pt-2">
         <p className="text-body-md text-on-surface-variant">
           Free, cheap and discounted things to do in Edinburgh on {dayLabel(saturday)} and {dayLabel(sunday)}.
         </p>
@@ -103,7 +103,7 @@ function WeekendPageInner() {
         {dealCount ? (
           <Link
             href="/deals"
-            className="flex h-11 items-center gap-2 rounded-full bg-secondary-container px-4 text-on-secondary-container"
+            className="flex h-11 items-center gap-2 rounded-full bg-secondary-container px-4 text-on-secondary-container lg:self-start"
           >
             <Icon name="sell" size={20} />
             <span className="flex-1 text-label-lg font-bold">{dealCount} deals & offers running now</span>
@@ -111,7 +111,7 @@ function WeekendPageInner() {
           </Link>
         ) : null}
 
-        <StickyFilterBar className="-mx-4 px-4">
+        <StickyFilterBar className="-mx-4 px-4 lg:-mx-8 lg:px-8">
           <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-2 px-1">
               <h2 className="text-headline-sm font-extrabold tracking-tight text-on-surface">What&rsquo;s on</h2>
@@ -139,10 +139,10 @@ function WeekendPageInner() {
             }}
           />
         ) : cards === null ? (
-          <div className="flex flex-col gap-3" role="status" aria-live="polite">
+          <div className="flex flex-col gap-3 lg:grid lg:grid-cols-2 lg:gap-4 xl:grid-cols-3" role="status" aria-live="polite">
             <span className="sr-only">Loading this weekend…</span>
-            {[0, 1, 2].map((i) => (
-              <div key={i} className="h-24 animate-pulse rounded-lg bg-surface-container" />
+            {[0, 1, 2, 3, 4, 5].map((i) => (
+              <div key={i} className={`h-24 animate-pulse rounded-lg bg-surface-container ${i === 3 ? "hidden lg:block" : i === 4 || i === 5 ? "hidden xl:block" : ""}`} />
             ))}
           </div>
         ) : cards.length === 0 ? (
@@ -155,21 +155,21 @@ function WeekendPageInner() {
             </p>
           </div>
         ) : (
-          <div className="flex flex-col gap-3">
+          <div className="flex flex-col gap-3 lg:grid lg:grid-cols-2 lg:items-start lg:gap-4 xl:grid-cols-3">
             {cards.slice(0, revealCount).map((card, i) => (
               <FeedListCard key={cardKey(card)} card={card} surface="weekend" position={i} />
             ))}
-            {revealCount < cards.length ? <div ref={revealSentinelRef} className="h-1" /> : null}
+            {revealCount < cards.length ? <div ref={revealSentinelRef} className="h-1 lg:col-span-full" /> : null}
           </div>
         )}
 
       {/* Footer */}
-      <div className="flex flex-col gap-3 border-t border-outline-variant px-4 pt-6 pb-4">
+      <div className="flex flex-col gap-3 border-t border-outline-variant px-4 pt-6 pb-4 lg:flex-row lg:items-center lg:justify-between lg:gap-6 lg:px-0">
         <div className="flex flex-col gap-1">
           <p className="text-label-md font-semibold text-on-surface">Help us improve</p>
           <p className="text-body-sm text-on-surface-variant">Missing something? Have feedback?</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 lg:w-80">
           <Link
             href="/tip"
             className="flex-1 flex items-center justify-center rounded-lg bg-primary px-3 py-2 text-label-md font-semibold text-on-primary transition-opacity hover:opacity-90"

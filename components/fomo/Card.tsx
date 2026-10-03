@@ -11,6 +11,7 @@ import { describeSupabaseError } from "@/lib/db/errors";
 import { supabaseBrowserAuth } from "@/lib/supabase/client";
 import type { Candidate, CardKind } from "@/lib/cards/types";
 import type { CardSubjectType } from "@/lib/types";
+import { tryOpenDetail } from "@/lib/detail-overlay/store";
 
 export type CardVariant = "hero" | "tile" | "grid";
 
@@ -115,7 +116,7 @@ export function FomoCard({
         : `/happening/${candidate.subject.id}`;
 
   function handleOpenDetails() {
-    router.push(detailHref);
+    if (!tryOpenDetail(detailHref)) router.push(detailHref);
   }
 
   // handleSecondaryAction/handleSecondaryClick lived here, driving the

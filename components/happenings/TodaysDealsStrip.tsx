@@ -20,6 +20,8 @@ export interface TodaysDealsStripProps {
   at?: Date;
   /** `card_opened`'s `surface` — this strip only ever renders on Home, so callers pass "home_today_deals". */
   surface?: "home_today_deals";
+  /** Extra classes for the root `<section>` — Home renders this strip twice (a phone copy that is `lg:hidden`, and a desktop right-rail copy that is `hidden lg:flex`); see app/(shell)/page.tsx. */
+  className?: string;
 }
 
 const WEEKDAY_LABEL = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
@@ -52,9 +54,9 @@ function TodaysDealCard({ card, surface, position }: { card: DealCardData; surfa
         setHappeningPreview(happening.id, happeningToPreview(happening, { priceLabel: badge, whenLabel: time }));
         track("card_opened", { kind: "happening", id: happening.id, source: happening.kind, surface, position, price_band: priceBand(happening.is_free) });
       }}
-      className="flex w-44 shrink-0 cursor-pointer flex-col gap-2 rounded-2xl bg-surface-container-lowest p-3 shadow-level-1 transition-shadow hover:shadow-level-2"
+      className="flex w-44 shrink-0 cursor-pointer flex-col gap-2 rounded-2xl bg-surface-container-lowest p-3 shadow-level-1 transition-shadow hover:shadow-level-2 lg:w-full lg:flex-row lg:items-center lg:gap-3"
     >
-      <div className="relative h-20 w-full shrink-0 overflow-hidden rounded-xl border border-hairline bg-surface-container">
+      <div className="relative h-20 w-full shrink-0 overflow-hidden rounded-xl border border-hairline bg-surface-container lg:w-28">
         <DealPhoto sources={[happening.image_url]} category={happening.category} width={160} height={80} className="h-full w-full object-cover" />
         {badge ? (
           <span className="absolute right-1 top-1 rounded-full border border-hairline-strong bg-surface-container-lowest/95 px-2 py-0.5 text-label-sm font-extrabold text-primary shadow-xs">
@@ -120,9 +122,9 @@ function TodaysDealGroupCard({ group, surface, position }: { group: DealVenueGro
           track("card_opened", { kind: "place", id: group.placeId, source: "venue_group", surface, position, price_band: priceBand(happening.is_free) });
         }
       }}
-      className="flex w-44 shrink-0 cursor-pointer flex-col gap-2 rounded-2xl bg-surface-container-lowest p-3 shadow-level-1 transition-shadow hover:shadow-level-2"
+      className="flex w-44 shrink-0 cursor-pointer flex-col gap-2 rounded-2xl bg-surface-container-lowest p-3 shadow-level-1 transition-shadow hover:shadow-level-2 lg:w-full lg:flex-row lg:items-center lg:gap-3"
     >
-      <div className="relative h-20 w-full shrink-0 overflow-hidden rounded-xl border border-hairline bg-surface-container">
+      <div className="relative h-20 w-full shrink-0 overflow-hidden rounded-xl border border-hairline bg-surface-container lg:w-28">
         <DealPhoto sources={photoSources} category={happening.category} width={160} height={80} className="h-full w-full object-cover" />
         <span className="absolute right-1 top-1 rounded-full border border-hairline-strong bg-surface-container-lowest/95 px-2 py-0.5 text-label-sm font-extrabold text-primary shadow-xs">
           {group.offers.length} deals
@@ -155,13 +157,13 @@ function TodaysDealGroupCard({ group, surface, position }: { group: DealVenueGro
  * real "today" list (see `todaysDeals`'s own MIN_RENDER_COUNT), rather than
  * padding out a one-card strip.
  */
-export function TodaysDealsStrip({ deals, at = new Date(), surface }: TodaysDealsStripProps) {
+export function TodaysDealsStrip({ deals, at = new Date(), surface, className = "" }: TodaysDealsStripProps) {
   if (deals.length === 0) return null;
 
   const weekdayName = WEEKDAY_LABEL[weekdayOf(localDayDate(at, CITY.timezone))];
 
   return (
-    <section className="flex flex-col gap-2">
+    <section className={`flex flex-col gap-2 ${className}`}>
       <div className="flex items-center justify-between gap-2 px-1">
         <h3 className="text-headline-sm font-extrabold tracking-tight text-on-surface">
           Today&apos;s deals
@@ -176,7 +178,8 @@ export function TodaysDealsStrip({ deals, at = new Date(), surface }: TodaysDeal
         </Link>
       </div>
 
-      <div className="-mx-4 flex gap-3 overflow-x-auto px-4 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+      {/* lg: a vertical list in the right rail (first 5 only — "See all" covers the rest) instead of a horizontal scroller. */}
+      <div className="-mx-4 flex gap-3 overflow-x-auto px-4 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden lg:mx-0 lg:flex-col lg:gap-2.5 lg:overflow-visible lg:px-0 lg:pb-0 lg:[&>*:nth-child(n+6)]:hidden">
         {deals.map((item, i) =>
           item.kind === "group" ? (
             <TodaysDealGroupCard key={`group-${item.key}`} group={item} surface={surface} position={i} />

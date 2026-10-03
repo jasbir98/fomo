@@ -144,18 +144,22 @@ export default function BookEarlyPage() {
     <div className="flex flex-col pb-6">
       <PageHeader title="Book early" showBack />
 
-      <div className="flex flex-col gap-3 px-4 pt-1">
-        <p className="text-body-md text-on-surface-variant">
-          Big dates worth booking before they sell out
-        </p>
+      {/* Desktop: filters + Ask Fomo in a sticky left rail, results in a 2-col grid. Below
+          lg the aside/main wrappers are `display: contents`, so the mobile flow (intro,
+          sticky filter bar, list) is exactly the flat sibling list it always was. */}
+      <div className="flex flex-col gap-3 px-4 pt-1 lg:mx-auto lg:grid lg:w-full lg:max-w-[1200px] lg:grid-cols-[260px_minmax(0,1fr)] lg:items-start lg:gap-x-8 lg:px-8 lg:pt-6">
+        <aside className="contents lg:col-start-1 lg:row-start-1 lg:flex lg:max-h-[calc(100dvh-var(--topbar-h)-48px)] lg:flex-col lg:gap-4 lg:overflow-y-auto lg:sticky lg:top-[calc(var(--topbar-h)+24px)] lg:-mx-1 lg:px-1">
+          <p className="text-body-md text-on-surface-variant">
+            Big dates worth booking before they sell out
+          </p>
 
-        <StickyFilterBar className="-mx-4 px-4">
-          <div className="flex items-start justify-between gap-2">
-            <span className="px-1 pt-1.5 text-label-lg font-semibold text-on-surface-variant">
-              {cards ? `${filteredCards.length} ${filteredCards.length === 1 ? "date" : "dates"}` : ""}
-            </span>
-            <div className="flex items-start gap-2">
-              <BookEarlyFilters
+          <StickyFilterBar className="-mx-4 px-4 lg:hidden">
+            <div className="flex items-start justify-between gap-2">
+              <span className="px-1 pt-1.5 text-label-lg font-semibold text-on-surface-variant">
+                {cards ? `${filteredCards.length} ${filteredCards.length === 1 ? "date" : "dates"}` : ""}
+              </span>
+              <div className="flex items-start gap-2">
+                <BookEarlyFilters
                 timing={timing}
                 category={category}
                 month={month}
@@ -166,49 +170,74 @@ export default function BookEarlyPage() {
                 onMonthChange={handleMonthChange}
                 resultCount={filteredCards.length}
               />
-              <Link
-                href={ASK_FOMO_HREF}
-                className="flex shrink-0 items-center gap-1.5 rounded-full border border-primary/30 bg-surface px-3.5 py-1.5 text-label-sm font-semibold text-primary shadow-sm transition-colors hover:bg-surface-container"
-              >
-                <Icon name="chat" size={16} />
-                Ask Fomo
-              </Link>
+                <Link
+                  href={ASK_FOMO_HREF}
+                  className="flex shrink-0 items-center gap-1.5 rounded-full border border-primary/30 bg-surface px-3.5 py-1.5 text-label-sm font-semibold text-primary shadow-sm transition-colors hover:bg-surface-container"
+                >
+                  <Icon name="chat" size={16} />
+                  Ask Fomo
+                </Link>
+              </div>
             </div>
-          </div>
-        </StickyFilterBar>
+          </StickyFilterBar>
 
-        {error ? (
-          <ErrorState title="Couldn't load Book early" onRetry={() => cardsResult.revalidate()} />
-        ) : cards === null ? (
-          <div className="flex flex-col gap-3" role="status" aria-live="polite">
-            <span className="sr-only">Loading Book early…</span>
-            {[0, 1, 2].map((i) => (
-              <div key={i} className="h-24 animate-pulse rounded-lg bg-surface-container" />
-            ))}
-          </div>
-        ) : cards.length === 0 ? (
-          <div className="flex flex-col items-center gap-2 rounded-2xl border border-dashed border-hairline-strong p-8 text-center">
-            <FomoSpot mood="meh" pose="shrug" className="h-20 w-20" />
-            <p className="text-body-md text-on-surface-variant">Nothing to book early right now. Check back soon.</p>
-          </div>
-        ) : filteredCards.length === 0 ? (
-          <div className="flex flex-col items-center gap-2 rounded-2xl border border-dashed border-hairline-strong py-6 text-center">
-            <FomoSpot mood="hmm" pose="shrug" className="h-16 w-16" />
-            <p className="text-body-sm text-on-surface-variant">Nothing matches. Clear filters</p>
-          </div>
-        ) : (
-          <div className="flex flex-col gap-3">
-            {filteredCards.slice(0, visibleCount).map((card, i) => (
-              <BookEarlyCard
-                key={bookEarlyCardKey(card)}
-                card={card}
-                initialSubscribed={card.kind === "happening" && alertHappeningIds.has(card.happening.id)}
-                position={i}
+          {/* Desktop-only second render of the (fully controlled) filters: its inline panel. */}
+          <div className="hidden rounded-2xl bg-surface-container-lowest p-4 shadow-level-1 lg:block">
+            <BookEarlyFilters
+                timing={timing}
+                category={category}
+                month={month}
+                categoryOptions={categoryOptions}
+                monthOptions={monthOptions}
+                onTimingChange={handleTimingChange}
+                onCategoryChange={handleCategoryChange}
+                onMonthChange={handleMonthChange}
+                resultCount={filteredCards.length}
               />
-            ))}
-            {visibleCount < filteredCards.length ? <div ref={revealSentinelRef} className="h-1" /> : null}
           </div>
-        )}
+          <Link
+            href={ASK_FOMO_HREF}
+            className="hidden items-center justify-center gap-1.5 rounded-full border border-primary/30 bg-surface px-3.5 py-2 text-label-md font-semibold text-primary shadow-sm transition-colors hover:bg-surface-container lg:flex"
+          >
+            <Icon name="chat" size={16} />
+            Ask Fomo
+          </Link>
+        </aside>
+
+        <div className="contents lg:col-start-2 lg:row-start-1 lg:flex lg:min-w-0 lg:flex-col lg:gap-6">
+          {error ? (
+            <ErrorState title="Couldn't load Book early" onRetry={() => cardsResult.revalidate()} />
+          ) : cards === null ? (
+            <div className="flex flex-col gap-3 lg:grid lg:grid-cols-2 lg:gap-4 2xl:grid-cols-3" role="status" aria-live="polite">
+              <span className="sr-only">Loading Book early…</span>
+              {[0, 1, 2, 3].map((i) => (
+                <div key={i} className={`h-24 animate-pulse rounded-lg bg-surface-container ${i === 3 ? "hidden lg:block" : ""}`} />
+              ))}
+            </div>
+          ) : cards.length === 0 ? (
+            <div className="flex flex-col items-center gap-2 rounded-2xl border border-dashed border-hairline-strong p-8 text-center">
+              <FomoSpot mood="meh" pose="shrug" className="h-20 w-20" />
+              <p className="text-body-md text-on-surface-variant">Nothing to book early right now. Check back soon.</p>
+            </div>
+          ) : filteredCards.length === 0 ? (
+            <div className="flex flex-col items-center gap-2 rounded-2xl border border-dashed border-hairline-strong py-6 text-center">
+              <FomoSpot mood="hmm" pose="shrug" className="h-16 w-16" />
+              <p className="text-body-sm text-on-surface-variant">Nothing matches. Clear filters</p>
+            </div>
+          ) : (
+            <div className="flex flex-col gap-3 lg:grid lg:grid-cols-2 lg:items-start lg:gap-4 2xl:grid-cols-3">
+              {filteredCards.slice(0, visibleCount).map((card, i) => (
+                <BookEarlyCard
+                  key={bookEarlyCardKey(card)}
+                  card={card}
+                  initialSubscribed={card.kind === "happening" && alertHappeningIds.has(card.happening.id)}
+                  position={i}
+                />
+              ))}
+              {visibleCount < filteredCards.length ? <div ref={revealSentinelRef} className="h-1 lg:col-span-full" /> : null}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

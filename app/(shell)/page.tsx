@@ -167,6 +167,31 @@ function SeeAllLink({ href, total }: { href: string; total: number }) {
   );
 }
 
+/** Slim, dismissible "Make Fomo yours" banner (task brief §2). A component (not inline JSX) because Home renders it twice — the phone column copy (`lg:hidden`) and the desktop right-rail copy — see the layout comment in HomePage's return. Both copies are stateless, driven by the same `prefs`. */
+function MakeFomoYoursBanner({ onDismiss, className = "" }: { onDismiss: () => void; className?: string }) {
+  return (
+    <div className={`flex items-center gap-2 rounded-xl border border-hairline bg-surface-container-low px-3 py-2 ${className}`}>
+      <button
+        type="button"
+        onClick={() => openMakeFomoYours()}
+        className="flex min-h-[44px] flex-1 items-center gap-1.5 text-left text-label-md font-semibold text-primary"
+      >
+        <Icon name="tune" size={16} />
+        Make Fomo yours
+        <Icon name="chevron_right" size={16} />
+      </button>
+      <button
+        type="button"
+        aria-label="Dismiss"
+        onClick={onDismiss}
+        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-on-surface-variant hover:bg-surface-container"
+      >
+        <Icon name="close" size={16} />
+      </button>
+    </div>
+  );
+}
+
 /**
  * Fomo Home — a clean, tab-driven skim: a hero card → then, depending on the
  * window control, either What's on (Today/Coming up) or the Book early list
@@ -528,7 +553,7 @@ export default function HomePage() {
         condition={weather?.condition ?? null}
         precipitationProbabilityMax={weather?.precipitationProbabilityMax}
         windSpeedMaxKmh={weather?.windSpeedMaxKmh}
-        className="z-[5] h-[520px]"
+        className="z-[5] h-[520px] lg:h-[360px]"
       />
 
       <AppHeader
@@ -595,14 +620,26 @@ export default function HomePage() {
         onSelect={chooseCity}
       />
 
-      <div className="flex flex-col gap-3 px-4">
+      {/* Phone: one `flex-col gap-3` column, exactly as before — the `contents`
+          main wrapper below generates no box, so its children are still direct
+          flex items of this column. Desktop (lg+): a 12-col grid, main column
+          (the wrapper turns into a real flex column) + a sticky right rail (the
+          `<aside>` at the bottom, `hidden` on phones). The rail's three blocks
+          (Today's deals, Make Fomo yours, Subscribe) are rendered a SECOND time
+          there rather than moved: the phone copies stay in place with
+          `lg:hidden`. None of the three has a fetch, mount effect or impression
+          event (card_opened fires on click only; SubscribeCard tracks on submit
+          only), and a `display:none` copy can't be clicked or submitted, so
+          duplicating is analytics-neutral. */}
+      <div className="flex flex-col gap-3 px-4 lg:mx-auto lg:grid lg:w-full lg:max-w-[1200px] lg:grid-cols-12 lg:items-start lg:gap-8 lg:px-8">
+        <div className="contents lg:col-span-8 lg:flex lg:min-w-0 lg:flex-col lg:gap-3">
         {/* Window control — drives What's on, and on Book early the hero too
             (see `heroKind`). Labels grow their own count once known
             (`windowOptions`); the plain-words line underneath restates the
             active tab's window so the abrupt content swap below it always
             comes with a reason, not just new cards. */}
         <div className="flex flex-col gap-1.5">
-          <SegmentedControl value={feedWindow} options={windowOptions} onChange={handleWindowChange} />
+          <SegmentedControl value={feedWindow} options={windowOptions} onChange={handleWindowChange} className="lg:max-w-md" />
           {/* Summary line and the /weekend link share one row, rather than
               a text line plus a full-width link bar stacked under it. */}
           <div className="flex items-center justify-between gap-3 px-1">
@@ -650,7 +687,7 @@ export default function HomePage() {
           // compact preview of its own first few cards, scoped to this
           // window, rather than no hero at all.
           whatsOnCards.length > 0 ? (
-            <div key={`hero-preview-${feedWindow}`} className={`${windowSlideClass} flex flex-col gap-2`}>
+            <div key={`hero-preview-${feedWindow}`} className={`${windowSlideClass} flex flex-col gap-2 lg:grid lg:grid-cols-2 lg:items-start lg:gap-4`}>
               {whatsOnCards.slice(0, 3).map((card, i) => (
                 <FeedListCard key={cardKey(card)} card={card} surface="home_whats_on" position={i} />
               ))}
@@ -681,7 +718,7 @@ export default function HomePage() {
           // genuinely has none, the "feed !== null" branch above already
           // renders the compact preview/empty state instead of this.
           <div
-            className="h-52 animate-pulse rounded-lg bg-surface-container motion-reduce:animate-none"
+            className="h-52 animate-pulse rounded-lg bg-surface-container motion-reduce:animate-none lg:h-[260px] lg:rounded-3xl"
             role="status"
             aria-live="polite"
           >
@@ -694,34 +731,14 @@ export default function HomePage() {
             than disappearing on Coming up/Book early. Renders nothing of
             its own accord when the day's selection is too thin (see
             TodaysDealsStrip/todaysDeals). */}
-        <TodaysDealsStrip deals={boostedTodaysDeals} surface="home_today_deals" />
+        <TodaysDealsStrip deals={boostedTodaysDeals} surface="home_today_deals" className="lg:hidden" />
 
         {/* Slim, dismissible "Make Fomo yours" banner (task brief §2) —
             shown to anyone, signed in or out, who hasn't completed or
             skipped the card yet; hidden the instant `prefs.done` flips,
             whether that's from this banner, the first-save trigger
             (components/ui/SaveButton.tsx), or Profile's own Edit. */}
-        {!prefs.done ? (
-          <div className="flex items-center gap-2 rounded-xl border border-hairline bg-surface-container-low px-3 py-2">
-            <button
-              type="button"
-              onClick={() => openMakeFomoYours()}
-              className="flex min-h-[44px] flex-1 items-center gap-1.5 text-left text-label-md font-semibold text-primary"
-            >
-              <Icon name="tune" size={16} />
-              Make Fomo yours
-              <Icon name="chevron_right" size={16} />
-            </button>
-            <button
-              type="button"
-              aria-label="Dismiss"
-              onClick={() => void prefs.dismiss()}
-              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-on-surface-variant hover:bg-surface-container"
-            >
-              <Icon name="close" size={16} />
-            </button>
-          </div>
-        ) : null}
+        {!prefs.done ? <MakeFomoYoursBanner onDismiss={() => void prefs.dismiss()} className="lg:hidden" /> : null}
 
         {/* What's on — window-driven, one chronological list (see
             app/api/feed/route.ts's doc comment on `whatsOn`). Hidden entirely
@@ -732,7 +749,7 @@ export default function HomePage() {
             keeps the sticky header from covering the section top when a
             window switch scrolls it into view (see the fetch effect above). */}
         {feedWindow !== "book_early" ? (
-          <div ref={whatsOnSectionRef} className="relative flex scroll-mt-20 flex-col gap-2">
+          <div ref={whatsOnSectionRef} className="relative flex scroll-mt-20 flex-col gap-2 lg:scroll-mt-24">
             {/* Thin indeterminate progress bar — cached (possibly stale)
                 content is already on screen below, so a background
                 revalidation gets this instead of dimming/replacing what's
@@ -777,7 +794,7 @@ export default function HomePage() {
               // previous window's rendered height so the segmented control
               // and the page below don't jump while this settles.
               <div
-                className="flex flex-col gap-3"
+                className="flex flex-col gap-3 lg:grid lg:grid-cols-2 lg:items-start lg:gap-4"
                 style={{ minHeight: lastWhatsOnHeight }}
                 role="status"
                 aria-live="polite"
@@ -795,9 +812,9 @@ export default function HomePage() {
               // switch, not on a same-window background revalidation;
               // `windowSlideClass` picks the entrance direction to match
               // which side of the current tab was tapped.
-              <div key={feedWindow} ref={whatsOnContentRef} className={`${windowSlideClass} flex flex-col gap-3`}>
+              <div key={feedWindow} ref={whatsOnContentRef} className={`${windowSlideClass} flex flex-col gap-3 lg:grid lg:grid-cols-2 lg:items-start lg:gap-4`}>
                 {whatsOnCards.length === 0 ? (
-                  <div className="flex flex-col items-center gap-2 px-1 text-center">
+                  <div className="flex flex-col items-center gap-2 px-1 text-center lg:col-span-2">
                     <FomoSpot mood="meh" pose="shrug" className="h-16 w-16" />
                     <p className="text-body-sm text-on-surface-variant">{whatsOnEmptyMessage()}</p>
                   </div>
@@ -810,10 +827,11 @@ export default function HomePage() {
                       href={`/whats-on?window=${feedWindow}`}
                       total={whatsOnCards.length}
                       shown={SECTION_CAP}
+                      className="lg:col-span-2"
                     />
                   </>
                 )}
-                <AnyDaySection cards={boostedAnyDayCards} surface="home_any_day" />
+                <AnyDaySection cards={boostedAnyDayCards} surface="home_any_day" desktopGrid />
               </div>
             )}
           </div>
@@ -834,7 +852,7 @@ export default function HomePage() {
           // conditional above unmounts it entirely on the way out), so the
           // slide-in plays on mount here rather than needing its own
           // `key={feedWindow}` the way What's on's inner content does above.
-          <section ref={bookEarlySectionRef} className={`${windowSlideClass} flex scroll-mt-20 flex-col gap-2`}>
+          <section ref={bookEarlySectionRef} className={`${windowSlideClass} flex scroll-mt-20 flex-col gap-2 lg:scroll-mt-24`}>
             <div className="flex items-center justify-between gap-2 px-1">
               <div className="flex items-center gap-2">
                 <Icon name="confirmation_number" size={20} className="text-accent" />
@@ -845,21 +863,21 @@ export default function HomePage() {
             {feedError ? (
               <ErrorState title="Couldn't load Book early" onRetry={retryFeed} />
             ) : feed === null ? (
-              <div className="flex flex-col gap-3" role="status" aria-live="polite">
+              <div className="flex flex-col gap-3 lg:grid lg:grid-cols-2 lg:items-start lg:gap-4" role="status" aria-live="polite">
                 <span className="sr-only">Loading Book early…</span>
                 {[0, 1].map((i) => (
                   <div key={i} className="h-20 animate-pulse rounded-lg bg-surface-container motion-reduce:animate-none" />
                 ))}
               </div>
             ) : bookEarlyAll.length === 0 ? (
-              <div className="flex flex-col items-center gap-2 px-1 text-center">
+              <div className="flex flex-col items-center gap-2 px-1 text-center lg:col-span-2">
                 <FomoSpot mood="meh" pose="shrug" className="h-16 w-16" />
                 <p className="text-body-sm text-on-surface-variant">
                   Nothing worth booking early right now. Check back soon.
                 </p>
               </div>
             ) : (
-              <div className="flex flex-col gap-3">
+              <div className="flex flex-col gap-3 lg:grid lg:grid-cols-2 lg:items-start lg:gap-4">
                 {bookEarlyAll.slice(0, SECTION_CAP).map((card, i) => (
                   <BookEarlyCard
                     key={bookEarlyCardKey(card)}
@@ -868,7 +886,7 @@ export default function HomePage() {
                     position={i}
                   />
                 ))}
-                <SeeAllButton href="/book-early" total={bookEarlyAll.length} shown={SECTION_CAP} />
+                <SeeAllButton href="/book-early" total={bookEarlyAll.length} shown={SECTION_CAP} className="lg:col-span-2" />
               </div>
             )}
           </section>
@@ -900,7 +918,20 @@ export default function HomePage() {
           </div>
         </div>
 
-        <SubscribeCard source="home" />
+        <SubscribeCard source="home" className="lg:hidden" />
+        </div>
+
+        {/* Desktop right rail — sticky under the top bar; capped to the
+            viewport (scrolls internally if the deals list + cards outgrow it).
+            Second copies of the three blocks marked above. */}
+        <aside
+          aria-label="Deals and updates"
+          className="hidden lg:sticky lg:top-[calc(var(--topbar-h)+24px)] lg:col-span-4 lg:-mx-2 lg:flex lg:max-h-[calc(100vh-var(--topbar-h)-48px)] lg:flex-col lg:gap-4 lg:overflow-y-auto lg:px-2 lg:pb-2 lg:[scrollbar-width:none] lg:[&::-webkit-scrollbar]:hidden"
+        >
+          <TodaysDealsStrip deals={boostedTodaysDeals} surface="home_today_deals" />
+          {!prefs.done ? <MakeFomoYoursBanner onDismiss={() => void prefs.dismiss()} /> : null}
+          <SubscribeCard source="home" />
+        </aside>
       </div>
     </div>
   );

@@ -121,16 +121,32 @@ export default function DealsPage() {
     <div className="flex flex-col pb-6">
       <AppHeader title="Deals & Offers" />
 
-      <div className="flex flex-col gap-3 px-4 pt-3">
-        <p className="text-body-md text-on-surface-variant">
-          Discounts, promo codes &amp; concessions around Edinburgh
-        </p>
+      {/* Desktop: filters in a sticky left rail, results in a 2-col grid. Below lg the
+          aside/main wrappers are `display: contents`, so the mobile flow (intro, sticky
+          filter bar, list, footer) is exactly the flat sibling list it always was. */}
+      <div className="flex flex-col gap-3 px-4 pt-3 lg:mx-auto lg:grid lg:w-full lg:max-w-[1200px] lg:grid-cols-[260px_minmax(0,1fr)] lg:items-start lg:gap-x-8 lg:px-8 lg:pt-6">
+        <aside className="contents lg:col-start-1 lg:row-start-1 lg:flex lg:max-h-[calc(100dvh-var(--topbar-h)-88px)] lg:flex-col lg:gap-4 lg:overflow-y-auto lg:sticky lg:top-[calc(var(--topbar-h)+64px)] lg:-mx-1 lg:px-1">
+          <p className="text-body-md text-on-surface-variant">
+            Discounts, promo codes &amp; concessions around Edinburgh
+          </p>
 
-        <StickyFilterBar className="-mx-4 px-4">
-          <div className="flex items-start justify-between gap-2">
-            <span className="px-1 pt-1.5 text-label-lg font-semibold text-on-surface-variant">
-              {deals ? `${dealItems.length} ${dealItems.length === 1 ? "deal" : "deals"}` : ""}
-            </span>
+          <StickyFilterBar className="-mx-4 px-4 lg:hidden">
+            <div className="flex items-start justify-between gap-2">
+              <span className="px-1 pt-1.5 text-label-lg font-semibold text-on-surface-variant">
+                {deals ? `${dealItems.length} ${dealItems.length === 1 ? "deal" : "deals"}` : ""}
+              </span>
+              <DealFilters
+                what={dealWhat}
+                who={dealWho}
+                onWhatChange={handleWhatChange}
+                onWhoChange={handleWhoChange}
+                resultCount={dealItems.length}
+              />
+            </div>
+          </StickyFilterBar>
+
+          {/* Desktop-only second render of the (fully controlled) filters: its inline panel. */}
+          <div className="hidden rounded-2xl bg-surface-container-lowest p-4 shadow-level-1 lg:block">
             <DealFilters
               what={dealWhat}
               who={dealWho}
@@ -139,72 +155,74 @@ export default function DealsPage() {
               resultCount={dealItems.length}
             />
           </div>
-        </StickyFilterBar>
+        </aside>
 
-        {error ? (
-          <ErrorState title="Couldn't load deals" onRetry={() => dealsResult.revalidate()} />
-        ) : deals === null ? (
-          <div className="flex flex-col gap-3" role="status" aria-live="polite">
-            <span className="sr-only">Loading deals…</span>
-            {[0, 1, 2].map((i) => (
-              <div key={i} className="h-20 animate-pulse rounded-lg bg-surface-container" />
-            ))}
-          </div>
-        ) : totalBeforeFilters === 0 ? (
-          <div className="flex flex-col items-center gap-2 rounded-2xl border border-dashed border-hairline-strong p-8 text-center">
-            <FomoSpot mood="meh" pose="shrug" className="h-20 w-20" />
-            <p className="text-body-md text-on-surface-variant">No live deals right now. Check back soon.</p>
-          </div>
-        ) : dealItems.length === 0 ? (
-          <div className="flex flex-col items-center gap-2 rounded-2xl border border-dashed border-hairline-strong py-6 text-center">
-            <FomoSpot mood="hmm" pose="shrug" className="h-16 w-16" />
-            <p className="text-body-sm text-on-surface-variant">No deals match. Clear filters</p>
-          </div>
-        ) : (
-          <div className="flex flex-col gap-3">
-            {dealItems.slice(0, visibleCount).map((item, i) =>
-              item.kind === "venue" ? (
-                <VenueDealCard
-                  key={`venue-${item.group.placeId ?? item.group.placeName}`}
-                  placeId={item.group.placeId}
-                  placeName={item.group.placeName}
-                  placeImageUrl={item.group.placeImageUrl}
-                  district={item.group.district}
-                  offers={item.group.offers}
-                  position={i}
-                />
-              ) : (
-                <FeedListCard
-                  key={`single-${item.card.happening.id}`}
-                  card={{ kind: "happening", happening: item.card.happening, occurrence: item.card.occurrence }}
-                  surface="deals"
-                  position={i}
-                />
-              )
-            )}
-            {visibleCount < dealItems.length ? <div ref={revealSentinelRef} className="h-1" /> : null}
-          </div>
-        )}
-      
-      {/* Footer */}
-      <div className="flex flex-col gap-3 border-t border-outline-variant px-4 pt-6 pb-4">
-        <div className="flex flex-col gap-1">
-          <p className="text-label-md font-semibold text-on-surface">How can we help?</p>
-          <p className="text-body-sm text-on-surface-variant">Missing a deal? Have an idea?</p>
-        </div>
-        <div className="flex gap-2">
-          <Link
-            href="/tip"
-            className="flex-1 flex items-center justify-center rounded-lg bg-primary px-3 py-2 text-label-md font-semibold text-on-primary transition-opacity hover:opacity-90"
-          >
-            Tip us off
-          </Link>
-          <div className="flex-1">
-            <FeedbackLink className="w-full justify-center" />
+        <div className="contents lg:col-start-2 lg:row-start-1 lg:flex lg:min-w-0 lg:flex-col lg:gap-6">
+          {error ? (
+            <ErrorState title="Couldn't load deals" onRetry={() => dealsResult.revalidate()} />
+          ) : deals === null ? (
+            <div className="flex flex-col gap-3 lg:grid lg:grid-cols-2 lg:gap-4 2xl:grid-cols-3" role="status" aria-live="polite">
+              <span className="sr-only">Loading deals…</span>
+              {[0, 1, 2, 3].map((i) => (
+                <div key={i} className={`h-20 animate-pulse rounded-lg bg-surface-container ${i === 3 ? "hidden lg:block" : ""}`} />
+              ))}
+            </div>
+          ) : totalBeforeFilters === 0 ? (
+            <div className="flex flex-col items-center gap-2 rounded-2xl border border-dashed border-hairline-strong p-8 text-center">
+              <FomoSpot mood="meh" pose="shrug" className="h-20 w-20" />
+              <p className="text-body-md text-on-surface-variant">No live deals right now. Check back soon.</p>
+            </div>
+          ) : dealItems.length === 0 ? (
+            <div className="flex flex-col items-center gap-2 rounded-2xl border border-dashed border-hairline-strong py-6 text-center">
+              <FomoSpot mood="hmm" pose="shrug" className="h-16 w-16" />
+              <p className="text-body-sm text-on-surface-variant">No deals match. Clear filters</p>
+            </div>
+          ) : (
+            <div className="flex flex-col gap-3 lg:grid lg:grid-cols-2 lg:items-start lg:gap-4 2xl:grid-cols-3">
+              {dealItems.slice(0, visibleCount).map((item, i) =>
+                item.kind === "venue" ? (
+                  <VenueDealCard
+                    key={`venue-${item.group.placeId ?? item.group.placeName}`}
+                    placeId={item.group.placeId}
+                    placeName={item.group.placeName}
+                    placeImageUrl={item.group.placeImageUrl}
+                    district={item.group.district}
+                    offers={item.group.offers}
+                    position={i}
+                  />
+                ) : (
+                  <FeedListCard
+                    key={`single-${item.card.happening.id}`}
+                    card={{ kind: "happening", happening: item.card.happening, occurrence: item.card.occurrence }}
+                    surface="deals"
+                    position={i}
+                  />
+                )
+              )}
+              {visibleCount < dealItems.length ? <div ref={revealSentinelRef} className="h-1 lg:col-span-full" /> : null}
+            </div>
+          )}
+
+          {/* Footer */}
+          <div className="flex flex-col gap-3 border-t border-outline-variant px-4 pt-6 pb-4 lg:flex-row lg:items-center lg:justify-between lg:gap-6 lg:px-0">
+            <div className="flex flex-col gap-1">
+              <p className="text-label-md font-semibold text-on-surface">How can we help?</p>
+              <p className="text-body-sm text-on-surface-variant">Missing a deal? Have an idea?</p>
+            </div>
+            <div className="flex gap-2 lg:w-80">
+              <Link
+                href="/tip"
+                className="flex-1 flex items-center justify-center rounded-lg bg-primary px-3 py-2 text-label-md font-semibold text-on-primary transition-opacity hover:opacity-90"
+              >
+                Tip us off
+              </Link>
+              <div className="flex-1">
+                <FeedbackLink className="w-full justify-center" />
+              </div>
+            </div>
           </div>
         </div>
       </div>
-</div>
     </div>
   );
 }

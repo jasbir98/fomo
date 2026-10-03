@@ -40,3 +40,19 @@ export interface ExploreResponse {
   pins: ExplorePin[];
   degraded?: string;
 }
+
+/**
+ * A numbered "Fomo's pick" marker the desktop workspace draws on the map for
+ * an Ask Fomo reply — distinct from `ExplorePin` (browse results) because a
+ * pick can be a Google place with no Fomo page. `key` is the chat result key
+ * (`itemResultKey` / `placeResultKey`) so a marker and its chat card find
+ * each other.
+ */
+export interface MapPick {
+  key: string;
+  lat: number;
+  lng: number;
+  /** 1-based position in the reply, shown inside the marker. */
+  rank: number;
+  title: string;
+}

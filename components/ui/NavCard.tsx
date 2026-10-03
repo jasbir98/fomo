@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import type { KeyboardEvent, ReactNode } from "react";
+import { tryOpenDetail } from "@/lib/detail-overlay/store";
 
 export type NavCardProps = {
   href: string;
@@ -58,14 +59,14 @@ export function NavCard({ href, children, className = "", ariaLabel, onPointerDo
     // does) — so by the time this runs, nothing downstream claimed the
     // click, and it's safe to always navigate.
     onNavigate?.();
-    router.push(href);
+    if (!tryOpenDetail(href)) router.push(href);
   }
 
   function handleKeyDown(e: KeyboardEvent<HTMLDivElement>) {
     if (e.target !== e.currentTarget) return; // let a focused inner control handle its own keys
     if (e.key === "Enter" || e.key === " ") {
       e.preventDefault();
-      router.push(href);
+      if (!tryOpenDetail(href)) router.push(href);
     }
   }
 
