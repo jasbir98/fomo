@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import Link from "next/link";
 import { districtFromAddress } from "@/lib/city";
 import { directionsUrlFor } from "@/lib/maps/links";
@@ -39,6 +39,9 @@ import {
   detailGridClass,
   type DetailProps,
 } from "./shared";
+
+/** The preview cache never changes under a mounted page; nothing to subscribe to. */
+const noopSubscribe = () => () => {};
 
 // Throws on a network error or non-2xx status (GET /api/happenings/[id]
 // returns 401/500 for those — see that route's own doc comment) so the
@@ -119,15 +122,18 @@ export function HappeningDetail({ id, presentation = "page" }: DetailProps) {
   const [imgError, setImgError] = useState(false);
   const [notifySubscribed, setNotifySubscribed] = useState(false);
   const [notifyError, setNotifyError] = useState<string | null>(null);
-  // A card's click-time write to lib/happenings/preview-cache.ts, if there
-  // is one — a plain synchronous read, not effect+setState (the cache is
-  // local, not an external system to "synchronize" with), so `useMemo`
-  // keyed on `id` covers both the very first paint AND an `id` change (a
-  // Locations-section tap to a sibling, which reuses this same page
-  // instance rather than remounting it). Powers the instant hero below
-  // while `loading` is still true; `null` just means this page was opened
-  // directly (a shared link, a fresh reload) with nothing to show yet.
-  const preview = useMemo<HappeningPreview | null>(() => getHappeningPreview(id), [id]);
+  // A card's click-time write to the preview cache, if there is one — powers
+  // the instant hero while `loading` is still true; `null` means this page was
+  // opened directly (a shared link, a fresh reload) with nothing to show yet.
+  // Read through useSyncExternalStore with a null server snapshot, not
+  // useMemo: the cache falls back to sessionStorage, which the server can't
+  // see, so a plain render-time read made a reload of an already-visited
+  // detail page hydrate a different header than the server sent (a
+  // hydration mismatch). During hydration React renders the server snapshot
+  // (null, matching the HTML) and then re-renders with the cached preview;
+  // on a client-side navigation there's no hydration, so the preview still
+  // paints on the very first render. Keyed on `id` via the snapshot closure.
+  const preview = useSyncExternalStore<HappeningPreview | null>(noopSubscribe, () => getHappeningPreview(id), () => null);
 
   useEffect(() => {
     let cancelled = false;

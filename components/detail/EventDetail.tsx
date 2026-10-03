@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { supabaseBrowserAuth } from "@/lib/supabase/client";
@@ -27,6 +27,9 @@ import {
   detailGridClass,
   type DetailProps,
 } from "./shared";
+
+/** The preview cache never changes under a mounted page; nothing to subscribe to. */
+const noopSubscribe = () => () => {};
 
 /**
  * Google Calendar "add event" link — mirrors the happening detail page's
@@ -86,13 +89,18 @@ export function EventDetail({ id, presentation = "page" }: DetailProps) {
   // former and never fires for the latter.
   const [error, setError] = useState(false);
   const [reloadTick, setReloadTick] = useState(0);
-  // A card's click-time write to lib/events/preview-cache.ts, if there is
-  // one — plain synchronous read (not effect+setState; see the happening
-  // page's own doc comment on the same pattern for why), `useMemo`-keyed on
-  // `id` so it covers both first paint and an `id` change. Powers the
-  // instant hero below while `loading` is still true; `null` just means
-  // this page was opened directly (a shared link, a fresh reload).
-  const preview = useMemo<EventPreview | null>(() => getEventPreview(id), [id]);
+  // A card's click-time write to the preview cache, if there is one — powers
+  // the instant hero while `loading` is still true; `null` means this page was
+  // opened directly (a shared link, a fresh reload).
+  // Read through useSyncExternalStore with a null server snapshot, not
+  // useMemo: the cache falls back to sessionStorage, which the server can't
+  // see, so a plain render-time read made a reload of an already-visited
+  // detail page hydrate a different header than the server sent (a
+  // hydration mismatch). During hydration React renders the server snapshot
+  // (null, matching the HTML) and then re-renders with the cached preview;
+  // on a client-side navigation there's no hydration, so the preview still
+  // paints on the very first render. Keyed on `id` via the snapshot closure.
+  const preview = useSyncExternalStore<EventPreview | null>(noopSubscribe, () => getEventPreview(id), () => null);
 
   useEffect(() => {
     let cancelled = false;
