@@ -80,7 +80,7 @@ export interface DateFilterRowProps {
  */
 export function DateFilterRow({ dates, selected, onSelect }: DateFilterRowProps) {
   return (
-    <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-0.5 [&::-webkit-scrollbar]:hidden lg:flex-wrap lg:overflow-visible">
+    <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-0.5 [&::-webkit-scrollbar]:hidden">
       <Chip label="All dates" selected={selected === "all"} onClick={() => onSelect("all")} />
       <Chip label="This weekend" selected={selected === "weekend"} onClick={() => onSelect("weekend")} />
       {dates.map((dayDate, i) => {

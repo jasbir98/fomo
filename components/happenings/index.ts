@@ -8,6 +8,8 @@ export { PriceTag } from "./PriceTag";
 export type { PriceTagProps } from "./PriceTag";
 export { DateFilterRow, cardDayDate, dayPillParts } from "./DateFilterRow";
 export type { DateFilterRowProps } from "./DateFilterRow";
+export { DateCalendar } from "./DateCalendar";
+export type { DateCalendarProps } from "./DateCalendar";
 export { FreeAnyTimeList, FreeAnyTimeRow } from "./FreeAnyTimeList";
 export type { FreeAnyTimeListProps } from "./FreeAnyTimeList";
 export { BookEarlyCard } from "./BookEarlyCard";
