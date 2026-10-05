@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useState, type FormEvent, type ReactNode } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { CITY } from "@/lib/city";
 import { useSignedIn } from "@/lib/useSaved";
 import type { WeatherCondition } from "@/lib/weather";
@@ -58,11 +59,18 @@ export interface AppHeaderProps {
  * Home passes its city picker pill through `leading`; other tabs skip it (it's
  * noise there, and with SUPPORTED_CITIES.length === 1 it never renders anyway,
  * see lib/city.ts).
+ *
+ * From lg (1024px) up the side nav carries the logo, so the wordmark is
+ * dropped here (`leading` stays), and the search icon is replaced by an inline
+ * search field that submits to /search?q=. That field is tagged
+ * `data-desktop-search` so the "/" shortcut (KeyboardShortcuts) can focus it.
  */
 export function AppHeader({ title, leading, weather: weatherProp, className = "" }: AppHeaderProps) {
   const [fetchedWeather, setFetchedWeather] = useState<HeaderWeather | null>(null);
   const weather = weatherProp !== undefined ? weatherProp : fetchedWeather;
   const signedIn = useSignedIn();
+  const router = useRouter();
+  const [searchText, setSearchText] = useState("");
   const { platform, installed } = useInstallState();
   const [installOpen, setInstallOpen] = useState(false);
   // Phones and tablets only, and only until the app is installed.
@@ -79,15 +87,53 @@ export function AppHeader({ title, leading, weather: weatherProp, className = ""
     };
   }, [weatherProp]);
 
+  function submitSearch(e: FormEvent) {
+    e.preventDefault();
+    const q = searchText.trim();
+    router.push(q ? `/search?q=${encodeURIComponent(q)}` : "/search");
+  }
+
   return (
     <div
       className={`sticky top-0 z-40 flex flex-col border-b border-hairline bg-surface-container-lowest/95 backdrop-blur-xl ${className}`}
     >
-      <header className="flex min-h-[64px] items-center justify-between gap-2 px-4 pt-safe">
+      <header className="flex min-h-[64px] items-center justify-between gap-2 px-4 pt-safe lg:px-8">
         <div className="flex min-w-0 items-center gap-2.5">
-          <FomoLogo size={28} />
+          {/* A wrapper rather than a class on FomoLogo itself, which sets its own `inline-flex`. */}
+          <div className="flex lg:hidden">
+            <FomoLogo size={28} />
+          </div>
           {leading}
         </div>
+
+        {/* Desktop search: auto right margin keeps it beside the left cluster while the
+            weather/profile cluster stays pinned right. Focus ring sits on the form (the
+            input is outline-none) so the whole pill lights up. */}
+        <form
+          role="search"
+          onSubmit={submitSearch}
+          className="group hidden h-10 w-[360px] max-w-full items-center gap-2 rounded-full bg-surface-container px-4 focus-within:ring-2 focus-within:ring-primary lg:ml-2 lg:mr-auto lg:flex"
+        >
+          <Icon name="search" size={20} className="shrink-0 text-on-surface-variant" />
+          <input
+            data-desktop-search
+            type="search"
+            enterKeyHint="search"
+            autoComplete="off"
+            spellCheck={false}
+            value={searchText}
+            onChange={(e) => setSearchText(e.target.value)}
+            placeholder={`Search ${CITY.name}…`}
+            aria-label={`Search ${CITY.name}`}
+            className="min-w-0 flex-1 bg-transparent text-body-md text-on-surface outline-none placeholder:text-on-surface-variant [&::-webkit-search-cancel-button]:hidden"
+          />
+          <kbd
+            aria-hidden="true"
+            className="rounded-sm border border-hairline-strong bg-surface-container-lowest px-1.5 text-label-sm font-semibold text-on-surface-variant group-focus-within:hidden"
+          >
+            /
+          </kbd>
+        </form>
 
         <div className="flex shrink-0 items-center gap-1">
           {/* Neutral tint: the per-condition colours read as an alert (rain came out red). */}
@@ -108,7 +154,7 @@ export function AppHeader({ title, leading, weather: weatherProp, className = ""
           <Link
             href="/search"
             aria-label="Search"
-            className="flex h-11 w-11 items-center justify-center rounded-full text-on-surface-variant transition-colors hover:bg-surface-container hover:text-on-surface"
+            className="flex h-11 w-11 items-center justify-center rounded-full text-on-surface-variant transition-colors hover:bg-surface-container hover:text-on-surface lg:hidden"
           >
             <Icon name="search" size={24} />
           </Link>
@@ -154,8 +200,8 @@ export function AppHeader({ title, leading, weather: weatherProp, className = ""
       </header>
 
       {title ? (
-        <div className="px-4 pb-3">
-          <h1 className="truncate text-headline-sm text-primary">{title}</h1>
+        <div className="px-4 pb-3 lg:px-8">
+          <h1 className="truncate text-headline-sm text-primary lg:text-headline-md">{title}</h1>
         </div>
       ) : null}
 

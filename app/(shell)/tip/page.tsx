@@ -88,7 +88,7 @@ export default function TipPage() {
 
   if (status === "done") {
     return (
-      <main className="mx-auto flex max-w-[480px] flex-col gap-4 pb-6">
+      <main className="mx-auto flex max-w-[480px] flex-col gap-4 pb-6 lg:max-w-2xl lg:px-8">
         <PageHeader title={pageTitle} showBack />
         <div className="flex flex-col items-center gap-4 px-4 py-8">
           <Icon name="check_circle" size={48} className="text-primary" filled />
@@ -108,7 +108,7 @@ export default function TipPage() {
   }
 
   return (
-    <main className="mx-auto flex max-w-[480px] flex-col gap-4 pb-6">
+    <main className="mx-auto flex max-w-[480px] flex-col gap-4 pb-6 lg:max-w-2xl lg:px-8">
       <PageHeader title={pageTitle} showBack />
 
       <div className="flex flex-col gap-4 px-4">

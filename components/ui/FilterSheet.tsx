@@ -43,12 +43,36 @@ export interface FilterSheetProps {
   className?: string;
 }
 
+/** One group's chips: a synthesized "All" (unless `noAllOption`) plus its options. Shared by the sheet and the desktop inline panel so both select identically. */
+function GroupChips({ g }: { g: FilterGroupSpec }) {
+  return (
+    <div className="flex flex-wrap gap-2">
+      {!g.noAllOption ? <Chip label="All" selected={g.selected === null} onClick={() => g.onChange(null)} /> : null}
+      {g.options.map((o) => (
+        <Chip
+          key={o.value}
+          label={o.label}
+          selected={g.selected === o.value}
+          onClick={() => g.onChange(g.noAllOption && g.selected === o.value ? null : o.value)}
+        />
+      ))}
+    </div>
+  );
+}
+
 /**
  * Compact filter trigger, replacing 2-3 rows of always-visible chips with a
  * single small "Filters" button (task: "filters should be like a small
  * button rather than that many chips"). Tapping it opens a BottomSheet with
  * one titled group per dimension; an optional thin pills row under the
  * button shows only the currently-active filters, each removable inline.
+ *
+ * From lg (1024px) up the sheet is replaced by an always-visible inline panel
+ * (same groups, same `onChange` semantics, a "Clear all" and the result count)
+ * — a desktop has the room, and a modal for four rows of chips is a detour.
+ * The panel is sized by its container: it holds up at a ~240px sidebar column
+ * and at full width alike (chips just wrap). The trigger/pills/sheet stay
+ * mounted but `lg:hidden`, so the API is unchanged.
  *
  * Domain-agnostic — /book-early, /free and /deals each build their `groups`
  * from their own existing filter props/logic (lib/happenings/*-filters.ts,
@@ -77,49 +101,64 @@ export function FilterSheet({ groups, resultCount, label = "Filters", className 
 
   return (
     <div className={`flex flex-col gap-2 ${className}`}>
-      <button
-        type="button"
-        onClick={() => setOpen(true)}
-        className="inline-flex shrink-0 items-center gap-1.5 self-start rounded-full border border-primary/30 bg-surface px-3.5 py-1.5 text-label-sm font-semibold text-primary shadow-sm transition-colors hover:bg-surface-container"
-      >
-        <Icon name="tune" size={16} />
-        {activeCount > 0 ? `${label} · ${activeCount}` : label}
-      </button>
+      <div className="flex flex-col gap-2 lg:hidden">
+        <button
+          type="button"
+          onClick={() => setOpen(true)}
+          className="inline-flex shrink-0 items-center gap-1.5 self-start rounded-full border border-primary/30 bg-surface px-3.5 py-1.5 text-label-sm font-semibold text-primary shadow-sm transition-colors hover:bg-surface-container"
+        >
+          <Icon name="tune" size={16} />
+          {activeCount > 0 ? `${label} · ${activeCount}` : label}
+        </button>
 
-      {activePills.length > 0 ? (
-        <div className="-mx-4 flex gap-2 overflow-x-auto px-4 py-0.5 [&::-webkit-scrollbar]:hidden">
-          {activePills.map((p) => (
+        {activePills.length > 0 ? (
+          <div className="-mx-4 flex gap-2 overflow-x-auto px-4 py-0.5 [&::-webkit-scrollbar]:hidden">
+            {activePills.map((p) => (
+              <button
+                key={p.key}
+                type="button"
+                onClick={p.onRemove}
+                className="inline-flex shrink-0 items-center gap-1 rounded-full bg-primary/10 px-3 py-1.5 text-label-sm font-medium text-primary"
+              >
+                {p.label}
+                <Icon name="close" size={14} />
+              </button>
+            ))}
+          </div>
+        ) : null}
+      </div>
+
+      <section aria-label={label} className="hidden lg:block">
+        <div className="mb-4 flex items-center justify-between gap-2">
+          <p className="text-label-md font-semibold text-on-surface-variant">
+            {resultCount} result{resultCount === 1 ? "" : "s"}
+          </p>
+          {activeCount > 0 ? (
             <button
-              key={p.key}
               type="button"
-              onClick={p.onRemove}
-              className="inline-flex shrink-0 items-center gap-1 rounded-full bg-primary/10 px-3 py-1.5 text-label-sm font-medium text-primary"
+              onClick={clearAll}
+              className="rounded-full px-2 py-1 text-label-md font-semibold text-primary underline-offset-2 transition-colors hover:bg-surface-container hover:underline"
             >
-              {p.label}
-              <Icon name="close" size={14} />
+              Clear all
             </button>
+          ) : null}
+        </div>
+        <div className="flex flex-col gap-4">
+          {groups.map((g) => (
+            <div key={g.key} className="flex flex-col gap-2">
+              <h3 className="text-label-md font-semibold text-on-surface-variant">{g.title}</h3>
+              <GroupChips g={g} />
+            </div>
           ))}
         </div>
-      ) : null}
+      </section>
 
       <BottomSheet open={open} onClose={() => setOpen(false)} title="Filters">
         <div className="flex flex-col gap-4">
           {groups.map((g) => (
             <div key={g.key} className="flex flex-col gap-2">
               <h3 className="text-label-md font-semibold text-on-surface-variant">{g.title}</h3>
-              <div className="flex flex-wrap gap-2">
-                {!g.noAllOption ? (
-                  <Chip label="All" selected={g.selected === null} onClick={() => g.onChange(null)} />
-                ) : null}
-                {g.options.map((o) => (
-                  <Chip
-                    key={o.value}
-                    label={o.label}
-                    selected={g.selected === o.value}
-                    onClick={() => g.onChange(g.noAllOption && g.selected === o.value ? null : o.value)}
-                  />
-                ))}
-              </div>
+              <GroupChips g={g} />
             </div>
           ))}
         </div>

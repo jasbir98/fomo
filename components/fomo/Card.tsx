@@ -11,6 +11,7 @@ import { describeSupabaseError } from "@/lib/db/errors";
 import { supabaseBrowserAuth } from "@/lib/supabase/client";
 import type { Candidate, CardKind } from "@/lib/cards/types";
 import type { CardSubjectType } from "@/lib/types";
+import { tryOpenDetail } from "@/lib/detail-overlay/store";
 
 export type CardVariant = "hero" | "tile" | "grid";
 
@@ -115,7 +116,7 @@ export function FomoCard({
         : `/happening/${candidate.subject.id}`;
 
   function handleOpenDetails() {
-    router.push(detailHref);
+    if (!tryOpenDetail(detailHref)) router.push(detailHref);
   }
 
   // handleSecondaryAction/handleSecondaryClick lived here, driving the
@@ -196,9 +197,9 @@ export function FomoCard({
   const photoWidth = isHero ? 480 : variant === "grid" ? 214 : 168;
   const photoPx = isHero ? 208 : variant === "grid" ? 128 : 112;
   const photoSizes = isHero
-    ? "(max-width: 480px) 100vw, 480px"
+    ? "(min-width: 1024px) 480px, (max-width: 480px) 100vw, 480px"
     : variant === "grid"
-      ? "(max-width: 480px) 45vw, 214px"
+      ? "(min-width: 1024px) 280px, (max-width: 480px) 45vw, 214px"
       : "168px";
 
   return (

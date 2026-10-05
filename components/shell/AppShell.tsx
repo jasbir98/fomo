@@ -3,11 +3,14 @@
 import type { ReactNode } from "react";
 import { useEffect } from "react";
 import { BottomNav } from "./BottomNav";
+import { KeyboardShortcuts } from "./KeyboardShortcuts";
+import { SideNav } from "./SideNav";
 import { MakeFomoYours } from "@/components/personalise/MakeFomoYours";
 import { closeMakeFomoYours, useMakeFomoYoursOpen } from "@/lib/personalise/trigger";
 import { ConsentBar } from "@/components/analytics/ConsentBar";
 import { IdentifyUser } from "@/components/analytics/IdentifyUser";
 import { InstallHint } from "@/components/shell/InstallHint";
+import { DetailOverlayProvider } from "@/components/detail/DetailOverlayProvider";
 import { track } from "@/lib/analytics/track";
 
 export type AppShellProps = {
@@ -15,9 +18,17 @@ export type AppShellProps = {
 };
 
 /**
- * Wraps shell routes with the canonical BottomNav and reserves bottom padding
- * so content clears the fixed nav (plus the raised Fomo FAB).
+ * Wraps shell routes with the canonical navigation: BottomNav on phones, and
+ * from lg (1024px) up SideNav (BottomNav hides itself). On phones it reserves
+ * bottom padding so content clears the fixed nav (plus the raised Fomo FAB);
+ * on desktop that padding is dropped and the content is instead pushed right
+ * by the side nav's width (`--sidenav-w`, app/globals.css).
  *
+ * Desktop page convention: each page caps and centres its own content with
+ * `lg:px-8` gutters inside `max-w-[1200px] mx-auto`. The shell itself stays
+ * full width so sticky headers and backgrounds can span edge to edge.
+ *
+ * Phone notes —
  * 88px = the nav's 64px row + 24px of clearance for the FAB, which pokes
  * -top-6 (24px) above that row — see BottomNav. That base figure assumes no
  * safe area; on real devices BottomNav also carries `pb-safe`
@@ -49,11 +60,14 @@ export function AppShell({ children }: AppShellProps) {
   return (
     <div className="min-h-dvh">
       <IdentifyUser />
-      <div className="pb-[calc(88px+env(safe-area-inset-bottom))]">{children}</div>
+      <SideNav />
+      <KeyboardShortcuts />
+      <div className="pb-[calc(88px+env(safe-area-inset-bottom))] lg:pb-0 lg:pl-[var(--sidenav-w)]">{children}</div>
       <BottomNav />
       <MakeFomoYours open={makeFomoYoursOpen} onClose={closeMakeFomoYours} />
       <ConsentBar />
       <InstallHint />
+      <DetailOverlayProvider />
     </div>
   );
 }

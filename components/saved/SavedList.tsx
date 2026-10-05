@@ -96,11 +96,11 @@ function SavedListInner() {
           </div>
         </Card>
       ) : (
-        <div className="flex flex-col gap-4">
+        <div className="flex flex-col gap-4 lg:mx-auto lg:max-w-[1200px] lg:px-8">
           {savedGroups.map((group) => (
             <div key={group.type}>
               <p className="mb-2 text-label-md font-bold text-on-surface-variant">{group.label}</p>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-2 gap-3 lg:grid-cols-3 xl:grid-cols-4 lg:gap-5">
                 {group.items.map((item) => (
                   <FomoCard
                     key={`${item.subject.type}:${item.subject.id}`}

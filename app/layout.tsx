@@ -102,7 +102,9 @@ export default function RootLayout({
         )}
       </head>
       <body>
-        <div className="mx-auto flex min-h-dvh w-full max-w-[480px] flex-col bg-background">
+        {/* Phone column below lg (1024px); full width from lg up, where AppShell
+            adds the side nav and pages cap their own content width. */}
+        <div className="mx-auto flex min-h-dvh w-full max-w-[480px] flex-col bg-background lg:max-w-none">
           {children}
         </div>
         <InstallCapture />

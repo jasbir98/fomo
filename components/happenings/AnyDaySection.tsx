@@ -19,6 +19,10 @@ export interface AnyDaySectionProps {
   cards: FeedCardData[];
   /** Distinct per page so `card_opened` analytics can measure Any day clicks apart from the dated list. */
   surface: Extract<FeedCardSurface, "home_any_day" | "whats_on_any_day">;
+  /** Home's desktop layout: at lg+ the section spans both columns of its 2-column parent grid and lays its own cards out 2-up. Off by default so other callers (/whats-on) keep their single column. */
+  desktopGrid?: boolean;
+  /** Extra classes on the section when `desktopGrid` is on — lets a wider parent grid widen it (e.g. `xl:col-span-3 xl:grid-cols-3`). */
+  gridClassName?: string;
 }
 
 /**
@@ -27,15 +31,15 @@ export interface AnyDaySectionProps {
  * Compact heading + helper line, first ANY_DAY_CAP cards, then an in-place
  * "Show N more".
  */
-export function AnyDaySection({ cards, surface }: AnyDaySectionProps) {
+export function AnyDaySection({ cards, surface, desktopGrid = false, gridClassName = "" }: AnyDaySectionProps) {
   const [expanded, setExpanded] = useState(false);
   if (cards.length === 0) return null;
   const visible = expanded ? cards : cards.slice(0, ANY_DAY_CAP);
   const hidden = cards.length - ANY_DAY_CAP;
 
   return (
-    <section aria-label="Any day" className="flex flex-col gap-2 pt-1">
-      <div className="flex flex-col gap-0.5 px-1">
+    <section aria-label="Any day" className={`flex flex-col gap-2 pt-1 ${desktopGrid ? `lg:col-span-2 lg:grid lg:grid-cols-2 lg:items-start lg:gap-4 ${gridClassName}` : ""}`}>
+      <div className={`flex flex-col gap-0.5 px-1 ${desktopGrid ? "lg:col-span-full" : ""}`}>
         <h3 className="text-body-lg font-extrabold tracking-tight text-on-surface">Any day</h3>
         <p className="text-label-sm text-on-surface-variant">Always on, go whenever suits</p>
       </div>
@@ -47,7 +51,7 @@ export function AnyDaySection({ cards, surface }: AnyDaySectionProps) {
           type="button"
           aria-expanded={expanded}
           onClick={() => setExpanded((v) => !v)}
-          className="flex h-11 w-full items-center justify-center rounded-xl bg-secondary-container px-4 text-label-lg font-semibold text-on-secondary-container transition-opacity hover:opacity-90"
+          className={`flex h-11 w-full items-center justify-center rounded-xl bg-secondary-container px-4 text-label-lg font-semibold text-on-secondary-container transition-opacity hover:opacity-90 ${desktopGrid ? "lg:col-span-full" : ""}`}
         >
           {expanded ? "Show fewer" : `Show ${hidden} more`}
         </button>

@@ -39,7 +39,7 @@ function UnsubscribeContent() {
   }, [token]);
 
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center bg-[#f4f5f8] px-6 text-center">
+    <main className="flex min-h-screen flex-col items-center justify-center bg-[#f4f5f8] px-6 text-center lg:mx-auto lg:max-w-3xl lg:px-8 lg:py-12">
       <FomoLogo className="mb-8 h-8 w-auto" />
       <div className="w-full max-w-sm rounded-2xl bg-white p-8 shadow-sm">
         {message === null ? (

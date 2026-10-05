@@ -73,7 +73,11 @@ export function getEventPreview(id: string): EventPreview | null {
   try {
     const raw = sessionStorage.getItem(SS_KEY_PREFIX + id);
     if (!raw) return null;
-    return JSON.parse(raw) as EventPreview;
+    // Memoised so repeat reads return the same object — the detail page
+    // reads this through useSyncExternalStore, which needs a stable snapshot.
+    const parsed = JSON.parse(raw) as EventPreview;
+    previewCache.set(id, parsed);
+    return parsed;
   } catch {
     return null;
   }

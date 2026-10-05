@@ -19,7 +19,8 @@ export type PageHeaderProps = {
 
 /**
  * Sticky top app bar: optional back button (arrow_back → router.back()),
- * title (left or centered), optional right action slot.
+ * title (left or centered), optional right action slot. `lg:px-8` matches
+ * AppHeader's desktop gutters so the two line up with page content.
  */
 export function PageHeader({
   title,
@@ -34,7 +35,7 @@ export function PageHeader({
 
   return (
     <header
-      className={`sticky top-0 z-40 flex items-center gap-2 bg-background/90 backdrop-blur-sm px-4 min-h-[52px] pt-safe ${className}`}
+      className={`sticky top-0 z-40 flex items-center gap-2 bg-background/90 backdrop-blur-sm px-4 min-h-[52px] pt-safe lg:px-8 ${className}`}
     >
       {showBack ? (
         <button

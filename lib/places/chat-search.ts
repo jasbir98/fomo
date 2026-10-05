@@ -37,6 +37,7 @@ const FIELD_MASK = [
   "places.primaryTypeDisplayName",
   "places.reviewSummary",
   "places.generativeSummary",
+  "places.location",
 ].join(",");
 
 const MAX_RESULTS = 6;
@@ -86,6 +87,7 @@ interface GoogleChatPlace {
   primaryTypeDisplayName?: GoogleText;
   reviewSummary?: { text?: GoogleText; disclosureText?: GoogleText };
   generativeSummary?: { overview?: GoogleText; disclosureText?: GoogleText };
+  location?: { latitude?: number; longitude?: number };
 }
 
 function normalize(value: string | null | undefined): string {
@@ -126,6 +128,10 @@ function trimSummary(raw: string | undefined): string | null {
   return `${(space > 80 ? cut.slice(0, space) : cut).replace(/[\s,;:.]+$/, "")}…`;
 }
 
+function finiteOrNull(n: unknown): number | null {
+  return typeof n === "number" && Number.isFinite(n) ? n : null;
+}
+
 function mapPlace(raw: GoogleChatPlace): ChatPlace | null {
   const id = typeof raw.id === "string" ? raw.id : null;
   const name = raw.displayName?.text?.trim();
@@ -155,6 +161,8 @@ function mapPlace(raw: GoogleChatPlace): ChatPlace | null {
     summary,
     summaryDisclosure: summary ? disclosure?.trim() || "Summarized with Gemini" : null,
     mapsUrl: safeHttpUrl(raw.googleMapsUri),
+    lat: finiteOrNull(raw.location?.latitude),
+    lng: finiteOrNull(raw.location?.longitude),
   };
 }
 

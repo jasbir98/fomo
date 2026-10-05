@@ -263,6 +263,42 @@
   --color-hairline-strong: rgb(27 54 93 / 0.16);
 }
 
+/* ---- Desktop shell metrics (components/shell/AppShell.tsx, SideNav.tsx) ----
+   Below 1024px there is no side nav, so --sidenav-w is 0 and every consumer
+   (AppShell's `lg:pl-[var(--sidenav-w)]`, anything else that needs to know how
+   much room the rail takes) collapses to nothing. lg (>=64rem) gets the 80px
+   icon rail; xl (>=80rem) the 240px rail with labels. --topbar-h is the
+   desktop top bar's height (AppHeader's 64px row) for sticky offsets. Written
+   in rem for the breakpoints so they match Tailwind's lg/xl exactly. */
+:root {
+  --sidenav-w: 0px;
+  --topbar-h: 64px;
+}
+@media (min-width: 64rem) {
+  :root {
+    --sidenav-w: 80px;
+  }
+}
+@media (min-width: 80rem) {
+  :root {
+    --sidenav-w: 240px;
+  }
+}
+
+/* Global keyboard focus ring. In @layer base on purpose: an unlayered rule
+   would beat every Tailwind utility, so the many deliberate
+   `focus:outline-none` / custom focus-visible styles (NavCard, Toggle, the
+   BottomSheet panel, inputs with their own ring) would all get a second ring.
+   In base, utilities still win and this only fills the gap for elements that
+   had no focus style at all. :focus-visible means mouse/touch taps never show
+   it. */
+@layer base {
+  :focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+  }
+}
+
 body {
   font-family: var(--font-sans);
   background: var(--color-background);

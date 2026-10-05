@@ -149,20 +149,20 @@ export function HappeningHero({ happening, occurrence, variant = "fomo_pick", re
           price_band: priceBand(happening.is_free),
         });
       }}
-      className="relative flex flex-col overflow-hidden rounded-3xl bg-surface-container-lowest shadow-level-3 cursor-pointer"
+      className="relative flex flex-col overflow-hidden rounded-3xl bg-surface-container-lowest shadow-level-3 cursor-pointer lg:flex-row lg:transition-transform lg:hover:-translate-y-0.5"
     >
-      <div className="relative h-32 w-full shrink-0 overflow-hidden bg-surface-container">
+      <div className="relative h-32 w-full shrink-0 overflow-hidden bg-surface-container lg:h-auto lg:min-h-[260px] lg:w-[44%]">
         <SmartImage
           src={heroImage}
           alt=""
           width={480}
           height={128}
-          sizes="(max-width: 480px) 100vw, 480px"
+          sizes="(min-width: 1024px) 760px, (max-width: 480px) 100vw, 480px"
           priority
-          className="h-full w-full object-cover"
+          className="h-full w-full object-cover lg:absolute lg:inset-0"
           onError={() => setImgError(true)}
         />
-        <div className="absolute inset-0 bg-gradient-to-t from-surface-container-lowest via-surface-container-lowest/15 to-transparent" />
+        <div className="absolute inset-0 bg-gradient-to-t from-surface-container-lowest via-surface-container-lowest/15 to-transparent lg:from-black/55 lg:via-transparent" />
 
         <div className="absolute inset-x-3 top-3 flex items-start justify-between gap-2">
           <div className="flex min-w-0 flex-col items-start gap-1">
@@ -189,7 +189,7 @@ export function HappeningHero({ happening, occurrence, variant = "fomo_pick", re
             {cat.label}
           </span>
           {district ? (
-            <div className="flex min-w-0 items-center gap-1 text-primary">
+            <div className="flex min-w-0 items-center gap-1 text-primary lg:text-white">
               <Icon name="pin_drop" size={16} className="shrink-0" />
               <span className="min-w-0 truncate text-label-sm font-extrabold uppercase tracking-wider">{district}</span>
             </div>
@@ -197,13 +197,13 @@ export function HappeningHero({ happening, occurrence, variant = "fomo_pick", re
         </div>
       </div>
 
-      <div className="flex flex-col gap-2.5 p-3.5 pt-2.5">
+      <div className="flex flex-col gap-2.5 p-3.5 pt-2.5 lg:min-w-0 lg:flex-1 lg:justify-between lg:gap-4 lg:p-6">
         <div className="flex flex-col gap-1">
-          <h2 className="line-clamp-2 text-headline-sm font-extrabold leading-snug text-on-surface">
+          <h2 className="line-clamp-2 text-headline-sm font-extrabold leading-snug text-on-surface lg:line-clamp-3 lg:text-headline-md">
             {heroHeadline(happening, occurrence, now)}
           </h2>
           {oneLinerSummary(happening.summary) ? (
-            <p className="line-clamp-1 text-body-sm text-on-surface-variant">{oneLinerSummary(happening.summary)}</p>
+            <p className="line-clamp-1 text-body-sm text-on-surface-variant lg:line-clamp-3 lg:text-body-md">{oneLinerSummary(happening.summary)}</p>
           ) : null}
         </div>
 
@@ -261,7 +261,7 @@ export function HappeningHero({ happening, occurrence, variant = "fomo_pick", re
                 e.stopPropagation();
                 trackOutboundClicked("happening", happening.id, ctaHref, variant === "book_early" ? "book_now" : "hero_cta");
               }}
-              className="flex h-9 max-w-[60%] shrink-0 items-center justify-center gap-0.5 rounded-full bg-primary pl-4 pr-3 text-label-lg font-bold text-on-primary shadow-sm transition-opacity hover:opacity-90 active:scale-95"
+              className="flex h-9 max-w-[60%] lg:max-w-none shrink-0 items-center justify-center gap-0.5 rounded-full bg-primary pl-4 pr-3 text-label-lg font-bold text-on-primary shadow-sm transition-opacity hover:opacity-90 active:scale-95"
             >
               <span className="min-w-0 truncate">{ctaLabel}</span>
               <Icon name="chevron_right" size={18} />

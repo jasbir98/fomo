@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useSyncExternalStore, type FormEvent } from "react";
+import { useId, useState, useSyncExternalStore, type FormEvent } from "react";
 import Link from "next/link";
 import { Icon } from "@/components/ui";
 import { track } from "@/lib/analytics/track";
@@ -52,6 +52,8 @@ function rememberSubscribed() {
  * and Home (app/(shell)/page.tsx, source "home").
  */
 export function SubscribeCard({ source, className = "" }: SubscribeCardProps) {
+  // Home mounts two copies (phone column + desktop rail, one always `display:none`), so the input id can't be a fixed string.
+  const emailId = useId();
   const [email, setEmail] = useState("");
   const [website, setWebsite] = useState(""); // honeypot — always empty for a real visitor
   // Server snapshot is "not subscribed" so the hydration pass matches the
@@ -111,11 +113,11 @@ export function SubscribeCard({ source, className = "" }: SubscribeCardProps) {
       </div>
 
       <div className="flex min-w-0 items-center gap-2">
-        <label htmlFor="subscribe-email" className="sr-only">
+        <label htmlFor={emailId} className="sr-only">
           Email address
         </label>
         <input
-          id="subscribe-email"
+          id={emailId}
           type="email"
           inputMode="email"
           autoComplete="email"

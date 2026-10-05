@@ -4,28 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { FomoFace } from "../onboarding/Characters";
 import { Icon } from "../ui/Icon";
-
-/**
- * Each tab carries its own colour. Class strings are written out in full (not
- * built from a colour name) so Tailwind's scanner sees them.
- *  - `text`:   icon + active label colour (AA on white)
- *  - `pill`:   tinted pill behind the icon when active (~12%)
- */
-type NavItem = { href: string; icon: string; label: string; text: string; pill: string };
-
-const LEFT: NavItem[] = [
-  { href: "/", icon: "local_activity", label: "Feed", text: "text-brand-orange-ink", pill: "bg-brand-orange-ink/12" },
-  { href: "/saved", icon: "bookmark", label: "Saved", text: "text-cat-nightlife", pill: "bg-cat-nightlife/12" },
-];
-const RIGHT: NavItem[] = [
-  { href: "/deals", icon: "sell", label: "Deals", text: "text-cat-sports", pill: "bg-cat-sports/12" },
-  { href: "/explore", icon: "explore", label: "Explore", text: "text-accent", pill: "bg-accent/12" },
-];
-
-function isActive(pathname: string, href: string) {
-  if (href === "/") return pathname === "/";
-  return pathname === href || pathname.startsWith(`${href}/`);
-}
+import { LEFT, RIGHT, isActive, type NavItem } from "./nav-items";
 
 function NavTab({ item, active }: { item: NavItem; active: boolean }) {
   return (
@@ -59,7 +38,9 @@ function NavTab({ item, active }: { item: NavItem; active: boolean }) {
  * its own dedicated page (app/(shell)/saved/page.tsx).
  * Fixed to the bottom of the max-w-[480px] phone column; the centre Fomo FAB
  * is a raised 64px button wearing the mascot's face (components/onboarding/
- * Characters.tsx), which grins while you're chatting with it. Deals took
+ * Characters.tsx), which grins while you're chatting with it. Hidden from lg
+ * (1024px) up, where SideNav takes over; both read their tab data from
+ * ./nav-items. Deals took
  * Saved's slot in the Home decluttering pass — Deals & Offers is now its own
  * full page (app/(shell)/deals/page.tsx) instead of a Home section. The last tab was
  * renamed Map -> Explore (same map view, app/(shell)/explore/page.tsx); `/map`
@@ -71,7 +52,7 @@ export function BottomNav() {
 
   return (
     <nav
-      className="fixed bottom-0 left-1/2 z-50 w-full max-w-[480px] -translate-x-1/2 bg-surface-container-lowest pb-safe shadow-[0_-6px_20px_rgba(0,32,70,0.08)]"
+      className="fixed bottom-0 left-1/2 z-50 w-full max-w-[480px] -translate-x-1/2 bg-surface-container-lowest pb-safe shadow-[0_-6px_20px_rgba(0,32,70,0.08)] lg:hidden"
       aria-label="Primary"
     >
       <div className="relative flex h-[64px] items-center px-2">

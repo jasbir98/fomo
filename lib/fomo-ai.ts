@@ -18,6 +18,9 @@ export interface ChatItem {
   badge: string | null;
   image_url: string | null;
   href: string;
+  /** Map position (WGS84). Optional: chat history saved before coordinates existed lacks them; null when unknown. */
+  lat?: number | null;
+  lng?: number | null;
 }
 
 /**
@@ -44,6 +47,9 @@ export interface ChatPlace {
   summaryDisclosure: string | null;
   /** https Google Maps link. */
   mapsUrl: string | null;
+  /** Map position (WGS84). Optional: chat history saved before coordinates existed lacks them; null when unknown. */
+  lat?: number | null;
+  lng?: number | null;
 }
 
 /** Tappable reply options, optionally with a short lead-in question. */

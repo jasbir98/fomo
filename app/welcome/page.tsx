@@ -189,6 +189,20 @@ function WelcomeContent() {
     setIndex((i) => Math.max(i - 1, 0));
   }
 
+  // Keyboard navigation for desktop: ArrowRight → next, ArrowLeft → previous
+  useEffect(() => {
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.key === "ArrowRight") {
+        goNext();
+      } else if (e.key === "ArrowLeft") {
+        goPrev();
+      }
+    }
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [index, isLast]);
+
   function onTouchStart(e: TouchEvent<HTMLDivElement>) {
     touchStartX.current = e.touches[0]?.clientX ?? null;
   }
@@ -220,73 +234,75 @@ function WelcomeContent() {
 
   return (
     <div
-      className="flex min-h-dvh w-full flex-col overflow-hidden pt-safe pb-safe transition-colors duration-500"
+      className="flex min-h-dvh w-full flex-col overflow-hidden pt-safe pb-safe transition-colors duration-500 lg:justify-center lg:items-center"
       style={{ backgroundColor: SLIDES[index].tint }}
       onTouchStart={onTouchStart}
       onTouchMove={onTouchMove}
       onTouchEnd={onTouchEnd}
       onTouchCancel={onTouchCancel}
     >
-      {/* Brand lockup + persistent Skip */}
-      <div className="flex items-center justify-between px-6 pt-10 pb-4 [@media(max-height:640px)]:pt-6 [@media(max-height:640px)]:pb-2">
-        <div className="w-12" aria-hidden="true" />
-        <div className="flex items-center justify-center gap-2">
-          <FomoLogo tone="light" size={30} />
+      <div className="contents lg:flex lg:flex-col lg:justify-center lg:items-center lg:mx-auto lg:my-auto lg:max-w-[560px] lg:rounded-xl lg:bg-surface-container-lowest lg:shadow-level-2 lg:p-10 lg:overflow-hidden">
+        {/* Brand lockup + persistent Skip */}
+        <div className="flex items-center justify-between px-6 pt-10 pb-4 [@media(max-height:640px)]:pt-6 [@media(max-height:640px)]:pb-2 lg:w-full lg:px-0 lg:pt-0 lg:pb-0">
+          <div className="w-12" aria-hidden="true" />
+          <div className="flex items-center justify-center gap-2">
+            <FomoLogo tone="light" size={30} />
+          </div>
+          <button
+            type="button"
+            onClick={finish}
+            className="w-12 text-right text-label-md font-medium text-on-surface-variant"
+          >
+            Skip
+          </button>
         </div>
-        <button
-          type="button"
-          onClick={finish}
-          className="w-12 text-right text-label-md font-medium text-on-surface-variant"
-        >
-          Skip
-        </button>
-      </div>
 
-      {/* Slide track */}
-      <div className="flex flex-1 flex-col justify-center overflow-hidden">
-        <div
-          className="flex"
-          style={{
-            transform: `translateX(calc(${-index * 100}% + ${dragX}px))`,
-            transition: dragging ? "none" : "transform 480ms cubic-bezier(0.22, 0.8, 0.2, 1)",
-          }}
-        >
-          {SLIDES.map((s, i) => (
-            <section
-              key={i}
-              aria-hidden={i !== index}
-              className={`flex w-full shrink-0 flex-col items-center px-6 transition-[opacity,scale] duration-500 ${
-                i === index ? "scale-100 opacity-100" : "scale-90 opacity-0"
-              }`}
-            >
-              <div className="mb-3 h-[min(40dvh,400px)] w-full max-w-[420px] [@media(max-height:640px)]:h-[30dvh]">{s.scene}</div>
-              <h1 className="mb-3 text-center text-headline-md text-on-surface">{s.title}</h1>
-              <p className="mx-auto max-w-[300px] text-center text-body-md text-on-surface-variant">
-                {s.body}
-              </p>
-            </section>
-          ))}
+        {/* Slide track */}
+        <div className="flex flex-1 flex-col justify-center overflow-hidden lg:flex-1 lg:w-full">
+          <div
+            className="flex"
+            style={{
+              transform: `translateX(calc(${-index * 100}% + ${dragX}px))`,
+              transition: dragging ? "none" : "transform 480ms cubic-bezier(0.22, 0.8, 0.2, 1)",
+            }}
+          >
+            {SLIDES.map((s, i) => (
+              <section
+                key={i}
+                aria-hidden={i !== index}
+                className={`flex w-full shrink-0 flex-col items-center px-6 transition-[opacity,scale] duration-500 ${
+                  i === index ? "scale-100 opacity-100" : "scale-90 opacity-0"
+                }`}
+              >
+                <div className="mb-3 h-[min(40dvh,400px)] w-full max-w-[420px] [@media(max-height:640px)]:h-[30dvh]">{s.scene}</div>
+                <h1 className="mb-3 text-center text-headline-md text-on-surface">{s.title}</h1>
+                <p className="mx-auto max-w-[300px] text-center text-body-md text-on-surface-variant">
+                  {s.body}
+                </p>
+              </section>
+            ))}
+          </div>
         </div>
-      </div>
 
-      {/* Bottom controls */}
-      <div className="flex flex-col items-center gap-4 px-6 pt-4 pb-6">
-        <ProgressDots count={SLIDES.length} active={index} tone="orange" />
-        {sharedLink && (
-          <p className="text-body-md text-on-surface-variant">
-            Sign in to see what was shared with you
-          </p>
-        )}
-        <Button variant="orange" fullWidth size="md" onClick={goNext}>
-          {isLast ? "Get started" : "Next"}
-        </Button>
-        <Link
-          href={publicNextOrHome(searchParams.get("next"))}
-          onClick={markIntroSeen}
-          className="inline-flex min-h-12 w-full items-center justify-center rounded-xl border border-outline-variant text-label-lg font-semibold text-primary transition-colors hover:bg-surface-container-low active:bg-surface-container"
-        >
-          Not now, keep browsing
-        </Link>
+        {/* Bottom controls */}
+        <div className="flex flex-col items-center gap-4 px-6 pt-4 pb-6 lg:w-full lg:px-0 lg:pt-6 lg:pb-0">
+          <ProgressDots count={SLIDES.length} active={index} tone="orange" />
+          {sharedLink && (
+            <p className="text-body-md text-on-surface-variant">
+              Sign in to see what was shared with you
+            </p>
+          )}
+          <Button variant="orange" fullWidth size="md" onClick={goNext}>
+            {isLast ? "Get started" : "Next"}
+          </Button>
+          <Link
+            href={publicNextOrHome(searchParams.get("next"))}
+            onClick={markIntroSeen}
+            className="inline-flex min-h-12 w-full items-center justify-center rounded-xl border border-outline-variant text-label-lg font-semibold text-primary transition-colors hover:bg-surface-container-low active:bg-surface-container"
+          >
+            Not now, keep browsing
+          </Link>
+        </div>
       </div>
     </div>
   );

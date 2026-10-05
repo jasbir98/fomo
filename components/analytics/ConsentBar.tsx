@@ -65,7 +65,7 @@ export function ConsentBar() {
     <div
       role="region"
       aria-label="Cookie consent"
-      className="fixed inset-x-0 bottom-[calc(88px+env(safe-area-inset-bottom))] z-40 mx-auto flex w-full max-w-[480px] items-center gap-3 border-t border-hairline bg-surface-container-lowest/95 px-4 py-3 shadow-level-2 backdrop-blur-md"
+      className="fixed inset-x-0 bottom-[calc(88px+env(safe-area-inset-bottom))] z-40 mx-auto flex w-full max-w-[480px] items-center gap-3 border-t border-hairline bg-surface-container-lowest/95 px-4 py-3 shadow-level-2 backdrop-blur-md lg:inset-x-auto lg:bottom-6 lg:right-6 lg:max-w-sm lg:rounded-xl lg:border"
     >
       <p className="flex-1 text-label-sm text-on-surface-variant">
         Fomo uses cookies to learn what&rsquo;s useful.{" "}

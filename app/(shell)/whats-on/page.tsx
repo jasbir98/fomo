@@ -10,7 +10,7 @@ import { distinctCategoryFacets, matchesCategoryFilter, type CategoryFacetKey } 
 import { useCachedJson } from "@/lib/http/clientCache";
 import { useProgressiveReveal } from "@/lib/useProgressiveReveal";
 import { Chip, ErrorState, FeedbackLink, PageHeader, SegmentedControl, StickyFilterBar } from "@/components/ui";
-import { AnyDaySection, DateFilterRow, FeedListCard } from "@/components/happenings";
+import { AnyDaySection, DateCalendar, DateFilterRow, FeedListCard } from "@/components/happenings";
 import { FomoSpot } from "@/components/fomo/FomoSpot";
 import { cardOnDay, cardPillDate } from "@/components/happenings/DateFilterRow";
 import { usePrefs } from "@/lib/personalise/usePrefs";
@@ -273,65 +273,91 @@ function WhatsOnPageInner() {
       : "Nothing lined up yet. Check back soon.";
   }
 
+  // Each rendered twice (phone sticky bar + desktop sidebar) — see the layout
+  // comment in the return below.
+  const windowControl = (
+    <div className="flex items-center gap-2">
+      <SegmentedControl value={feedWindow} options={WHATS_ON_WINDOWS} onChange={setFeedWindow} className="flex-1" />
+      {listReady && !listError ? (
+        <span className="shrink-0 rounded-full border border-hairline-strong bg-surface-container px-2.5 py-0.5 text-label-sm font-extrabold text-primary">
+          {visibleTotal}
+        </span>
+      ) : null}
+    </div>
+  );
+
+  const categoryChips = (
+    <>
+      <Chip label="Free only" leadingIcon="check_circle" selected={freeOnly} onClick={() => setFreeOnly(!freeOnly)} />
+      <Chip
+        label="For you"
+        leadingIcon="auto_awesome"
+        selected={forYou}
+        aria-pressed={forYou}
+        onClick={() => setForYou(!forYou)}
+      />
+      {categoryOptions.length > 1 ? (
+        <>
+          <Chip label="All" selected={categoryFilter === null} onClick={() => selectCategoryFilter(null)} />
+          {categoryOptions.map((facet) => (
+            <Chip
+              key={facet.key}
+              label={facet.label}
+              leadingIcon={facet.icon}
+              selected={categoryFilter === facet.key}
+              onClick={() => selectCategoryFilter(facet.key)}
+            />
+          ))}
+        </>
+      ) : null}
+    </>
+  );
+
   return (
     <div className="flex flex-col pb-6">
       <PageHeader title="What's on" showBack />
 
-      <div className="flex flex-col gap-3 px-4 pt-1">
-        <StickyFilterBar className="-mx-4 px-4">
+      {/* Phone: one `flex-col gap-3` column, exactly as before — the aside and
+          results wrappers are `display: contents`, so the sticky filter bar,
+          the list and the footer are still direct flex items of it. Desktop
+          (lg+): the Deals pattern — a sticky filter sidebar (window toggle,
+          month calendar instead of the day-pill strip, wrapped category chips)
+          beside a 2-column results grid. The window control and the chips
+          render twice (phone bar + desktop sidebar, one always display:none);
+          both are fully controlled by this page's state and have no fetch or
+          impression event, so the hidden copy is inert. */}
+      <div className="flex flex-col gap-3 px-4 pt-1 lg:mx-auto lg:grid lg:w-full lg:max-w-[1200px] lg:grid-cols-[280px_minmax(0,1fr)] lg:items-start lg:gap-x-8 lg:px-8 lg:pt-4">
+        <aside className="contents lg:sticky lg:top-[calc(var(--topbar-h)+16px)] lg:col-start-1 lg:row-start-1 lg:flex lg:max-h-[calc(100dvh-var(--topbar-h)-32px)] lg:flex-col lg:overflow-y-auto lg:pb-2">
+        <StickyFilterBar className="-mx-4 px-4 lg:hidden">
           <div className="flex flex-col gap-2">
             {/* The window control doubles as the section heading (Today /
                 Coming up), so the result count sits beside it rather than
                 in a second heading row. */}
-            <div className="flex items-center gap-2">
-              <SegmentedControl
-                value={feedWindow}
-                options={WHATS_ON_WINDOWS}
-                onChange={setFeedWindow}
-                className="flex-1"
-              />
-              {listReady && !listError ? (
-                <span className="shrink-0 rounded-full border border-hairline-strong bg-surface-container px-2.5 py-0.5 text-label-sm font-extrabold text-primary">
-                  {visibleTotal}
-                </span>
-              ) : null}
-            </div>
+            {windowControl}
 
             {dates.length >= 2 ? (
               <DateFilterRow dates={dates} selected={dateFilter} onSelect={selectDateFilter} />
             ) : null}
 
             <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-0.5 [&::-webkit-scrollbar]:hidden">
-              <Chip
-                label="Free only"
-                leadingIcon="check_circle"
-                selected={freeOnly}
-                onClick={() => setFreeOnly(!freeOnly)}
-              />
-              <Chip
-                label="For you"
-                leadingIcon="auto_awesome"
-                selected={forYou}
-                aria-pressed={forYou}
-                onClick={() => setForYou(!forYou)}
-              />
-              {categoryOptions.length > 1 ? (
-                <>
-                  <Chip label="All" selected={categoryFilter === null} onClick={() => selectCategoryFilter(null)} />
-                  {categoryOptions.map((facet) => (
-                    <Chip
-                      key={facet.key}
-                      label={facet.label}
-                      leadingIcon={facet.icon}
-                      selected={categoryFilter === facet.key}
-                      onClick={() => selectCategoryFilter(facet.key)}
-                    />
-                  ))}
-                </>
-              ) : null}
+              {categoryChips}
             </div>
           </div>
         </StickyFilterBar>
+
+        <div className="hidden flex-col gap-5 rounded-2xl bg-surface-container-lowest p-4 shadow-level-1 lg:flex">
+          {windowControl}
+          {dates.length >= 2 ? (
+            <DateCalendar dates={dates} selected={dateFilter} onSelect={selectDateFilter} />
+          ) : null}
+          <div className="flex flex-col gap-2">
+            <p className="text-label-sm font-semibold uppercase tracking-wide text-on-surface-variant">Filter</p>
+            <div className="flex flex-wrap gap-2">{categoryChips}</div>
+          </div>
+        </div>
+        </aside>
+
+        <div className="contents lg:col-start-2 lg:row-start-1 lg:flex lg:min-w-0 lg:flex-col lg:gap-6">
 
         {listError ? (
           <ErrorState
@@ -345,10 +371,10 @@ function WhatsOnPageInner() {
             }}
           />
         ) : !listReady ? (
-          <div className="flex flex-col gap-3" role="status" aria-live="polite">
+          <div className="flex flex-col gap-3 lg:grid lg:grid-cols-2 lg:gap-4" role="status" aria-live="polite">
             <span className="sr-only">Loading what&rsquo;s on…</span>
-            {[0, 1, 2].map((i) => (
-              <div key={i} className="h-24 animate-pulse rounded-lg bg-surface-container" />
+            {[0, 1, 2, 3, 4, 5].map((i) => (
+              <div key={i} className={`h-24 animate-pulse rounded-lg bg-surface-container ${i >= 3 ? "hidden lg:block" : ""}`} />
             ))}
           </div>
         ) : visibleTotal === 0 ? (
@@ -361,24 +387,24 @@ function WhatsOnPageInner() {
             <p className="text-body-md text-on-surface-variant">{emptyMessage()}</p>
           </div>
         ) : (
-          <div className="flex flex-col gap-3">
+          <div className="flex flex-col gap-3 lg:grid lg:grid-cols-2 lg:items-start lg:gap-4">
             {visibleCards.slice(0, revealCount).map((card, i) => (
               <FeedListCard key={cardKey(card)} card={card} surface="whats_on" position={i} />
             ))}
-            {revealCount < visibleCards.length ? <div ref={revealSentinelRef} className="h-1" /> : null}
+            {revealCount < visibleCards.length ? <div ref={revealSentinelRef} className="h-1 lg:col-span-full" /> : null}
             {visibleCards.length === 0 ? (
-              <p className="px-1 text-body-sm text-on-surface-variant">Nothing dated matches, just the always-on things below.</p>
+              <p className="px-1 text-body-sm text-on-surface-variant lg:col-span-full">Nothing dated matches, just the always-on things below.</p>
             ) : null}
-            <AnyDaySection cards={visibleAnyDay} surface="whats_on_any_day" />
+            <AnyDaySection cards={visibleAnyDay} surface="whats_on_any_day" desktopGrid />
           </div>
         )}
       {/* Footer */}
-      <div className="flex flex-col gap-3 border-t border-outline-variant px-4 pt-6 pb-4">
+      <div className="flex flex-col gap-3 border-t border-outline-variant px-4 pt-6 pb-4 lg:flex-row lg:items-center lg:justify-between lg:gap-6 lg:px-0">
         <div className="flex flex-col gap-1">
           <p className="text-label-md font-semibold text-on-surface">Help us improve</p>
           <p className="text-body-sm text-on-surface-variant">Missing something? Have feedback?</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 lg:w-80">
           <Link
             href="/tip"
             className="flex-1 flex items-center justify-center rounded-lg bg-primary px-3 py-2 text-label-md font-semibold text-on-primary transition-opacity hover:opacity-90"
@@ -390,7 +416,7 @@ function WhatsOnPageInner() {
           </div>
         </div>
       </div>
-
+        </div>
       </div>
     </div>
   );
