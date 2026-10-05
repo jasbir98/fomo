@@ -21,6 +21,7 @@ import { happeningToPreview, prefetchHappening, setHappeningPreview } from "@/li
 import { track, priceBand, trackOutboundClicked } from "@/lib/analytics/track";
 import { safeHttpUrl } from "@/lib/http/safe-url";
 import type { FeedCardSurface } from "./FeedListCard";
+import { happeningCtaLabel } from "@/lib/happenings/cta";
 
 export interface HappeningHeroProps {
   happening: Happening;
@@ -68,7 +69,9 @@ export function HappeningHero({ happening, occurrence, variant = "fomo_pick", re
   // booking_url/source_url come from scrapers/APIs — validate before this
   // ever reaches an <a href> (see lib/http/safe-url.ts). null hides the CTA.
   const ctaHref = safeHttpUrl(happening.booking_url ?? happening.source_url);
-  const ctaLabel = variant === "book_early" ? "Book now" : (happening.cta_label ?? "Claim Offer");
+  // Same wording as the detail page (lib/happenings/cta.ts) — the old blanket
+  // "Claim Offer" fallback labelled a free open mic as an offer.
+  const ctaLabel = variant === "book_early" ? "Book now" : happeningCtaLabel(happening);
 
   // Truthful pick label — "Last Chance" implies genuine urgency, so it's
   // reserved for occurrences whose window is actually closing soon (<=3

@@ -51,6 +51,7 @@ import { parseWhoGroups, WHO_GROUP_LABEL, type DealWhoGroup } from "@/lib/happen
 import { formatEventPrice, formatEventWhen, eventHasEnded } from "@/lib/events/format";
 import type { AiReplyBlock, ChatItem, ChatPlace } from "@/lib/fomo-ai";
 import type { Happening } from "@/lib/happenings/types";
+import { categoryDefaultImage } from "@/lib/happenings/category-style";
 import { resolveHappeningCoords, loadPlacesForHappenings } from "@/lib/explore/coords";
 import type { CardSubjectType, Place } from "@/lib/types";
 import type { Db } from "@/lib/supabase/types";
@@ -195,7 +196,7 @@ async function buildCatalogue(db: Db, now: Date): Promise<Catalogue> {
   }
   let placesById = new Map<string, Place>();
   try {
-    placesById = await loadPlacesForHappenings(db, live.map((l) => l.h));
+    placesById = await loadPlacesForHappenings(db, live.map((l) => l.h), { alsoForMissingImage: true });
   } catch (err) {
     // Coordinates are a map nicety; a failed lookup just leaves them null.
     console.error("[api/chat] happening coordinate lookup failed", err);
@@ -226,7 +227,9 @@ async function buildCatalogue(db: Db, now: Date): Promise<Catalogue> {
       title: h.title,
       subtitle: [when, where].filter(Boolean).join(" · ") || null,
       badge,
-      image_url: h.image_url,
+      // Same fallback chain as the feed's cards: own photo, then the linked
+      // venue's, then the category's default — never the blank placeholder.
+      image_url: h.image_url ?? (h.place_id ? placesById.get(h.place_id)?.image_url : null) ?? categoryDefaultImage(h.category),
       href: `/happening/${h.id}`,
       lat: coords?.lat ?? null,
       lng: coords?.lng ?? null,

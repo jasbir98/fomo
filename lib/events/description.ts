@@ -36,6 +36,10 @@ const JUNK_PATTERNS: RegExp[] = [
   /^more info(rmation)? (to follow|soon|tbc|tba|coming soon|to be announced)$/,
   /^lorem ipsum\b/,
   /^(event )?(description|details) (tbc|tba|tbd|to follow|coming soon|to be announced)$/,
+  // A raw ISO timestamp anywhere means machine-generated filler, e.g.
+  // Songkick's "Von Dodds at Leith Depot at 2026-10-05t19:30:00+0100"
+  // (matched lowercased, hence the `t`). The fallback sentence says it better.
+  /\d{4}-\d{2}-\d{2}t\d{2}:\d{2}/,
 ];
 
 /** Min letters for a description to count as real copy. */

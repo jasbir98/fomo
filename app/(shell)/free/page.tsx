@@ -108,7 +108,7 @@ export default function FreeAnyTimePage() {
                 districtOptions={districtOptions}
                 onTypeChange={handleTypeChange}
                 onDistrictChange={handleDistrictChange}
-                resultCount={filteredItems.length}
+                resultCount={items === null ? null : filteredItems.length}
               />
                 <Link
                   href={ASK_FOMO_HREF}
@@ -130,7 +130,7 @@ export default function FreeAnyTimePage() {
                 districtOptions={districtOptions}
                 onTypeChange={handleTypeChange}
                 onDistrictChange={handleDistrictChange}
-                resultCount={filteredItems.length}
+                resultCount={items === null ? null : filteredItems.length}
               />
           </div>
           <Link

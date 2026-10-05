@@ -12,7 +12,8 @@ export interface FreeAnyTimeFiltersProps {
   onTypeChange: (value: string | null) => void;
   onDistrictChange: (value: string | null) => void;
   /** Live count of items matching the current selection — shown on the sheet's "Show N results" button. */
-  resultCount: number;
+  /** `null` while the page's data is loading — see FilterSheet. */
+  resultCount: number | null;
 }
 
 /**

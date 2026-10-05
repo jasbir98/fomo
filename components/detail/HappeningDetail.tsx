@@ -19,6 +19,7 @@ import {
   weeklyEchoLabel,
 } from "@/lib/happenings/format";
 import { categoryDefaultImage } from "@/lib/happenings/category-style";
+import { happeningCtaLabel } from "@/lib/happenings/cta";
 import type { HappeningResponse } from "@/app/api/happenings/[id]/route";
 import type { Happening, Occurrence } from "@/lib/happenings/types";
 import { Button, ErrorState, FomoLoader, Icon, PhotoCarousel, SaveButton, ShareButton, StatusPill } from "@/components/ui";
@@ -364,15 +365,7 @@ export function HappeningDetail({ id, presentation = "page" }: DetailProps) {
   const ctaHref = safeHttpUrl(happening.booking_url ?? happening.source_url);
   const safeSourceUrl = safeHttpUrl(happening.source_url);
   // Say what the button actually does — "Claim Offer" on a free museum was wrong.
-  const ctaLabel =
-    happening.cta_label ??
-    (happening.is_free
-      ? "Plan your visit"
-      : happening.promo_code || happening.kind === "deal"
-        ? "Get the deal"
-        : happening.booking_url || happening.kind === "festival" || happening.kind === "event"
-          ? "Get tickets"
-          : "Official info");
+  const ctaLabel = happeningCtaLabel(happening);
   // Date-aware, not just status: a row still marked "live" whose window has
   // passed (e.g. a one-off weekend that's over) must show the ended banner too.
   const ended = happening.status !== "live" || happeningHasEnded(happening, new Date());

@@ -168,7 +168,7 @@ export default function BookEarlyPage() {
                 onTimingChange={handleTimingChange}
                 onCategoryChange={handleCategoryChange}
                 onMonthChange={handleMonthChange}
-                resultCount={filteredCards.length}
+                resultCount={cards === null ? null : filteredCards.length}
               />
                 <Link
                   href={ASK_FOMO_HREF}
@@ -192,7 +192,7 @@ export default function BookEarlyPage() {
                 onTimingChange={handleTimingChange}
                 onCategoryChange={handleCategoryChange}
                 onMonthChange={handleMonthChange}
-                resultCount={filteredCards.length}
+                resultCount={cards === null ? null : filteredCards.length}
               />
           </div>
           <Link

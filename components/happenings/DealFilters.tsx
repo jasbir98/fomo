@@ -17,7 +17,8 @@ export interface DealFiltersProps {
   onWhatChange: (value: DealWhatGroup | null) => void;
   onWhoChange: (value: DealWhoGroup | null) => void;
   /** Live count of deal cards matching the current selection — shown on the sheet's "Show N results" button. */
-  resultCount: number;
+  /** `null` while the page's data is loading — see FilterSheet. */
+  resultCount: number | null;
 }
 
 /**

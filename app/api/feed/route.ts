@@ -117,7 +117,7 @@ import {
   type BookEarlyCardData,
   type BookEarlyHappeningCard,
 } from "@/lib/happenings/book-early";
-import type { Happening, Occurrence } from "@/lib/happenings/types";
+import type { Happening, HappeningCategory, Occurrence } from "@/lib/happenings/types";
 import type {
   DealCardData,
   DealsSection,
@@ -256,6 +256,35 @@ function cardHasEnded(card: FeedCardData, now: Date, timeZone: string): boolean 
  * the route's own doc comment). Returns `h` unchanged (no new object) in the
  * common case so this is cheap to map over the full happenings list.
  */
+/**
+ * Free places carry a free-text `places.category` ("park", "viewpoint",
+ * "gallery"…), not a HappeningCategory — so without this, the ~3/4 of free
+ * places that have no photo rendered a bare pin tile on /free and Home. Maps
+ * the common types onto the category whose default photo fits; anything
+ * unrecognised stays null (the row keeps its pin tile rather than a wrong
+ * photo). Only feeds the default-image fallback, nothing else reads it.
+ */
+const PLACE_IMAGE_CATEGORY: Record<string, HappeningCategory> = {
+  park: "outdoors",
+  garden: "outdoors",
+  viewpoint: "outdoors",
+  "walking route": "outdoors",
+  "golf course": "outdoors",
+  beach: "outdoors",
+  nature: "outdoors",
+  gallery: "arts",
+  museum: "museum",
+  "historic site": "museum",
+  library: "museum",
+  market: "food",
+  "shopping street": "other",
+  street: "other",
+};
+
+function placeDefaultImageCategory(category: string | null | undefined): HappeningCategory | null {
+  return PLACE_IMAGE_CATEGORY[(category ?? "").trim().toLowerCase().replace(/[_-]+/g, " ")] ?? null;
+}
+
 function withPlaceImageFallback(h: Happening, placesById: Map<string, Place>): Happening {
   if (h.image_url || !h.place_id) return h;
   const placeImage = placesById.get(h.place_id)?.image_url;
@@ -541,7 +570,7 @@ async function buildFreeAnyTime(
         // ("10am–5pm") — a free-text opening-hours research note is dropped
         // rather than wrapped onto a second card line (shortLocationLine).
         locationLine: shortLocationLine(districtFromAddress(p.address) ?? p.address, p.hours),
-        category: null,
+        category: placeDefaultImageCategory(p.category),
         district: districtFromAddress(p.address) ?? null,
         typeLabel: formatPlaceCategoryLabel(p.category),
       }));

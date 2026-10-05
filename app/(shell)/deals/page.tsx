@@ -140,7 +140,7 @@ export default function DealsPage() {
                 who={dealWho}
                 onWhatChange={handleWhatChange}
                 onWhoChange={handleWhoChange}
-                resultCount={dealItems.length}
+                resultCount={deals ? dealItems.length : null}
               />
             </div>
           </StickyFilterBar>
@@ -152,7 +152,7 @@ export default function DealsPage() {
               who={dealWho}
               onWhatChange={handleWhatChange}
               onWhoChange={handleWhoChange}
-              resultCount={dealItems.length}
+              resultCount={deals ? dealItems.length : null}
             />
           </div>
         </aside>

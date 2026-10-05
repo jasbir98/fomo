@@ -516,6 +516,18 @@ function isoFromJsonLd(value, { end = false } = {}) {
   if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
     return `${trimmed}T${end ? "23:59:59" : "00:00:00"}+00:00`;
   }
+  // A datetime with no offset/Z is Europe/London wall time (every source here
+  // is an Edinburgh listing). `new Date` would read it as the *host's* local
+  // time — UTC on the GitHub Actions runner — which stored Songkick's
+  // "19:00" gigs as 19:00Z and showed them at 20:00 all through BST.
+  // Same correction parseSkiddleDate applies to Skiddle's bare dates.
+  const bare = trimmed.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::(\d{2}))?(?:\.\d+)?$/);
+  if (bare) {
+    const [, y, mo, d, h, mi, s = "0"] = bare;
+    const guessUtcMs = Date.UTC(Number(y), Number(mo) - 1, Number(d), Number(h), Number(mi), Number(s));
+    const dt = new Date(guessUtcMs - londonOffsetMinutes(new Date(guessUtcMs)) * 60_000);
+    return Number.isNaN(dt.getTime()) ? null : dt.toISOString();
+  }
   const d = new Date(trimmed);
   return Number.isNaN(d.getTime()) ? null : trimmed;
 }
