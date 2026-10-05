@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { weekdaySummaryLabel, happeningDayLabel, happeningLiveUntilLabel, happeningTimeLabel } from "@/lib/happenings/format";
+import { savingBadgeLabel, weekdaySummaryLabel, happeningDayLabel, happeningLiveUntilLabel, happeningTimeLabel } from "@/lib/happenings/format";
 import { occurrenceIsLive } from "@/lib/happenings/occurrence";
 import type { Occurrence } from "@/lib/happenings/types";
 
@@ -88,4 +88,13 @@ test("weekdaySummaryLabel compresses weekday sets", () => {
   assert.equal(weekdaySummaryLabel([6]), "Every Saturday");
   assert.equal(weekdaySummaryLabel([1, 2, 3, 4, 5, 6]), "Every day except Sunday");
   assert.equal(weekdaySummaryLabel([]), "");
+});
+
+test("savingBadgeLabel: a long price label is a price, not a saving", () => {
+  const base = { is_free: false, currency: "GBP" } as const;
+  assert.equal(savingBadgeLabel({ ...base, saving_label: "£21.95 student ticket", saving_amount: 21.95 }), "£21.95");
+  assert.equal(savingBadgeLabel({ ...base, saving_label: "£25 bottomless brunch", saving_amount: 25 }), "£25");
+  assert.equal(savingBadgeLabel({ ...base, saving_label: "£5 off Mary King's Close", saving_amount: 5 }), "£5 off");
+  assert.equal(savingBadgeLabel({ ...base, saving_label: "£1 tickets", saving_amount: 1 }), "£1 tickets");
+  assert.equal(savingBadgeLabel({ ...base, saving_label: "Save up to 57%", saving_amount: 57 }), "57% off");
 });

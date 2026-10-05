@@ -75,6 +75,12 @@ export function savingBadgeLabel(
   // avoids that class of mistake for any short label already in good shape.
   if (label && label.length <= 14) return label;
 
+  // A longer label that names a price without "off" is a discounted PRICE,
+  // not a saving: "£21.95 student ticket", "£25 bottomless brunch". Show the
+  // price alone rather than the fallback below's "£21.95 off".
+  const price = label.match(/£\s*(\d+(?:\.\d+)?)/);
+  if (price) return `£${price[1]}`;
+
   if (h.is_free) return "Free";
 
   // No recognizable short form and the label (if any) was too long to show
