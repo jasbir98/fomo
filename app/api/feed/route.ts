@@ -83,9 +83,8 @@
 import "server-only";
 import { supabaseServer } from "@/lib/supabase/server";
 import { CITY, districtFromAddress } from "@/lib/city";
-import { listLiveHappenings } from "@/lib/db/happenings";
-import { listUpcomingEvents } from "@/lib/db/events";
-import { listPlacesByCity, listPlacesByIds } from "@/lib/db/places";
+// Cached drop-ins for lib/db/{happenings,events,places} — see lib/db/cached.ts.
+import { listLiveHappenings, listPlacesByCity, listPlacesByIds, listUpcomingEvents } from "@/lib/db/cached";
 import { priceSignalForEvent, WHATS_ON_PRICE_EXEMPT_CATEGORIES } from "@/lib/cards/price";
 import {
   localDayDate,
@@ -799,10 +798,14 @@ export async function GET(request: Request) {
   const db = await supabaseServer();
   // Signed-in visitors get the hero ranked for their deals profile; the rest
   // of the response is the same for everyone.
-  const {
-    data: { user },
-  } = await db.auth.getUser();
-  const who = parseWhoGroups(user?.user_metadata);
+  // Started now, awaited only where the hero needs it — it's a network call
+  // to Supabase Auth when a session cookie is present, so it overlaps the
+  // catalogue reads instead of running before them. Never rejects: a failed
+  // lookup just means the generic (signed-out) hero ranking.
+  const whoPromise = db.auth
+    .getUser()
+    .then(({ data: { user } }) => parseWhoGroups(user?.user_metadata))
+    .catch(() => parseWhoGroups(undefined));
 
   const { searchParams } = new URL(request.url);
   const window = parseWindow(searchParams.get("window"));
@@ -813,6 +816,26 @@ export async function GET(request: Request) {
   const timeZone = CITY.timezone;
 
   try {
+    // Start the reads that don't depend on each other now, in parallel —
+    // they used to run one after another (~3.5s cold). The awaits further
+    // down call lib/db/cached.ts with identical arguments, so they pick up
+    // these same in-flight promises instead of querying again. Failures are
+    // swallowed here only; each real await below still sees and handles them.
+    const bookEarlyEventsOpts = {
+      destination: CITY.name,
+      from: now.toISOString(),
+      to: new Date(now.getTime() + BOOK_EARLY_LOOKAHEAD_DAYS * 86_400_000).toISOString(),
+      limit: 100,
+    };
+    const prewarm: Promise<unknown>[] = [listUpcomingEvents(db, bookEarlyEventsOpts), listPlacesByCity(db, CITY.name)];
+    if (window !== "book_early") {
+      const { from, to } = occurrenceWindowRange(window, range, now, timeZone);
+      if (to >= from) {
+        prewarm.push(listUpcomingEvents(db, { destination: CITY.name, from: from.toISOString(), to: to.toISOString(), limit: 500 }));
+      }
+    }
+    for (const p of prewarm) p.catch(() => {});
+
     const rawHappenings = await listLiveHappenings(db, CITY);
 
     // Batch-fetch every place a happening might borrow a photo from —
@@ -850,12 +873,7 @@ export async function GET(request: Request) {
     // event candidates — a year-long lookahead comfortably covers the hero's
     // own much shorter `HERO_EVENT_LOOKAHEAD_DAYS` window, so this one query
     // serves both without a second round trip.
-    const bookEarlyEvents = await listUpcomingEvents(db, {
-      destination: CITY.name,
-      from: now.toISOString(),
-      to: new Date(now.getTime() + BOOK_EARLY_LOOKAHEAD_DAYS * 86_400_000).toISOString(),
-      limit: 100,
-    });
+    const bookEarlyEvents = await listUpcomingEvents(db, bookEarlyEventsOpts);
 
     // Computed up front (not just down at the `whatsOn` block, which only
     // runs for `window !== "book_early"`) because `pickHero` itself now
@@ -865,6 +883,7 @@ export async function GET(request: Request) {
     // only used for What's on/Book Early exclusion on that request, never
     // shown — see below).
     const heroWindowRange = window !== "book_early" ? occurrenceWindowRange(window, range, now, timeZone) : null;
+    const who = await whoPromise;
     const hero = pickHero(happenings, bookEarlyEvents, now, timeZone, who, heroWindowRange);
     const heroHappeningId = hero?.kind === "happening" ? hero.happening.id : null;
     const heroEventId = hero?.kind === "event" ? hero.event.id : null;

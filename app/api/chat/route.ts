@@ -43,8 +43,8 @@ import {
 import { CHAT_ANON_DAILY_LIMIT, CHAT_ANON_ROUTE, anonWindowResetsAt } from "@/lib/chat/limits";
 import { searchPlacesForChat } from "@/lib/places/chat-search";
 import { CITY } from "@/lib/city";
-import { listLiveHappenings } from "@/lib/db/happenings";
-import { listUpcomingEvents } from "@/lib/db/events";
+// Cached drop-ins (lib/db/cached.ts) — the catalogue is rebuilt on every question.
+import { listLiveHappenings, listUpcomingEvents } from "@/lib/db/cached";
 import { nextOccurrence, normalizeRecurrence, happeningHasEnded } from "@/lib/happenings/occurrence";
 import { eligibilityLine, happeningTimeLabel, recurrencePatternLabel, savingBadgeLabel } from "@/lib/happenings/format";
 import { parseWhoGroups, WHO_GROUP_LABEL, type DealWhoGroup } from "@/lib/happenings/groups";

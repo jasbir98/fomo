@@ -17,17 +17,16 @@ const FREE_ANY_TIME_STALE_MS = 60_000;
 /** GET /api/feed's `freeAnyTime` is already the FULL list (Home only ever
  *  slices its first few) — reused here rather than a parallel /api/free
  *  route that would duplicate app/api/feed/route.ts's `buildFreeAnyTime`.
- *  Same principle as app/(shell)/deals/page.tsx's `fetchDeals` and
- *  app/(shell)/book-early/page.tsx's `fetchBookEarly`.
+ *  Same principle as app/(shell)/deals/page.tsx and
+ *  app/(shell)/book-early/page.tsx.
  *
  *  Throws (rather than swallowing to `null`) on a network error or non-2xx
  *  status — same "let the caller (now `useCachedJson`) tell failure from
  *  empty" contract as those two. */
-async function fetchFreeAnyTime(signal?: AbortSignal): Promise<FreeAnyTimeItem[]> {
+async function fetchFeedNow(signal?: AbortSignal): Promise<FeedResponse> {
   const res = await fetch("/api/feed?window=now", { signal });
   if (!res.ok) throw new Error(`GET /api/feed ${res.status}`);
-  const json = (await res.json()) as FeedResponse;
-  return json.freeAnyTime;
+  return (await res.json()) as FeedResponse;
 }
 
 /** Ask Fomo deep-link — plain `?q=` prefill (see app/(shell)/fomo/page.tsx's
@@ -45,13 +44,14 @@ const ASK_FOMO_HREF = `/fomo?q=${encodeURIComponent("What free things can I do i
  * identical full list.
  */
 export default function FreeAnyTimePage() {
-  // Cached under a fixed key — a return visit paints instantly from
-  // whatever's already there; `error` only means "nothing cached and the
-  // last attempt failed" (see fetchFreeAnyTime's throw contract).
-  const itemsResult = useCachedJson<FreeAnyTimeItem[]>("free-any-time", fetchFreeAnyTime, {
+  // A return visit paints instantly from whatever's already there; `error`
+  // only means "nothing cached and the last attempt failed".
+  // The FULL feed under Home's own `feed:now` key (same URL) — shared with
+  // Home, What's on, Deals and Book early, so moving between them doesn't re-fetch.
+  const itemsResult = useCachedJson<FeedResponse>("feed:now", fetchFeedNow, {
     staleMs: FREE_ANY_TIME_STALE_MS,
   });
-  const items = itemsResult.data ?? null;
+  const items: FreeAnyTimeItem[] | null = itemsResult.data?.freeAnyTime ?? null;
   const error = itemsResult.error != null && items === null;
   const [typeBucket, setTypeBucket] = useState<string | null>(null);
   const [district, setDistrict] = useState<string | null>(null);
