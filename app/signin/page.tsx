@@ -7,9 +7,16 @@ import { useSearchParams } from "next/navigation";
 import type { AuthError } from "@supabase/supabase-js";
 import { Button, FomoLogo, Input } from "@/components/ui";
 import { FomoPeek, SigninSkyline } from "@/components/onboarding/Characters";
+import {
+  SigninCollage,
+  SigninEdinburghTag,
+  SigninExampleCards,
+  SigninValueProps,
+} from "@/components/signin/SigninShowcase";
 import { supabaseBrowserAuth } from "@/lib/supabase/client";
 import { safeNext } from "@/lib/auth/safe-next";
 import { publicNextOrHome } from "@/lib/auth/public-next";
+import { useIsDesktop } from "@/lib/useMediaQuery";
 import { signinReasonCopy } from "@/lib/auth/signin-reason";
 import { generateNonce, sha256Hex } from "@/lib/auth/google-identity";
 
@@ -115,6 +122,9 @@ function SigninContent() {
   const notNowHref = publicNextOrHome(searchParams.get("next"));
 
   const [step, setStep] = useState<Step>("email");
+  // Desktop showcase photos mount only once the viewport is known to be lg+, so
+  // phones never download them (a `hidden` <img> still gets fetched).
+  const isDesktop = useIsDesktop() === true;
   const [email, setEmail] = useState("");
   const [code, setCode] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -364,24 +374,53 @@ function SigninContent() {
 
   return (
     <div className="flex min-h-dvh w-full flex-col bg-background pb-safe lg:grid lg:grid-cols-2 lg:min-h-dvh lg:bg-surface-container-lowest">
-      <header className="relative overflow-hidden bg-gradient-to-b from-primary to-[#1b365d] px-6 pt-safe text-center lg:min-h-dvh lg:flex lg:flex-col lg:justify-center lg:px-16 lg:py-0 lg:text-left">
-        <div className="relative z-10 flex items-center justify-center gap-2 pt-8 [@media(max-height:640px)]:pt-4 lg:justify-start lg:pt-0">
+      <header className="relative overflow-hidden bg-gradient-to-b from-primary to-[#1b365d] px-6 pt-safe text-center lg:flex lg:min-h-dvh lg:flex-col lg:px-14 lg:py-10 lg:text-left xl:px-16">
+        {isDesktop ? (
+          <div className="hidden lg:block">
+            <SigninCollage />
+          </div>
+        ) : null}
+        <div className="relative z-10 flex items-center justify-center gap-2 pt-8 [@media(max-height:640px)]:pt-4 lg:flex-wrap lg:justify-start lg:gap-4 lg:pt-0">
           <FomoLogo tone="dark" size={30} />
+          <span className="hidden lg:inline-flex">
+            <SigninEdinburghTag />
+          </span>
         </div>
-        <h1 className="relative z-10 mt-6 text-headline-md [@media(max-height:640px)]:mt-3 text-on-primary lg:text-headline-lg lg:mt-8">
-          {step === "email" ? "Edinburgh’s on tonight" : "Check your email"}
-        </h1>
-        <p className="relative z-10 mt-1 text-body-md text-on-primary/75 lg:mt-3">
-          {step === "email" ? "Sign in so you don’t miss it." : `We sent a code to ${email.trim()}.`}
-        </p>
-        <div className="pointer-events-none -mx-6 mt-2 h-36 [@media(max-height:640px)]:h-20 lg:mt-auto lg:mx-0">
+        <div className="contents lg:relative lg:z-10 lg:my-auto lg:block lg:py-6">
+          <h1 className="relative z-10 mt-6 text-headline-md [@media(max-height:640px)]:mt-3 text-on-primary lg:mt-0 lg:max-w-md lg:text-[2.75rem] lg:font-extrabold lg:leading-[1.05] lg:tracking-tight">
+            {step === "email" ? "Edinburgh’s on tonight" : "Check your email"}
+          </h1>
+          <p className="relative z-10 mt-1 text-body-md text-on-primary/75 lg:mt-4 lg:text-body-lg">
+            {step === "email" ? "Sign in so you don’t miss it." : `We sent a code to ${email.trim()}.`}
+          </p>
+          <div className="hidden lg:block">
+            <SigninValueProps />
+          </div>
+        </div>
+        <div className="pointer-events-none -mx-6 mt-2 h-36 [@media(max-height:640px)]:h-20 lg:hidden">
           <SigninSkyline />
         </div>
+        {isDesktop ? (
+          <div className="relative z-10 hidden xl:[@media(min-height:860px)]:block">
+            <SigninExampleCards />
+          </div>
+        ) : null}
       </header>
 
-      <main className="relative z-10 mx-auto -mt-8 flex w-full max-w-sm flex-1 flex-col px-4 lg:mt-0 lg:flex lg:flex-col lg:justify-center lg:w-full lg:max-w-md lg:mx-auto lg:px-8">
-        <div className="relative flex flex-col gap-5 rounded-3xl bg-surface-container-lowest px-5 pt-10 pb-6 shadow-[0_12px_40px_-12px_rgba(0,32,70,0.25)]">
-          <div className="absolute -top-[61px] left-1/2 h-[68px] w-28 -translate-x-1/2 lg:hidden">
+      <div className="contents lg:relative lg:flex lg:items-center lg:justify-center lg:overflow-hidden lg:bg-surface-container-low lg:px-8 lg:py-12">
+      <div aria-hidden="true" className="pointer-events-none absolute -right-32 -top-32 hidden h-80 w-80 rounded-full bg-brand-orange/10 blur-3xl lg:block" />
+      <div aria-hidden="true" className="pointer-events-none absolute -bottom-40 -left-24 hidden h-96 w-96 rounded-full bg-primary/5 blur-3xl lg:block" />
+      <main className="relative z-10 mx-auto -mt-8 flex w-full max-w-sm flex-1 flex-col px-4 lg:mt-0 lg:flex lg:flex-col lg:justify-center lg:w-full lg:max-w-md lg:mx-auto lg:flex-none lg:px-0">
+        <div className="mb-3 hidden pr-32 lg:block">
+          <h2 className="text-headline-md font-bold text-primary">
+            {step === "email" ? "Welcome to Fomo" : "Almost there"}
+          </h2>
+          <p className="mt-1 text-body-md text-on-surface-variant">
+            {step === "email" ? "Sign in or create an account." : "Enter your code to sign in."}
+          </p>
+        </div>
+        <div className="relative flex flex-col gap-5 rounded-3xl bg-surface-container-lowest px-5 pt-10 pb-6 shadow-[0_12px_40px_-12px_rgba(0,32,70,0.25)] lg:px-8 lg:pb-8 lg:shadow-[0_28px_70px_-28px_rgba(0,32,70,0.35)]">
+          <div className="absolute -top-[61px] left-1/2 h-[68px] w-28 -translate-x-1/2 lg:left-auto lg:right-6 lg:translate-x-0">
             <FomoPeek mood={step === "email" ? "grin" : "wow"} />
           </div>
           {reasonCopy && step === "email" ? (
@@ -551,6 +590,7 @@ function SigninContent() {
 
         </div>
       </main>
+      </div>
     </div>
   );
 }

@@ -35,11 +35,10 @@ const DEALS_STALE_MS = 60_000;
  *  silent 200 with empty sections — so `useCachedJson` below can tell "the
  *  request failed" apart from "the response was genuinely empty" instead of
  *  both looking like the same `null`. */
-async function fetchDeals(signal?: AbortSignal): Promise<FeedResponse["deals"]> {
+async function fetchFeedNow(signal?: AbortSignal): Promise<FeedResponse> {
   const res = await fetch("/api/feed?window=now", { signal });
   if (!res.ok) throw new Error(`GET /api/feed ${res.status}`);
-  const json = (await res.json()) as FeedResponse;
-  return json.deals;
+  return (await res.json()) as FeedResponse;
 }
 
 /**
@@ -49,12 +48,14 @@ async function fetchDeals(signal?: AbortSignal): Promise<FeedResponse["deals"]> 
  * just with room to breathe and no competing sections above/below it.
  */
 export default function DealsPage() {
-  // Cached under a fixed key — a return visit (e.g. via the bottom nav)
-  // paints instantly from what's already there instead of the hourglass
+  // A return visit paints instantly from what's already there instead of the
   // skeleton below; a real fetch failure with nothing cached still surfaces
-  // as `error` (see fetchDeals's own doc comment on the throw contract).
-  const dealsResult = useCachedJson<FeedResponse["deals"]>("deals", fetchDeals, { staleMs: DEALS_STALE_MS });
-  const deals = dealsResult.data ?? null;
+  // as `error` (see fetchFeedNow's throw contract).
+  // The FULL feed under Home's own `feed:now` key (same URL), not just the
+  // deals slice under a private key — so arriving from Home, What's on, Book
+  // early or Free paints instantly instead of re-fetching the whole feed.
+  const dealsResult = useCachedJson<FeedResponse>("feed:now", fetchFeedNow, { staleMs: DEALS_STALE_MS });
+  const deals = dealsResult.data?.deals ?? null;
   const error = dealsResult.error != null && deals === null;
   const [dealWhat, setDealWhat] = useState<DealWhatGroup | null>(null);
   const [dealWho, setDealWho] = useState<DealWhoGroup | null>(null);
@@ -140,7 +141,7 @@ export default function DealsPage() {
                 who={dealWho}
                 onWhatChange={handleWhatChange}
                 onWhoChange={handleWhoChange}
-                resultCount={dealItems.length}
+                resultCount={deals ? dealItems.length : null}
               />
             </div>
           </StickyFilterBar>
@@ -152,7 +153,7 @@ export default function DealsPage() {
               who={dealWho}
               onWhatChange={handleWhatChange}
               onWhoChange={handleWhoChange}
-              resultCount={dealItems.length}
+              resultCount={deals ? dealItems.length : null}
             />
           </div>
         </aside>

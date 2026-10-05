@@ -57,7 +57,7 @@ export function FreeAnyTimeRow({ item }: { item: FreeAnyTimeItem }) {
             alt=""
             width={64}
             height={64}
-            className="h-full w-full object-cover p-2"
+            className="h-full w-full object-cover"
           />
         ) : (
           <div className="flex h-full w-full items-center justify-center">

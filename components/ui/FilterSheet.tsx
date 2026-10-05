@@ -36,8 +36,10 @@ export interface FilterSheetProps {
    * old chip rows) — the sheet's "Show N results" footer button is just a
    * close affordance whose label reflects the already-current count, kept
    * consistent across /book-early, /free and /deals.
+   * `null` while the page's data is still loading — shows "Loading…" rather
+   * than a misleading "0 results" before the list arrives.
    */
-  resultCount: number;
+  resultCount: number | null;
   /** Trigger button label before any filters are active. Defaults to "Filters". */
   label?: string;
   className?: string;
@@ -130,8 +132,15 @@ export function FilterSheet({ groups, resultCount, label = "Filters", className 
 
       <section aria-label={label} className="hidden lg:block">
         <div className="mb-4 flex items-center justify-between gap-2">
-          <p className="text-label-md font-semibold text-on-surface-variant">
-            {resultCount} result{resultCount === 1 ? "" : "s"}
+          <p className="flex items-center gap-1.5 text-label-md font-semibold text-on-surface-variant" aria-live="polite">
+            {resultCount === null ? (
+              <>
+                <Icon name="progress_activity" size={16} className="animate-spin text-primary" />
+                Loading…
+              </>
+            ) : (
+              `${resultCount} result${resultCount === 1 ? "" : "s"}`
+            )}
           </p>
           {activeCount > 0 ? (
             <button
@@ -168,7 +177,7 @@ export function FilterSheet({ groups, resultCount, label = "Filters", className 
             Clear
           </Button>
           <Button variant="navy" size="sm" className="flex-1" onClick={() => setOpen(false)}>
-            Show {resultCount} result{resultCount === 1 ? "" : "s"}
+            {resultCount === null ? "Show results" : `Show ${resultCount} result${resultCount === 1 ? "" : "s"}`}
           </Button>
         </div>
       </BottomSheet>

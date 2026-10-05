@@ -37,22 +37,18 @@ const ALERTS_STALE_MS = 5 * 60_000;
  *  ever slices its first few) — this page reuses the same response rather
  *  than standing up a parallel /api/book-early route that would duplicate
  *  app/api/feed/route.ts's `buildBookEarly`. Same principle as
- *  app/(shell)/deals/page.tsx's `fetchDeals`. `window` doesn't affect
+ *  app/(shell)/deals/page.tsx. `window` doesn't affect
  *  `bookEarly` (it's independent of the request's window — see that route's
- *  own doc comment), so it's fixed here. Cached under its own "book-early"
- *  key rather than reusing Home's `feed:now`/`feed:book_early` keys — this
- *  page's cached value is just the `bookEarly` array, not a full
- *  `FeedResponse`, so mixing them would mean two different shapes fighting
- *  over one cache slot.
+ *  own doc comment), so it's fixed here. Returns the full `FeedResponse`
+ *  and is cached under Home's own `feed:now` key — same URL, same shape —
+ *  so this page shares one cache entry with Home, What's on, Deals and Free.
  *
  *  Throws (rather than swallowing to `null`) on a network error or non-2xx
- *  status — same "let the caller (now `useCachedJson`) tell failure from
- *  empty" contract as fetchDeals. */
-async function fetchBookEarly(signal?: AbortSignal): Promise<BookEarlyCardData[]> {
+ *  status, so `useCachedJson` can tell failure from empty. */
+async function fetchFeedNow(signal?: AbortSignal): Promise<FeedResponse> {
   const res = await fetch("/api/feed?window=now", { signal });
   if (!res.ok) throw new Error(`GET /api/feed ${res.status}`);
-  const json = (await res.json()) as FeedResponse;
-  return json.bookEarly;
+  return (await res.json()) as FeedResponse;
 }
 
 async function fetchAlertIds(signal?: AbortSignal): Promise<string[]> {
@@ -71,12 +67,13 @@ async function fetchAlertIds(signal?: AbortSignal): Promise<string[]> {
  * lib/happenings/book-early-filters.ts) over the identical full list.
  */
 export default function BookEarlyPage() {
-  // Cached under its own key (see fetchBookEarly's doc comment); `error`
-  // only means "nothing cached and the last attempt failed".
-  const cardsResult = useCachedJson<BookEarlyCardData[]>("book-early", fetchBookEarly, {
+  // `error` only means "nothing cached and the last attempt failed".
+  // The FULL feed under Home's own `feed:now` key (same URL) — shared with
+  // Home, What's on, Deals and Free, so moving between them doesn't re-fetch.
+  const cardsResult = useCachedJson<FeedResponse>("feed:now", fetchFeedNow, {
     staleMs: BOOK_EARLY_STALE_MS,
   });
-  const cards = cardsResult.data ?? null;
+  const cards: BookEarlyCardData[] | null = cardsResult.data?.bookEarly ?? null;
   const error = cardsResult.error != null && cards === null;
 
   // Same "Notify me" membership read as Home (app/(shell)/page.tsx), and the
@@ -168,7 +165,7 @@ export default function BookEarlyPage() {
                 onTimingChange={handleTimingChange}
                 onCategoryChange={handleCategoryChange}
                 onMonthChange={handleMonthChange}
-                resultCount={filteredCards.length}
+                resultCount={cards === null ? null : filteredCards.length}
               />
                 <Link
                   href={ASK_FOMO_HREF}
@@ -192,7 +189,7 @@ export default function BookEarlyPage() {
                 onTimingChange={handleTimingChange}
                 onCategoryChange={handleCategoryChange}
                 onMonthChange={handleMonthChange}
-                resultCount={filteredCards.length}
+                resultCount={cards === null ? null : filteredCards.length}
               />
           </div>
           <Link

@@ -29,10 +29,17 @@ export function resolveHappeningCoords(
  * decide whether that is fatal (both current callers log and carry on without
  * the fallback coordinates).
  */
-export async function loadPlacesForHappenings(db: Db, happenings: Happening[]): Promise<Map<string, Place>> {
+export async function loadPlacesForHappenings(
+  db: Db,
+  happenings: Happening[],
+  { alsoForMissingImage = false }: { alsoForMissingImage?: boolean } = {}
+): Promise<Map<string, Place>> {
   const placeIdsNeeded = new Set<string>();
   for (const h of happenings) {
-    if (h.place_id && (h.lat == null || h.lng == null)) placeIdsNeeded.add(h.place_id);
+    if (!h.place_id) continue;
+    // `alsoForMissingImage`: Ask Fomo's catalogue also borrows the venue's
+    // photo for a happening without its own, same as the feed does.
+    if (h.lat == null || h.lng == null || (alsoForMissingImage && !h.image_url)) placeIdsNeeded.add(h.place_id);
   }
   if (placeIdsNeeded.size === 0) return new Map();
   const resolved = await listPlacesByIds(db, Array.from(placeIdsNeeded));

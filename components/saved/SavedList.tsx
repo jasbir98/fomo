@@ -28,14 +28,14 @@ const SAVED_GROUP_LABELS: { type: Candidate["subject"]["type"]; label: string }[
 function SignedOutSaved() {
   const router = useRouter();
   return (
-    <Card>
-      <div className="flex flex-col items-center gap-4 py-6 text-center">
+    <Card className="lg:mx-auto lg:w-full lg:max-w-lg">
+      <div className="flex flex-col items-center gap-4 py-6 text-center lg:px-6 lg:py-10">
         <FomoSpot mood="wow" pose="cheer" className="h-20 w-20" />
         <h2 className="text-title-sm font-extrabold text-on-surface">Keep track of what you want to do</h2>
         <p className="text-body-md text-on-surface-variant">
           Sign in to save deals, events and places. They&apos;ll wait here for you.
         </p>
-        <Button fullWidth onClick={() => router.push("/signin?next=%2Fsaved")}>
+        <Button fullWidth className="lg:w-auto lg:min-w-[200px] lg:px-8" onClick={() => router.push("/signin?next=%2Fsaved")}>
           Sign in
         </Button>
       </div>
