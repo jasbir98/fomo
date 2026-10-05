@@ -43,6 +43,12 @@ export default function Error({ error, reset }: { error: Error & { digest?: stri
             Back to Fomo
           </Link>
         </div>
+        <Link
+          href="/tip?type=feedback"
+          className="mt-4 text-label-sm font-semibold text-primary transition-colors hover:opacity-80"
+        >
+          Tell us what happened
+        </Link>
       </div>
     </AppShell>
   );

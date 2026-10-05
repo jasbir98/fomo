@@ -7,6 +7,7 @@ import { useSignedIn } from "@/lib/useSaved";
 import { FomoFace } from "../onboarding/Characters";
 import { FomoLogo } from "../ui/FomoLogo";
 import { Icon } from "../ui/Icon";
+import { UserAvatar } from "./UserAvatar";
 import { PRIMARY, isActive, type NavItem } from "./nav-items";
 
 /** Secondary destinations, below the primary tabs. No per-tab colour: they take the neutral navy tint. */
@@ -40,7 +41,18 @@ function useMediaQuery(query: string): boolean {
  * The active pill reuses BottomNav's per-tab tint (`item.pill`) so a tab reads
  * the same colour on every form factor.
  */
-function NavLink({ item, active, tooltip }: { item: NavItem; active: boolean; tooltip: boolean }) {
+function NavLink({
+  item,
+  active,
+  tooltip,
+  avatar = false,
+}: {
+  item: NavItem;
+  active: boolean;
+  tooltip: boolean;
+  /** Draw the signed-in user's avatar in place of the icon (Profile row). */
+  avatar?: boolean;
+}) {
   return (
     <Link
       href={item.href}
@@ -51,9 +63,15 @@ function NavLink({ item, active, tooltip }: { item: NavItem; active: boolean; to
         active ? item.pill : ""
       }`}
     >
-      <span className={`flex shrink-0 items-center justify-center ${item.text} ${active ? "" : "opacity-85"}`}>
-        <Icon name={item.icon} filled={active} size={26} />
-      </span>
+      {avatar ? (
+        <span className={`flex shrink-0 rounded-full ${active ? "ring-2 ring-primary ring-offset-2 ring-offset-surface-container-lowest" : ""}`}>
+          <UserAvatar size={32} />
+        </span>
+      ) : (
+        <span className={`flex shrink-0 items-center justify-center ${item.text} ${active ? "" : "opacity-85"}`}>
+          <Icon name={item.icon} filled={active} size={26} />
+        </span>
+      )}
       <span
         className={`hidden truncate text-label-md font-semibold xl:inline ${
           active ? item.text : "text-on-surface-variant"
@@ -159,7 +177,7 @@ export function SideNav() {
               <span className="hidden text-label-md font-bold xl:inline">Sign in</span>
             </Link>
           ) : (
-            <NavLink item={PROFILE} active={isActive(pathname, PROFILE.href)} tooltip={tooltip} />
+            <NavLink item={PROFILE} active={isActive(pathname, PROFILE.href)} tooltip={tooltip} avatar />
           )}
         </li>
       </ul>

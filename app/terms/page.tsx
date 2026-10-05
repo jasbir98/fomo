@@ -1,6 +1,4 @@
-// NOTE: this is a template, not legal advice. {{OPERATOR_NAME}} below must
-// be filled in before this is relied on. Have a solicitor review the
-// filled-in copy before launch.
+// Not legal advice: worth a solicitor's review.
 
 import Link from "next/link";
 import { PageHeader } from "@/components/ui";
@@ -25,12 +23,12 @@ export default function TermsPage() {
     <div className="flex min-h-dvh w-full flex-col bg-background pb-safe">
       <PageHeader title="Terms of Use" showBack />
       <main className="mx-auto flex w-full max-w-sm flex-1 flex-col gap-6 px-5 pb-12 lg:max-w-3xl lg:px-8 lg:py-12">
-        <p className="text-label-sm text-on-surface-variant">Last updated 26 September 2026.</p>
+        <p className="text-label-sm text-on-surface-variant">Last updated 5 October 2026.</p>
 
         <Section title="What Fomo is">
           <p>
             Fomo (askfomo.com, &ldquo;we&rdquo;, &ldquo;us&rdquo;, run by{" "}
-            <strong>{"{{OPERATOR_NAME}}"}</strong>) helps you find free, cheap and discounted things
+            <strong>Jasbir Singh</strong>, a sole trader) helps you find free, cheap and discounted things
             to do in Edinburgh. By using Fomo, you agree to these terms.
           </p>
         </Section>

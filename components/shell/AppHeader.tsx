@@ -8,6 +8,7 @@ import { useSignedIn } from "@/lib/useSaved";
 import type { WeatherCondition } from "@/lib/weather";
 import { WEATHER_THEME } from "@/lib/weatherUi";
 import { FomoLogo, Icon } from "@/components/ui";
+import { UserAvatar } from "./UserAvatar";
 import { InstallSheet } from "@/components/install/InstallSheet";
 import { useInstallState } from "@/lib/pwa/useInstallState";
 
@@ -191,9 +192,7 @@ export function AppHeader({ title, leading, weather: weatherProp, className = ""
             </Link>
           ) : (
             <Link href="/profile" aria-label="Profile" className="flex h-10 w-10 items-center justify-center">
-              <span className="flex h-8 w-8 items-center justify-center rounded-full bg-primary-container text-on-primary">
-                <Icon name="person" size={17} />
-              </span>
+              <UserAvatar size={32} />
             </Link>
           )}
         </div>

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import type { Session } from "@supabase/supabase-js";
+import type { Session, User } from "@supabase/supabase-js";
 import { supabaseBrowserAuth } from "@/lib/supabase/client";
 import { usePrefs } from "@/lib/personalise/usePrefs";
 import { track } from "@/lib/analytics/track";
@@ -25,6 +25,12 @@ function readAndClearPendingSigninMethod(): string | null {
   } catch {
     return null;
   }
+}
+
+/** Whether the account was created in the last 10 minutes — i.e. this sign-in is its first. */
+function isNewUser(user: User): boolean {
+  const created = Date.parse(user.created_at);
+  return Number.isFinite(created) && Date.now() - created < 10 * 60 * 1000;
 }
 
 function isStandalone(): boolean {
@@ -80,7 +86,7 @@ export function IdentifyUser() {
       if (!session) return;
       identifySession(session);
       const pendingMethod = readAndClearPendingSigninMethod();
-      if (pendingMethod) track("signin_completed", { method: pendingMethod });
+      if (pendingMethod) track("signin_completed", { method: pendingMethod, is_new_user: isNewUser(session.user) });
     });
 
     const {
@@ -89,7 +95,7 @@ export function IdentifyUser() {
       if (event === "SIGNED_IN" && session) {
         identifySession(session);
         const pendingMethod = readAndClearPendingSigninMethod();
-        if (pendingMethod) track("signin_completed", { method: pendingMethod });
+        if (pendingMethod) track("signin_completed", { method: pendingMethod, is_new_user: isNewUser(session.user) });
       } else if (event === "SIGNED_OUT") {
         window.posthog?.reset?.();
         setSignedIn(false);

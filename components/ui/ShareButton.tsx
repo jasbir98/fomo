@@ -46,9 +46,35 @@ export function ShareButton({ title, text, url, variant = "icon", className = ""
     };
   }, []);
 
+  function addUtmParams(originalUrl: string, medium: string): string {
+    // Only add UTM params to same-origin or relative URLs
+    try {
+      const url = new URL(originalUrl, typeof window !== "undefined" ? window.location.origin : "http://localhost");
+      // Only process if it's same-origin or a relative URL
+      if (originalUrl.startsWith("/") || originalUrl.startsWith(url.origin)) {
+        // Don't duplicate params already present
+        if (!url.searchParams.has("utm_source")) {
+          url.searchParams.set("utm_source", "share");
+        }
+        if (!url.searchParams.has("utm_medium")) {
+          url.searchParams.set("utm_medium", medium);
+        }
+        // Return relative URL if it was relative
+        if (originalUrl.startsWith("/")) {
+          return url.pathname + url.search + url.hash;
+        }
+        return url.toString();
+      }
+    } catch {
+      // If URL parsing fails, just return the original
+    }
+    return originalUrl;
+  }
+
   async function copyToClipboard() {
     try {
-      await navigator.clipboard.writeText(url);
+      const urlWithUtm = addUtmParams(url, "copy");
+      await navigator.clipboard.writeText(urlWithUtm);
       setCopied(true);
       if (timeoutRef.current) clearTimeout(timeoutRef.current);
       timeoutRef.current = setTimeout(() => setCopied(false), 2200);
@@ -65,7 +91,8 @@ export function ShareButton({ title, text, url, variant = "icon", className = ""
     e.preventDefault();
     if (typeof navigator !== "undefined" && typeof navigator.share === "function") {
       try {
-        await navigator.share({ title, text, url });
+        const urlWithUtm = addUtmParams(url, "native");
+        await navigator.share({ title, text, url: urlWithUtm });
         recordAffinity(interestHint);
         track("share_completed", { method: "native", kind });
         return;
