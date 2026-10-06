@@ -4,7 +4,7 @@ import { useState } from "react";
 import { Icon, NavCard, SaveButton, SmartImage } from "@/components/ui";
 import { formatEventPrice } from "@/lib/events/format";
 import { savingBadgeLabel } from "@/lib/happenings/format";
-import { categoryDefaultImage } from "@/lib/happenings/category-style";
+import { defaultImageFor } from "@/lib/happenings/category-style";
 import { NOTIFY_ME_ENABLED, type BookEarlyCardData } from "@/lib/happenings/book-early";
 import { ensurePushSubscribed, pushReasonMessage } from "@/lib/push/client";
 import { NotifyMeButton } from "./NotifyMeButton";
@@ -103,7 +103,7 @@ export function BookEarlyCard({ card, initialSubscribed = false, position }: Boo
   if (card.kind === "event") {
     const { event } = card;
     const price = formatEventPrice(event);
-    const thumbnail = event.image_url ?? categoryDefaultImage(null);
+    const thumbnail = event.image_url ?? defaultImageFor({ title: event.name, venue_name: event.venue_name });
     return (
       <NavCard
         href={`/event/${event.id}`}
@@ -150,7 +150,7 @@ export function BookEarlyCard({ card, initialSubscribed = false, position }: Boo
   const { happening } = card;
   const priceBadge = savingBadgeLabel(happening);
   const ctaHref = happening.booking_url ?? happening.source_url;
-  const thumbnail = happening.image_url ?? categoryDefaultImage(happening.category);
+  const thumbnail = happening.image_url ?? defaultImageFor(happening);
   // tier 1 is exactly "booking_opens_at falls in the next 14 days" (see
   // lib/happenings/book-early.ts's bookEarlyTier) — reusing the
   // already-computed tier instead of re-deriving "is this in the future"

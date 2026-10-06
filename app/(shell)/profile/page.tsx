@@ -6,7 +6,11 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { supabaseBrowserAuth } from "@/lib/supabase/client";
 import { getProfile, upsertProfile, uploadAvatar } from "@/lib/db";
+import type { User } from "@supabase/supabase-js";
 import type { Profile } from "@/lib/types";
+import { avatarUrlOf, displayNameOf } from "@/lib/auth/identity";
+import { MAX_DISPLAY_NAME_LENGTH, saveDisplayName } from "@/lib/auth/saveDisplayName";
+import { refreshCurrentUser } from "@/lib/auth/useCurrentUser";
 import { Button, BottomSheet, Card, Icon, PageHeader, SmartImage, Toggle } from "@/components/ui";
 import { NOTIFY_ME_ENABLED } from "@/lib/happenings/book-early";
 import { ensurePushSubscribed, pushReasonMessage, pushSupportReason } from "@/lib/push/client";
@@ -59,7 +63,12 @@ export default function ProfilePage() {
   const [accountEmail, setAccountEmail] = useState<string | null>(null);
   const [accountId, setAccountId] = useState<string | null>(null);
   const [accountIdCopied, setAccountIdCopied] = useState(false);
+  const [accountUser, setAccountUser] = useState<User | null>(null);
   const [googlePhotoUrl, setGooglePhotoUrl] = useState<string | null>(null);
+  const [editingName, setEditingName] = useState(false);
+  const [nameDraft, setNameDraft] = useState("");
+  const [nameSaving, setNameSaving] = useState(false);
+  const [nameError, setNameError] = useState<string | null>(null);
   const [avatarOpen, setAvatarOpen] = useState(false);
   const [avatarUploading, setAvatarUploading] = useState(false);
   const [avatarError, setAvatarError] = useState<string | null>(null);
@@ -101,6 +110,7 @@ export default function ProfilePage() {
       const avatarUrl = await uploadAvatar(db, user.id, croppedFile);
       const updated = await upsertProfile(db, { avatar_url: avatarUrl });
       setProfile(updated);
+      void refreshCurrentUser();
     } catch (err) {
       console.error("[profile] avatar upload failed", err);
       setAvatarError(err instanceof Error ? err.message : "Upload failed. Try again.");
@@ -114,6 +124,7 @@ export default function ProfilePage() {
     try {
       const updated = await upsertProfile(db, { avatar_url: null });
       setProfile(updated);
+      void refreshCurrentUser();
     } catch (err) {
       console.error("[profile] remove avatar failed", err);
       setAvatarError("Couldn't remove photo. Try again.");
@@ -176,11 +187,10 @@ export default function ProfilePage() {
         setAccountEmail(userData.user?.email ?? null);
         setAccountId(userData.user?.id ?? null);
         setBigOnsaleAlerts(profileRow?.big_onsale_alerts ?? false);
-        // Extract Google profile photo from Supabase user_metadata if available
-        // Supabase stores it in avatar_url or picture depending on the OAuth flow
-        const metadata = userData.user?.user_metadata;
-        const googlePhoto = (metadata?.avatar_url || metadata?.picture) as string | null;
-        setGooglePhotoUrl(googlePhoto ?? null);
+        setAccountUser(userData.user ?? null);
+        // The provider's photo (Supabase stores it in avatar_url or picture
+        // depending on the OAuth flow); an uploaded avatar takes precedence at render.
+        setGooglePhotoUrl(avatarUrlOf(null, userData.user));
       })
       .catch((err) => {
         // Fresh device / Supabase not configured yet shouldn't crash the
@@ -195,7 +205,30 @@ export default function ProfilePage() {
     };
   }, [db]);
 
-  const displayName = profile?.display_name ?? accountEmail?.split("@")[0] ?? "You";
+  const displayName = displayNameOf(profile, accountUser) ?? accountEmail?.split("@")[0] ?? "You";
+
+  function startEditingName() {
+    setNameDraft(displayNameOf(profile, accountUser) ?? "");
+    setNameError(null);
+    setEditingName(true);
+  }
+
+  async function handleNameSave() {
+    setNameSaving(true);
+    setNameError(null);
+    try {
+      const saved = await saveDisplayName(db, nameDraft);
+      setProfile(saved.profile);
+      if (saved.user) setAccountUser(saved.user);
+      setEditingName(false);
+      void refreshCurrentUser();
+    } catch (err) {
+      console.error("[profile] save name failed", err);
+      setNameError("Couldn't save your name. Try again.");
+    } finally {
+      setNameSaving(false);
+    }
+  }
 
   /** "Student · under 26 · EH · into comedy, gigs · under £10" (task brief §2's
    *  own example) — built from whichever pieces are actually set, in that
@@ -217,7 +250,14 @@ export default function ProfilePage() {
     return parts.length > 0 ? parts.join(" · ") : "Not set up yet. Tell Fomo what you're into.";
   }
 
-  async function handleResetConfirm() {
+  // Opens the user's mail app addressed to support, pre-filled with who they are.
+  const deleteAccountHref = `mailto:support@askfomo.com?subject=${encodeURIComponent(
+    "Delete my Fomo account"
+  )}&body=${encodeURIComponent(
+    `Please delete my Fomo account${accountEmail ? ` (${accountEmail})` : ""} and the data tied to it.`
+  )}`;
+
+  async function handleSignOut() {
     // "Reset app data" pre-auth used to just clear the device-id localStorage
     // key; now that identity is a real Supabase session, this control is
     // relabelled "Sign out" and just does that.
@@ -290,8 +330,10 @@ export default function ProfilePage() {
               </div>
               <button
                 type="button"
-                aria-label={profile?.avatar_url ? "Change profile photo" : "Add profile photo"}
+                aria-label={profile?.avatar_url || googlePhotoUrl ? "Change profile photo" : "Add profile photo"}
                 disabled={avatarUploading}
+                // Remove only applies to an uploaded photo (it falls back to the
+                // provider's); with just a Google photo there's nothing to remove.
                 onClick={() => (profile?.avatar_url ? setAvatarOpen(true) : pickAvatarFile())}
                 className="absolute bottom-0 left-0 flex h-8 w-8 items-center justify-center rounded-full bg-primary text-on-primary shadow-md transition-opacity hover:opacity-90 disabled:opacity-60"
               >
@@ -306,7 +348,59 @@ export default function ProfilePage() {
               />
             </div>
             {avatarError ? <p className="text-label-sm text-error">{avatarError}</p> : null}
-            <h2 className="text-headline-md text-primary">{displayName}</h2>
+            {editingName ? (
+              <form
+                className="flex w-full max-w-xs flex-col gap-2"
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  void handleNameSave();
+                }}
+              >
+                <input
+                  type="text"
+                  autoFocus
+                  autoComplete="name"
+                  maxLength={MAX_DISPLAY_NAME_LENGTH}
+                  value={nameDraft}
+                  onChange={(e) => setNameDraft(e.target.value)}
+                  aria-label="Your name"
+                  placeholder="Your name"
+                  aria-invalid={nameError ? true : undefined}
+                  className="min-h-[48px] w-full rounded-md border border-outline-variant bg-surface-container-lowest px-3 text-center text-body-md text-on-surface transition-colors placeholder:text-outline focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30"
+                />
+                {nameError ? (
+                  <p role="alert" className="text-label-sm font-medium text-error">
+                    {nameError}
+                  </p>
+                ) : null}
+                <div className="flex gap-2">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    fullWidth
+                    disabled={nameSaving}
+                    onClick={() => setEditingName(false)}
+                  >
+                    Cancel
+                  </Button>
+                  <Button type="submit" variant="navy" size="sm" fullWidth disabled={nameSaving}>
+                    {nameSaving ? "Saving…" : "Save"}
+                  </Button>
+                </div>
+              </form>
+            ) : (
+              <div className="flex max-w-full items-center justify-center gap-1">
+                <h2 className="min-w-0 truncate text-headline-md text-primary">{displayName}</h2>
+                <button
+                  type="button"
+                  aria-label="Edit name"
+                  onClick={startEditingName}
+                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-on-surface-variant hover:bg-surface-container active:bg-surface-container-high"
+                >
+                  <Icon name="edit" size={18} />
+                </button>
+              </div>
+            )}
           </section>
 
           <div className="flex flex-col gap-4 px-4">
@@ -355,19 +449,22 @@ export default function ProfilePage() {
           <section className="flex flex-col gap-4 px-4">
             <h3 className="text-headline-sm text-primary">Account Settings</h3>
             <Card noPadding className="divide-y divide-outline-variant/40">
-              <button
-                type="button"
-                onClick={() => setNotifOpen(true)}
-                className="flex w-full items-center justify-between p-4 text-left"
-              >
-                <span className="flex items-center gap-4">
-                  <span className="flex h-10 w-10 items-center justify-center rounded-full bg-primary-container/10 text-primary">
-                    <Icon name="notifications" />
+              {/* The Notifications sheet only holds push settings, so without a VAPID key it would open empty. */}
+              {NOTIFY_ME_ENABLED ? (
+                <button
+                  type="button"
+                  onClick={() => setNotifOpen(true)}
+                  className="flex w-full items-center justify-between p-4 text-left"
+                >
+                  <span className="flex items-center gap-4">
+                    <span className="flex h-10 w-10 items-center justify-center rounded-full bg-primary-container/10 text-primary">
+                      <Icon name="notifications" />
+                    </span>
+                    <span className="text-body-lg text-primary">Notifications</span>
                   </span>
-                  <span className="text-body-lg text-primary">Notifications</span>
-                </span>
-                <Icon name="chevron_right" className="text-on-surface-variant" />
-              </button>
+                  <Icon name="chevron_right" className="text-on-surface-variant" />
+                </button>
+              ) : null}
               <button
                 type="button"
                 onClick={() => setSecurityOpen(true)}
@@ -408,6 +505,18 @@ export default function ProfilePage() {
                 </span>
                 <Icon name="chevron_right" className="text-on-surface-variant" />
               </a>
+              <a
+                href="/tip?type=feedback"
+                className="flex w-full items-center justify-between p-4 text-left"
+              >
+                <span className="flex items-center gap-4">
+                  <span className="flex h-10 w-10 items-center justify-center rounded-full bg-primary-container/10 text-primary">
+                    <Icon name="rate_review" />
+                  </span>
+                  <span className="text-body-lg text-primary">Send feedback</span>
+                </span>
+                <Icon name="chevron_right" className="text-on-surface-variant" />
+              </a>
               <button
                 type="button"
                 onClick={() => setResetOpen(true)}
@@ -418,6 +527,12 @@ export default function ProfilePage() {
                 </span>
                 <span className="text-body-lg text-error">Sign out</span>
               </button>
+              <a href={deleteAccountHref} className="flex w-full items-center gap-4 p-4 text-left">
+                <span className="flex h-10 w-10 items-center justify-center rounded-full bg-error-container/40 text-error">
+                  <Icon name="person_remove" />
+                </span>
+                <span className="text-body-lg text-error">Delete my account</span>
+              </a>
             </Card>
             <p className="px-1 text-label-sm text-on-surface-variant">
               &quot;Sign out&quot; signs you out of your Fomo account on this device.
@@ -470,7 +585,7 @@ export default function ProfilePage() {
             <Button variant="ghost" fullWidth onClick={() => setResetOpen(false)}>
               Cancel
             </Button>
-            <Button variant="outline" fullWidth onClick={handleResetConfirm}>
+            <Button variant="outline" fullWidth onClick={handleSignOut}>
               Sign out
             </Button>
           </div>
@@ -511,11 +626,7 @@ export default function ProfilePage() {
                 </p>
               )}
             </div>
-          ) : (
-            <p className="text-body-md text-on-surface-variant">
-              Push alerts for big on-sale dates are coming soon.
-            </p>
-          )}
+          ) : null}
         </div>
       </BottomSheet>
 

@@ -9,7 +9,7 @@ import { directionsUrlFor } from "@/lib/maps/links";
 import { safeHttpUrl } from "@/lib/http/safe-url";
 import { getEvent } from "@/lib/db";
 import { useSaved } from "@/lib/useSaved";
-import { categoryDefaultImage } from "@/lib/happenings/category-style";
+import { defaultImageFor } from "@/lib/happenings/category-style";
 import { formatEventPrice, formatEventWhen, isDateOnlyStart } from "@/lib/events/format";
 import { buildEventFallbackDescription } from "@/lib/events/description";
 import type { EventItem } from "@/lib/types";
@@ -145,7 +145,7 @@ export function EventDetail({ id, presentation = "page" }: DetailProps) {
     // full-page loader, with skeleton rows standing in for the rest
     // (description, When/Venue grid, directions, tickets — all of it needs
     // the real event row).
-    const previewImage = preview.imageUrl ?? categoryDefaultImage(null);
+    const previewImage = preview.imageUrl ?? defaultImageFor({ title: preview.title, venue_name: preview.venueName });
     return (
       <div className="flex flex-col gap-4 pb-6">
         <DetailTopBar presentation={presentation} title={preview.title} />

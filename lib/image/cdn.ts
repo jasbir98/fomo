@@ -232,11 +232,15 @@ export function cdnResize(src: string, t: ImageTransform): string | null {
   }
 
   // googleusercontent (Google-hosted photo CDN, incl. some Places photos
-  // redirected here) — size is a "=w{n}-h{n}-c" segment appended to the path.
+  // redirected here) — size is a trailing "=w{n}-h{n}-c" segment on the path.
+  // An existing size segment is replaced, not appended to: Google account
+  // photos arrive as "=s96-c" (square) and Places photos as "=w{n}-h{n}[-flags]";
+  // appending to either yields a broken "=s96-c=w224-h224-c".
   if (host.endsWith(".googleusercontent.com")) {
     const sizeSegment = `=w${width}-h${width}-c`;
-    url.pathname = /=w\d+-h\d+(-[a-z0-9-]*)?$/i.test(url.pathname)
-      ? url.pathname.replace(/=w\d+-h\d+(-[a-z0-9-]*)?$/i, sizeSegment)
+    const existing = /=(?:s\d+|w\d+-h\d+)(?:-[a-z0-9-]*)?$/i;
+    url.pathname = existing.test(url.pathname)
+      ? url.pathname.replace(existing, sizeSegment)
       : `${url.pathname}${sizeSegment}`;
     return url.toString();
   }

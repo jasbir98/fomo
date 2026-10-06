@@ -19,6 +19,8 @@ import { publicNextOrHome } from "@/lib/auth/public-next";
 import { useIsDesktop } from "@/lib/useMediaQuery";
 import { signinReasonCopy } from "@/lib/auth/signin-reason";
 import { generateNonce, sha256Hex } from "@/lib/auth/google-identity";
+import { displayNameOf } from "@/lib/auth/identity";
+import { MAX_DISPLAY_NAME_LENGTH, saveDisplayName } from "@/lib/auth/saveDisplayName";
 
 /** Written right before every path that ends in a successful sign-in (each
  *  one then does a full page navigation — `window.location.assign`, or the
@@ -92,7 +94,15 @@ const RESEND_COOLDOWN_SECONDS = 60; // matches Supabase's default 1 email / 60s 
 const OTP_MIN_LENGTH = 6;
 const OTP_MAX_LENGTH = 10;
 
-type Step = "email" | "code";
+/** An account created within this window counts as brand new for the one-off "what should we call you?" step. */
+const NEW_USER_WINDOW_MS = 5 * 60 * 1000;
+
+function isNewAccount(createdAt: string | undefined): boolean {
+  const created = createdAt ? Date.parse(createdAt) : NaN;
+  return Number.isFinite(created) && Date.now() - created < NEW_USER_WINDOW_MS;
+}
+
+type Step = "email" | "code" | "name";
 
 /** Google's four-colour "G" — brand guidelines want it on a white button. */
 function GoogleLogo() {
@@ -140,6 +150,8 @@ function SigninContent() {
   const [verifying, setVerifying] = useState(false);
   const [oauthLoading, setOauthLoading] = useState<"google" | "apple" | null>(null);
   const [cooldown, setCooldown] = useState(0);
+  const [name, setName] = useState("");
+  const [savingName, setSavingName] = useState(false);
   const cooldownTimer = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // Google Identity Services (GIS) sign-in — runs on our own origin (no
@@ -312,6 +324,29 @@ function SigninContent() {
     }
   }
 
+  /** The shared tail of every email sign-in: flag it for analytics, then a full navigation to `next`. */
+  function finishSignin() {
+    markPendingSignin("email");
+    window.location.assign(nextParam);
+  }
+
+  async function submitName() {
+    const trimmed = name.trim();
+    if (!trimmed) {
+      finishSignin();
+      return;
+    }
+    setError(null);
+    setSavingName(true);
+    try {
+      await saveDisplayName(supabaseBrowserAuth(), trimmed);
+    } catch (err) {
+      // Not worth blocking sign-in over — they can set it from Profile.
+      console.error("[signin] saving name failed", err);
+    }
+    finishSignin();
+  }
+
   async function verifyCode() {
     const trimmedCode = code.trim();
     if (trimmedCode.length < OTP_MIN_LENGTH) {
@@ -323,7 +358,7 @@ function SigninContent() {
     setVerifying(true);
     try {
       const supabase = supabaseBrowserAuth();
-      const { error: verifyError } = await supabase.auth.verifyOtp({
+      const { data: verified, error: verifyError } = await supabase.auth.verifyOtp({
         email: email.trim(),
         token: trimmedCode,
         type: "email",
@@ -332,8 +367,13 @@ function SigninContent() {
         setError(friendlyOtpError(verifyError));
         return;
       }
-      markPendingSignin("email");
-      window.location.assign(nextParam);
+      // A brand-new email account has no name anywhere — ask once, optionally,
+      // before the redirect. Everyone else goes straight on as before.
+      if (verified.user && isNewAccount(verified.user.created_at) && !displayNameOf(null, verified.user)) {
+        setStep("name");
+        return;
+      }
+      finishSignin();
     } catch (err) {
       console.error("[signin] verifyOtp failed", err);
       setError("That code didn't work. Try again.");
@@ -388,10 +428,14 @@ function SigninContent() {
         </div>
         <div className="contents lg:relative lg:z-10 lg:my-auto lg:block lg:py-6">
           <h1 className="relative z-10 mt-6 text-headline-md [@media(max-height:640px)]:mt-3 text-on-primary lg:mt-0 lg:max-w-md lg:text-[2.75rem] lg:font-extrabold lg:leading-[1.05] lg:tracking-tight">
-            {step === "email" ? "Edinburgh’s on tonight" : "Check your email"}
+            {step === "email" ? "Edinburgh’s on tonight" : step === "code" ? "Check your email" : "Nearly done"}
           </h1>
           <p className="relative z-10 mt-1 text-body-md text-on-primary/75 lg:mt-4 lg:text-body-lg">
-            {step === "email" ? "Sign in so you don’t miss it." : `We sent a code to ${email.trim()}.`}
+            {step === "email"
+              ? "Sign in so you don’t miss it."
+              : step === "code"
+                ? `We sent a code to ${email.trim()}.`
+                : "You’re in. One quick thing before we start."}
           </p>
           <div className="hidden lg:block">
             <SigninValueProps />
@@ -413,15 +457,19 @@ function SigninContent() {
       <main className="relative z-10 mx-auto -mt-8 flex w-full max-w-sm flex-1 flex-col px-4 lg:mt-0 lg:flex lg:flex-col lg:justify-center lg:w-full lg:max-w-md lg:mx-auto lg:flex-none lg:px-0">
         <div className="mb-3 hidden pr-32 lg:block">
           <h2 className="text-headline-md font-bold text-primary">
-            {step === "email" ? "Welcome to Fomo" : "Almost there"}
+            {step === "email" ? "Welcome to Fomo" : step === "code" ? "Almost there" : "Nearly done"}
           </h2>
           <p className="mt-1 text-body-md text-on-surface-variant">
-            {step === "email" ? "Sign in or create an account." : "Enter your code to sign in."}
+            {step === "email"
+              ? "Sign in or create an account."
+              : step === "code"
+                ? "Enter your code to sign in."
+                : "Optional, and you can change it later."}
           </p>
         </div>
         <div className="relative flex flex-col gap-5 rounded-3xl bg-surface-container-lowest px-5 pt-10 pb-6 shadow-[0_12px_40px_-12px_rgba(0,32,70,0.25)] lg:px-8 lg:pb-8 lg:shadow-[0_28px_70px_-28px_rgba(0,32,70,0.35)]">
           <div className="absolute -top-[61px] left-1/2 h-[68px] w-28 -translate-x-1/2 lg:left-auto lg:right-6 lg:translate-x-0">
-            <FomoPeek mood={step === "email" ? "grin" : "wow"} />
+            <FomoPeek mood={step === "code" ? "wow" : "grin"} />
           </div>
           {reasonCopy && step === "email" ? (
             <p className="text-center text-label-md font-medium text-secondary">{reasonCopy}</p>
@@ -429,7 +477,9 @@ function SigninContent() {
           <p className="text-center text-body-md text-on-surface-variant">
             {step === "email"
               ? "One-time code by email. No password."
-              : "Enter it below to finish signing in."}
+              : step === "code"
+                ? "Enter it below to finish signing in."
+                : "What should we call you?"}
           </p>
 
         {callbackError ? (
@@ -462,6 +512,37 @@ function SigninContent() {
             <Button type="submit" variant="orange" fullWidth size="md" disabled={sending}>
               {sending ? "Sending…" : "Email me a code"}
             </Button>
+          </form>
+        ) : step === "name" ? (
+          <form
+            className="flex flex-col gap-4"
+            onSubmit={(e) => {
+              e.preventDefault();
+              void submitName();
+            }}
+          >
+            <Input
+              label="What should we call you?"
+              type="text"
+              autoComplete="given-name"
+              maxLength={MAX_DISPLAY_NAME_LENGTH}
+              placeholder="Your first name"
+              autoFocus
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              error={error ?? undefined}
+            />
+            <Button type="submit" variant="orange" fullWidth size="md" disabled={savingName}>
+              {savingName ? "Saving…" : "Continue"}
+            </Button>
+            <button
+              type="button"
+              className="text-center text-label-md text-on-surface-variant underline disabled:opacity-50"
+              disabled={savingName}
+              onClick={finishSignin}
+            >
+              Skip
+            </button>
           </form>
         ) : (
           <form
@@ -509,6 +590,8 @@ function SigninContent() {
           </form>
         )}
 
+        {step !== "name" ? (
+          <>
         <div className="flex items-center gap-3 py-2">
           <div className="h-px flex-1 bg-outline-variant" />
           <span className="text-label-md text-on-surface-variant">or</span>
@@ -575,6 +658,8 @@ function SigninContent() {
         >
           Not now, keep browsing
         </Link>
+          </>
+        ) : null}
 
         <p className="text-center text-label-sm text-on-surface-variant">
           By continuing you agree to our{" "}

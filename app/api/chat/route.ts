@@ -51,7 +51,7 @@ import { parseWhoGroups, WHO_GROUP_LABEL, type DealWhoGroup } from "@/lib/happen
 import { formatEventPrice, formatEventWhen, eventHasEnded } from "@/lib/events/format";
 import type { AiReplyBlock, ChatItem, ChatPlace } from "@/lib/fomo-ai";
 import type { Happening } from "@/lib/happenings/types";
-import { categoryDefaultImage } from "@/lib/happenings/category-style";
+import { defaultImageFor } from "@/lib/happenings/category-style";
 import { resolveHappeningCoords, loadPlacesForHappenings } from "@/lib/explore/coords";
 import type { CardSubjectType, Place } from "@/lib/types";
 import type { Db } from "@/lib/supabase/types";
@@ -228,8 +228,8 @@ async function buildCatalogue(db: Db, now: Date): Promise<Catalogue> {
       subtitle: [when, where].filter(Boolean).join(" · ") || null,
       badge,
       // Same fallback chain as the feed's cards: own photo, then the linked
-      // venue's, then the category's default — never the blank placeholder.
-      image_url: h.image_url ?? (h.place_id ? placesById.get(h.place_id)?.image_url : null) ?? categoryDefaultImage(h.category),
+      // venue's, then a themed/category default — never the blank placeholder.
+      image_url: h.image_url ?? (h.place_id ? placesById.get(h.place_id)?.image_url : null) ?? defaultImageFor(h),
       href: `/happening/${h.id}`,
       lat: coords?.lat ?? null,
       lng: coords?.lng ?? null,

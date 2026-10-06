@@ -1,8 +1,4 @@
-// NOTE: this is a template, not legal advice. {{OPERATOR_NAME}} and
-// {{CONTACT_EMAIL}} below must be filled in with the real controller name
-// and a monitored contact address before this is relied on for UK GDPR
-// compliance — have a solicitor (or a service like Termly/iubenda) review
-// the filled-in copy before launch. The bullet points describing what data
+// Not legal advice: worth a solicitor's (or Termly/iubenda's) review. The bullet points describing what data
 // this app collects were derived by reading the actual code (see each
 // section's inline source references below) as of 2026-09-28 (PostHog
 // analytics added); re-check them whenever a new data-collecting feature
@@ -31,11 +27,11 @@ export default function PrivacyPage() {
     <div className="flex min-h-dvh w-full flex-col bg-background pb-safe">
       <PageHeader title="Privacy Policy" showBack />
       <main className="mx-auto flex w-full max-w-sm flex-1 flex-col gap-6 px-5 pb-12 lg:max-w-3xl lg:px-8 lg:py-12">
-        <p className="text-label-sm text-on-surface-variant">Last updated 28 September 2026.</p>
+        <p className="text-label-sm text-on-surface-variant">Last updated 5 October 2026.</p>
 
         <Section title="Who we are">
           <p>
-            Fomo (askfomo.com) is operated by <strong>{"{{OPERATOR_NAME}}"}</strong>{" "}(&ldquo;we&rdquo;,
+            Fomo (askfomo.com) is operated by <strong>Jasbir Singh</strong>, a sole trader (&ldquo;we&rdquo;,
             &ldquo;us&rdquo;). For any question about this policy or your data, contact{" "}
             <strong><a href="mailto:support@askfomo.com">support@askfomo.com</a></strong>.
           </p>
@@ -155,8 +151,9 @@ export default function PrivacyPage() {
           </ul>
           <p>
             To delete your account or exercise any of these rights, email{" "}
-            <strong><a href="mailto:support@askfomo.com">support@askfomo.com</a></strong>. There&rsquo;s no self-serve delete-account button
-            in the app yet, so we&rsquo;ll do it for you by hand.
+            <strong><a href="mailto:support@askfomo.com">support@askfomo.com</a></strong>. You can also use
+            &ldquo;Delete my account&rdquo; on your Profile page, which opens that email for you. We delete your
+            account and the data tied to it within one month and confirm by email.
           </p>
         </Section>
 

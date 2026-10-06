@@ -15,7 +15,7 @@ import {
   savingBadgeLabel,
 } from "@/lib/happenings/format";
 import { bookEarlyLabelFor, bookEarlyTier } from "@/lib/happenings/book-early";
-import { categoryDefaultImage, categoryStyle } from "@/lib/happenings/category-style";
+import { categoryStyle, defaultImageFor } from "@/lib/happenings/category-style";
 import type { Happening, Occurrence } from "@/lib/happenings/types";
 import { happeningToPreview, prefetchHappening, setHappeningPreview } from "@/lib/happenings/preview-cache";
 import { track, priceBand, trackOutboundClicked } from "@/lib/analytics/track";
@@ -134,7 +134,7 @@ export function HappeningHero({ happening, occurrence, variant = "fomo_pick", re
   }
 
   const cat = categoryStyle(happening.category);
-  const heroImage = happening.image_url && !imgError ? happening.image_url : categoryDefaultImage(happening.category);
+  const heroImage = happening.image_url && !imgError ? happening.image_url : defaultImageFor(happening);
 
   return (
     <NavCard
