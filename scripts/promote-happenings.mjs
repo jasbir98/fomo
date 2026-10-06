@@ -30,6 +30,7 @@
  */
 
 import { httpUrlOrNull } from "./lib/http-url.mjs";
+import { EDINBURGH_PLACES_QUERY, buildPlaceIndex, matchHappening } from "./lib/place-match.mjs";
 
 function parseArg(name) {
   const flag = `--${name}`;
@@ -152,6 +153,44 @@ function buildHappeningRow(staging) {
   return row;
 }
 
+// Edinburgh places a promoted row can be linked to, fetched once and only if a
+// row actually needs it. Linking is best-effort: a failed fetch just promotes
+// the rows unlinked (scripts/link-happening-places.mjs backfills them later).
+let placeIndexPromise = null;
+async function fetchEdinburghPlaces() {
+  const PAGE_SIZE = 1000;
+  const rows = [];
+  for (let offset = 0; ; offset += PAGE_SIZE) {
+    const page = await rest(`${EDINBURGH_PLACES_QUERY}&limit=${PAGE_SIZE}&offset=${offset}`);
+    if (!page || page.length === 0) break;
+    rows.push(...page);
+    if (page.length < PAGE_SIZE) break;
+  }
+  return rows;
+}
+
+function getPlaceIndex() {
+  placeIndexPromise ??= fetchEdinburghPlaces()
+    .then((rows) => buildPlaceIndex(rows))
+    .catch((err) => {
+      console.error(`[promote-happenings] WARN: place lookup failed, promoting without place links: ${err.message}`);
+      return null;
+    });
+  return placeIndexPromise;
+}
+
+// Same unique-match-only rule as link-happening-places.mjs, so a deal with no
+// photo of its own borrows its venue's. Never overrides: a row that already
+// carries a place_id keeps it, and no match leaves the column out of the
+// upsert so an existing link on the row survives re-promotion.
+async function linkPlace(row) {
+  if (row.place_id) return;
+  const index = await getPlaceIndex();
+  if (!index) return;
+  const match = matchHappening(index, row);
+  if (match.status === "linked") row.place_id = match.place.id;
+}
+
 async function fetchApprovedUnpromotedStaging() {
   // PostgREST caps a single response at 1000 rows by default — page
   // defensively (see promote-places.mjs, which hit this cap for real
@@ -195,6 +234,7 @@ async function main() {
     }
 
     const happeningRow = buildHappeningRow(staging);
+    await linkPlace(happeningRow);
     let promoted;
     try {
       const rows = await rest("happenings?on_conflict=slug", {
