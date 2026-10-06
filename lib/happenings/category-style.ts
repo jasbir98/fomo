@@ -173,6 +173,49 @@ export function categoryDefaultImage(category: HappeningCategory | null | undefi
   return categoryStyle(category).defaultImage;
 }
 
+/** A keyword-themed fallback photo — public/defaults/themes/<theme>.webp. */
+export interface DefaultImageTheme {
+  theme: string;
+  /** Matched against `title + " " + venue_name`, case-insensitive. */
+  pattern: RegExp;
+}
+
+/**
+ * Ordered keyword themes for `defaultImageFor` — first match wins, so order matters: "classical" sits above "theatre" so an opera deal at the Festival Theatre gets the concert-hall photo, and "workshop" can't hit "shop" because the shopping rules use word boundaries. Regexes are written out in full (no interpolation) so they stay greppable.
+ */
+export const DEFAULT_IMAGE_THEMES: DefaultImageTheme[] = [
+  { theme: "castle", pattern: /\bcastle/i },
+  { theme: "zoo", pattern: /\bzoo\b|\bpenguin/i },
+  // Programme words only, never venue names: the Usher Hall and Queen's Hall
+  // host pop gigs too, and an orchestra photo on an Idlewild gig is wrong.
+  {
+    theme: "classical",
+    pattern:
+      /\borchestra|\bsymphon|\bphilharmon|\bopera\b|\bballet\b|\bchoir\b|\bclassical\b|\bchamber (music|orchestra)\b|\bstring quartet\b|\bSCO\b|\bRSNO\b/i,
+  },
+  { theme: "theatre", pattern: /\btheat(re|er)s?\b|\bplayhouse\b|\bmusicals?\b|\bpanto|\bLyceum\b|\bTraverse\b|\bFringe\b/i },
+  { theme: "train", pattern: /\brailcard|\brail\b|\btrains?\b|\bScotRail\b|\bLNER\b|\bWaverley station\b/i },
+  { theme: "bus", pattern: /\bRidacard|\bLothian\b|\bbus(es)?\b|\btrams?\b/i },
+  { theme: "climbing", pattern: /\bclimb|\bboulder|\bAlien Rock\b|\bHeight Club\b/i },
+  { theme: "swim", pattern: /\bswim|\bpools?\b|\bEdinburgh Leisure\b/i },
+  { theme: "gym", pattern: /\bgyms?\b|\bPureGym\b|\bfitness\b/i },
+  { theme: "hair", pattern: /\bhair|\bbarber|\bsalons?\b|\bcuts?\b|\bstyling\b/i },
+  { theme: "shopping", pattern: /\bSuperdrug\b|\bBody Shop\b|\bBoots\b|\bin-store\b|\bshopping\b|\bshop\b/i },
+];
+
+/**
+ * The best bundled fallback photo for a happening/event with no photo of its own: the first keyword theme matching its title + venue name (public/defaults/themes/<theme>.webp), else the category default. Pure — callers keep their own order (own `image_url` → linked place photo → this).
+ */
+export function defaultImageFor(item: {
+  category?: HappeningCategory | null;
+  title?: string | null;
+  venue_name?: string | null;
+}): string {
+  const text = `${item.title ?? ""} ${item.venue_name ?? ""}`;
+  const hit = DEFAULT_IMAGE_THEMES.find((t) => t.pattern.test(text));
+  return hit ? `/defaults/themes/${hit.theme}.webp` : categoryDefaultImage(item.category);
+}
+
 // ---------------------------------------------------------------------------
 // Kind badge (deal / free_access / festival / activity / tour / event)
 // ---------------------------------------------------------------------------

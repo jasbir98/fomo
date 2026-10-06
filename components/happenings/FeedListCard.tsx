@@ -17,7 +17,7 @@ import {
   shortDayLabel,
 } from "@/lib/happenings/format";
 import { occurrenceIsLive } from "@/lib/happenings/occurrence";
-import { categoryDefaultImage, categoryStyle, kindStyle } from "@/lib/happenings/category-style";
+import { categoryStyle, defaultImageFor, kindStyle } from "@/lib/happenings/category-style";
 import { priceLabelForCard, priceLabelForEvent, priceLabelForHappening } from "@/lib/happenings/price-label";
 import { PriceTag } from "@/components/happenings/PriceTag";
 import type { FeedCardData, RecurringCardData, SeriesCardData } from "@/lib/happenings/feed-types";
@@ -230,7 +230,7 @@ function HappeningRow({
   const qualifies = whoGroup != null && who.includes(whoGroup);
   const oneLiner = oneLinerSummary(happening.summary);
 
-  const thumbnail = happening.image_url ?? categoryDefaultImage(happening.category);
+  const thumbnail = happening.image_url ?? defaultImageFor(happening);
 
   // CARD DENSITY: this row shows ONLY a compact meta chip row (kind/time/
   // venue), the title, one derived one-liner, the price badge, (at most) one
@@ -309,7 +309,7 @@ function HappeningRow({
 function SeriesRow({ card, surface, position }: { card: SeriesCardData; surface?: FeedCardSurface; position?: number }) {
   const { lead, occurrence } = card;
   const tag = happeningTypeTag(lead, occurrence.exact);
-  const thumbnail = lead.image_url ?? categoryDefaultImage(lead.category);
+  const thumbnail = lead.image_url ?? defaultImageFor(lead);
   const oneLiner = oneLinerSummary(lead.summary);
   // The lead's own price stands in for the whole series (a "Parkrun ·
   // 3 locations" card has one price story, not three — same reason it
@@ -378,8 +378,8 @@ function RecurringRow({ card, surface, position }: { card: RecurringCardData; su
   const venue = lead.kind === "happening" ? (lead.happening.venue_name ?? lead.happening.district) : lead.event.venue_name;
   const thumbnail =
     lead.kind === "happening"
-      ? (lead.happening.image_url ?? categoryDefaultImage(lead.happening.category))
-      : (lead.event.image_url ?? categoryDefaultImage(null));
+      ? (lead.happening.image_url ?? defaultImageFor(lead.happening))
+      : (lead.event.image_url ?? defaultImageFor({ title: lead.event.name, venue_name: lead.event.venue_name }));
   const oneLiner = lead.kind === "happening" ? oneLinerSummary(lead.happening.summary) : oneLinerSummary(lead.event.description);
   const href = lead.kind === "happening" ? `/happening/${lead.happening.id}` : `/event/${lead.event.id}`;
 
@@ -444,7 +444,7 @@ function FestivalRow({ happening, surface, position }: { happening: Happening; s
   } catch {
     // source_url failed to parse as a URL — fall back to the raw string.
   }
-  const bannerImage = happening.image_url ?? categoryDefaultImage(happening.category);
+  const bannerImage = happening.image_url ?? defaultImageFor(happening);
 
   return (
     <NavCard
@@ -533,7 +533,7 @@ function EventRow({ event, surface, position }: { event: EventItem; surface?: Fe
   // its own `category` is a free-text provider string, not our enum — so the
   // fallback default image just uses the neutral "other" category tile
   // rather than trying to map an arbitrary provider string onto our palette.
-  const thumbnail = event.image_url ?? categoryDefaultImage(null);
+  const thumbnail = event.image_url ?? defaultImageFor({ title: event.name, venue_name: event.venue_name });
 
   return (
     <CardShell

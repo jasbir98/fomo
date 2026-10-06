@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { Icon, NavCard, SeeAllButton, SmartImage } from "@/components/ui";
-import { categoryDefaultImage } from "@/lib/happenings/category-style";
+import { defaultImageFor } from "@/lib/happenings/category-style";
 import { PriceTag } from "@/components/happenings/PriceTag";
 import type { PriceLabel } from "@/lib/happenings/price-label";
 import type { FreeAnyTimeItem } from "@/lib/happenings/feed-types";
@@ -53,7 +53,7 @@ export function FreeAnyTimeRow({ item }: { item: FreeAnyTimeItem }) {
           />
         ) : item.category ? (
           <SmartImage
-            src={categoryDefaultImage(item.category)}
+            src={defaultImageFor({ category: item.category, title: item.name })}
             alt=""
             width={64}
             height={64}

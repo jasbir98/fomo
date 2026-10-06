@@ -29,7 +29,7 @@ const WEEKDAY_LABEL = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "
 /** Compact card for the horizontal strip — a smaller, denser sibling of
  *  FeedListCard's row (which is sized for a vertical list, not a
  *  fixed-width scroller). Same tap target (`/happening/[id]`), same badge/
- *  thumbnail language (savingBadgeLabel, categoryDefaultImage) so it reads
+ *  thumbnail language (savingBadgeLabel, defaultImageFor) so it reads
  *  as the same app, just condensed. */
 function TodaysDealCard({ card, surface, position }: { card: DealCardData; surface?: "home_today_deals"; position?: number }) {
   const { happening, who: cardWho } = card;
@@ -57,7 +57,7 @@ function TodaysDealCard({ card, surface, position }: { card: DealCardData; surfa
       className="flex w-44 shrink-0 cursor-pointer flex-col gap-2 rounded-2xl bg-surface-container-lowest p-3 shadow-level-1 transition-shadow hover:shadow-level-2 lg:w-full lg:flex-row lg:items-center lg:gap-3"
     >
       <div className="relative h-20 w-full shrink-0 overflow-hidden rounded-xl border border-hairline bg-surface-container lg:w-28">
-        <DealPhoto sources={[happening.image_url]} category={happening.category} width={160} height={80} className="h-full w-full object-cover" />
+        <DealPhoto sources={[happening.image_url]} category={happening.category} title={happening.title} venueName={happening.venue_name} width={160} height={80} className="h-full w-full object-cover" />
         {badge ? (
           <span className="absolute right-1 top-1 rounded-full border border-hairline-strong bg-surface-container-lowest/95 px-2 py-0.5 text-label-sm font-extrabold text-primary shadow-xs">
             {badge}
@@ -125,7 +125,7 @@ function TodaysDealGroupCard({ group, surface, position }: { group: DealVenueGro
       className="flex w-44 shrink-0 cursor-pointer flex-col gap-2 rounded-2xl bg-surface-container-lowest p-3 shadow-level-1 transition-shadow hover:shadow-level-2 lg:w-full lg:flex-row lg:items-center lg:gap-3"
     >
       <div className="relative h-20 w-full shrink-0 overflow-hidden rounded-xl border border-hairline bg-surface-container lg:w-28">
-        <DealPhoto sources={photoSources} category={happening.category} width={160} height={80} className="h-full w-full object-cover" />
+        <DealPhoto sources={photoSources} category={happening.category} title={happening.title} venueName={happening.venue_name} width={160} height={80} className="h-full w-full object-cover" />
         <span className="absolute right-1 top-1 rounded-full border border-hairline-strong bg-surface-container-lowest/95 px-2 py-0.5 text-label-sm font-extrabold text-primary shadow-xs">
           {group.offers.length} deals
         </span>

@@ -54,7 +54,7 @@ function VenueThumbnail({ placeImageUrl, offers }: { placeImageUrl: string | nul
   const sources = [...offers.map((o) => o.happening.image_url), placeImageUrl];
   return (
     <div className="h-16 w-16 shrink-0 overflow-hidden rounded-lg border border-hairline bg-surface-container">
-      <DealPhoto sources={sources} category={offers[0]?.happening.category} width={64} height={64} className="h-full w-full object-cover" />
+      <DealPhoto sources={sources} category={offers[0]?.happening.category} title={offers[0]?.happening.title} venueName={offers[0]?.happening.venue_name} width={64} height={64} className="h-full w-full object-cover" />
     </div>
   );
 }

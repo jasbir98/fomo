@@ -18,7 +18,7 @@ import {
   stripLeadingPatternEcho,
   weeklyEchoLabel,
 } from "@/lib/happenings/format";
-import { categoryDefaultImage } from "@/lib/happenings/category-style";
+import { defaultImageFor } from "@/lib/happenings/category-style";
 import { happeningCtaLabel } from "@/lib/happenings/cta";
 import type { HappeningResponse } from "@/app/api/happenings/[id]/route";
 import type { Happening, Occurrence } from "@/lib/happenings/types";
@@ -243,7 +243,7 @@ export function HappeningDetail({ id, presentation = "page" }: DetailProps) {
     // full-page loader, with skeleton rows standing in for everything the
     // preview doesn't have (promo code, eligibility, full "When" section,
     // provenance, the CTA — all of it needs the real happening row).
-    const previewImage = preview.imageUrl ?? categoryDefaultImage(preview.category);
+    const previewImage = preview.imageUrl ?? defaultImageFor({ category: preview.category, title: preview.title, venue_name: preview.venueName });
     return (
       <div className="flex flex-col gap-4 pb-6">
         <DetailTopBar presentation={presentation} title={preview.title} />
@@ -405,12 +405,12 @@ export function HappeningDetail({ id, presentation = "page" }: DetailProps) {
   // Hero image fallback chain (task: no more flat navy/ticket-icon block for
   // a happening with no image): the happening's own `image_url` (already
   // resolved server-side to fall back to its linked place's photo, if any —
-  // see GET /api/happenings/[id]'s withPlaceImageFallback), else this
-  // category's bundled default image (always resolves to something, so
+  // see GET /api/happenings/[id]'s withPlaceImageFallback), else a keyword-themed
+  // (else this category's) bundled default image (always resolves to something, so
   // heroPhotos is never empty). `imgError` (set by the hidden probe <img>
   // below) drops a real but broken remote URL down to the same default.
   const heroImageUrl =
-    happening.image_url && !imgError ? happening.image_url : categoryDefaultImage(happening.category);
+    happening.image_url && !imgError ? happening.image_url : defaultImageFor(happening);
   const heroPhotos: CarouselPhoto[] = [{ url: heroImageUrl, alt: happening.title }];
 
   function openSource() {
