@@ -101,7 +101,7 @@ export function AppHeader({ title, leading, weather: weatherProp, className = ""
       <header className="flex min-h-[64px] items-center justify-between gap-2 px-4 pt-safe lg:px-8">
         <div className="flex min-w-0 items-center gap-2.5">
           {/* A wrapper rather than a class on FomoLogo itself, which sets its own `inline-flex`. */}
-          <div className="flex lg:hidden">
+          <div className="flex shrink-0 lg:hidden">
             <FomoLogo size={28} />
           </div>
           {leading}
@@ -160,16 +160,17 @@ export function AppHeader({ title, leading, weather: weatherProp, className = ""
             <Icon name="search" size={24} />
           </Link>
           {showInstallChip ? (
-            // Icon-only until there's room for the words; gone below 360px
+            // Icon-only until there's room for the words (480px: below that the
+            // words pushed the right cluster over the wordmark); gone below 380px
             // (the Sign in pill is the wide neighbour it competes with).
             <button
               type="button"
               onClick={() => setInstallOpen(true)}
               aria-label="Get the app"
-              className="flex h-10 items-center justify-center gap-1 rounded-full bg-primary-container/10 px-2.5 text-label-sm font-semibold text-primary transition-colors hover:bg-primary-container/20 max-[359px]:hidden"
+              className="flex h-10 items-center justify-center gap-1 rounded-full bg-primary-container/10 px-2.5 text-label-sm font-semibold text-primary transition-colors hover:bg-primary-container/20 max-[379px]:hidden"
             >
               <Icon name="install_mobile" size={18} />
-              <span className="hidden min-[420px]:inline">Get the app</span>
+              <span className="hidden min-[480px]:inline">Get the app</span>
             </button>
           ) : null}
           {signedIn === null ? (
