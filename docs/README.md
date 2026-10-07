@@ -7,6 +7,13 @@ Run `/plans` in Claude Code for a summary of this page.
 
 Things waiting on you, newest first. Tick them off here, or ask Claude to update this list.
 
+**SEO: "askfomo" search and the stale Google snippet (7 Oct)**
+- [ ] Merge the `seo` PR (title and description, server-rendered pages, robots and sitemap).
+- [ ] Vercel production: `NEXT_PUBLIC_SITE_URL=https://askfomo.com`. Both the sitemap and canonical URLs read it.
+- [ ] Google Search Console: add askfomo.com as a Domain property (DNS TXT record), submit `https://askfomo.com/sitemap.xml`, then URL-inspect `/` and request indexing. Do the same for `/weekend`, `/deals` and `/free`.
+- [ ] Make one of www / apex redirect to the other permanently. Today www sends a 307 (temporary) to the apex.
+- [ ] Put askfomo.com in the Instagram bio, then add the profile URL as `sameAs` in `app/layout.tsx`.
+
 **Data enrichment (7 Oct)**
 - [ ] Merge [PR #7](https://github.com/jasbir98/fomo/pull/7): Ask Fomo uses the new venue facts and deal prices; place and deal pages show them.
 - [ ] Add a `GOOGLE_PLACES_API_KEY` repository secret so the monthly refresh runs. Google only allows its data to be stored for 30 days.
