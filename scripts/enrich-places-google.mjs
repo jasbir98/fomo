@@ -48,6 +48,7 @@
  *                            reported as skipped.
  *   --limit N                Process only the first N target rows.
  *   --only id,id             Process only these place ids.
+ *   --use-matches <file>     Reviewed picks for AMBIGUOUS rows ([{ id, google_place_id, confidence }]; "high" only).
  *
  * Requires NEXT_PUBLIC_SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY (server-only) and,
  * for anything that calls Google, GOOGLE_PLACES_API_KEY.
@@ -84,7 +85,7 @@ const CHANGEABLE_FIELDS = new Set(["address", "lat", "lng", "price_level", "hour
 function parseArgs(argv) {
   const out = {
     apply: false, refresh: false, help: false, maxCalls: DEFAULT_MAX_CALLS, limit: null,
-    only: null, applyChanges: null, rollback: null, fromProposals: null,
+    only: null, applyChanges: null, rollback: null, fromProposals: null, useMatches: null,
   };
   const value = (i, flag) => {
     if (i + 1 >= argv.length || argv[i + 1].startsWith("--")) throw new Error(`${flag} needs a value`);
@@ -101,6 +102,7 @@ function parseArgs(argv) {
     else if (a === "--apply-changes") out.applyChanges = value(i++, a);
     else if (a === "--rollback") out.rollback = value(i++, a);
     else if (a === "--from-proposals") out.fromProposals = value(i++, a);
+    else if (a === "--use-matches") out.useMatches = value(i++, a);
     else throw new Error(`unknown argument ${a}`);
   }
   for (const [k, v] of [["--max-calls", out.maxCalls], ["--limit", out.limit]]) {
@@ -110,11 +112,20 @@ function parseArgs(argv) {
 }
 
 let args;
+/** --use-matches: our place id → Google place id, high-confidence reviewer picks only. */
+let reviewedMatches = null;
 try {
   args = parseArgs(process.argv.slice(2));
 } catch (err) {
   console.error(`${TAG} ${err.message}. Try --help.`);
   process.exit(1);
+}
+
+if (args.useMatches) {
+  const picks = JSON.parse(fs.readFileSync(args.useMatches, "utf8"));
+  reviewedMatches = new Map(
+    picks.filter((p) => p.google_place_id && p.confidence === "high").map((p) => [p.id, p.google_place_id])
+  );
 }
 
 if (args.help) {
@@ -131,6 +142,7 @@ Default is a DRY RUN (calls Google, writes nothing to Supabase).
   --max-calls N            Cap on Google calls (default ${DEFAULT_MAX_CALLS}).
   --limit N                Process only the first N target rows.
   --only id,id             Process only these place ids.
+  --use-matches <file>     Reviewed picks for AMBIGUOUS rows ([{ id, google_place_id, confidence }]; "high" only).
 
 Requires NEXT_PUBLIC_SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, GOOGLE_PLACES_API_KEY.
 `);
@@ -352,6 +364,8 @@ const ageDays = (iso, now) => (iso ? (now - new Date(iso).getTime()) / DAY_MS : 
 
 function selectTargets(rows, now) {
   let targets = rows.filter((r) => !args.only || args.only.has(r.id));
+  // Reviewed matches: only those rows, and only while they still have no id.
+  if (reviewedMatches) targets = targets.filter((r) => !r.google_place_id && reviewedMatches.has(r.id));
   const skippedFresh = [];
   if (args.refresh) {
     targets = targets.filter((r) => r.google_place_id && ageDays(r.google_fetched_at, now) > REFRESH_AFTER_DAYS);
@@ -389,6 +403,11 @@ async function fetchProposals(targets, now) {
     proposals.push(proposal);
 
     let placeId = row.google_place_id;
+    if (!placeId && reviewedMatches?.has(row.id)) {
+      // Picked by a reviewer from this row's AMBIGUOUS candidates; Details and the 'moved' check still run.
+      placeId = reviewedMatches.get(row.id);
+      proposal.resolved = { google_place_id: placeId, how: "reviewed" };
+    }
     if (!placeId) {
       if (!underCap()) {
         proposal.status = "skipped_cap";
