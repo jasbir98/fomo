@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { buildTipDetails, normaliseTipLink } from "@/lib/tips/normalise";
+import { buildTipDetails, normaliseTipLink, placeMapsUrl } from "@/lib/tips/normalise";
 
 test("a full https URL is kept as is", () => {
   assert.deepEqual(normaliseTipLink("https://www.thestand.co.uk/events"), {
@@ -60,4 +60,14 @@ test("combined details are capped", () => {
   assert.equal(out?.length, 100);
   assert.ok(out?.startsWith("Where: Leith\n\nxxx"));
   assert.equal(buildTipDetails({ details: "y".repeat(5000) })?.length, 2000);
+});
+
+test("a picked Google place adds a Maps link to the Where line", () => {
+  assert.equal(
+    buildTipDetails({ location: "The Stand Comedy Club, York Place", placeId: "ChIJ0Wf2y4fHh0gRexample" }),
+    "Where: The Stand Comedy Club, York Place (https://www.google.com/maps/place/?q=place_id:ChIJ0Wf2y4fHh0gRexample)"
+  );
+  assert.equal(buildTipDetails({ location: "Leith", placeId: "not a place id!" }), "Where: Leith");
+  assert.equal(placeMapsUrl("x"), null);
+  assert.equal(placeMapsUrl(null), null);
 });

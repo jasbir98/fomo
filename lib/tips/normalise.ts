@@ -41,18 +41,30 @@ export function normaliseTipLink(raw: string | null | undefined): { url: string 
  * Combine the location, any unusable link text and the user's own details into
  * the single `details` string, capped at `maxLength`. Layout:
  *
- *   Where: <location>
+ *   Where: <location> (<Google Maps link, when picked from the suggestions>)
  *   Link: <leftover>
  *
  *   <details>
  */
+/** Google place ids are URL-safe base64-ish strings; anything else is dropped rather than put in a link. */
+const PLACE_ID_RE = /^[A-Za-z0-9_-]{10,300}$/;
+
+/** A Google Maps link for a place id from the tip form's "Where?" suggestions, or null for anything that isn't one. */
+export function placeMapsUrl(placeId: string | null | undefined): string | null {
+  const id = placeId?.trim();
+  return id && PLACE_ID_RE.test(id) ? `https://www.google.com/maps/place/?q=place_id:${id}` : null;
+}
+
 export function buildTipDetails({
   location,
+  placeId,
   leftoverLink,
   details,
   maxLength = DEFAULT_MAX_DETAILS_LENGTH,
 }: {
   location?: string | null;
+  /** Google place id when "Where?" was picked from the suggestions. */
+  placeId?: string | null;
   leftoverLink?: string | null;
   details?: string | null;
   maxLength?: number;
@@ -60,7 +72,8 @@ export function buildTipDetails({
   const lines: string[] = [];
   const where = location?.trim();
   const link = leftoverLink?.trim();
-  if (where) lines.push(`Where: ${where}`);
+  const maps = placeMapsUrl(placeId);
+  if (where) lines.push(maps ? `Where: ${where} (${maps})` : `Where: ${where}`);
   if (link) lines.push(`Link: ${link}`);
 
   const user = details?.trim();
