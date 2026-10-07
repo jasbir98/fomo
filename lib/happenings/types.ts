@@ -144,6 +144,15 @@ export interface Happening {
   priority: number | null;
   season_valid_until?: string | null;
 
+  // add_enrichment_columns.sql — extracted from the deal's own page.
+  /** Price as the page states it: "£20 for two", "From £15". */
+  price_text: string | null;
+  /** What the price covers: "Pizza or burger, a side and a drink each". */
+  includes: string | null;
+  /** Evidence per enriched field: { field: { url, quote } }. */
+  enrich_sources: Record<string, { url: string; quote: string }> | null;
+  enriched_at: string | null;
+
   created_at: string | null;
   updated_at: string | null;
 }

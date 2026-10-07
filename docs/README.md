@@ -57,6 +57,7 @@ Snapshots of the plans approved in Claude Code plan mode. Each one is a record o
 
 | Plan | Status |
 |---|---|
+| [2026-10-07 Fill in Edinburgh place and deal data](plans/2026-10-07-data-enrichment.md) | In progress: building scripts. |
 | [2026-10-05 Pre-launch fixes and marketing](plans/2026-10-05-prelaunch-fixes.md) | Built; in PR #3. The SQL and dashboard steps are listed above. |
 | [2026-09-29 Ten fixes on staging](plans/2026-09-29-staging-fixes.md) | Shipped. |
 | [2026-09-28 Security review and cleanup](plans/2026-09-28-security-review-and-cleanup.md) | Code fixes shipped. The SQL and dashboard checklist are listed above. |
