@@ -11,11 +11,17 @@
  *   url?: string,
  *   details?: string,
  *   when_text?: string,
+ *   location_text?: string (no column for it: folded into `details` as a
+ *     "Where: …" line),
  *   price_text?: string,
  *   submitter_kind?: 'student' | 'local' | 'venue' | 'other',
  *   contact_email?: string,
  *   website?: string (honeypot)
  * }
+ *
+ * `url` never blocks a tip: it's normalised (a bare "www.foo.co.uk" gets
+ * https://), and anything that still isn't a valid http(s) URL is kept as a
+ * "Link: …" line in `details` instead. See lib/tips/normalise.ts.
  *
  * `website` is a honeypot — a real visitor never sees or fills this field.
  * A non-empty value means a bot filled every input it could find; respond
@@ -37,6 +43,7 @@ import { supabaseServer } from "@/lib/supabase/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import type { Db } from "@/lib/supabase/types";
 import { consumeAnonRateLimit, anonRateLimitedResponse } from "@/lib/rate-limit";
+import { buildTipDetails, normaliseTipLink } from "@/lib/tips/normalise";
 
 export const runtime = "nodejs";
 
@@ -47,6 +54,7 @@ interface TipBody {
   url?: unknown;
   details?: unknown;
   when_text?: unknown;
+  location_text?: unknown;
   price_text?: unknown;
   submitter_kind?: unknown;
   contact_email?: unknown;
@@ -57,6 +65,7 @@ const MAX_TITLE_LENGTH = 200;
 const MAX_URL_LENGTH = 1000;
 const MAX_DETAILS_LENGTH = 2000;
 const MAX_WHEN_TEXT_LENGTH = 200;
+const MAX_LOCATION_TEXT_LENGTH = 200;
 const MAX_PRICE_TEXT_LENGTH = 100;
 const MAX_EMAIL_LENGTH = 254;
 
@@ -68,15 +77,6 @@ const VALID_SUBMITTER_KINDS = ["student", "local", "venue", "other"];
 
 function isNonEmptyString(v: unknown): v is string {
   return typeof v === "string" && v.length > 0;
-}
-
-function isValidUrl(url: string): boolean {
-  try {
-    const parsed = new URL(url);
-    return parsed.protocol === "http:" || parsed.protocol === "https:";
-  } catch {
-    return false;
-  }
 }
 
 /**
@@ -115,17 +115,24 @@ export async function POST(request: Request) {
   }
   const title = body.title.trim();
 
-  // URL is optional but must be valid if provided.
-  let url: string | null = null;
-  if (isNonEmptyString(body.url)) {
-    if (body.url.length > MAX_URL_LENGTH || !isValidUrl(body.url)) {
-      return NextResponse.json({ error: "Please provide a valid URL (http/https)" }, { status: 400 });
-    }
-    url = body.url.trim();
-  }
+  // Link is optional and never rejects a tip: normalise it to a URL when we
+  // can, otherwise keep the raw text in details (see lib/tips/normalise.ts).
+  const { url, leftover: leftoverLink } = normaliseTipLink(
+    isNonEmptyString(body.url) ? body.url.slice(0, MAX_URL_LENGTH) : null,
+  );
 
   // Optional fields with length caps.
-  const details = isNonEmptyString(body.details) ? body.details.slice(0, MAX_DETAILS_LENGTH).trim() : null;
+  const location = isNonEmptyString(body.location_text)
+    ? body.location_text.slice(0, MAX_LOCATION_TEXT_LENGTH).trim()
+    : null;
+  // No `location_text` column (and no migration wanted), so the location and
+  // any unusable link text are folded into details.
+  const details = buildTipDetails({
+    location,
+    leftoverLink,
+    details: isNonEmptyString(body.details) ? body.details.slice(0, MAX_DETAILS_LENGTH) : null,
+    maxLength: MAX_DETAILS_LENGTH,
+  });
   const when_text = isNonEmptyString(body.when_text) ? body.when_text.slice(0, MAX_WHEN_TEXT_LENGTH).trim() : null;
   const price_text = isNonEmptyString(body.price_text) ? body.price_text.slice(0, MAX_PRICE_TEXT_LENGTH).trim() : null;
 

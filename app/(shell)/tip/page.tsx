@@ -9,6 +9,7 @@ type FormStatus = "idle" | "sending" | "done" | "error";
 
 type TipFormData = {
   title: string;
+  location_text: string;
   url: string;
   when_text: string;
   price_text: string;
@@ -29,6 +30,7 @@ export default function TipPage() {
 
   const [formData, setFormData] = useState<TipFormData>({
     title: "",
+    location_text: "",
     url: "",
     when_text: "",
     price_text: "",
@@ -72,6 +74,7 @@ export default function TipPage() {
       setStatus("done");
       setFormData({
         title: "",
+        location_text: "",
         url: "",
         when_text: "",
         price_text: "",
@@ -140,18 +143,44 @@ export default function TipPage() {
             />
           </div>
 
-          {/* Link — only shown if not feedback */}
+          {/* Where? — only shown if not feedback */}
+          {!isFeedback ? (
+            <div className="flex flex-col gap-1.5">
+              <label htmlFor="location_text" className="text-label-md font-medium text-on-surface">
+                Where?
+              </label>
+              <input
+                id="location_text"
+                type="text"
+                name="location_text"
+                autoComplete="off"
+                maxLength={200}
+                placeholder="e.g. The Stand, York Place or Leith"
+                value={formData.location_text}
+                onChange={handleInputChange}
+                disabled={status === "sending"}
+                className="min-h-11 rounded-lg border border-outline-variant bg-surface-container-lowest px-3 text-body-md text-on-surface placeholder:text-outline focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30 disabled:opacity-70"
+              />
+            </div>
+          ) : null}
+
+          {/* Link — only shown if not feedback. Free text on purpose (not type="url"):
+              the server normalises it and never rejects a tip over it. */}
           {!isFeedback ? (
             <div className="flex flex-col gap-1.5">
               <label htmlFor="url" className="text-label-md font-medium text-on-surface">
-                Link
+                Link <span className="text-on-surface-variant font-normal">(optional)</span>
               </label>
               <input
                 id="url"
-                type="url"
+                type="text"
+                inputMode="url"
+                autoCapitalize="none"
+                autoCorrect="off"
+                spellCheck={false}
                 name="url"
                 maxLength={1000}
-                placeholder="https://example.com"
+                placeholder="Website, Instagram or ticket link"
                 value={formData.url}
                 onChange={handleInputChange}
                 disabled={status === "sending"}
