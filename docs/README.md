@@ -10,8 +10,6 @@ Things waiting on you, newest first. Tick them off here, or ask Claude to update
 **Data enrichment (7 Oct)**
 - [ ] Merge [PR #7](https://github.com/jasbir98/fomo/pull/7): Ask Fomo uses the new venue facts and deal prices; place and deal pages show them.
 - [ ] Add a `GOOGLE_PLACES_API_KEY` repository secret so the monthly refresh runs. Google only allows its data to be stored for 30 days.
-- [ ] Remove the 16 places Google lists as permanently closed and the 3 duplicate rows (agreed 7 Oct; prod delete needs a permission rule or running it by hand).
-- [ ] Retire (status `retired`) the stale deals (agreed 7 Oct): Maggie Dicksons free cocktail (page from 2022), Rock & Roll Singles Night (May 2025), Lauriston Castle over-60s (event unavailable).
 - [ ] Later: add the page-extraction step to the weekly DeepSeek pipeline.
 
 **Mobile fixes (7 Oct)**
