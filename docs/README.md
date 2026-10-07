@@ -8,7 +8,8 @@ Run `/plans` in Claude Code for a summary of this page.
 Things waiting on you, newest first. Tick them off here, or ask Claude to update this list.
 
 **Mobile fixes (7 Oct)**
-- [ ] Merge [PR #5](https://github.com/jasbir98/fomo/pull/5): the personalise sheet's Budget row, the tip form's location field and optional link, and Ask Fomo's top pick card. Then send yourself one test tip with only a title, a "Where?" and an Instagram handle as the link.
+- [ ] Merge [PR #6](https://github.com/jasbir98/fomo/pull/6): Google place suggestions on the tip form's "Where?". Then send one test tip, picking a place from the list.
+- [x] Merge [PR #5](https://github.com/jasbir98/fomo/pull/5): the personalise sheet's Budget row, the tip form's location field and optional link, and Ask Fomo's top pick card. Then send yourself one test tip with only a title, a "Where?" and an Instagram handle as the link.
 
 **Ask Fomo timing fix (7 Oct)**
 - [x] Merge [PR #4](https://github.com/jasbir98/fomo/pull/4). Then on askfomo.com ask "Something to do this weekend under £10?" and "Date night this Friday evening?". Neither should suggest a weekday-only or afternoon-only deal.
