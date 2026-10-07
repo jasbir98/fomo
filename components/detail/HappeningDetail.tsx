@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useSyncExternalStore } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import Link from "next/link";
 import { districtFromAddress } from "@/lib/city";
 import { directionsUrlFor } from "@/lib/maps/links";
@@ -105,13 +105,18 @@ async function fetchHappening(id: string): Promise<{ happening: Happening | null
  * because lib/db/happenings.ts is `server-only` — see that route's own doc
  * comment.
  */
-export function HappeningDetail({ id, presentation = "page" }: DetailProps) {
+export function HappeningDetail({ id, presentation = "page", initialData }: DetailProps & { initialData?: HappeningResponse }) {
 
-  const [happening, setHappening] = useState<Happening | null>(null);
+  // `initialData` is what the server rendered for this route (app/(shell)/
+  // happening/[id]/page.tsx), so a shared link's first HTML already holds the
+  // deal. The overlay and in-app navigations don't pass it and load as before.
+  // Either way the effect below still fetches a fresh copy.
+  const [happening, setHappening] = useState<Happening | null>(initialData?.happening ?? null);
   // Other members of the same series (lib/happenings/series.ts) — "" when
   // this happening isn't part of one. Drives the Locations section below.
-  const [siblings, setSiblings] = useState<Happening[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [siblings, setSiblings] = useState<Happening[]>(initialData?.siblings ?? []);
+  const [loading, setLoading] = useState(!initialData?.happening);
+  const hadInitialHappening = useRef(initialData?.happening != null);
   // True only after a real fetch failure (network error or non-2xx) — a
   // genuine 404 (the route's own `happening: null`) never sets this, so the
   // "We couldn't find this deal" copy stays reserved for an actually-missing
@@ -148,7 +153,8 @@ export function HappeningDetail({ id, presentation = "page" }: DetailProps) {
       })
       .catch((err) => {
         console.error("Failed to load happening", err);
-        if (!cancelled) setError(true);
+        // A failed refresh never replaces a deal already on screen.
+        if (!cancelled && !hadInitialHappening.current) setError(true);
       })
       .finally(() => {
         if (!cancelled) setLoading(false);

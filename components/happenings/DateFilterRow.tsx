@@ -4,28 +4,11 @@ import { Chip } from "@/components/ui";
 import { localDayDate } from "@/lib/happenings/occurrence";
 import { monthShort } from "@/lib/happenings/format";
 import type { FeedCardData } from "@/lib/happenings/feed-types";
+import { cardDayDate, cardOnDay } from "@/lib/happenings/card-days";
 
-/** A What's on card's local calendar day — `occurrence.dayDate` for a
- *  happening/series card, else derived from an event's `starts_at` the same
- *  way app/api/feed/route.ts's own `dayDateOf` does. Used only by client-side
- *  date filtering over an already-fetched card list (the route already
- *  sorts/groups server-side; this re-derives the same day string purely for
- *  filtering the list the caller already has, not for re-bucketing it). */
-export function cardDayDate(card: FeedCardData): string {
-  if (card.kind === "event") return localDayDate(new Date(card.event.starts_at));
-  if (card.kind === "recurring") return card.dates[0];
-  return card.occurrence.dayDate;
-}
-
-/** Last day a card is on — a multi-day run's `lastDayDate`, else its one day.
- *  For a recurring card (lib/happenings/recurring.ts) this is its LAST
- *  occurrence date, but see `cardOnDay`'s own override below — its
- *  occurrences aren't a contiguous run, so this range alone would wrongly
- *  match days in between two dates it doesn't actually run on. */
-function cardLastDayDate(card: FeedCardData): string {
-  if (card.kind === "recurring") return card.dates[card.dates.length - 1];
-  return card.kind === "event" ? cardDayDate(card) : card.occurrence.lastDayDate;
-}
+// The pure day helpers live in lib/happenings/card-days.ts (server pages use
+// them too); re-exported so existing imports from here keep working.
+export { cardDayDate, cardOnDay };
 
 /** The day pill a card contributes, or null for something already running
  *  (an exhibition that opened in June would otherwise add a "Jun 27" pill to
@@ -34,15 +17,6 @@ function cardLastDayDate(card: FeedCardData): string {
 export function cardPillDate(card: FeedCardData, today: string = localDayDate(new Date())): string | null {
   const day = cardDayDate(card);
   return day < today ? null : day;
-}
-
-/** Whether a card is on `day` — inside its run for multi-day happenings, or
- *  (a recurring card) one of its exact occurrence dates — its dates aren't
- *  necessarily contiguous (e.g. every Tuesday), so this checks membership
- *  rather than a `first <= day <= last` range. */
-export function cardOnDay(card: FeedCardData, day: string): boolean {
-  if (card.kind === "recurring") return card.dates.includes(day);
-  return cardDayDate(card) <= day && day <= cardLastDayDate(card);
 }
 
 /** "Sep" / "26" / "Sat" for one date pill — `monthShort` (not

@@ -1,17 +1,12 @@
 import type { Metadata } from "next";
+import { pageMetadata } from "@/lib/seo/metadata";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = pageMetadata({
   title: "Saved",
   description: "Your saved things to do in Edinburgh.",
-  // Setting openGraph replaces the root's, so the default card image has to be named again.
-  openGraph: {
-    images: ["/opengraph-image"],
-    title: "Saved · Fomo",
-    description: "Your saved things to do in Edinburgh.",
-  },
-  robots: { index: false },
-  twitter: { card: "summary_large_image", images: ["/twitter-image"] },
-};
+  path: "/saved",
+  noindex: true,
+});
 
 export default function SavedLayout({ children }: { children: React.ReactNode }) {
   return children;

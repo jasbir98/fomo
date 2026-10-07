@@ -1,9 +1,9 @@
 import type { MetadataRoute } from "next";
-import { supabaseServer } from "@/lib/supabase/server";
+import { supabaseAnon } from "@/lib/supabase/anon";
 import { listLiveHappenings } from "@/lib/db/happenings";
 import { listUpcomingEvents } from "@/lib/db/events";
-
-const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "https://askfomo.com";
+import { happeningHasEnded } from "@/lib/happenings/occurrence";
+import { SITE_URL } from "@/lib/seo/site";
 
 // Public, indexable static pages — anything behind auth (signin/welcome/
 // profile/fomo chat) or an API route is deliberately left out, matching
@@ -41,14 +41,20 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     lastModified: new Date(),
   }));
 
-  const db = await supabaseServer();
+  // Cookie-less anon client: everything here is public catalogue data, and
+  // reading cookies() would make this route dynamic instead of hourly-ISR.
+  const db = supabaseAnon();
+  const now = new Date();
 
   const [happenings, events] = await Promise.all([
     listLiveHappenings(db).catch(() => []),
     listUpcomingEvents(db, { limit: MAX_DYNAMIC_URLS }).catch(() => []),
   ]);
 
+  // A "live" row whose dated window has passed still has a page, but it isn't
+  // worth a crawler's time (the page itself is noindex once ended).
   const happeningEntries: MetadataRoute.Sitemap = happenings
+    .filter((happening) => !happeningHasEnded(happening, now))
     .slice(0, MAX_DYNAMIC_URLS / 2)
     .map((happening) => ({
       url: `${SITE_URL}/happening/${happening.id}`,

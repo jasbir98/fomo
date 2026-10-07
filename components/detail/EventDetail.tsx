@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useSyncExternalStore } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { supabaseBrowserAuth } from "@/lib/supabase/client";
@@ -76,13 +76,18 @@ function eventGoogleCalendarUrl(event: EventItem): string {
  * navigates to /place/[id]. Fomo has no trips anymore — the secondary action
  * is a save/bookmark toggle (lib/useSaved.ts) instead of add-to-itinerary.
  */
-export function EventDetail({ id, presentation = "page" }: DetailProps) {
+export function EventDetail({ id, presentation = "page", initialEvent }: DetailProps & { initialEvent?: EventItem | null }) {
   const db = supabaseBrowserAuth();
   const pathname = usePathname();
   const { isSaved: checkSaved, toggle: toggleSaved } = useSaved();
 
-  const [event, setEvent] = useState<EventItem | null>(null);
-  const [loading, setLoading] = useState(true);
+  // `initialEvent` is what the server rendered for this route (app/(shell)/
+  // event/[id]/page.tsx), so a shared link's first HTML already holds the
+  // event. The overlay and in-app navigations don't pass it and load as
+  // before. Either way the effect below still fetches a fresh copy.
+  const [event, setEvent] = useState<EventItem | null>(initialEvent ?? null);
+  const [loading, setLoading] = useState(!initialEvent);
+  const hadInitialEvent = useRef(initialEvent != null);
   // True only after a real fetch failure — `getEvent` (lib/db/events.ts)
   // throws on an actual Supabase/network error and only ever resolves to
   // `null` for a genuine "no such row", so this stays reserved for the
@@ -117,7 +122,8 @@ export function EventDetail({ id, presentation = "page" }: DetailProps) {
       })
       .catch((err) => {
         console.error("Failed to load event", err);
-        if (!cancelled) setError(true);
+        // A failed refresh never replaces an event already on screen.
+        if (!cancelled && !hadInitialEvent.current) setError(true);
       })
       .finally(() => {
         if (!cancelled) setLoading(false);

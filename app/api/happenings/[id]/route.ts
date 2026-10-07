@@ -1,6 +1,7 @@
 /**
  * GET /api/happenings/[id] — single happening lookup, for the happening
- * detail page (app/(shell)/happening/[id]/page.tsx).
+ * detail page (app/(shell)/happening/[id]/page.tsx), which also builds the
+ * same data on the server for its first paint (lib/happenings/detail.ts).
  *
  * A route, not a direct client-side `lib/db` call, because
  * lib/db/happenings.ts is `server-only` (it's the read the GET /api/feed
@@ -13,42 +14,13 @@
  */
 import "server-only";
 import { supabaseServer } from "@/lib/supabase/server";
-import { CITY } from "@/lib/city";
-import { getHappeningById, listLiveHappenings } from "@/lib/db/happenings";
-import { listPlacesByIds } from "@/lib/db/places";
-import { groupHappeningsIntoSeries } from "@/lib/happenings/series";
-import type { Happening } from "@/lib/happenings/types";
-import type { Place } from "@/lib/types";
+import { loadHappeningDetail, type HappeningDetailData } from "@/lib/happenings/detail";
 import { cachedJson, CACHE_MEDIUM, CACHE_PRIVATE_NO_STORE } from "@/lib/http/cache";
-
-/**
- * Same fallback as GET /api/feed's own `withPlaceImageFallback`: a happening
- * with no `image_url` of its own borrows its linked place's photo. Kept as a
- * local copy (not imported) because the feed route's version isn't exported
- * and takes a request-scoped Map this route builds independently — the
- * detail page needs the same result for exactly two happenings' worth of
- * rows (the one being viewed, plus its series siblings), not a whole feed's.
- */
-function withPlaceImageFallback(h: Happening, placesById: Map<string, Place>): Happening {
-  if (h.image_url || !h.place_id) return h;
-  const placeImage = placesById.get(h.place_id)?.image_url;
-  return placeImage ? { ...h, image_url: placeImage } : h;
-}
 
 export const runtime = "nodejs";
 
-export interface HappeningResponse {
-  happening: Happening | null;
-  /**
-   * Other members of the same series (lib/happenings/series.ts) — "Also at"
-   * locations for the detail page's Locations section (task 1's "links to a
-   * detail view that lists every location/date"). Always `[]` when the
-   * happening isn't part of a series, including when it or the whole
-   * catalog can't be re-fetched live (best-effort, never fails the main
-   * `happening` lookup above it).
-   */
-  siblings: Happening[];
-}
+/** `siblings` is every other member of the happening's series, `[]` when it isn't part of one — see HappeningDetailData. */
+export type HappeningResponse = HappeningDetailData;
 
 export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -57,37 +29,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
   // happenings are `read_all` to anon under RLS.
 
   try {
-    let happening = await getHappeningById(db, id);
-    let siblings: Happening[] = [];
-    if (happening) {
-      try {
-        const all = await listLiveHappenings(db, CITY);
-        const groups = groupHappeningsIntoSeries(all);
-        const group = groups.find((g) => g.members.some((m) => m.id === happening!.id));
-        if (group) siblings = group.members.filter((m) => m.id !== happening!.id);
-      } catch (err) {
-        console.error("[api/happenings/:id] series lookup failed", err);
-      }
-
-      // Hero image fallback (task: "Detail hero has no image" — same chain
-      // as the feed cards) — borrow the linked place's photo for this
-      // happening and every sibling that has none of its own, batched into
-      // one query. Best-effort: a lookup failure just leaves image_url as
-      // the DB had it (the page's own category-default <img onError> still
-      // covers that case), never fails the whole response.
-      const needingPlaceImage = [happening, ...siblings].filter((h) => !h.image_url && h.place_id);
-      if (needingPlaceImage.length > 0) {
-        try {
-          const placeIds = Array.from(new Set(needingPlaceImage.map((h) => h.place_id as string)));
-          const places = await listPlacesByIds(db, placeIds);
-          const placesById = new Map(places.map((p) => [p.id, p]));
-          happening = withPlaceImageFallback(happening, placesById);
-          siblings = siblings.map((s) => withPlaceImageFallback(s, placesById));
-        } catch (err) {
-          console.error("[api/happenings/:id] place image fallback failed", err);
-        }
-      }
-    }
+    const { happening, siblings } = await loadHappeningDetail(db, id);
     // CACHE_MEDIUM, not CACHE_PRIVATE_NO_STORE: this response never depends
     // on the caller (RLS grants `read_all` to anon, and nothing here reads
     // `db`'s session). It's still `private` (browser-cache only), never
