@@ -53,6 +53,18 @@ import type { AiReplyBlock, ChatItem, ChatPlace } from "@/lib/fomo-ai";
 import type { Happening } from "@/lib/happenings/types";
 import { defaultImageFor } from "@/lib/happenings/category-style";
 import { resolveHappeningCoords, loadPlacesForHappenings } from "@/lib/explore/coords";
+import {
+  dateKeyLine,
+  daysOnLabel,
+  eventDaysOn,
+  happeningDaysOn,
+  isOnAnyDate,
+  parseDates,
+  windowDays,
+  type DaysOn,
+} from "@/lib/chat/days";
+import { isValidAt, parseClock, parseWeekHours, type WeekHours } from "@/lib/chat/hours";
+import { weekdayOf } from "@/lib/happenings/occurrence";
 import type { CardSubjectType, Place } from "@/lib/types";
 import type { Db } from "@/lib/supabase/types";
 
@@ -116,6 +128,8 @@ const VALID_SEED_TYPES = new Set<CardSubjectType>(["place", "event", "happening"
 /** How far ahead the catalogue looks, and how many provider events it carries. */
 const CATALOGUE_DAYS = 7;
 const MAX_CATALOGUE_EVENTS = 60;
+/** Cap on a happening's time_note ("Valid Mon–Thu 4–9pm...") in its catalogue line. */
+const TIME_NOTE_CHARS = 120;
 const MAX_ITEMS_PER_REPLY = 4;
 const MAX_PLACES_PER_REPLY = 4;
 /** With no show_places call after a search, fall back to this many top results. */
@@ -141,6 +155,14 @@ interface Catalogue {
   lines: string[];
   /** Catalogue id ("H:<uuid>" / "E:<uuid>") → the card the client renders. */
   items: Map<string, ChatItem>;
+  /** Catalogue id → the local days it's on this week (null = every day), for show_items' `dates` check. */
+  days: Map<string, DaysOn>;
+  /** Catalogue id → an offer's valid hours read from its time note (null = unknown), for show_items' time check. */
+  hours: Map<string, WeekHours | null>;
+  /** Catalogue id → "on Mon 12, Tue 13; hours: …", quoted back to the model when a card is hidden. */
+  timing: Map<string, string>;
+  /** The local days the catalogue covers, today first. */
+  window: string[];
 }
 
 function jsonError(message: string, status: number): Response {
@@ -183,6 +205,10 @@ async function buildCatalogue(db: Db, now: Date): Promise<Catalogue> {
 
   const lines: string[] = [];
   const items = new Map<string, ChatItem>();
+  const days = new Map<string, DaysOn>();
+  const hours = new Map<string, WeekHours | null>();
+  const timing = new Map<string, string>();
+  const window = windowDays(now, CATALOGUE_DAYS + 1, CITY.timezone);
 
   // Resolve each happening's next occurrence up front so the coordinate
   // fallback (one batched places query for linked venues) only covers rows
@@ -209,6 +235,10 @@ async function buildCatalogue(db: Db, now: Date): Promise<Catalogue> {
     const badge = h.is_free ? "Free" : savingBadgeLabel(h);
     const key = `H:${h.id}`;
     const coords = resolveHappeningCoords(h, placesById);
+    const on = happeningDaysOn(h, window, CITY.timezone);
+    days.set(key, on);
+    hours.set(key, parseWeekHours(h.time_note));
+    timing.set(key, `on ${daysOnLabel(on, window)}${h.time_note ? `; hours: ${h.time_note.replace(/\s+/g, " ").slice(0, TIME_NOTE_CHARS)}` : ""}`);
     lines.push(
       [
         key,
@@ -216,6 +246,10 @@ async function buildCatalogue(db: Db, now: Date): Promise<Catalogue> {
         h.kind,
         field(badge, "price varies"),
         field(when, "any time"),
+        daysOnLabel(on, window),
+        // Valid hours live here ("Mon–Thu 4–9pm, Fri–Sat 1–4pm"); without them
+        // an "always" voucher reads as good for any evening.
+        field(h.time_note?.replace(/\s+/g, " ").slice(0, TIME_NOTE_CHARS), "not stated"),
         field(where, CITY.name),
         field(eligibilityLine(h), "anyone"),
         field(h.summary?.slice(0, 100), ""),
@@ -241,6 +275,9 @@ async function buildCatalogue(db: Db, now: Date): Promise<Catalogue> {
     const key = `E:${e.id}`;
     const when = formatEventWhen(e.starts_at);
     const price = formatEventPrice(e) || null;
+    const on = eventDaysOn(e.starts_at, e.ends_at ?? null, window, CITY.timezone);
+    days.set(key, on);
+    timing.set(key, `on ${daysOnLabel(on, window)}${when ? ` (${when})` : ""}`);
     lines.push(
       [
         key,
@@ -248,6 +285,8 @@ async function buildCatalogue(db: Db, now: Date): Promise<Catalogue> {
         "event",
         field(price, "price unknown"),
         field(when, "date unknown"),
+        daysOnLabel(on, window),
+        "as listed",
         field(e.venue_name, CITY.name),
         field(e.category, ""),
       ].join(" | ")
@@ -265,7 +304,7 @@ async function buildCatalogue(db: Db, now: Date): Promise<Catalogue> {
     });
   }
 
-  return { lines, items };
+  return { lines, items, days, hours, timing, window };
 }
 
 function buildSystemPrompt(
@@ -287,7 +326,9 @@ function buildSystemPrompt(
     `You are Fomo, a friend in ${CITY.name} who always knows what's on and what's free, cheap or discounted right now. It is ${today} in ${CITY.name}. Warm, direct, UK English.`,
     "Keep replies short: 1-3 sentences, answer first, no preamble or caveats nobody asked for.",
     "Write like a friendly local texting a mate: short, plain, British English. Never use em dashes. No 'Discover', 'Dive into', 'hidden gem', 'vibrant'.",
-    `Ground every recommendation in the CATALOGUE below, Fomo's verified list of live deals, free things, festivals and this week's events. When you recommend something concrete, call show_items with its catalogue ids (up to ${MAX_ITEMS_PER_REPLY}, best first) and keep your text to a short lead-in; the app shows each card with its price, time and place. Never state a price, date, time, venue or discount that isn't in the catalogue, and never invent places or events. General ${CITY.name} knowledge (neighbourhoods, getting around, what an area is like) is fine without ids.`,
+    `Ground every recommendation in the CATALOGUE below, Fomo's verified list of live deals, free things, festivals and this week's events. When you recommend something concrete, call show_items with its catalogue ids (up to ${MAX_ITEMS_PER_REPLY}, best first) and keep your text short. The app shows each card with its price, time and place. Never state a price, date, time, venue or discount that isn't in the catalogue, and never invent places or events. General ${CITY.name} knowledge (neighbourhoods, getting around, what an area is like) is fine without ids.`,
+    `Timing matters. Each catalogue line says which days it's on this week and, for offers, the hours it's valid. Only recommend something for a day and time it actually covers: a Mon-Thu lunch deal is not a weekend answer, and an offer valid 1-4pm on Fridays is not a Friday night plan. When the user names a day or time (tonight, tomorrow, Friday, this weekend), pass those dates to show_items as \`dates\` (and for a time of day like tonight or Friday evening, \`time_from\`/\`time_to\` too, e.g. "17:00" to "24:00"), using this key: ${dateKeyLine(catalogue.window)}. If an offer has limited hours, say them in your text. If nothing fits the time they asked about, say so plainly.`,
+    `Every show_items call needs top_pick: one line, shown as your message, on why the first card is the best choice for what they asked. Say what they actually get, the price or saving, and why it fits their day, budget or group, e.g. "X is your best bet: <what you get> for <price>, and it's on Friday night." Only use facts from that item's catalogue line, and don't also write the same thing as text. Prices are per person unless the title says it's for two. If an item's price is "price varies" or unknown, don't call it cheap or say it fits their budget; say the price isn't listed.`,
     "If nothing in the catalogue fits, say so plainly and offer the closest match. If a request is too vague to act on, call suggest_quick_replies with 2-4 concrete options instead of guessing.",
     `Catalogue first. Use find_places (a Google Maps search) ONLY when the catalogue has nothing fitting, or the user asks for a type of venue or food (a cheap biryani, a cosy pub, somewhere open now). Don't write any text before calling it. Pass a short query (e.g. "biryani"), plus area, open_now or max_price only if the user gave them. You get results as "P:<id> | name | rating | price | open now? | type | address | summary" lines; then call show_places with the ids of the best ${MAX_PLACES_PER_REPLY} at most, best first, and add a short lead-in. For Google results only state what the results say. Never invent venue facts, and mention prices only if the results give one. If the search is unavailable, answer from the catalogue or general knowledge and don't name specific prices.`,
   ];
@@ -320,7 +361,7 @@ function buildSystemPrompt(
   }
 
   parts.push(
-    `CATALOGUE (id | title | kind | price or saving | when | where | who it's for or category | summary):\n${
+    `CATALOGUE (id | title | kind | price or saving | when | on (this week) | valid hours | where | who it's for or category | summary):\n${
       catalogue.lines.length > 0 ? catalogue.lines.join("\n") : "(nothing live right now)"
     }`
   );
@@ -342,10 +383,22 @@ const TOOLS = [
         },
         reason: {
           type: "string",
-          description: "Optional short line on why these, shown above the cards.",
+          description: "Optional short line shown above the cards. Don't repeat the reason already in your text.",
+        },
+        dates: {
+          type: "array",
+          items: { type: "string" },
+          description:
+            'When the user asked about particular days (tonight, Friday, this weekend): those local dates as "YYYY-MM-DD". Cards not on any of them are hidden. Omit when they named no day.',
+        },
+        time_from: { type: "string", description: 'With dates, when they asked about a time of day: its start as "HH:MM" (evening "17:00").' },
+        time_to: { type: "string", description: 'Its end as "HH:MM" (evening "24:00").' },
+        top_pick: {
+          type: "string",
+          description: "One line, shown as your message: why the first card is the best choice for what they asked (what they get, the price or saving, why it fits).",
         },
       },
-      required: ["ids"],
+      required: ["ids", "top_pick"],
     },
   },
   {
@@ -419,6 +472,78 @@ function cleanReason(value: unknown): string | undefined {
 }
 
 /**
+ * Round 1's assistant turn plus a tool_result for every tool_use in it, ready
+ * to send back for a second round. DeepSeek 400s the whole request if any
+ * tool_use in history lacks a tool_result. Thinking blocks are dropped (the
+ * second round runs with thinking disabled).
+ */
+function replayRound(
+  content: ContentBlock[],
+  resultFor: (block: ContentBlock) => { content: string; is_error?: boolean }
+): { assistant: Anthropic.ContentBlockParam[]; results: Anthropic.ToolResultBlockParam[] } {
+  const assistant: Anthropic.ContentBlockParam[] = [];
+  const results: Anthropic.ToolResultBlockParam[] = [];
+  for (const b of content) {
+    if (b.type === "text") {
+      const text = String(b.text ?? "");
+      if (text.trim()) assistant.push({ type: "text", text });
+    } else if (b.type === "tool_use") {
+      const id = String(b.id);
+      assistant.push({ type: "tool_use", id, name: String(b.name), input: (b.input ?? {}) as Record<string, unknown> });
+      results.push({ type: "tool_result", tool_use_id: id, ...resultFor(b) });
+    }
+  }
+  return { assistant, results };
+}
+
+interface ShowItemsCheck {
+  /** The cards that pass, in the model's order. */
+  items: ChatItem[];
+  /** Catalogue ids the model picked that aren't on at the day or time asked about. */
+  hidden: string[];
+  /** Whether the model's first pick survived, so its top_pick line still describes the first card. */
+  firstKept: boolean;
+}
+
+/**
+ * Resolves a show_items call: known ids only, deduped, capped, and minus any
+ * card not on the asked-for dates or (for a time of day) not valid then. The
+ * model picks; these checks are ours, so a Mon-Thu deal never answers a
+ * weekend question and a 1-4pm voucher never answers a Friday night one.
+ */
+function checkShowItems(input: Record<string, unknown>, catalogue: Catalogue): ShowItemsCheck {
+  const ids = Array.isArray(input.ids) ? input.ids : [];
+  const dates = parseDates(input.dates);
+  // A time of day only means something on given days; "tonight" with no dates means today.
+  const from = parseClock(input.time_from);
+  const to = parseClock(input.time_to);
+  const timeDates = from !== null && to !== null && to > from ? (dates.length > 0 ? dates : [catalogue.window[0]]) : [];
+  const seen = new Set<string>();
+  const items: ChatItem[] = [];
+  const hidden: string[] = [];
+  let firstKept = false;
+  for (const [i, id] of ids.entries()) {
+    if (typeof id !== "string") continue;
+    const key = id.trim();
+    const item = catalogue.items.get(key);
+    if (!item || seen.has(key)) continue;
+    seen.add(key);
+    const days = catalogue.days.get(key) ?? null;
+    const validThen =
+      isOnAnyDate(days, dates) &&
+      (timeDates.length === 0 ||
+        timeDates.some((d) => isOnAnyDate(days, [d]) && isValidAt(catalogue.hours.get(key) ?? null, weekdayOf(d), from!, to!)));
+    if (!validThen) {
+      hidden.push(key);
+      continue;
+    }
+    if (i === 0) firstKept = true;
+    if (items.length < MAX_ITEMS_PER_REPLY) items.push(item);
+  }
+  return { items, hidden, firstKept };
+}
+
+/**
  * Assemble ordered AiReplyBlock[] from the model's final content blocks,
  * resolving show_items ids against the catalogue and show_places ids against
  * the Google results (`placeResults`; without them show_places is ignored).
@@ -437,20 +562,13 @@ function assembleBlocks(
     } else if (block.type === "tool_use") {
       const input = (block.input ?? {}) as Record<string, unknown>;
       if (block.name === "show_items") {
-        const ids = Array.isArray(input.ids) ? input.ids : [];
-        const seen = new Set<string>();
-        const items: ChatItem[] = [];
-        for (const id of ids) {
-          if (typeof id !== "string") continue;
-          const key = id.trim();
-          const item = catalogue.items.get(key);
-          if (!item || seen.has(key)) continue;
-          seen.add(key);
-          items.push(item);
-          if (items.length >= MAX_ITEMS_PER_REPLY) break;
-        }
-        if (items.length > 0) {
+        const { items, hidden, firstKept } = checkShowItems(input, catalogue);        if (items.length > 0) {
+          // The reason only stands if its card survived the checks above.
+          const topPick = cleanReason(input.top_pick);
+          if (topPick && firstKept) blocks.push({ kind: "text", text: topPick });
           blocks.push({ kind: "items", reason: cleanReason(input.reason), items });
+        } else if (hidden.length > 0) {
+          blocks.push({ kind: "text", text: "Nothing I've got is on then, sorry. Try another day?" });
         }
       } else if (block.name === "show_places") {
         const ids = Array.isArray(input.ids) ? input.ids : [];
@@ -728,7 +846,7 @@ async function handleChat(req: Request, slot: AnonSlot): Promise<Response> {
   } catch (err) {
     // Chat still answers general questions; the prompt says nothing is live.
     console.error("[api/chat] catalogue build failed", err);
-    catalogue = { lines: [], items: new Map() };
+    catalogue = { lines: [], items: new Map(), days: new Map(), hours: new Map(), timing: new Map(), window: windowDays(now, CATALOGUE_DAYS + 1, CITY.timezone) };
   }
 
   const system = buildSystemPrompt(catalogue, now, who, seed);
@@ -793,46 +911,59 @@ async function handleChat(req: Request, slot: AnonSlot): Promise<Response> {
         const searchCall = first.find((b) => b.type === "tool_use" && b.name === "find_places");
         let blocks: AiReplyBlock[];
 
-        if (!searchCall) {
+        // Cards the checks would hide (wrong day, or outside an offer's hours).
+        const hiddenBy = new Map<ContentBlock, string[]>();
+        for (const b of first) {
+          if (b.type !== "tool_use" || b.name !== "show_items") continue;
+          const { hidden } = checkShowItems((b.input ?? {}) as Record<string, unknown>, catalogue);
+          if (hidden.length > 0) hiddenBy.set(b, hidden);
+        }
+
+        if (!searchCall && hiddenBy.size === 0) {
           blocks = assembleBlocks(first, catalogue);
+        } else if (!searchCall) {
+          // Round 2: tell the model which picks don't work then and why, and let
+          // it choose again with a fresh top_pick, rather than silently
+          // dropping cards and leaving a reason that described one of them.
+          const { assistant, results } = replayRound(first, (b) => {
+            const hidden = hiddenBy.get(b);
+            if (!hidden) return { content: "ok" };
+            const why = hidden.map((k) => `${k} ${catalogue.items.get(k)?.title ?? ""} (${catalogue.timing.get(k) ?? "timing unknown"})`);
+            return {
+              content: `Hidden, not on at the day or time they asked about: ${why.join("; ")}. Call show_items again with only things that fit, best first, with a new top_pick. If nothing fits, say so in one line.`,
+            };
+          });
+          let second: ContentBlock[] = [];
+          try {
+            second = await streamRound(
+              {
+                max_tokens: 1200,
+                thinking: { type: "disabled" },
+                tool_choice: { type: "auto" },
+                messages: [...messages, { role: "assistant", content: assistant }, { role: "user", content: results }],
+              },
+              "\n\n"
+            );
+          } catch (err) {
+            console.warn("[api/chat] recheck round failed", getStreamErrorMessage(err));
+          }
+          const secondBlocks = assembleBlocks(second, catalogue);
+          // Round 1's text may describe a hidden pick, so it only survives if round 2 gave nothing.
+          blocks = secondBlocks.length > 0 ? secondBlocks : assembleBlocks(first, catalogue);
         } else {
           // Only the first find_places runs; a second one in the same reply is refused.
           send({ type: "status", text: "Checking Google Maps…" });
           const outcome = await runPlacesSearch((searchCall.input ?? {}) as Record<string, unknown>, db, req, signedIn);
 
-          // DeepSeek 400s the whole request if any tool_use in history lacks a
-          // tool_result, so every tool_use from round 1 gets one. Thinking
-          // blocks are dropped from the replayed assistant turn (round 2 runs
-          // with thinking disabled).
-          const assistantContent: Anthropic.ContentBlockParam[] = [];
-          const toolResults: Anthropic.ToolResultBlockParam[] = [];
-          for (const b of first) {
-            if (b.type === "text") {
-              const text = String(b.text ?? "");
-              if (text.trim()) assistantContent.push({ type: "text", text });
-            } else if (b.type === "tool_use") {
-              const id = String(b.id);
-              assistantContent.push({
-                type: "tool_use",
-                id,
-                name: String(b.name),
-                input: (b.input ?? {}) as Record<string, unknown>,
-              });
-              if (b === searchCall) {
-                toolResults.push({ type: "tool_result", tool_use_id: id, content: outcome.message, is_error: outcome.isError });
-              } else if (b.name === "find_places") {
-                toolResults.push({ type: "tool_result", tool_use_id: id, content: "Only one search per message." });
-              } else if (b.name === "show_places") {
-                toolResults.push({
-                  type: "tool_result",
-                  tool_use_id: id,
-                  content: "Not yet. Call show_places after you have the search results.",
-                });
-              } else {
-                toolResults.push({ type: "tool_result", tool_use_id: id, content: "ok" });
-              }
-            }
-          }
+          const { assistant: assistantContent, results: toolResults } = replayRound(first, (b) =>
+            b === searchCall
+              ? { content: outcome.message, is_error: outcome.isError }
+              : b.name === "find_places"
+                ? { content: "Only one search per message." }
+                : b.name === "show_places"
+                  ? { content: "Not yet. Call show_places after you have the search results." }
+                  : { content: "ok" }
+          );
 
           const roundOneText = first
             .filter((b) => b.type === "text" && String(b.text ?? "").trim())
