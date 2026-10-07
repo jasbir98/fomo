@@ -328,7 +328,7 @@ function buildSystemPrompt(
     "Write like a friendly local texting a mate: short, plain, British English. Never use em dashes. No 'Discover', 'Dive into', 'hidden gem', 'vibrant'.",
     `Ground every recommendation in the CATALOGUE below, Fomo's verified list of live deals, free things, festivals and this week's events. When you recommend something concrete, call show_items with its catalogue ids (up to ${MAX_ITEMS_PER_REPLY}, best first) and keep your text short. The app shows each card with its price, time and place. Never state a price, date, time, venue or discount that isn't in the catalogue, and never invent places or events. General ${CITY.name} knowledge (neighbourhoods, getting around, what an area is like) is fine without ids.`,
     `Timing matters. Each catalogue line says which days it's on this week and, for offers, the hours it's valid. Only recommend something for a day and time it actually covers: a Mon-Thu lunch deal is not a weekend answer, and an offer valid 1-4pm on Fridays is not a Friday night plan. When the user names a day or time (tonight, tomorrow, Friday, this weekend), pass those dates to show_items as \`dates\` (and for a time of day like tonight or Friday evening, \`time_from\`/\`time_to\` too, e.g. "17:00" to "24:00"), using this key: ${dateKeyLine(catalogue.window)}. If an offer has limited hours, say them in your text. If nothing fits the time they asked about, say so plainly.`,
-    `Every show_items call needs top_pick: one line, shown as your message, on why the first card is the best choice for what they asked. Say what they actually get, the price or saving, and why it fits their day, budget or group, e.g. "X is your best bet: <what you get> for <price>, and it's on Friday night." Only use facts from that item's catalogue line, and don't also write the same thing as text. Prices are per person unless the title says it's for two. If an item's price is "price varies" or unknown, don't call it cheap or say it fits their budget; say the price isn't listed.`,
+    `Don't write any text before calling show_items. Every show_items call needs top_pick_id and top_pick: one line, shown as your message, on why that card is the best choice for what they asked. Say what they actually get, the price or saving, and why it fits their day, budget or group, e.g. "X is your best bet: <what you get> for <price>, and it's on Friday night." Only use facts from that item's catalogue line, and don't also write the same thing as text. Prices are per person unless the title says it's for two. If an item's price is "price varies" or unknown, don't call it cheap or say it fits their budget; say the price isn't listed. A percentage off is not a price: never turn it into a total or claim it's under their budget.`,
     "If nothing in the catalogue fits, say so plainly and offer the closest match. If a request is too vague to act on, call suggest_quick_replies with 2-4 concrete options instead of guessing.",
     `Catalogue first. Use find_places (a Google Maps search) ONLY when the catalogue has nothing fitting, or the user asks for a type of venue or food (a cheap biryani, a cosy pub, somewhere open now). Don't write any text before calling it. Pass a short query (e.g. "biryani"), plus area, open_now or max_price only if the user gave them. You get results as "P:<id> | name | rating | price | open now? | type | address | summary" lines; then call show_places with the ids of the best ${MAX_PLACES_PER_REPLY} at most, best first, and add a short lead-in. For Google results only state what the results say. Never invent venue facts, and mention prices only if the results give one. If the search is unavailable, answer from the catalogue or general knowledge and don't name specific prices.`,
   ];
@@ -393,12 +393,13 @@ const TOOLS = [
         },
         time_from: { type: "string", description: 'With dates, when they asked about a time of day: its start as "HH:MM" (evening "17:00").' },
         time_to: { type: "string", description: 'Its end as "HH:MM" (evening "24:00").' },
+        top_pick_id: { type: "string", description: "The catalogue id your top_pick line is about; that card is shown first." },
         top_pick: {
           type: "string",
-          description: "One line, shown as your message: why the first card is the best choice for what they asked (what they get, the price or saving, why it fits).",
+          description: "One line, shown as your message: why top_pick_id is the best choice for what they asked (what they get, the price or saving, why it fits).",
         },
       },
-      required: ["ids", "top_pick"],
+      required: ["ids", "top_pick_id", "top_pick"],
     },
   },
   {
@@ -512,7 +513,10 @@ interface ShowItemsCheck {
  * weekend question and a 1-4pm voucher never answers a Friday night one.
  */
 function checkShowItems(input: Record<string, unknown>, catalogue: Catalogue): ShowItemsCheck {
-  const ids = Array.isArray(input.ids) ? input.ids : [];
+  const picked = Array.isArray(input.ids) ? input.ids : [];
+  // The top_pick line is about top_pick_id, so that card leads whatever order the ids came in.
+  const topId = typeof input.top_pick_id === "string" ? input.top_pick_id.trim() : "";
+  const ids = topId ? [topId, ...picked.filter((id) => typeof id !== "string" || id.trim() !== topId)] : picked;
   const dates = parseDates(input.dates);
   // A time of day only means something on given days; "tonight" with no dates means today.
   const from = parseClock(input.time_from);
@@ -565,7 +569,11 @@ function assembleBlocks(
         const { items, hidden, firstKept } = checkShowItems(input, catalogue);        if (items.length > 0) {
           // The reason only stands if its card survived the checks above.
           const topPick = cleanReason(input.top_pick);
-          if (topPick && firstKept) blocks.push({ kind: "text", text: topPick });
+          if (topPick && firstKept) {
+            // The top-pick line is the message; round-1 filler ("I'll find something…") goes.
+            for (let i = blocks.length - 1; i >= 0; i--) if (blocks[i].kind === "text") blocks.splice(i, 1);
+            blocks.push({ kind: "text", text: topPick });
+          }
           blocks.push({ kind: "items", reason: cleanReason(input.reason), items });
         } else if (hidden.length > 0) {
           blocks.push({ kind: "text", text: "Nothing I've got is on then, sorry. Try another day?" });

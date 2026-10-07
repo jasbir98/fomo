@@ -219,8 +219,9 @@ export function MakeFomoYours({ open, onClose }: MakeFomoYoursProps) {
 
         {/* Sticky footer: on short phones the sheet body scrolls, and Save/Skip
             must stay reachable. The negative bottom margin cancels the sheet
-            body's own bottom padding so the footer owns the safe-area gap. */}
-        <div className="sticky bottom-[calc(-1rem-env(safe-area-inset-bottom))] -mx-4 -mb-[calc(1rem+env(safe-area-inset-bottom))] flex items-center gap-3 border-t border-hairline bg-surface-container-lowest px-4 pt-3 pb-[calc(1rem+env(safe-area-inset-bottom))]">
+            body's own bottom padding so the footer owns the safe-area gap.
+            z-20 keeps it above the budget control's z-10 labels as they scroll under. */}
+        <div className="sticky bottom-[calc(-1rem-env(safe-area-inset-bottom))] z-20 -mx-4 -mb-[calc(1rem+env(safe-area-inset-bottom))] flex items-center gap-3 border-t border-hairline bg-surface-container-lowest px-4 pt-3 pb-[calc(1rem+env(safe-area-inset-bottom))] lg:-bottom-6 lg:-mx-6 lg:-mb-6 lg:px-6 lg:pb-6">
           <Button variant="ghost" onClick={handleSkip} disabled={saving} className="flex-1">
             Skip for now
           </Button>
