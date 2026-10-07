@@ -7,8 +7,11 @@ Run `/plans` in Claude Code for a summary of this page.
 
 Things waiting on you, newest first. Tick them off here, or ask Claude to update this list.
 
+**Ask Fomo timing fix (7 Oct)**
+- [ ] Merge [PR #4](https://github.com/jasbir98/fomo/pull/4). Then on askfomo.com ask "Something to do this weekend under £10?" and "Date night this Friday evening?". Neither should suggest a weekday-only or afternoon-only deal.
+
 **After merging PR #3 (6 Oct)**
-- [ ] Merge [PR #3](https://github.com/jasbir98/fomo/pull/3), from `desktop` into `main`.
+- [x] Merge [PR #3](https://github.com/jasbir98/fomo/pull/3), from `desktop` into `main`.
 - [ ] Run `supabase/sync_profile_identity.sql` in the Supabase SQL editor. It copies Google names into profiles.
 - [ ] Run `node --env-file=.env.local scripts/dedupe-happenings.mjs`. Check the list, then run it again with `--apply`.
 - [ ] Run `node --env-file=.env.local scripts/link-happening-places.mjs`. Check the AMBIGUOUS lines, the partial matches and anything marked "via title", then run it again with `--apply`.
