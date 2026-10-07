@@ -105,6 +105,22 @@ export interface Place {
   // Hero-eligibility gate. Only 'ok' can render the Home hero photo; 'thin'
   // is rail-eligible only; 'none'/null never render as a photo.
   image_quality: "ok" | "thin" | "none" | null;
+  // add_enrichment_columns.sql — Google Places facts. Google-owned: refreshed
+  // monthly, cleared if older than 30 days (google_fetched_at). The place ID
+  // (google_place_id) is exempt and kept forever.
+  website: string | null;
+  phone: string | null;
+  /** Number of Google ratings behind `rating`. */
+  google_rating_count: number | null;
+  /** Display text, e.g. "£10–20". */
+  price_range: string | null;
+  /** OPERATIONAL | CLOSED_TEMPORARILY | CLOSED_PERMANENTLY. */
+  business_status: string | null;
+  google_maps_uri: string | null;
+  /** Google's AI summary — show only together with `google_summary_disclosure`. */
+  google_summary: string | null;
+  google_summary_disclosure: string | null;
+  google_fetched_at: string | null;
 }
 
 export interface OpeningHoursPeriod {

@@ -7,6 +7,11 @@ Run `/plans` in Claude Code for a summary of this page.
 
 Things waiting on you, newest first. Tick them off here, or ask Claude to update this list.
 
+**Data enrichment (7 Oct)**
+- [ ] Merge [PR #7](https://github.com/jasbir98/fomo/pull/7): Ask Fomo uses the new venue facts and deal prices; place and deal pages show them.
+- [ ] Add a `GOOGLE_PLACES_API_KEY` repository secret so the monthly refresh runs. Google only allows its data to be stored for 30 days.
+- [ ] Later: add the page-extraction step to the weekly DeepSeek pipeline.
+
 **Mobile fixes (7 Oct)**
 - [ ] Merge [PR #6](https://github.com/jasbir98/fomo/pull/6): Google place suggestions on the tip form's "Where?". Then send one test tip, picking a place from the list.
 - [x] Merge [PR #5](https://github.com/jasbir98/fomo/pull/5): the personalise sheet's Budget row, the tip form's location field and optional link, and Ask Fomo's top pick card. Then send yourself one test tip with only a title, a "Where?" and an Instagram handle as the link.
@@ -57,6 +62,7 @@ Snapshots of the plans approved in Claude Code plan mode. Each one is a record o
 
 | Plan | Status |
 |---|---|
+| [2026-10-07 Fill in Edinburgh place and deal data](plans/2026-10-07-data-enrichment.md) | Data written 7 Oct (407 places, 111 deals); app changes in PR #7. |
 | [2026-10-05 Pre-launch fixes and marketing](plans/2026-10-05-prelaunch-fixes.md) | Built; in PR #3. The SQL and dashboard steps are listed above. |
 | [2026-09-29 Ten fixes on staging](plans/2026-09-29-staging-fixes.md) | Shipped. |
 | [2026-09-28 Security review and cleanup](plans/2026-09-28-security-review-and-cleanup.md) | Code fixes shipped. The SQL and dashboard checklist are listed above. |

@@ -1,0 +1,50 @@
+name: Monthly places refresh (Google)
+
+# Google's terms allow storing Places data for at most 30 days, so this re-reads
+# Place Details for every Edinburgh place last fetched more than 25 days ago and
+# rewrites only the Google-owned columns (rating, review count, price range,
+# website, phone, maps URI, business status, summary). Rows that could not be
+# refreshed and are already past 30 days have those columns cleared. The place
+# ID is kept. See scripts/enrich-places-google.mjs and
+# docs/plans/2026-10-07-data-enrichment.md.
+on:
+  schedule:
+    # 04:41 UTC on the 3rd of each month — off the hour on purpose (shared
+    # runner pile-up), and early enough in the month that a failed run can be
+    # re-dispatched well inside the 30-day window.
+    - cron: "41 4 3 * *"
+  workflow_dispatch: {}
+
+# Least privilege: the job only checks out code and uploads an artifact.
+permissions:
+  contents: read
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    # NEXT_PUBLIC_SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY / GOOGLE_PLACES_API_KEY
+    # live as Production environment secrets on jasbir98/fomo, not repository
+    # secrets (same as daily-sources.yml).
+    environment: Production
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Refresh Google place data
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL || secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          GOOGLE_PLACES_API_KEY: ${{ secrets.GOOGLE_PLACES_API_KEY }}
+        run: node scripts/enrich-places-google.mjs --refresh --apply
+
+      - name: Upload report and rollback file
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: places-refresh
+          path: scraper/out
+          if-no-files-found: ignore

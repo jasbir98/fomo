@@ -8,6 +8,8 @@ import { buildAskFomoHref } from "@/lib/chat-seed";
 import { getPlace, listPlacePhotos } from "@/lib/db";
 import { useSaved } from "@/lib/useSaved";
 import { buildDirectionsUrl } from "@/lib/maps/links";
+import { CITY } from "@/lib/city";
+import { localWeekday, todayHoursLabel, weekHoursLines } from "@/lib/places/hours";
 import type { Place, PlacePhoto } from "@/lib/types";
 import { Button, FomoLoader, Icon, PhotoCarousel, ScrollRail, ShareButton, StatusPill } from "@/components/ui";
 import type { CarouselPhoto } from "@/components/ui";
@@ -96,6 +98,58 @@ function parseReviews(raw: unknown): ParsedReview[] {
     .filter((r): r is ParsedReview => r !== null);
 }
 
+/** "https://www.example.com/menu" → "example.com"; null for anything that isn't an http(s) URL. */
+function websiteHost(url: string): string | null {
+  try {
+    const u = new URL(url);
+    if (u.protocol !== "https:" && u.protocol !== "http:") return null;
+    return u.hostname.replace(/^www\./, "");
+  } catch {
+    return null;
+  }
+}
+
+/** Today's hours from the structured `opening_hours` (tap for the full week); falls back to the free-text `hours`. Rendered in two places, so it owns its own open/closed state. */
+function PlaceHours({ place }: { place: Place }) {
+  const [expanded, setExpanded] = useState(false);
+  const now = new Date();
+  const today = todayHoursLabel(place.opening_hours, now, CITY.timezone);
+  const week = weekHoursLines(place.opening_hours);
+  const todayIndex = localWeekday(now, CITY.timezone);
+  return (
+    <div className="flex items-start gap-3">
+      <Icon name="schedule" className="mt-0.5 text-primary" />
+      <div className="min-w-0">
+        <p className="text-label-sm text-on-surface-variant">Hours</p>
+        <p className="text-label-md text-on-surface">{today ?? place.hours ?? "–"}</p>
+        {week.length > 0 ? (
+          <>
+            <button
+              type="button"
+              onClick={() => setExpanded((v) => !v)}
+              aria-expanded={expanded}
+              className="mt-1 inline-flex items-center gap-0.5 text-label-sm font-medium text-secondary"
+            >
+              {expanded ? "Hide week" : "See full week"}
+              <Icon name={expanded ? "expand_less" : "expand_more"} size={16} />
+            </button>
+            {expanded ? (
+              <dl className="mt-1 grid grid-cols-[auto_1fr] gap-x-4 gap-y-0.5 text-label-sm text-on-surface-variant">
+                {week.map((line) => (
+                  <div key={line.dayIndex} className="contents">
+                    <dt className={line.dayIndex === todayIndex ? "font-bold text-on-surface" : ""}>{line.day}</dt>
+                    <dd className={line.dayIndex === todayIndex ? "font-bold text-on-surface" : ""}>{line.text}</dd>
+                  </div>
+                ))}
+              </dl>
+            ) : null}
+          </>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
 export function PlaceDetail({ id, presentation = "page" }: DetailProps) {
   const db = supabaseBrowserAuth();
   const pathname = usePathname();
@@ -167,6 +221,7 @@ export function PlaceDetail({ id, presentation = "page" }: DetailProps) {
   // No badge, no pill — never claim "Open now" without data behind it.
   const primaryBadge = place.badges[0] ?? null;
   const directionsUrl = buildDirectionsUrl(place);
+  const websiteLabel = place.website ? websiteHost(place.website) : null;
   // place_photos when the pipeline found more than one citable image;
   // otherwise fall back to the single Place.image_url; otherwise none
   // (PhotoCarousel renders the existing placeholder icon itself).
@@ -252,13 +307,24 @@ export function PlaceDetail({ id, presentation = "page" }: DetailProps) {
       </section>
 
       <div className={DETAIL_CONTENT_CLASS}>
+        {place.business_status === "CLOSED_PERMANENTLY" ? (
+          <div role="status" className="flex items-start gap-2.5 rounded-2xl bg-error-container/40 p-3.5 text-on-surface">
+            <Icon name="event_busy" size={20} className="mt-0.5 shrink-0 text-error" />
+            <p className="text-body-md">
+              <span className="font-bold">Google lists this as permanently closed.</span> Check before you go.
+            </p>
+          </div>
+        ) : null}
+
         {/* Description & stats */}
         <section className="rounded-2xl bg-surface-container-lowest p-5 shadow-level-1">
           <div className="mb-3 flex items-center justify-between gap-3">
             <div className="flex items-center gap-2 text-secondary">
               <Icon name="star" filled size={18} />
               <span className="text-label-md text-on-surface-variant">
-                {place.rating ?? "–"} ({reviews.length ? `${reviews.length}+ reviews` : "New"})
+                {place.google_rating_count && place.rating != null
+                  ? `${place.rating} (${place.google_rating_count.toLocaleString("en-GB")}) on Google`
+                  : `${place.rating ?? "–"} (${reviews.length ? `${reviews.length}+ reviews` : "New"})`}
               </span>
             </div>
             <div className="flex flex-wrap justify-end gap-2">
@@ -280,14 +346,64 @@ export function PlaceDetail({ id, presentation = "page" }: DetailProps) {
           <p className="mb-4 text-body-md text-on-surface-variant">
             {place.description ?? `${place.category ?? "A spot"} in ${place.city ?? "Edinburgh"}.`}
           </p>
-          <div className="grid grid-cols-2 gap-4 border-t border-outline-variant/30 pt-4 lg:hidden">
-            <div className="flex items-center gap-3">
-              <Icon name="schedule" className="text-primary" />
-              <div>
-                <p className="text-label-sm text-on-surface-variant">Hours</p>
-                <p className="text-label-md text-on-surface">{place.hours ?? "–"}</p>
-              </div>
+          {place.google_summary && place.google_summary_disclosure ? (
+            <div className="mb-4">
+              <p className="text-body-md text-on-surface-variant">{place.google_summary}</p>
+              <p className="mt-1 text-label-sm text-on-surface-variant/70">{place.google_summary_disclosure}</p>
             </div>
+          ) : null}
+          {place.address || websiteLabel || place.phone || place.price_range ? (
+            <ul className="mb-4 flex flex-col gap-2.5 border-t border-outline-variant/30 pt-4">
+              {place.address ? (
+                <li className="flex items-start gap-3">
+                  <Icon name="location_on" className="mt-0.5 text-primary" />
+                  {place.google_maps_uri ? (
+                    <a
+                      href={place.google_maps_uri}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      onClick={() => trackOutboundClicked("place", id, place.google_maps_uri ?? "", "maps")}
+                      className="text-label-md text-on-surface underline decoration-outline-variant underline-offset-2"
+                    >
+                      {place.address}
+                    </a>
+                  ) : (
+                    <span className="text-label-md text-on-surface">{place.address}</span>
+                  )}
+                </li>
+              ) : null}
+              {place.website && websiteLabel ? (
+                <li className="flex items-start gap-3">
+                  <Icon name="language" className="mt-0.5 text-primary" />
+                  <a
+                    href={place.website}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={() => trackOutboundClicked("place", id, place.website ?? "", "website")}
+                    className="text-label-md text-secondary underline underline-offset-2"
+                  >
+                    {websiteLabel}
+                  </a>
+                </li>
+              ) : null}
+              {place.phone ? (
+                <li className="flex items-start gap-3">
+                  <Icon name="call" className="mt-0.5 text-primary" />
+                  <a href={`tel:${place.phone.replace(/[^\d+]/g, "")}`} className="text-label-md text-secondary">
+                    {place.phone}
+                  </a>
+                </li>
+              ) : null}
+              {place.price_range ? (
+                <li className="flex items-start gap-3">
+                  <Icon name="payments" className="mt-0.5 text-primary" />
+                  <span className="text-label-md text-on-surface">{place.price_range}</span>
+                </li>
+              ) : null}
+            </ul>
+          ) : null}
+          <div className="grid grid-cols-2 gap-4 border-t border-outline-variant/30 pt-4 lg:hidden">
+            <PlaceHours place={place} />
             {directionsUrl ? (
               <a
                 href={directionsUrl}
@@ -419,13 +535,7 @@ export function PlaceDetail({ id, presentation = "page" }: DetailProps) {
       <DetailAside presentation={presentation}>
       <section className={ASIDE_CARD_CLASS}>
           <div className="grid grid-cols-1 gap-4">
-            <div className="flex items-center gap-3">
-              <Icon name="schedule" className="text-primary" />
-              <div>
-                <p className="text-label-sm text-on-surface-variant">Hours</p>
-                <p className="text-label-md text-on-surface">{place.hours ?? "–"}</p>
-              </div>
-            </div>
+            <PlaceHours place={place} />
             {directionsUrl ? (
               <a
                 href={directionsUrl}
