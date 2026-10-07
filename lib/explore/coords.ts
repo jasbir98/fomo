@@ -32,11 +32,17 @@ export function resolveHappeningCoords(
 export async function loadPlacesForHappenings(
   db: Db,
   happenings: Happening[],
-  { alsoForMissingImage = false }: { alsoForMissingImage?: boolean } = {}
+  { alsoForMissingImage = false, all = false }: { alsoForMissingImage?: boolean; all?: boolean } = {}
 ): Promise<Map<string, Place>> {
   const placeIdsNeeded = new Set<string>();
   for (const h of happenings) {
     if (!h.place_id) continue;
+    // `all`: Ask Fomo's catalogue also quotes the venue's rating, price range
+    // and opening hours, so every linked place is loaded, not just the gaps.
+    if (all) {
+      placeIdsNeeded.add(h.place_id);
+      continue;
+    }
     // `alsoForMissingImage`: Ask Fomo's catalogue also borrows the venue's
     // photo for a happening without its own, same as the feed does.
     if (h.lat == null || h.lng == null || (alsoForMissingImage && !h.image_url)) placeIdsNeeded.add(h.place_id);

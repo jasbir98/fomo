@@ -335,6 +335,10 @@ export function HappeningDetail({ id, presentation = "page" }: DetailProps) {
 
   const tag = happeningTypeTag(happening, primaryOccurrence?.exact ?? false);
   const badge = savingBadgeLabel(happening);
+  // Extracted from the deal's own page: the price as stated ("£20 for two")
+  // and what it covers. Preferred over the derived badge when present.
+  const priceText = happening.price_text?.trim() || null;
+  const includes = happening.includes?.trim() || null;
   const district = happening.district ?? districtFromAddress(happening.address);
   const eligibilityLabel = ELIGIBILITY_FALLBACK[happening.eligibility];
   // No summary AND nothing else explanatory (saving label, redemption or
@@ -647,7 +651,11 @@ export function HappeningDetail({ id, presentation = "page" }: DetailProps) {
             tone="info"
             icon="schedule"
           />
-          {badge ? <StatusPill label={badge} tone="success" icon="local_offer" /> : null}
+          {priceText && priceText.length <= 18 ? (
+            <StatusPill label={priceText} tone="success" icon="local_offer" />
+          ) : badge ? (
+            <StatusPill label={badge} tone="success" icon="local_offer" />
+          ) : null}
         </div>
       </section>
 
@@ -674,6 +682,14 @@ export function HappeningDetail({ id, presentation = "page" }: DetailProps) {
           </div>
           <h1 className="text-headline-lg font-extrabold leading-snug text-on-surface">{happening.title}</h1>
 
+          {priceText ? (
+            <p className="mt-2 text-headline-sm font-extrabold text-primary">{priceText}</p>
+          ) : null}
+          {includes ? (
+            <p className="mt-1 text-body-md text-on-surface-variant">
+              <span className="font-semibold text-on-surface">What you get:</span> {includes}
+            </p>
+          ) : null}
           {happening.saving_label ? (
             <p className="mt-2 text-body-md font-semibold text-secondary">{happening.saving_label}</p>
           ) : null}
@@ -916,7 +932,9 @@ export function HappeningDetail({ id, presentation = "page" }: DetailProps) {
       <DetailAside presentation={presentation}>
       <section className={ASIDE_CARD_CLASS}>
         <div className="flex flex-col gap-2">
-          {badge ? <p className="text-headline-md font-extrabold text-primary">{badge}</p> : null}
+          {priceText || badge ? (
+            <p className="text-headline-md font-extrabold text-primary">{priceText ?? badge}</p>
+          ) : null}
           {happening.saving_label ? (
             <p className="text-body-md font-semibold text-secondary">{happening.saving_label}</p>
           ) : null}
