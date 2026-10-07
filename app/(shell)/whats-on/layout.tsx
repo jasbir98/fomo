@@ -1,16 +1,11 @@
 import type { Metadata } from "next";
+import { pageMetadata } from "@/lib/seo/metadata";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = pageMetadata({
   title: "What's on in Edinburgh",
   description: "Free and cheap gigs, comedy, cinema, food and days out in Edinburgh, by date.",
-  // Setting openGraph replaces the root's, so the default card image has to be named again.
-  openGraph: {
-    images: ["/opengraph-image"],
-    title: "What's on in Edinburgh · Fomo",
-    description: "Free and cheap gigs, comedy, cinema, food and days out in Edinburgh, by date.",
-  },
-  twitter: { card: "summary_large_image", images: ["/twitter-image"] },
-};
+  path: "/whats-on",
+});
 
 export default function WhatsOnLayout({ children }: { children: React.ReactNode }) {
   return children;

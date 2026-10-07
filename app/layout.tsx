@@ -3,6 +3,8 @@ import { Plus_Jakarta_Sans } from "next/font/google";
 import { Analytics } from "@vercel/analytics/next";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import { InstallCapture } from "@/components/install/InstallCapture";
+import { JsonLd } from "@/components/seo/JsonLd";
+import { SITE_DESCRIPTION, SITE_NAME, SITE_TAGLINE, SITE_URL, absoluteUrl } from "@/lib/seo/site";
 import "./globals.css";
 
 const jakarta = Plus_Jakarta_Sans({
@@ -13,16 +15,20 @@ const jakarta = Plus_Jakarta_Sans({
 });
 
 export const metadata: Metadata = {
-  // Absolute base for OG/Twitter image URLs on shared links.
-  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL ?? "https://askfomo.com"),
-  title: { default: "Fomo · Free and cheap stuff in Edinburgh", template: "%s · Fomo" },
-  description: "What's on in Edinburgh that's free, cheap or discounted. Events, student deals and things to do this weekend.",
+  // Absolute base for canonical and OG/Twitter image URLs.
+  metadataBase: new URL(SITE_URL),
+  applicationName: SITE_NAME,
+  title: { default: `${SITE_NAME} · ${SITE_TAGLINE}`, template: `%s · ${SITE_NAME}` },
+  description: SITE_DESCRIPTION,
+  // No canonical here: it would be inherited by every page that doesn't set
+  // its own and point them all at the home page. Each page sets its own
+  // (lib/seo/metadata.ts's `pageMetadata`).
   openGraph: {
-    siteName: "Fomo",
+    siteName: SITE_NAME,
     type: "website",
     locale: "en_GB",
-    title: "Fomo · Free and cheap stuff in Edinburgh",
-    description: "Never miss the £4 cinema weekend again. What's on in Edinburgh, free, cheap or discounted.",
+    title: `${SITE_NAME} · ${SITE_TAGLINE}`,
+    description: "Never miss the £4 cinema weekend again. Free and cheap things to do in Edinburgh, plus student and local deals.",
     // No static `images` here — app/opengraph-image.tsx (next/og) is
     // picked up automatically per-route as the branded default and
     // supersedes the old static icon-512.png link-preview image. A route
@@ -31,7 +37,7 @@ export const metadata: Metadata = {
     // `openGraph.images` in its own metadata/generateMetadata (e.g.
     // happening/event detail layouts).
   },
-  twitter: { card: "summary_large_image" },
+  twitter: { card: "summary_large_image", title: `${SITE_NAME} · ${SITE_TAGLINE}`, description: SITE_DESCRIPTION },
   manifest: "/manifest.json",
   appleWebApp: {
     capable: true,
@@ -46,6 +52,26 @@ export const metadata: Metadata = {
     apple: "/icons/apple-touch-icon-180.png",
   },
 };
+
+// Tells search engines the site's name and its common spellings, so a search
+// for "askfomo" or "ask fomo" resolves here. No `sameAs` yet: add the
+// Instagram profile URL once it is linked from the app.
+const SITE_JSON_LD = [
+  {
+    "@context": "https://schema.org",
+    "@type": "WebSite",
+    name: SITE_NAME,
+    alternateName: ["AskFomo", "Fomo Edinburgh", "askfomo.com"],
+    url: SITE_URL,
+  },
+  {
+    "@context": "https://schema.org",
+    "@type": "Organization",
+    name: SITE_NAME,
+    url: SITE_URL,
+    logo: absoluteUrl("/icons/icon-512.png"),
+  },
+];
 
 export const viewport: Viewport = {
   width: "device-width",
@@ -62,6 +88,7 @@ export default function RootLayout({
   return (
     <html lang="en" className={`${jakarta.variable} antialiased`} suppressHydrationWarning>
       <head>
+        <JsonLd data={SITE_JSON_LD} />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />
         {/* Material Symbols: narrowed to actual usage — opsz 20..48 (valid axis range;
