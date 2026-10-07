@@ -112,6 +112,8 @@ const PUBLIC_API_PREFIXES = [
   "/api/unsubscribe",
   // Signed-out visitors' remaining free Ask Fomo questions (GET only; the chat POST itself is in PUBLIC_POST_PREFIXES).
   "/api/chat/quota",
+  // The tip form's "Where?" suggestions (Google, GET only, capped per IP and site-wide in the route).
+  "/api/tips/places",
 ];
 const PUBLIC_PLACE_OFFERS = /^\/api\/places\/[^/]+\/offers$/;
 // Only the .ics download off a single event is public — the bare

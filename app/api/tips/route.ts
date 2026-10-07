@@ -13,6 +13,8 @@
  *   when_text?: string,
  *   location_text?: string (no column for it: folded into `details` as a
  *     "Where: …" line),
+ *   location_place_id?: string (Google place id when "Where?" was picked from
+ *     the suggestions; becomes a Maps link on that line),
  *   price_text?: string,
  *   submitter_kind?: 'student' | 'local' | 'venue' | 'other',
  *   contact_email?: string,
@@ -55,6 +57,7 @@ interface TipBody {
   details?: unknown;
   when_text?: unknown;
   location_text?: unknown;
+  location_place_id?: unknown;
   price_text?: unknown;
   submitter_kind?: unknown;
   contact_email?: unknown;
@@ -129,6 +132,7 @@ export async function POST(request: Request) {
   // any unusable link text are folded into details.
   const details = buildTipDetails({
     location,
+    placeId: isNonEmptyString(body.location_place_id) ? body.location_place_id : null,
     leftoverLink,
     details: isNonEmptyString(body.details) ? body.details.slice(0, MAX_DETAILS_LENGTH) : null,
     maxLength: MAX_DETAILS_LENGTH,

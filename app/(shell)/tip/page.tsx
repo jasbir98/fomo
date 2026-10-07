@@ -4,12 +4,15 @@ import { useState, type FormEvent } from "react";
 import { useSearchParams } from "next/navigation";
 import { Icon, PageHeader } from "@/components/ui";
 import { track } from "@/lib/analytics/track";
+import { PlaceField } from "@/components/tip/PlaceField";
 
 type FormStatus = "idle" | "sending" | "done" | "error";
 
 type TipFormData = {
   title: string;
   location_text: string;
+  /** Google place id when "Where?" came from a suggestion; empty for free text. */
+  location_place_id: string;
   url: string;
   when_text: string;
   price_text: string;
@@ -31,6 +34,7 @@ export default function TipPage() {
   const [formData, setFormData] = useState<TipFormData>({
     title: "",
     location_text: "",
+    location_place_id: "",
     url: "",
     when_text: "",
     price_text: "",
@@ -75,6 +79,7 @@ export default function TipPage() {
       setFormData({
         title: "",
         location_text: "",
+    location_place_id: "",
         url: "",
         when_text: "",
         price_text: "",
@@ -149,15 +154,12 @@ export default function TipPage() {
               <label htmlFor="location_text" className="text-label-md font-medium text-on-surface">
                 Where?
               </label>
-              <input
+              <PlaceField
                 id="location_text"
-                type="text"
-                name="location_text"
-                autoComplete="off"
-                maxLength={200}
                 placeholder="e.g. The Stand, York Place or Leith"
                 value={formData.location_text}
-                onChange={handleInputChange}
+                onChange={(text) => setFormData((prev) => ({ ...prev, location_text: text, location_place_id: "" }))}
+                onPick={(text, placeId) => setFormData((prev) => ({ ...prev, location_text: text, location_place_id: placeId }))}
                 disabled={status === "sending"}
                 className="min-h-11 rounded-lg border border-outline-variant bg-surface-container-lowest px-3 text-body-md text-on-surface placeholder:text-outline focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30 disabled:opacity-70"
               />
