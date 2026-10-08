@@ -149,9 +149,21 @@ export function extractRssItems(xml) {
   return items;
 }
 
+/**
+ * Sneaky Pete's titles run the act and a "for fans of…" tagline together,
+ * often with no space ("The Empty Pagefor fans of.. Sonic Youth"). Keep the
+ * act as the name and return the tagline separately.
+ */
+export function splitFansOf(title) {
+  const t = title.trim();
+  const m = t.match(/^(.*?)\s*for fans of\s*(?:\.{2,3}|…)?\s*(.*)$/i);
+  if (!m || !m[1].trim()) return { name: t, fansOf: null };
+  return { name: m[1].trim(), fansOf: m[2].trim() || null };
+}
+
 /** Maps one RSS item (an upcoming show, per this venue's publish-on-the-gig-date pattern) to the `events` upsert shape. */
 export function mapVenueRssItem(item, { provider, feedUrl, destination, now, venue, categoryMap }) {
-  const name = item.title?.trim();
+  const { name, fansOf } = splitFansOf(item.title ?? "");
   if (!name || !item.pubDate) return { row: null, reason: "invalid" };
   // RFC 822 pubDate always carries an explicit offset (RSS 2.0 spec) —
   // unlike Skiddle's undocumented bare-date fallback, safe to hand straight
@@ -182,7 +194,7 @@ export function mapVenueRssItem(item, { provider, feedUrl, destination, now, ven
     provider,
     provider_event_id: providerEventId,
     name,
-    description: cleanDescription(item.description, { title: name, venueName: venue.venue_name }),
+    description: cleanDescription(item.description, { title: name, venueName: venue.venue_name }) ?? (fansOf ? `For fans of ${fansOf}.` : null),
     category: mappedCategory,
     image_url: null, // RSS <item> carries no reliable photo (no enclosure/media tag on this feed)
     ticket_url: httpUrlOrNull(eventUrl),
