@@ -9,6 +9,15 @@ import type { Place, PlacePhoto } from "@/lib/types";
 // fixing the "place has real photos in Supabase but the card is blank" gap.
 const PLACE_SELECT = "*, place_photos(url, display_order)";
 
+/**
+ * PostgREST `or=` filter that drops `source = 'event-venue'` rows (null source
+ * kept). Those places are venue metadata minted from event listings
+ * (scripts/sources/core/google-venues.mjs), not recommendations, so no list or
+ * search may surface them; they still resolve by id (event venue links, detail
+ * pages). Passed to `.or()`, which ANDs with any other filter on the query.
+ */
+export const EXCLUDE_EVENT_VENUES = "source.is.null,source.neq.event-venue";
+
 type PlaceRow = Place & {
   place_photos?: { url: string; display_order: number }[] | null;
 };
@@ -24,7 +33,7 @@ function withThumbnail(row: PlaceRow): Place {
 
 /** List all places (shared catalog data, no user scoping — readable by anon and authenticated alike). */
 export async function listPlaces(db: Db): Promise<Place[]> {
-  const { data, error } = await db.from("places").select(PLACE_SELECT);
+  const { data, error } = await db.from("places").select(PLACE_SELECT).or(EXCLUDE_EVENT_VENUES);
   if (error) throw error;
   return (data ?? []).map(withThumbnail);
 }
@@ -38,7 +47,7 @@ export async function getPlace(db: Db, id: string): Promise<Place | null> {
 
 /** List places, optionally filtered by category. */
 export async function listPlacesByCategory(db: Db, category?: string): Promise<Place[]> {
-  let query = db.from("places").select(PLACE_SELECT);
+  let query = db.from("places").select(PLACE_SELECT).or(EXCLUDE_EVENT_VENUES);
   if (category) query = query.eq("category", category);
   const { data, error } = await query;
   if (error) throw error;
@@ -85,6 +94,7 @@ export async function searchPlacesByName(db: Db, q: string): Promise<Place[]> {
   const { data, error } = await db
     .from("places")
     .select(PLACE_SELECT)
+    .or(EXCLUDE_EVENT_VENUES)
     .or(`name.ilike.%${term}%,category.ilike.%${term}%,address.ilike.%${term}%`);
   if (error) throw error;
   return (data ?? []).map(withThumbnail);
@@ -112,7 +122,10 @@ export async function listPlacesByCity(db: Db, query: string): Promise<Place[]> 
   const { data, error } = await db
     .from("places")
     .select(PLACE_SELECT)
-    .neq("source", "google")
+    // Not the live Google cache, and not `event-venue` rows: those are
+    // metadata minted from event listings (scripts/sources/core/google-venues.mjs),
+    // not recommendations, so they must never show up as places to visit.
+    .not("source", "in", "(google,event-venue)")
     .or(`city.ilike.%${q}%,prefecture.ilike.%${q}%,destination.ilike.%${q}%,address.ilike.%${q}%`);
   if (error) throw error;
   return (data ?? []).map(withThumbnail);

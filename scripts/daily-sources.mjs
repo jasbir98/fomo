@@ -86,9 +86,13 @@
  * (backfillDescriptions(), after cross-source merge, before upsert): fetches
  * the row's own ticket_url through the same politeFetch() as the JSON-LD
  * adapters and reads JSON-LD description -> og:description -> meta
- * description, capped at 150 fetches/run. Still-empty rows get a
+ * description, capped at 400 fetches/run. Still-empty rows get a
  * last-resort factual fallbackDescription() built only from fields already
- * on the row. See docs/daily-sources.md's "Descriptions" section.
+ * on the row. See docs/daily-sources.md's "Descriptions" section. The same
+ * fetch also takes the page's og:image for rows with no photo (cap 400/run,
+ * rows tried in the last 14 days skipped via events.enriched_at), and venues
+ * are linked to `places` before that (core/venues.mjs, core/google-venues.mjs;
+ * see "Venues and photos" in docs/daily-sources.md).
  *
  * Usage:
  *   node --env-file=.env.local scripts/daily-sources.mjs                # dry run, all sources
@@ -109,7 +113,9 @@ import { dirname } from "node:path";
 import { ADAPTERS } from "./sources/registry.mjs";
 import { SUPABASE_URL, SERVICE_ROLE_KEY } from "./sources/core/config.mjs";
 import { dedupeAcrossSources } from "./sources/core/dedupe.mjs";
-import { backfillDescriptions } from "./sources/core/backfill.mjs";
+import { backfillDescriptions, fetchEnrichedAt } from "./sources/core/backfill.mjs";
+import { linkEventVenues } from "./sources/core/venues.mjs";
+import { GOOGLE_MAX_CALLS } from "./sources/core/google-venues.mjs";
 import { upsertEvents } from "./sources/core/upsert.mjs";
 import { emptyStats } from "./sources/core/stats.mjs";
 import { validateRows } from "./sources/core/validate.mjs";
@@ -144,6 +150,9 @@ Options:
                    GitHub Actions runners) — if that happens on this workflow's runner,
                    set DAILY_SOURCES_SKIP=eventbrite there and run --only=eventbrite by hand
                    from an unaffected IP instead.
+  --google-max=N  Cap on Google Places calls for unknown venues (default ${GOOGLE_MAX_CALLS}; 0 disables). Free tier only:
+                   Text Search IDs-only + Place Details (address/location/Maps link), never photos. Needs
+                   GOOGLE_PLACES_API_KEY; new places and patches are only written with --write.
   --dump=path     Write every validated row (live and shadow, before cross-source dedupe)
                    to a JSON file: { generatedAt, rows: [{...row, _shadow}] }. Feed it to
                    scripts/check-event-sample.mjs --from-file=path to spot-check shadow adapters.
@@ -160,6 +169,8 @@ Optional: SKIDDLE_API_KEY / TICKETMASTER_API_KEY to enable those two adapters
 const WRITE = process.argv.includes("--write");
 const DRY_RUN = !WRITE;
 const ALL_CADENCES = process.argv.includes("--all-cadences");
+const googleMaxArg = process.argv.find((a) => a.startsWith("--google-max="));
+const GOOGLE_MAX = googleMaxArg ? Math.max(0, Number.parseInt(googleMaxArg.slice("--google-max=".length), 10) || 0) : GOOGLE_MAX_CALLS;
 const dumpArg = process.argv.find((a) => a.startsWith("--dump="));
 const DUMP_PATH = dumpArg ? dumpArg.slice("--dump=".length) : null;
 
@@ -267,11 +278,19 @@ async function main() {
   printDedupeSummary({ totalKept, merged, collapses });
   printCategorySummary();
 
+  // Venue linking (events.place_id) + free-tier Google lookup for unknown venues.
+  await linkEventVenues(merged, { now, write: WRITE, googleMax: GOOGLE_MAX });
+
   const blankBefore = merged.filter((r) => !r.description).length;
-  const { stats: backfillStats, samples: backfillSamples } = await backfillDescriptions(merged, now);
+  const enrichedAt = await fetchEnrichedAt([...new Set(live.map((s) => s.provider))], now);
+  const {
+    stats: backfillStats,
+    samples: backfillSamples,
+    imageSamples: backfillImageSamples,
+  } = await backfillDescriptions(merged, now, { enrichedAt, existingImages: existing });
   const blankAfter = merged.filter((r) => !r.description).length;
 
-  printBackfillSummary({ blankBefore, blankAfter, backfillStats, backfillSamples });
+  printBackfillSummary({ blankBefore, blankAfter, backfillStats, backfillSamples, backfillImageSamples });
 
   if (DUMP_PATH) {
     const rows = perSource.flatMap((s) => s.rows.map((r) => ({ ...r, _shadow: s.shadow })));

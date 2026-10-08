@@ -31,21 +31,26 @@ export interface EventPreview {
   whenLabel: string | null;
   venueName: string | null;
   city: string | null;
+  /** Event category slug, so the instant hero can show the right tile when there's no photo. Absent on previews cached by an older build. */
+  category?: string | null;
 }
 
 /** Builds an `EventPreview` from a real `EventItem` row plus whatever
  *  price/when labels the calling card already computed for its own display. */
 export function eventToPreview(
-  event: Pick<EventItem, "name" | "image_url" | "venue_name" | "city">,
+  event: Pick<EventItem, "name" | "image_url" | "venue_name" | "city"> & { place?: EventItem["place"]; category?: string | null },
   labels: { priceLabel?: string | null; whenLabel?: string | null } = {}
 ): EventPreview {
   return {
     title: event.name,
-    imageUrl: event.image_url,
+    // Own photo, else the linked venue's: the detail page's instant hero
+    // matches the card the user just tapped.
+    imageUrl: event.image_url || event.place?.image_url || null,
     priceLabel: labels.priceLabel || null,
     whenLabel: labels.whenLabel || null,
     venueName: event.venue_name,
     city: event.city,
+    category: event.category ?? null,
   };
 }
 

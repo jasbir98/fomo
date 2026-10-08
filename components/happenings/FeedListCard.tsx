@@ -28,6 +28,7 @@ import { interestForHappeningCategory } from "@/lib/personalise/interests";
 import { useEffectiveWho } from "@/lib/personalise/useEffectiveWho";
 import { happeningToPreview, prefetchHappening, setHappeningPreview } from "@/lib/happenings/preview-cache";
 import { eventToPreview, prefetchEvent, setEventPreview } from "@/lib/events/preview-cache";
+import { eventImageFor } from "@/lib/events/image";
 import { track, priceBand, trackOutboundClicked } from "@/lib/analytics/track";
 
 /** Where this list is mounted — sent as `card_opened`'s `surface` so
@@ -379,7 +380,7 @@ function RecurringRow({ card, surface, position }: { card: RecurringCardData; su
   const thumbnail =
     lead.kind === "happening"
       ? (lead.happening.image_url ?? defaultImageFor(lead.happening))
-      : (lead.event.image_url ?? defaultImageFor({ title: lead.event.name, venue_name: lead.event.venue_name }));
+      : eventImageFor(lead.event);
   const oneLiner = lead.kind === "happening" ? oneLinerSummary(lead.happening.summary) : oneLinerSummary(lead.event.description);
   const href = lead.kind === "happening" ? `/happening/${lead.happening.id}` : `/event/${lead.event.id}`;
 
@@ -529,11 +530,9 @@ function EventRow({ event, surface, position }: { event: EventItem; surface?: Fe
   const eventLive = eventIsInProgress(event);
   const eventTime = formatEventTimeSpan(event.starts_at, event.ends_at);
   const priceLabel = priceLabelForEvent(event);
-  // EventItem (Skiddle/Ticketmaster) has no HappeningCategory-shaped column —
-  // its own `category` is a free-text provider string, not our enum — so the
-  // fallback default image just uses the neutral "other" category tile
-  // rather than trying to map an arbitrary provider string onto our palette.
-  const thumbnail = event.image_url ?? defaultImageFor({ title: event.name, venue_name: event.venue_name });
+  // Own photo -> the linked venue's photo -> the category tile (event
+  // categories are a subset of the happening ones: lib/events/image.ts).
+  const thumbnail = eventImageFor(event);
 
   return (
     <CardShell

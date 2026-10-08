@@ -96,8 +96,8 @@ Whatever's still empty/short (<40 chars) after adapter mapping goes through a
 `ticket_url` through the same `politeFetch()` as the JSON-LD adapters
 (robots.txt, per-host rate limit, 20s timeout, challenge detection), and try
 the page's own JSON-LD `Event.description`, then `og:description`, then
-`<meta name="description">` — capped at 150 fetches/run
-(`MAX_BACKFILL_FETCHES`). Anything still blank after that gets a last-resort
+`<meta name="description">` — capped at 400 fetches/run
+(`MAX_BACKFILL_FETCHES`; the same fetch also yields a photo, see "Venues and photos"). Anything still blank after that gets a last-resort
 factual one-liner from `fallbackDescription()` (category + venue + doors time
 + price, e.g. "Live music at Sneaky Pete's · doors 19:00 · from £8") — never
 invented facts, only fields already on the row. No extra marking is needed
@@ -145,6 +145,15 @@ every place that mentions "Skiddle/Ticketmaster" in a comment treats
 - **Health.** One `event_source_runs` row per adapter per `--write` run. The "Source health" table (stdout and `$GITHUB_STEP_SUMMARY`) flags `ZERO_TWICE` (kept 0 on this and the previous run) and `DROP` (below 40% of the 7-day median).
 - **Spot-check.** `node --env-file=.env.local scripts/check-event-sample.mjs --provider=x --n=10 [--source=db|dry-run] [--from-file=dump.json]` fetches each sampled event's own page and checks the title words and date. 90% to go live. `daily-sources.mjs --dump=path.json` writes the validated rows (including shadow adapters) for `--from-file`. A weekly CI job runs it for every live provider. Skiddle's event pages answer bots with an empty HTTP 202, so Skiddle rows can't be page-checked.
 
+## Venues and photos
+
+Photos come from **free sources only**: no Google photo field and no Place Photos call is ever made. An event shows, in order: its source's own image, the event page's `og:image`, its linked venue's `places.image_url` (resolved at read time), then a bundled tile for its category.
+
+- **Venue linking** (`core/venues.mjs`, after validation and cross-source dedupe; read-only, so it runs in dry runs too). Loads the curated Edinburgh `places` once per run (the live `source=google` cache is left out because its photos are Google's) and sets `events.place_id` with `matchVenueName` from `scripts/lib/place-match.mjs`: exact name, or a whole-token prefix. If both the event and the place have coordinates the place must be within 400 m; if the event has none, only a unique name match links. Ambiguous venues stay unlinked and are listed (with 10 samples) in the run summary. `upsertEvents` sends `place_id` only when set, so a later failed match never unlinks a row.
+- **og:image backfill** (`core/backfill.mjs`). The description backfill already fetches each row's `ticket_url`; the same page now also supplies `og:image` (else the JSON-LD Event `image`, else `twitter:image`) for a row with no photo. The URL is resolved against the page, must be http(s), generic logos/placeholders are skipped, and it passes the same HEAD check as other images. Candidates are rows missing a description or a photo (a row whose stored copy already has a photo is skipped); the cap is 400 fetches a run. Every row fetched is stamped `enriched_at`, and rows stamped in the last 14 days are skipped, so dead pages are not re-fetched daily. `enriched_at` needs `supabase/add_event_lifecycle.sql`; without it the stamp is dropped and nothing is skipped. The summary reports `imageFromPage`.
+- **Unknown venues** (`core/google-venues.mjs`). A venue name on 2 or more rows that did not link goes to Google Places API (New): Text Search with field mask `places.id` (IDs Only SKU, free), then Place Details with `id,displayName,formattedAddress,location,googleMapsUri`. `displayName` and `googleMapsUri` are billed at the Pro tier (5,000 free calls a month), so the cap is **40 Google calls per run**, about 20 venues (`--google-max=N`, 0 disables). Venues are tried in order of distinct event names (a tour repeating daily counts once), then row count. A venue Google rejected or couldn't match is remembered for 30 days in the `source_pages` ledger (`url = google-venue:<normalised name>`, `source_id = google-venue-miss`; written only with `--write`; no table means no cache). Skipped when `GOOGLE_PLACES_API_KEY` is not set. A hit is accepted only through `acceptMatch` (name similarity plus distance). It becomes a `places` row with `source = 'event-venue'` (so the matcher links it on later runs without Google), the event's own venue name, `country = 'GB'`, and `google_fetched_at` set so `scripts/enrich-places-google.mjs`'s 30-day expiry applies. A Google id that already exists in a curated place just links to it and fills its blank address/location/Maps link; a match on a `source=google` cache row is skipped. **Inserts and patches happen only with `--write`**; a dry run prints what it would do. `event-venue` places are left out of every place list and search (`listPlaces`, `listPlacesByCategory`, `searchPlacesByName`, `listPlacesByCity`, and `/api/places/resolve`); they still resolve by id, and deal linking (`EDINBURGH_PLACES_QUERY`) may use them. The monthly `enrich-places-google.mjs --refresh` refreshes them with the narrow mask only (`id,displayName,formattedAddress,location,googleMapsUri`) and writes just `google_maps_uri` and `google_fetched_at`, never Enterprise fields; the 30-day expiry-clear covers them like any other place.
+- **App.** `lib/db/events.ts` embeds the linked venue as `place` (photo only in lists; name, address, website and Maps link on the detail page). `EventDetail` shows the venue address, "Open in Google Maps" (the venue's `google_maps_uri`, else a Maps search for venue plus address) and the venue's website.
+
 ## Running it
 
 ```bash
@@ -163,7 +172,7 @@ node --env-file=.env.local scripts/daily-sources.mjs --skip=eventbrite
 
 Requires `NEXT_PUBLIC_SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` to
 `--write` (dry runs work without them — they only print a warning). Optional
-`SKIDDLE_API_KEY` / `TICKETMASTER_API_KEY` enable those two adapters; each
+`SKIDDLE_API_KEY` / `TICKETMASTER_API_KEY` enable those two adapters, and `GOOGLE_PLACES_API_KEY` enables the unknown-venue lookup; each
 skips cleanly (a log line, not a failure) when its key is absent. Uses the
 Supabase REST API directly, not `@supabase/supabase-js`, since that client's
 Realtime/WebSocket init crashes under plain Node 20 (same as

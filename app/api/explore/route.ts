@@ -45,6 +45,7 @@ import { CITY } from "@/lib/city";
 import { listPlacesByCity } from "@/lib/db/places";
 import { listLiveHappenings } from "@/lib/db/happenings";
 import { listUpcomingEvents } from "@/lib/db/events";
+import { eventRealImage } from "@/lib/events/image";
 import {
   nextOccurrence,
   normalizeRecurrence,
@@ -398,7 +399,7 @@ export async function GET(request: Request) {
             title: e.name,
             lat: e.lat as number,
             lng: e.lng as number,
-            image: e.image_url,
+            image: eventRealImage(e),
             category: e.category ? (formatPlaceCategoryLabel(e.category) ?? "Event") : "Event",
             badge: formatEventPrice(e) || null,
             href: `/event/${e.id}`,

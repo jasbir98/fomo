@@ -70,13 +70,19 @@ export function printCategorySummary() {
 }
 
 /** Description backfill totals + before/after samples. */
-export function printBackfillSummary({ blankBefore, blankAfter, backfillStats, backfillSamples }) {
+export function printBackfillSummary({ blankBefore, blankAfter, backfillStats, backfillSamples, backfillImageSamples = [] }) {
   console.log(
     `\n[daily-sources] descriptions: blank-before-backfill=${blankBefore} candidates=${backfillStats.candidates} ` +
       `fetched=${backfillStats.fetched} fetchFailed=${backfillStats.fetchFailed} robotsBlocked=${backfillStats.robotsBlocked} ` +
+      `skippedRecentlyTried=${backfillStats.skippedRecent} imageCandidates=${backfillStats.imageCandidates} ` +
+      `imageFromPage=${backfillStats.imageFromPage} imageBroken=${backfillStats.imageBroken} ` +
       `foundOnPage=${backfillStats.foundOnPage} datesFixed=${backfillStats.datesFixed} fallbackUsed=${backfillStats.fallbackUsed} ` +
       `blank-after=${blankAfter}`
   );
+  if (backfillImageSamples.length > 0) {
+    console.log(`[daily-sources] page-image samples:`);
+    for (const s of backfillImageSamples) console.log(`    [${s.provider}] "${s.name}" -> ${s.image}`);
+  }
   if (backfillSamples.length > 0) {
     console.log(`[daily-sources] description samples (before -> after):`);
     for (const s of backfillSamples) {

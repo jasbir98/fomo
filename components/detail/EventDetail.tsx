@@ -5,11 +5,11 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { supabaseBrowserAuth } from "@/lib/supabase/client";
 import { buildAskFomoHref } from "@/lib/chat-seed";
-import { directionsUrlFor } from "@/lib/maps/links";
+import { buildSearchMapUrl, directionsUrlFor } from "@/lib/maps/links";
 import { safeHttpUrl } from "@/lib/http/safe-url";
 import { getEvent } from "@/lib/db";
 import { useSaved } from "@/lib/useSaved";
-import { defaultImageFor } from "@/lib/happenings/category-style";
+import { eventDefaultImage, eventImageFor } from "@/lib/events/image";
 import { formatEventPrice, formatEventWhen, isDateOnlyStart } from "@/lib/events/format";
 import { buildEventFallbackDescription } from "@/lib/events/description";
 import type { EventItem } from "@/lib/types";
@@ -30,6 +30,15 @@ import {
 
 /** The preview cache never changes under a mounted page; nothing to subscribe to. */
 const noopSubscribe = () => () => {};
+
+/** "https://www.example.com/menu" -> "example.com" (the link text for the venue's website). */
+function websiteHost(url: string): string | null {
+  try {
+    return new URL(url).hostname.replace(/^www\./, "");
+  } catch {
+    return null;
+  }
+}
 
 /**
  * Google Calendar "add event" link — mirrors the happening detail page's
@@ -151,7 +160,8 @@ export function EventDetail({ id, presentation = "page", initialEvent }: DetailP
     // full-page loader, with skeleton rows standing in for the rest
     // (description, When/Venue grid, directions, tickets — all of it needs
     // the real event row).
-    const previewImage = preview.imageUrl ?? defaultImageFor({ title: preview.title, venue_name: preview.venueName });
+    const previewImage =
+      preview.imageUrl ?? eventDefaultImage({ name: preview.title, venue_name: preview.venueName, category: preview.category ?? null });
     return (
       <div className="flex flex-col gap-4 pb-6">
         <DetailTopBar presentation={presentation} title={preview.title} />
@@ -231,10 +241,22 @@ export function EventDetail({ id, presentation = "page", initialEvent }: DetailP
   // value falls through to the directions link, same as no ticket_url at all.
   const safeTicketUrl = safeHttpUrl(event.ticket_url);
   const price = formatEventPrice(event);
-  // Event has a single image_url, no place_photos-style gallery — one-item
-  // array reuses PhotoCarousel's existing placeholder-when-empty behavior
-  // (see app/(shell)/place/[id]/page.tsx) rather than a bespoke hero block.
-  const heroPhotos: CarouselPhoto[] = event.image_url ? [{ url: event.image_url, alt: event.name }] : [];
+  // Event has a single image, no place_photos-style gallery: its own photo,
+  // else the linked venue's, else the category tile (lib/events/image.ts), so
+  // the hero is never the blank placeholder.
+  const heroPhotos: CarouselPhoto[] = [{ url: eventImageFor(event), alt: event.name }];
+
+  // Venue details: the event's own address (else the linked venue's), the
+  // venue's website, and a Maps link — the venue's own Google Maps URL when we
+  // have one, else a Maps search for venue + address (same helper the reels use).
+  const venueAddress = event.address || event.place?.address || null;
+  const venueWebsite = safeHttpUrl(event.place?.website);
+  const venueWebsiteLabel = venueWebsite ? websiteHost(venueWebsite) : null;
+  const mapsQuery = [event.venue_name, venueAddress].filter(Boolean).join(", ");
+  const mapsCity = event.city || "Edinburgh";
+  const mapsUrl =
+    safeHttpUrl(event.place?.google_maps_uri) ??
+    (mapsQuery ? buildSearchMapUrl(mapsQuery.toLowerCase().includes(mapsCity.toLowerCase()) ? mapsQuery : `${mapsQuery}, ${mapsCity}`) : null);
   // App isn't deployed yet — window.location.origin is the correct base for
   // a shareable link until there's a real production host.
   const shareUrl = typeof window !== "undefined" ? `${window.location.origin}${pathname}` : "";
@@ -372,6 +394,44 @@ export function EventDetail({ id, presentation = "page", initialEvent }: DetailP
               </a>{" "}
               &middot; Fomo is not an official festival app
             </p>
+          ) : null}
+          {venueAddress || mapsUrl || venueWebsiteLabel ? (
+            <ul className="mb-4 flex flex-col gap-2.5 border-t border-outline-variant/30 pt-4">
+              {venueAddress ? (
+                <li className="flex items-start gap-3">
+                  <Icon name="location_on" className="mt-0.5 text-primary" />
+                  <span className="text-label-md text-on-surface">{venueAddress}</span>
+                </li>
+              ) : null}
+              {mapsUrl ? (
+                <li className="flex items-start gap-3">
+                  <Icon name="map" className="mt-0.5 text-primary" />
+                  <a
+                    href={mapsUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={() => trackOutboundClicked("event", event.id, mapsUrl, "maps")}
+                    className="text-label-md text-secondary underline underline-offset-2"
+                  >
+                    Open in Google Maps
+                  </a>
+                </li>
+              ) : null}
+              {venueWebsite && venueWebsiteLabel ? (
+                <li className="flex items-start gap-3">
+                  <Icon name="language" className="mt-0.5 text-primary" />
+                  <a
+                    href={venueWebsite}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={() => trackOutboundClicked("event", event.id, venueWebsite, "website")}
+                    className="text-label-md text-secondary underline underline-offset-2"
+                  >
+                    {venueWebsiteLabel}
+                  </a>
+                </li>
+              ) : null}
+            </ul>
           ) : null}
           <div className="grid grid-cols-2 gap-4 border-t border-outline-variant/30 pt-4 lg:hidden">
             <div className="flex items-center gap-3">

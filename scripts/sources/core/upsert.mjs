@@ -14,8 +14,35 @@
 import { SUPABASE_URL, SERVICE_ROLE_KEY } from "./config.mjs";
 import { isMissingSchemaError } from "./rest.mjs";
 
-const LIFECYCLE_COLUMNS = ["last_seen_at", "status"];
+// enriched_at ships in the same SQL file as last_seen_at/status.
+const LIFECYCLE_COLUMNS = ["last_seen_at", "status", "enriched_at"];
+// Columns that must be OMITTED (not sent as null) when a row has no value, so a
+// re-discovered event's existing value survives an upsert untouched: a later
+// run that finds no photo / fails to match a venue / skips the page backfill
+// must never clear what an earlier run stored.
+const CLOBBER_GUARDED = ["image_url", "place_id", "enriched_at"];
 let lifecycleColumnsMissing = false;
+
+/**
+ * Group rows by which clobber-guarded columns they carry a value for, dropping
+ * the null ones. Returns { batches: [{ label, rows }] } (label e.g. "with image_url, place_id"
+ * or "plain"), so every object in a batch has the same key set.
+ */
+export function partitionByGuardedColumns(rows) {
+  const groups = new Map();
+  for (const row of rows) {
+    const present = CLOBBER_GUARDED.filter((c) => row[c] != null);
+    const key = present.join("|");
+    const out = {};
+    for (const [k, v] of Object.entries(row)) {
+      if (CLOBBER_GUARDED.includes(k) && v == null) continue;
+      out[k] = v;
+    }
+    if (!groups.has(key)) groups.set(key, { label: present.length ? `with ${present.join(", ")}` : "plain", rows: [] });
+    groups.get(key).rows.push(out);
+  }
+  return { batches: [...groups.values()] };
+}
 
 /** Strip fields that are not real `events` columns (transient validator flags). */
 function stripTransient(row) {
@@ -57,24 +84,23 @@ export async function upsertEvents(rows, { runStart = new Date() } = {}) {
   const seenAt = runStart.toISOString();
   const stamped = rows.map((r) => ({ ...stripTransient(r), last_seen_at: seenAt, status: r.status ?? "active" }));
 
-  // Null-image clobber guard: image_url must be
-  // *omitted* (not null) on rows with no photo, so a re-discovered event's
-  // existing image survives an upsert untouched (supabase-js/PostgREST both
-  // write every key present in the row object on conflict).
-  const withPhoto = stamped.filter((r) => r.image_url != null);
-  const withoutPhoto = stamped.filter((r) => r.image_url == null).map(({ image_url: _image_url, ...rest }) => rest);
+  // Null clobber guard (image_url, place_id, enriched_at): PostgREST writes
+  // every key present in a bulk body on conflict, and takes the UNION of keys
+  // across the objects, so rows are batched by which guarded columns they
+  // actually have and null ones are dropped from the object.
+  const { batches } = partitionByGuardedColumns(stamped);
 
   let ok = 0;
   let failed = 0;
-  for (const [label, batch] of [["with-photo", withPhoto], ["without-photo", withoutPhoto]]) {
+  for (const { label, rows: batch } of batches) {
     if (batch.length === 0) continue;
     try {
       let payload = lifecycleColumnsMissing ? batch.map(withoutLifecycle) : batch;
       let result = await postBatch(payload);
-      if (!result.ok && !lifecycleColumnsMissing && isMissingSchemaError(result.error) && /last_seen_at|status/.test(result.text)) {
+      if (!result.ok && !lifecycleColumnsMissing && isMissingSchemaError(result.error) && /last_seen_at|status|enriched_at/.test(result.text)) {
         lifecycleColumnsMissing = true;
         console.warn(
-          "[daily-sources] events.last_seen_at/status columns not found — run supabase/add_event_lifecycle.sql. Upserting without lifecycle fields for now."
+          "[daily-sources] events.last_seen_at/status/enriched_at columns not found — run supabase/add_event_lifecycle.sql. Upserting without lifecycle fields for now."
         );
         payload = batch.map(withoutLifecycle);
         result = await postBatch(payload);

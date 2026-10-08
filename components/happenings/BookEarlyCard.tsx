@@ -10,6 +10,7 @@ import { ensurePushSubscribed, pushReasonMessage } from "@/lib/push/client";
 import { NotifyMeButton } from "./NotifyMeButton";
 import { happeningToPreview, prefetchHappening, setHappeningPreview } from "@/lib/happenings/preview-cache";
 import { eventToPreview, prefetchEvent, setEventPreview } from "@/lib/events/preview-cache";
+import { eventImageFor } from "@/lib/events/image";
 import { track, priceBand, trackOutboundClicked } from "@/lib/analytics/track";
 
 /** Leading thumbnail — same convention as FeedListCard's: the subject's own
@@ -103,7 +104,7 @@ export function BookEarlyCard({ card, initialSubscribed = false, position }: Boo
   if (card.kind === "event") {
     const { event } = card;
     const price = formatEventPrice(event);
-    const thumbnail = event.image_url ?? defaultImageFor({ title: event.name, venue_name: event.venue_name });
+    const thumbnail = eventImageFor(event);
     return (
       <NavCard
         href={`/event/${event.id}`}

@@ -1,14 +1,74 @@
 import type { Db } from "@/lib/supabase/types";
-import type { EventItem } from "@/lib/types";
+import type { EventItem, EventVenue } from "@/lib/types";
 import { eventIsLive, DEFAULT_EVENT_DURATION_MS } from "@/lib/events/format";
 import { cleanEventDescription } from "@/lib/events/description";
+
+/**
+ * The linked venue (`events.place_id -> places.id`, filled by
+ * scripts/sources/core/venues.mjs) is embedded under `place`. Lists only need
+ * its photo (a card falls back to it when the event has none); a single read
+ * (detail page, saved items) also takes the name / address / website / Maps
+ * link. `place_photos` is embedded too because a curated place's only photo
+ * can live there (lib/db/places.ts's withThumbnail does the same). No Google
+ * photo is ever requested or stored for these (the user wants free photos only).
+ */
+const LIST_SELECT = "*, place:places(image_url, place_photos(url, display_order))";
+const DETAIL_SELECT = "*, place:places(name, image_url, website, google_maps_uri, address, place_photos(url, display_order))";
+
+type RawVenue = EventVenue & { place_photos?: { url: string; display_order: number | null }[] | null };
+type RawEvent = Omit<EventItem, "place"> & { place?: RawVenue | RawVenue[] | null };
+
+/** Flattens the embedded venue: image_url falls back to its earliest place_photo, place_photos is dropped. */
+export function flattenVenue(raw: RawVenue | RawVenue[] | null | undefined): EventVenue | null {
+  const place = Array.isArray(raw) ? raw[0] : raw;
+  if (!place) return null;
+  const { place_photos, ...rest } = place;
+  const photo = place_photos && place_photos.length > 0 ? [...place_photos].sort((a, b) => (a.display_order ?? 0) - (b.display_order ?? 0))[0]?.url : null;
+  return { ...rest, image_url: rest.image_url ?? photo ?? null };
+}
+
+/** True when PostgREST can't embed `place` (no events.place_id -> places FK in this DB, or an ambiguous one). */
+export function isUnknownRelationship(error: { code?: string; message?: string } | null): boolean {
+  if (!error) return false;
+  return error.code === "PGRST200" || error.code === "PGRST201" || /could not find a relationship/i.test(error.message ?? "");
+}
+
+type QueryOpts = { activeOnly: boolean; embed: boolean };
+
+/**
+ * Runs `run`, and on the two "deployed before the SQL/FK exists" errors retries
+ * once each without the thing that failed (the status filter, the venue embed),
+ * so neither a missing events.status column nor a missing FK can blank the feed.
+ */
+async function withEventFallbacks<R extends { error: { code?: string; message?: string } | null }>(
+  run: (opts: QueryOpts) => PromiseLike<R>
+): Promise<R> {
+  let opts: QueryOpts = { activeOnly: true, embed: true };
+  let res = await run(opts);
+  for (let attempt = 0; attempt < 2 && res.error; attempt += 1) {
+    if (opts.activeOnly && isUnknownStatusColumn(res.error)) {
+      // Deployed before supabase/add_event_lifecycle.sql was run.
+      console.warn("[events] events.status column missing — run supabase/add_event_lifecycle.sql; listing without the status filter");
+      opts = { ...opts, activeOnly: false };
+    } else if (opts.embed && isUnknownRelationship(res.error)) {
+      console.warn("[events] cannot embed events.place (no FK events.place_id -> places.id?); reading events without the venue join");
+      opts = { ...opts, embed: false };
+    } else {
+      break;
+    }
+    res = await run(opts);
+  }
+  return res;
+}
 
 /**
  * Single mapping point for every function below that returns EventItem rows:
  * nulls a source-placeholder description ("summary of the event", "TBC",
  * ...) so no surface ever renders it — see lib/events/description.ts.
  */
-function withCleanDescription(row: EventItem): EventItem {
+function withCleanDescription(raw: RawEvent): EventItem {
+  const { place, ...rest } = raw;
+  const row: EventItem = place === undefined ? (rest as EventItem) : { ...(rest as EventItem), place: flattenVenue(place) };
   const cleaned = cleanEventDescription(row.description, row.name);
   return cleaned === row.description ? row : { ...row, description: cleaned };
 }
@@ -67,10 +127,10 @@ export async function listUpcomingEvents(
 
   const fromDate = from ? new Date(from) : new Date();
 
-  const build = (activeOnly: boolean) => {
+  const build = ({ activeOnly, embed }: QueryOpts) => {
     let query = db
       .from("events")
-      .select("*")
+      .select(embed ? LIST_SELECT : "*")
       .or(stillRunningFilter(fromDate))
       .order("starts_at", { ascending: true });
 
@@ -93,13 +153,7 @@ export async function listUpcomingEvents(
     return query;
   };
 
-  let { data, error } = await build(true);
-  if (error && isUnknownStatusColumn(error)) {
-    // Deployed before supabase/add_event_lifecycle.sql was run: retry once
-    // without the status filter rather than blanking the feed.
-    console.warn("[events] events.status column missing — run supabase/add_event_lifecycle.sql; listing without the status filter");
-    ({ data, error } = await build(false));
-  }
+  const { data, error } = await withEventFallbacks(build);
   if (error) throw error;
   // Final in-memory guard, belt-and-braces: re-checks each row against its
   // own actual effective end (`eventEffectiveEndMs`), not just the SQL
@@ -107,15 +161,19 @@ export async function listUpcomingEvents(
   // query change that loosens the DB-level filter. Every list route reading
   // this function (feed/now/explore/discover/chat) inherits this guard for
   // free rather than re-implementing it per caller.
-  const live = (data ?? []).filter((row) => eventIsLive(row, fromDate)).map(withCleanDescription);
+  const live = ((data ?? []) as unknown as RawEvent[])
+    .map(withCleanDescription)
+    .filter((row) => eventIsLive(row, fromDate));
   return limit ? live.slice(0, limit) : live;
 }
 
 /** Fetch a single event by id, whatever its status (expired/gone/cancelled rows still resolve). Returns null if not found. */
 export async function getEvent(db: Db, id: string): Promise<EventItem | null> {
-  const { data, error } = await db.from("events").select("*").eq("id", id).maybeSingle();
+  const { data, error } = await withEventFallbacks(({ embed }) =>
+    db.from("events").select(embed ? DETAIL_SELECT : "*").eq("id", id).maybeSingle()
+  );
   if (error) throw error;
-  return data ? withCleanDescription(data) : null;
+  return data ? withCleanDescription(data as unknown as RawEvent) : null;
 }
 
 /**
@@ -124,7 +182,9 @@ export async function getEvent(db: Db, id: string): Promise<EventItem | null> {
  */
 export async function listEventsByIds(db: Db, ids: string[]): Promise<EventItem[]> {
   if (ids.length === 0) return [];
-  const { data, error } = await db.from("events").select("*").in("id", ids);
+  const { data, error } = await withEventFallbacks(({ embed }) =>
+    db.from("events").select(embed ? LIST_SELECT : "*").in("id", ids)
+  );
   if (error) throw error;
-  return (data ?? []).map(withCleanDescription);
+  return ((data ?? []) as unknown as RawEvent[]).map(withCleanDescription);
 }

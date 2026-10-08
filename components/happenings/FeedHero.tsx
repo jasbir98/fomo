@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Icon, NavCard, SmartImage } from "@/components/ui";
 import { formatEventDate, formatEventPrice, formatEventTimeSpan, formatEventWhen } from "@/lib/events/format";
-import { defaultImageFor } from "@/lib/happenings/category-style";
+import { eventDefaultImage } from "@/lib/events/image";
 import { HappeningHero } from "./HappeningHero";
 import type { FeedHeroCard } from "@/lib/happenings/feed-types";
 import type { EventItem } from "@/lib/types";
@@ -54,7 +54,8 @@ function EventHero({ event, reason, surface }: { event: EventItem; reason: strin
   const price = formatEventPrice(event);
   const eventDate = formatEventDate(event.starts_at);
   const eventTime = formatEventTimeSpan(event.starts_at, event.ends_at);
-  const heroImage = event.image_url && !imgError ? event.image_url : defaultImageFor({ title: event.name, venue_name: event.venue_name });
+  const ownImage = event.image_url || event.place?.image_url || null;
+  const heroImage = ownImage && !imgError ? ownImage : eventDefaultImage(event);
 
   function trackOpen() {
     track("card_opened", { kind: "event", id: event.id, source: "event", surface, position: 0, price_band: priceBand(event.is_free) });
