@@ -8,8 +8,10 @@ export const DESTINATION = "Edinburgh, Scotland, United Kingdom";
 
 // Rolling window: how far ahead we keep events. The API adapters (Skiddle,
 // Ticketmaster) request exactly this window and core/validate.mjs drops any
-// row starting later (reason `beyond_window`).
-export const LOOKAHEAD_DAYS = 31;
+// row starting later (reason `beyond_window`). 90 days matches the feed's
+// "Coming up" tab (COMING_UP_LOOKAHEAD_DAYS in lib/happenings/build-feed.ts),
+// so the tab stays full instead of shrinking to whatever was fetched.
+export const LOOKAHEAD_DAYS = 90;
 // Deprecated alias — adapters should import LOOKAHEAD_DAYS.
 export const PROACTIVE_LOOKAHEAD_DAYS = LOOKAHEAD_DAYS;
 // Search radius around the Edinburgh centre for the API adapters.

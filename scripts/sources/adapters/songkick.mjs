@@ -3,17 +3,17 @@
  *
  * Follows `?page=N` (50 events/page) up to 20 pages. The listing is date-sorted
  * ascending, so the walk stops as soon as a page's events all start beyond the
- * 31-day window, or a page adds no new ids, or a page has no events at all.
+ * LOOKAHEAD_DAYS window, or a page adds no new ids, or a page has no events at all.
  */
 
-import { DESTINATION } from "../core/config.mjs";
+import { DESTINATION, LOOKAHEAD_DAYS } from "../core/config.mjs";
 import { fetchAndExtract } from "../core/jsonld.mjs";
 import { dedupeWithinSource } from "../core/normalize.mjs";
 import { emptyStats, mergeStats } from "../core/stats.mjs";
 
 const BASE = "https://www.songkick.com/metro-areas/24551-uk-edinburgh";
 const MAX_PAGES = 20;
-const WINDOW_MS = 31 * 24 * 60 * 60 * 1000;
+const WINDOW_MS = LOOKAHEAD_DAYS * 24 * 60 * 60 * 1000;
 
 export default {
   name: "songkick",

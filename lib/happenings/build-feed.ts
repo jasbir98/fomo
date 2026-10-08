@@ -828,7 +828,7 @@ export async function buildFeed(db: Db, opts: BuildFeedOptions): Promise<FeedRes
   if (window !== "book_early") {
     const { from, to } = occurrenceWindowRange(window, range, now, timeZone);
     if (to >= from) {
-      prewarm.push(listUpcomingEvents(db, { destination: CITY.name, from: from.toISOString(), to: to.toISOString(), limit: 500 }));
+      prewarm.push(listUpcomingEvents(db, { destination: CITY.name, from: from.toISOString(), to: to.toISOString() }));
     }
   }
   for (const p of prewarm) p.catch(() => {});
@@ -951,6 +951,8 @@ export async function buildFeed(db: Db, opts: BuildFeedOptions): Promise<FeedRes
     // no days left in it), which by definition matches nothing. `limit`
     // raised from 60 to 200 to 500: as the catalogue grows with more sources,
     // a higher budget ensures dedupe/merge can find all matching pairs.
+    // Now unlimited: listUpcomingEvents pages through the whole window, so
+    // "Coming up" shows everything in its 90 days, not the first 500 rows.
     const windowEventsRaw =
       to < from
         ? []
@@ -958,7 +960,6 @@ export async function buildFeed(db: Db, opts: BuildFeedOptions): Promise<FeedRes
             destination: CITY.name,
             from: from.toISOString(),
             to: to.toISOString(),
-            limit: 500,
           });
     // Exclude the hero itself so an event-kind hero never also renders as
     // a What's on card — mirrors the happening-side `h.id !== heroHappeningId`
