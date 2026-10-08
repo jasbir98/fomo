@@ -202,7 +202,8 @@ def process_page(
         title_text = str(item.get("title") or "(untitled)")
         item_page = replace(page, repair_text=plain_chunk, repaired=[])
         verdict = gate_deal(item, item_page, today=today, edinburgh_source=source.edinburgh,
-                            default_eligibility=source.default_eligibility)
+                            default_eligibility=source.default_eligibility,
+                            edinburgh_evidence=source.edinburgh_evidence, national_ok=source.national_ok)
         if not verdict.ok:
             reason = verdict.reason if verdict.reason in REASONS else "invalid_record"
             stats.rejected[reason] += 1
@@ -213,6 +214,8 @@ def process_page(
         for name in verdict.dropped:
             stats.dropped_fields[name] += 1
         raw = to_raw_happening(item, verdict, source_name=source.name, page_url=ref.url)
+        if verdict.national and source.national_venue:
+            raw["venue_name"] = source.national_venue
         # Slug: the page for a one-deal page, else page + title. Identity may replace it.
         base_slug = f"{source.id}-{page_slug(ref.url)}"
         raw["slug"] = base_slug if not source.multi_deal_pages else slugify(f"{base_slug}-{title_text}")[:110]

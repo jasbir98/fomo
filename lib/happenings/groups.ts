@@ -153,7 +153,7 @@ export function matchesDealFilters(
  * runs against.
  */
 const DISCOUNT_SHAPE_PATTERN =
-  /\d+(\.\d+)?%|\boff\b|\bdiscount\b|\bconcession\b|half[- ]price|\bfree\b|\bsav(e|es|ing|ings)\b|\d+[- ]?for[- ]?\d+|\d+(\.\d+)?\s*tickets?\b/i;
+  /\d+(\.\d+)?%|\boff\b|\bdiscount\b|\bconcession\b|half[- ]price|\bfree\b|\bsav(e|es|ing|ings)\b|\d+[- ]?for[- ]?\d+|\d+(\.\d+)?\s*tickets?\b|\bbogof\b|\bbuy one,? get one\b|\bget (?:another|a second)\b/i;
 
 /**
  * True for a `kind: "deal"` happening that is an actual, redeemable

@@ -69,7 +69,13 @@ ELIGIBILITY_ENUM = ("anyone", "local_resident", "student", "under_26", "over_60"
 REASONS = (
     "no_quote", "quote_not_found", "quote_too_long", "figure_not_in_quote", "promo_code_not_verbatim",
     "date_not_stated", "weekday_not_stated", "eligibility_unsupported", "not_edinburgh", "expired",
-    "not_a_deal", "invalid_record",
+    "not_a_deal", "invalid_record", "restricted_audience_unsupported", "seasonal_undated",
+)
+
+SEASONAL_RE = re.compile(
+    r"\bthis (?:summer|autumn|winter|spring|christmas|easter|halloween)\b|\b(?:summer|easter|october|school) holidays\b"
+    r"|\bhalf[- ]term\b|\bfestive season\b",
+    re.I,
 )
 
 
@@ -131,7 +137,8 @@ def strip_markers(quote: str) -> str:
 
 DISCOUNT_SHAPE_RE = re.compile(
     r"\d+(\.\d+)?%|\boff\b|\bdiscount\b|\bconcession\b|half[- ]price|\bfree\b|\bsav(e|es|ing|ings)\b"
-    r"|\d+[- ]?for[- ]?\d+|\d+(\.\d+)?\s*tickets?\b",
+    r"|\d+[- ]?for[- ]?\d+|\d+(\.\d+)?\s*tickets?\b"
+    r"|\bbogof\b|\bbuy one,? get one\b|\bget (?:another|a second)\b",
     re.I,
 )
 
@@ -147,18 +154,67 @@ def is_genuine_deal(title: str, saving_label: str | None, saving_amount: float |
     return False
 
 
+# --- restricted audiences ------------------------------------------------------------
+
+# Groups that some offers are restricted to but that have no value in ELIGIBILITY_ENUM.
+# An offer for one of them must not be stored as eligibility 'anyone'.
+RESTRICTED_GROUP_RE = re.compile(
+    r"\b(?:d/?deaf|deaf|disabled|disability|disabilities|neurodivergent|carers?|nhs|blue[- ]light|"
+    r"armed forces|serving (?:members|personnel)|veterans?|teachers?|teaching staff|job ?seekers?|"
+    r"universal credit|on benefits|receiving benefits|benefit claimants?)\b",
+    re.I,
+)
+# A sentence counts only when it also reads as an offer or a restriction ("for", "only", a
+# saving). "Step-free and disabled access" on its own is a facility note, not an offer for a group.
+RESTRICTED_OFFER_CUE_RE = re.compile(
+    r"£|%|\bonly\b|\bexclusive|\bfor\b|\beligible\b|\bopen to\b|\bavailable to\b|\bmust\b|"
+    r"(?<![-\w])free\b|\boff\b|\bdiscount|\bsav(?:e|es|ing|ings)\b|\d+\s*for\s*\d+|half[- ]price|\bconcession",
+    re.I,
+)
+
+
+def restricted_audience(text: str) -> str | None:
+    """The restricted group an offer is aimed at, or None. Checked sentence by sentence."""
+    for sentence in re.split(r"(?<=[.!?;])\s+|\n+", text or ""):
+        match = RESTRICTED_GROUP_RE.search(sentence)
+        if match and RESTRICTED_OFFER_CUE_RE.search(sentence):
+            return match.group(0).lower()
+    return None
+
+
 # --- Edinburgh ---------------------------------------------------------------------
 
-EH_POSTCODE_RE = re.compile(r"\bEH\d{1,2}\s?\d[A-Z]{2}\b", re.I)
-UK_POSTCODE_RE = re.compile(r"\b([A-Z]{1,2})\d[A-Z\d]?\s?\d[A-Z]{2}\b", re.I)
+EH_POSTCODE_RE = re.compile(r"\bEH(\d{1,2})\s?\d[A-Z]{2}\b", re.I)
+UK_POSTCODE_RE = re.compile(r"\b([A-Z]{1,2})(\d[A-Z\d]?)\s?\d[A-Z]{2}\b", re.I)
+
+# EH outward codes Fomo counts as Edinburgh: the city (EH1-EH17), Musselburgh
+# (EH21) and Dalkeith (EH22) on its edge, and Kirkliston / Ratho / South
+# Queensferry (EH28-EH30) inside the council area. Other EH districts are
+# Lothians towns (EH39 Dirleton, EH49 Linlithgow, EH26 Penicuik) — out.
+EDINBURGH_EH_DISTRICTS = frozenset({*range(1, 18), 21, 22, 28, 29, 30})
+
+
+def _is_edinburgh_district(digits: str) -> bool:
+    try:
+        return int(digits) in EDINBURGH_EH_DISTRICTS
+    except ValueError:
+        return False
 
 
 def has_eh_postcode(text: str) -> bool:
-    return bool(EH_POSTCODE_RE.search(text or ""))
+    """True when the text states a postcode in an Edinburgh EH district."""
+    return any(_is_edinburgh_district(m.group(1)) for m in EH_POSTCODE_RE.finditer(text or ""))
 
 
 def has_non_eh_postcode(text: str) -> bool:
-    return any(m.group(1).upper() != "EH" for m in UK_POSTCODE_RE.finditer(text or ""))
+    """True when the text states a postcode outside Edinburgh, including EH districts outside the city."""
+    for m in UK_POSTCODE_RE.finditer(text or ""):
+        area, district = m.group(1).upper(), re.match(r"\d+", m.group(2))
+        if area != "EH":
+            return True
+        if district and not _is_edinburgh_district(district.group(0)):
+            return True
+    return False
 
 
 # --- the gate ------------------------------------------------------------------------
@@ -189,6 +245,7 @@ class GateResult:
     fields: dict[str, Any] = field(default_factory=dict)  # accepted, cleaned values
     evidence: dict[str, dict[str, str]] = field(default_factory=dict)  # field -> {value, quote}
     dropped: dict[str, str] = field(default_factory=dict)  # non-critical field -> why
+    national: bool = False  # passed the Edinburgh rule as a national offer (national_ok), no postcode
 
     def reject(self, reason: str, detail: str) -> "GateResult":
         self.ok = False
@@ -423,9 +480,13 @@ def page_passage(text: str, needle: str, max_len: int = 300) -> str | None:
 
 
 def gate_deal(item: dict[str, Any], page: PageContext, *, today: date, edinburgh_source: bool,
-              default_eligibility: str | None = None) -> GateResult:
+              default_eligibility: str | None = None, edinburgh_evidence: str | None = None,
+              national_ok: bool = False) -> GateResult:
     """Run one extracted deal through every rule. `item` is the model's dict:
-    {title, kind, category, quote, fields: {name: {value, quote}}}."""
+    {title, kind, category, quote, fields: {name: {value, quote}}}.
+
+    edinburgh_evidence: verbatim page text that proves the page's offers are in Edinburgh.
+    national_ok: a deal stating no postcode passes as a national offer (see registry.py)."""
     result = GateResult(ok=True)
     title = clean_value(item.get("title") or "")
     if not title:
@@ -485,16 +546,33 @@ def gate_deal(item: dict[str, Any], page: PageContext, *, today: date, edinburgh
             eligibility = checked[0]
             result.evidence["eligibility"] = {"value": eligibility, "quote": checked[1]}
 
+    # An offer for a group the schema cannot express is not open to anyone.
+    if eligibility == "anyone":
+        offer_text = " ".join([str(item.get("title") or ""), deal_quote] + [
+            value for name in ("summary", "saving_label", "eligibility_note", "redemption_note", "includes", "time_note")
+            for value in (fields.get(name) if isinstance(fields.get(name), str) else "",
+                          result.evidence.get(name, {}).get("quote", ""))
+        ])
+        group = restricted_audience(offer_text)
+        if group:
+            return result.reject("restricted_audience_unsupported",
+                                 f"the offer is for {group}, which has no eligibility value; it is not open to anyone")
+
     # Edinburgh.
     place_text = " ".join([deal_quote, result.evidence.get("address", {}).get("quote", ""),
                            result.evidence.get("venue_name", {}).get("quote", "")])
     if page.single_deal:
         place_text += " " + page.text
+    page_evidence = bool(edinburgh_evidence) and normalise(edinburgh_evidence) in page.norm
     if has_eh_postcode(place_text):
         pass
     elif has_non_eh_postcode(place_text):
         return result.reject("not_edinburgh", "a non-Edinburgh postcode is stated and no EH postcode")
-    elif not edinburgh_source:
+    elif edinburgh_source or page_evidence:
+        pass
+    elif national_ok:
+        result.national = True
+    else:
         return result.reject("not_edinburgh", "no EH postcode and not an Edinburgh-only source")
 
     # Expired.
@@ -507,6 +585,11 @@ def gate_deal(item: dict[str, Any], page: PageContext, *, today: date, edinburgh
         return result.reject("expired", "every stated date has passed")
     if end and start and end < start:
         return result.reject("invalid_record", "ends_at is before starts_at")
+    # "Kids eat free this summer" with no dates would otherwise be stored as
+    # valid forever; a seasonal offer needs its dates stated.
+    if not (start or end or fields.get("season_valid_until")) and pseudo["recurrence"].get("type") == "always" \
+            and SEASONAL_RE.search(f"{title} {deal_quote}"):
+        return result.reject("seasonal_undated", "a seasonal offer with no stated dates")
 
     # isGenuineDeal.
     if item["kind"] == "deal":
@@ -537,7 +620,7 @@ def to_raw_happening(item: dict[str, Any], gate: GateResult, *, source_name: str
         "summary": f.get("summary"),
         "kind": item["kind"],
         "category": item.get("category") or "food",
-        "scope": "venue" if venue else "city",
+        "scope": "national" if gate.national else ("venue" if venue else "city"),
         "saving_label": f.get("saving_label"),
         "saving_amount": f.get("saving_amount"),
         "currency": "GBP" if f.get("saving_amount") else None,

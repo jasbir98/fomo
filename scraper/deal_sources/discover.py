@@ -83,6 +83,31 @@ def parse_wp_items(data: Any, now: datetime, modified_within_days: int | None = 
     return refs, old
 
 
+_URL_BLOCK_RE = re.compile(r"<url>(.*?)</url>", re.S | re.I)
+
+
+def parse_sitemap_entries(xml: str) -> list[tuple[str, str | None]]:
+    """(page URL, raw <lastmod> or None) for every <url> block of a urlset sitemap."""
+    out: list[tuple[str, str | None]] = []
+    for block in _URL_BLOCK_RE.findall(xml or ""):
+        loc = re.search(r"<loc>\s*([^<\s]+)\s*</loc>", block, re.I)
+        if not loc:
+            continue
+        lastmod = re.search(r"<lastmod>\s*([^<\s]+)\s*</lastmod>", block, re.I)
+        out.append((unescape(loc.group(1)), lastmod.group(1) if lastmod else None))
+    return out
+
+
+def _sitemap_date(raw: str | None) -> datetime | None:
+    if not raw:
+        return None
+    try:
+        dt = datetime.fromisoformat(raw.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    return dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)
+
+
 def parse_sitemap_locs(xml: str) -> tuple[list[str], list[str]]:
     """(page URLs, child sitemap URLs) from a sitemap or sitemap index."""
     children = re.findall(r"<sitemap>.*?<loc>\s*([^<\s]+)\s*</loc>.*?</sitemap>", xml, re.S | re.I)
@@ -127,18 +152,28 @@ def discover(source: DealSource, fetcher: PoliteFetcher, now: datetime) -> tuple
     elif kind == "urls":
         refs = [PageRef(url=u) for u in cfg["urls"]]
     elif kind == "sitemap":
-        resp = fetcher.get(cfg["url"], accept="application/xml,text/xml", expect_json=True)
-        if not resp.ok:
-            notes.append(f"{cfg['url']}: {resp.reason}")
-        else:
-            locs, children = parse_sitemap_locs(resp.text or "")
+        # One sitemap (`url`) or several (`urls`); each may be a sitemap index.
+        entries: list[tuple[str, str | None]] = []
+        for sitemap_url in cfg.get("urls") or [cfg["url"]]:
+            resp = fetcher.get(sitemap_url, accept="application/xml,text/xml", expect_json=True)
+            if not resp.ok:
+                notes.append(f"{sitemap_url}: {resp.reason}")
+                continue
+            _locs, children = parse_sitemap_locs(resp.text or "")
+            entries.extend(parse_sitemap_entries(resp.text or ""))
             for child in children[:MAX_SITEMAP_CHILDREN]:
                 sub = fetcher.get(child, accept="application/xml,text/xml", expect_json=True)
                 if sub.ok:
-                    locs.extend(parse_sitemap_locs(sub.text or "")[0])
+                    entries.extend(parse_sitemap_entries(sub.text or ""))
                 else:
                     notes.append(f"{child}: {sub.reason}")
-            refs = [PageRef(url=u) for u in filter_urls(locs, cfg.get("pattern"), cfg.get("limit"))]
+        window = cfg.get("modified_within_days")
+        if window:
+            # A URL with no <lastmod> cannot be shown to be recent, so it is dropped.
+            aware_now = now if now.tzinfo else now.replace(tzinfo=timezone.utc)
+            cutoff = aware_now - timedelta(days=window)
+            entries = [(u, lm) for u, lm in entries if (_sitemap_date(lm) or datetime.min.replace(tzinfo=timezone.utc)) >= cutoff]
+        refs = [PageRef(url=u) for u in filter_urls([u for u, _lm in entries], cfg.get("pattern"), cfg.get("limit"))]
     elif kind == "link_list":
         resp = fetcher.get(cfg["url"])
         if not resp.ok:

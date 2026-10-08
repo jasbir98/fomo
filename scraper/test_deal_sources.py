@@ -14,7 +14,9 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from deal_sources import gate  # noqa: E402
-from deal_sources.discover import parse_sitemap_locs, parse_wp_items, filter_urls  # noqa: E402
+from deal_sources.discover import discover, parse_sitemap_entries, parse_sitemap_locs, parse_wp_items, filter_urls  # noqa: E402
+from deal_sources.annual import Annual, annual_sources, in_window, load_annual, window_for  # noqa: E402
+from deal_sources.fetch import Response  # noqa: E402
 from deal_sources.extract import ExtractResult  # noqa: E402
 from deal_sources.ledger import Ledger, table_missing  # noqa: E402
 from deal_sources.registry import SOURCES, DealSource, get_sources  # noqa: E402
@@ -158,21 +160,21 @@ class GateTests(unittest.TestCase):
         self.assertIsNone(gate.repair_quote("two words", src))
 
     def test_repaired_quote_still_needs_its_figures(self):
-        p = gate.PageContext(url="u", text="Save 20% on film studio hire this autumn, EH6 6RB. Terms apply to all bookings made online.",
-                             single_deal=True, repair_text="Save 20% on film studio hire this autumn, EH6 6RB. Terms apply to all bookings made online.")
+        p = gate.PageContext(url="u", text="Save 20% on film studio hire in Leith, EH6 6RB. Terms apply to all bookings made online.",
+                             single_deal=True, repair_text="Save 20% on film studio hire in Leith, EH6 6RB. Terms apply to all bookings made online.")
         item = {"title": "20% off studio hire", "kind": "deal", "category": "arts",
-                "quote": "Save 20% on film studio hire this autumn, EH6 6RB. Terms apply to all bookings",
-                "fields": {"saving_label": {"value": "20% off", "quote": "Save 20% on film studio hire this autumn, EH6 6RB. Terms apply to all bookings made online. Extras"}}}
+                "quote": "Save 20% on film studio hire in Leith, EH6 6RB. Terms apply to all bookings",
+                "fields": {"saving_label": {"value": "20% off", "quote": "Save 20% on film studio hire in Leith, EH6 6RB. Terms apply to all bookings made online. Extras"}}}
         # label quote has an extra word at the end (9/10... tail only): repairable, and contains 20%
         r = run_gate(item, page=p)
         self.assertTrue(r.ok, r.detail)
         self.assertTrue(p.repaired)
         # when the cut-off part is the figure itself the repair must not rescue it
-        p2 = gate.PageContext(url="u", text="Save 20% on film studio hire this autumn EH6 6RB", single_deal=True,
-                              repair_text="Save 20% on film studio hire this autumn EH6 6RB")
+        p2 = gate.PageContext(url="u", text="Save 20% on film studio hire in Leith EH6 6RB", single_deal=True,
+                              repair_text="Save 20% on film studio hire in Leith EH6 6RB")
         item2 = {"title": "30% off studio hire", "kind": "deal", "category": "arts",
-                 "quote": "Save 20% on film studio hire this autumn EH6 6RB",
-                 "fields": {"saving_label": {"value": "30% off", "quote": "Save 30% on film studio hire this autumn EH6 6RB"}}}
+                 "quote": "Save 20% on film studio hire in Leith EH6 6RB",
+                 "fields": {"saving_label": {"value": "30% off", "quote": "Save 30% on film studio hire in Leith EH6 6RB"}}}
         self.assertEqual(run_gate(item2, page=p2).reason, "figure_not_in_quote")
 
     def test_edinburgh_rules(self):
@@ -376,12 +378,41 @@ class DiscoverTests(unittest.TestCase):
             self.assertIn(f"line {i} ", joined)
 
     def test_registry(self):
-        self.assertEqual({s.id for s in SOURCES}, {"forever-edinburgh-offers", "more-by-the-shore", "resident-rewards"})
-        self.assertTrue(all(s.status == "shadow" and s.trust == "official" for s in SOURCES))
+        self.assertEqual({s.id for s in SOURCES}, {
+            "forever-edinburgh-offers", "more-by-the-shore", "resident-rewards",
+            "itison-edinburgh", "fort-kinnaird-offers", "omni-centre-offers",
+            "edinburgh-leisure-offers", "pizzaexpress-offers",
+        })
+        self.assertTrue(all(s.status == "shadow" for s in SOURCES))
+        by_id = {s.id: s for s in SOURCES}
+        self.assertEqual(by_id["edinburgh-leisure-offers"].trust, "official")
+        self.assertTrue(all(by_id[i].trust == "commercial" for i in (
+            "itison-edinburgh", "fort-kinnaird-offers", "omni-centre-offers", "pizzaexpress-offers")))
+        self.assertTrue(by_id["pizzaexpress-offers"].national_ok)
+        self.assertEqual(by_id["pizzaexpress-offers"].national_venue, "PizzaExpress (Edinburgh restaurants)")
         with self.assertRaises(ValueError):
             get_sources(["nope"])
         with self.assertRaises(ValueError):
             DealSource("x", "x", "weird", "shadow", {"kind": "urls", "urls": []})
+        with self.assertRaises(ValueError):
+            DealSource("x", "x", "commercial", "shadow", {"kind": "urls", "urls": []}, national_ok=True)
+        with self.assertRaises(ValueError):
+            DealSource("x", "x", "commercial", "shadow", {"kind": "urls", "urls": []}, edinburgh_evidence="  ")
+
+    def test_itison_listing_pattern_keeps_deals_and_drops_categories(self):
+        rx = next(s for s in SOURCES if s.id == "itison-edinburgh").discover["href_pattern"]
+        import re
+        self.assertTrue(re.search(rx, "https://www.itison.com/Edinburgh/deals/pizzas-for-two-bonnie-whistle"))
+        self.assertTrue(re.search(rx, "https://www.itison.com/Edinburgh/deals/4-rufflets-st-andrews-stay"))
+        self.assertFalse(re.search(rx, "https://www.itison.com/Edinburgh/deals/category/food-and-drink"))
+        self.assertFalse(re.search(rx, "https://www.itison.com/christmas/deals/category/food-and-drink"))
+        self.assertFalse(re.search(rx, "https://www.itison.com/Edinburgh/deals/x/y"))
+        html = ('<a href="/Edinburgh/deals/chop-house-voucher-spend">Chop</a>'
+                '<a href="/Edinburgh/deals/category/beauty">Beauty</a>')
+        links = [u for u, _t in []]  # placeholder replaced below
+        from deal_sources.textutil import html_links
+        urls = [h for _t, h in html_links(html, "https://www.itison.com/edinburgh")]
+        self.assertEqual([u for u in urls if re.search(rx, u)], ["https://www.itison.com/Edinburgh/deals/chop-house-voucher-spend"])
 
 
 class RunnerWiringTests(unittest.TestCase):
@@ -473,6 +504,249 @@ class ReportSqlTests(unittest.TestCase):
         self.assertIn("extraction_status = 'validated' and approved = false", sql)
         self.assertIn("slug in ('')", "\n".join(w.approve_sql("b", [])))
 
+
+class RestrictedAudienceTests(unittest.TestCase):
+    ACCESS_PASS = ("The Access Pass is a free membership scheme designed to improve the booking experience for "
+                   "D/deaf, disabled and neurodivergent audience members.")
+
+    def test_access_pass_for_disabled_audience_is_rejected_as_anyone(self):
+        p = gate.PageContext(url="u", text=f"Edinburgh International Festival Access Pass\n{self.ACCESS_PASS}", single_deal=True)
+        item = {"title": "Edinburgh International Festival Access Pass", "kind": "free_access", "category": "arts",
+                "quote": self.ACCESS_PASS,
+                "fields": {"is_free": {"value": True, "quote": "The Access Pass is a free membership scheme"}}}
+        r = gate.gate_deal(item, p, today=TODAY, edinburgh_source=True)
+        self.assertEqual((r.ok, r.reason), (False, "restricted_audience_unsupported"))
+
+    def test_discount_for_a_group_outside_the_enum_is_rejected(self):
+        p = gate.PageContext(url="u", text="Teachers save 20% at Canopy Kitchen, EH1 1AA.", single_deal=True)
+        item = {"title": "Teachers save 20%", "kind": "deal", "category": "food", "quote": "Teachers save 20% at Canopy Kitchen",
+                "fields": {"saving_label": {"value": "20% off", "quote": "Teachers save 20%"}}}
+        self.assertEqual(run_gate(item, page=p).reason, "restricted_audience_unsupported")
+
+    def test_declared_eligibility_is_not_second_guessed(self):
+        p = gate.PageContext(url="u", text="Teachers save 20% at Canopy Kitchen, EH1 1AA.", single_deal=True)
+        item = {"title": "Teachers save 20%", "kind": "deal", "category": "food", "quote": "Teachers save 20% at Canopy Kitchen",
+                "fields": {"saving_label": {"value": "20% off", "quote": "Teachers save 20%"},
+                           "eligibility": {"value": "student", "quote": "Teachers save 20%"}}}
+        r = run_gate(item, page=p)
+        self.assertTrue(r.ok, r.detail)
+        self.assertEqual(r.fields["eligibility"], "student")
+
+    def test_facility_notes_and_plain_offers_are_not_restricted(self):
+        self.assertIsNone(gate.restricted_audience("Step-free access and disabled toilets on every floor."))
+        self.assertIsNone(gate.restricted_audience("Free brunch for students. Sunday only."))
+        self.assertEqual(gate.restricted_audience("Carers go free. Book at the box office."), "carers")
+        self.assertEqual(gate.restricted_audience("Free entry. Offer for blue light workers."), "blue light")
+        self.assertEqual(gate.restricted_audience("Veterans get 2 for 1 on tours."), "veterans")
+        self.assertEqual(gate.restricted_audience("Free for NHS staff."), "nhs")
+
+
+class EdinburghEvidenceTests(unittest.TestCase):
+    """edinburgh_evidence (a verbatim page statement of the location) and national_ok."""
+
+    OMNI_TEXT = "Student deal: 10% off food at Cosmo.\nOMNi Centre\nGreenside Row, Edinburgh EH1 3AA"
+
+    def item(self, quote="10% off food at Cosmo", **fields):
+        base = {"title": "Cosmo 10% off food", "kind": "deal", "category": "food", "quote": quote,
+                "fields": {"saving_label": {"value": "10% off", "quote": "10% off food"}, **fields}}
+        return base
+
+    def test_page_evidence_counts_as_edinburgh_for_a_multi_offer_page(self):
+        p = gate.PageContext(url="u", text=self.OMNI_TEXT, single_deal=False)
+        r = gate.gate_deal(self.item(), p, today=TODAY, edinburgh_source=False,
+                           edinburgh_evidence="Greenside Row, Edinburgh EH1 3AA")
+        self.assertTrue(r.ok, r.detail)
+        self.assertFalse(r.national)
+
+    def test_without_page_evidence_a_multi_offer_deal_is_not_edinburgh(self):
+        p = gate.PageContext(url="u", text=self.OMNI_TEXT, single_deal=False)
+        r = gate.gate_deal(self.item(), p, today=TODAY, edinburgh_source=False)
+        self.assertEqual(r.reason, "not_edinburgh")
+        r = gate.gate_deal(self.item(), p, today=TODAY, edinburgh_source=False, edinburgh_evidence="Glasgow Central Station")
+        self.assertEqual(r.reason, "not_edinburgh")
+
+    def test_evidence_is_matched_after_normalising_whitespace_and_case(self):
+        p = gate.PageContext(url="u", text="Offer: 10% off food at Cosmo.\nNewcraighall\n\nEdinburgh\n\nEH15 3RD", single_deal=False)
+        r = gate.gate_deal(self.item(), p, today=TODAY, edinburgh_source=False,
+                           edinburgh_evidence="newcraighall EDINBURGH eh15 3rd")
+        self.assertTrue(r.ok, r.detail)
+
+    def test_non_eh_postcode_in_the_deal_still_rejects_with_evidence(self):
+        p = gate.PageContext(url="u", text=self.OMNI_TEXT + "\nSecond site: 1 High Street, Glasgow G1 1AA", single_deal=False)
+        item = self.item(address={"value": "1 High Street, Glasgow G1 1AA", "quote": "1 High Street, Glasgow G1 1AA"})
+        r = gate.gate_deal(item, p, today=TODAY, edinburgh_source=False, edinburgh_evidence="Greenside Row, Edinburgh EH1 3AA")
+        self.assertEqual(r.reason, "not_edinburgh")
+
+    def test_national_offer_with_no_postcode_passes_only_with_national_ok(self):
+        text = "Get 20% off with the app at participating PizzaExpress restaurants."
+        p = gate.PageContext(url="u", text=text, single_deal=False)
+        item = {"title": "PizzaExpress 20% off", "kind": "deal", "category": "food", "quote": "Get 20% off with the app",
+                "fields": {"saving_label": {"value": "20% off", "quote": "Get 20% off with the app"}}}
+        self.assertEqual(gate.gate_deal(item, p, today=TODAY, edinburgh_source=False).reason, "not_edinburgh")
+        r = gate.gate_deal(item, p, today=TODAY, edinburgh_source=False, national_ok=True)
+        self.assertTrue(r.ok, r.detail)
+        self.assertTrue(r.national)
+        raw = gate.to_raw_happening(item, r, source_name="PizzaExpress", page_url="u")
+        self.assertEqual(raw["scope"], "national")
+
+    def test_national_ok_never_accepts_a_stated_non_eh_postcode(self):
+        text = "20% off at PizzaExpress, 1 Test Street, Glasgow G1 1AA."
+        p = gate.PageContext(url="u", text=text, single_deal=False)
+        item = {"title": "PizzaExpress 20% off", "kind": "deal", "category": "food", "quote": "20% off at PizzaExpress, 1 Test Street, Glasgow G1 1AA",
+                "fields": {"saving_label": {"value": "20% off", "quote": "20% off at PizzaExpress"}}}
+        self.assertEqual(gate.gate_deal(item, p, today=TODAY, edinburgh_source=False, national_ok=True).reason, "not_edinburgh")
+
+    def test_local_deal_keeps_venue_scope(self):
+        r = run_gate(deal())
+        raw = gate.to_raw_happening(deal(), r, source_name="x", page_url="u")
+        self.assertEqual(raw["scope"], "venue")
+
+
+class OrdinalDateTests(unittest.TestCase):
+    def test_ordinal_day_and_abbreviated_month_are_stated_dates(self):
+        text = "Valid 3rd Jan - 31st Mar 2027"
+        self.assertTrue(gate.date_stated("2027-01-03", text))
+        self.assertTrue(gate.date_stated("2027-03-31", text))
+        self.assertFalse(gate.date_stated("2027-01-21", text))
+        self.assertFalse(gate.date_stated("2027-01-01", "Valid 21st Jan"))
+
+
+class SitemapLastmodTests(unittest.TestCase):
+    class FakeSitemaps:
+        def __init__(self, docs):
+            self.docs = docs
+            self.asked = []
+
+        def get(self, url, accept="", expect_json=False):
+            self.asked.append(url)
+            if url in self.docs:
+                return Response(True, url, text=self.docs[url], headers={})
+            return Response(False, url, reason="HTTP 404")
+
+    PAGE = ("<urlset>"
+            "<url><loc>https://a.com/play-try/</loc><lastmod>2026-10-07T10:00:00+00:00</lastmod></url>"
+            "<url><loc>https://a.com/old-offer/</loc><lastmod>2025-03-20T10:00:00+00:00</lastmod></url>"
+            "<url><loc>https://a.com/freedom-of-information/</loc><lastmod>2026-10-01</lastmod></url>"
+            "<url><loc>https://a.com/no-date-offer/</loc></url>"
+            "</urlset>")
+
+    def test_entries_carry_lastmod(self):
+        self.assertEqual(parse_sitemap_entries(self.PAGE)[0], ("https://a.com/play-try/", "2026-10-07T10:00:00+00:00"))
+        self.assertIsNone(parse_sitemap_entries(self.PAGE)[3][1])
+
+    def test_window_keeps_recent_matching_urls_from_every_sitemap(self):
+        src = DealSource("s", "s", "official", "shadow", {
+            "kind": "sitemap", "urls": ["https://a.com/page-sitemap.xml", "https://a.com/post-sitemap.xml"],
+            "pattern": r"offer|(?:^|[/-])try(?:[-/]|$)", "modified_within_days": 90})
+        fetcher = self.FakeSitemaps({"https://a.com/page-sitemap.xml": self.PAGE,
+                                     "https://a.com/post-sitemap.xml": self.PAGE.replace("play-try", "post-try")})
+        refs, notes = discover(src, fetcher, NOW)
+        self.assertEqual(notes, [])
+        self.assertEqual([r.url for r in refs], ["https://a.com/play-try/", "https://a.com/post-try/"])
+        self.assertEqual(fetcher.asked, ["https://a.com/page-sitemap.xml", "https://a.com/post-sitemap.xml"])
+
+    def test_without_window_every_matching_url_is_kept_and_failures_are_notes(self):
+        src = DealSource("s", "s", "official", "shadow", {
+            "kind": "sitemap", "urls": ["https://a.com/missing.xml", "https://a.com/page-sitemap.xml"],
+            "pattern": r"offer"})
+        refs, notes = discover(src, self.FakeSitemaps({"https://a.com/page-sitemap.xml": self.PAGE}), NOW)
+        self.assertEqual([r.url for r in refs], ["https://a.com/old-offer/", "https://a.com/no-date-offer/"])
+        self.assertEqual(len(notes), 1)
+
+
+class AnnualWindowTests(unittest.TestCase):
+    def test_window_opens_six_weeks_before_the_usual_month_and_ends_with_it(self):
+        self.assertEqual(window_for(9, 2026), (date(2026, 7, 21), date(2026, 9, 30)))
+        self.assertEqual(window_for(3, 2027), (date(2027, 1, 18), date(2027, 3, 31)))
+        self.assertEqual(window_for(2, 2028), (date(2027, 12, 21), date(2028, 2, 29)))  # leap year
+
+    def test_in_window_uses_a_fixed_now(self):
+        entry = Annual("x", "X", 9, "https://a.com/x", "official")
+        self.assertFalse(in_window(entry, date(2026, 7, 20)))
+        self.assertTrue(in_window(entry, date(2026, 7, 21)))
+        self.assertTrue(in_window(entry, date(2026, 9, 30)))
+        self.assertFalse(in_window(entry, date(2026, 10, 1)))
+        jan = Annual("y", "Y", 3, "https://a.com/y", "official")
+        self.assertTrue(in_window(jan, date(2026, 1, 20)))   # 2026 edition window
+        self.assertFalse(in_window(jan, date(2026, 4, 1)))
+
+    def test_annual_sources_are_shadow_urls_sources_only_in_window(self):
+        active = annual_sources(date(2026, 8, 15))
+        self.assertEqual({s.id for s in active}, {"national-cinema-weekend", "doors-open-days-edinburgh"})
+        self.assertTrue(all(s.status == "shadow" and s.discover["kind"] == "urls" for s in active))
+        self.assertEqual(annual_sources(date(2026, 5, 1)), ())
+        self.assertEqual(len(annual_sources(date(2026, 5, 1), all_entries=True)), len(load_annual()))
+
+    def test_get_sources_default_includes_active_annual_and_named_ids_are_honoured(self):
+        ids = {s.id for s in get_sources(None, date(2026, 8, 15))}
+        self.assertIn("doors-open-days-edinburgh", ids)
+        self.assertIn("forever-edinburgh-offers", ids)
+        self.assertNotIn("national-lottery-open-week", ids)
+        self.assertNotIn("doors-open-days-edinburgh", {s.id for s in get_sources(None, date(2026, 5, 1))})
+        named = get_sources(["national-lottery-open-week"], date(2026, 5, 1))
+        self.assertEqual([s.id for s in named], ["national-lottery-open-week"])
+
+    def test_bad_annual_file_is_refused(self):
+        import tempfile
+        cases = {
+            "month": "- {id: a, name: A, usual_month: 13, url: 'https://a.com/', trust: official}\n",
+            "trust": "- {id: a, name: A, usual_month: 3, url: 'https://a.com/', trust: weird}\n",
+            "url": "- {id: a, name: A, usual_month: 3, url: 'ftp://a.com/', trust: official}\n",
+            "dup": ("- {id: a, name: A, usual_month: 3, url: 'https://a.com/', trust: official}\n"
+                    "- {id: a, name: A, usual_month: 4, url: 'https://a.com/', trust: official}\n"),
+            "missing": "- {id: a, name: A, usual_month: 3, trust: official}\n",
+        }
+        for label, text in cases.items():
+            with tempfile.NamedTemporaryFile("w", suffix=".yaml", delete=False, encoding="utf-8") as fh:
+                fh.write(text)
+            with self.subTest(label), self.assertRaises(ValueError):
+                load_annual(Path(fh.name))
+
+
+class FixedPageTests(unittest.TestCase):
+    def test_itison_style_voucher_with_stated_saving_passes_and_plain_voucher_does_not(self):
+        text = ("Pizzas for two at Bonnie & Whistle, 19 St Andrew Square, Edinburgh, EH2 1AU\n"
+                "Was £30 Now £18 Save up to 43%\nValid 3rd Jan - 31st Mar 2027")
+        p = gate.PageContext(url="u", text=text, single_deal=True)
+        item = {"title": "Pizzas for two at Bonnie & Whistle", "kind": "deal", "category": "food",
+                "quote": "Pizzas for two at Bonnie & Whistle",
+                "fields": {"saving_label": {"value": "Save up to 43%", "quote": "Save up to 43%"},
+                           "price_text": {"value": "£18", "quote": "Now £18"},
+                           "starts_at": {"value": "2027-01-03", "quote": "Valid 3rd Jan - 31st Mar 2027"},
+                           "ends_at": {"value": "2027-03-31", "quote": "Valid 3rd Jan - 31st Mar 2027"}}}
+        r = gate.gate_deal(item, p, today=TODAY, edinburgh_source=False)
+        self.assertTrue(r.ok, r.detail)
+        plain = {"title": "Chop House voucher", "kind": "deal", "category": "food", "quote": "Was £50",
+                 "fields": {"saving_label": {"value": "£50 voucher spend", "quote": "£50 voucher spend on food"}}}
+        p2 = gate.PageContext(url="u", text="£50 voucher spend on food at Chop House, 15 East Market Street, EH8 8FS", single_deal=True)
+        self.assertEqual(gate.gate_deal(plain, p2, today=TODAY, edinburgh_source=False).reason, "quote_not_found")
+
+
+
+class EdinburghDistrictAndWordingTests(unittest.TestCase):
+    def test_city_districts_count_as_edinburgh(self):
+        from deal_sources.gate import has_eh_postcode, has_non_eh_postcode
+        for pc in ("EH1 1EE", "EH6 6RB", "EH15 3RD", "EH21 6AA", "EH30 9TA"):
+            self.assertTrue(has_eh_postcode(pc), pc)
+            self.assertFalse(has_non_eh_postcode(pc), pc)
+
+    def test_lothians_districts_do_not(self):
+        from deal_sources.gate import has_eh_postcode, has_non_eh_postcode
+        for pc in ("EH39 5EG", "EH49 7AE", "EH26 9LP"):
+            self.assertFalse(has_eh_postcode(pc), pc)
+            self.assertTrue(has_non_eh_postcode(pc), pc)
+
+    def test_buy_one_get_another_is_a_deal(self):
+        from deal_sources.gate import is_genuine_deal
+        self.assertTrue(is_genuine_deal("£1 Mains", "Buy a Main, get another for £1", None, None, "anyone"))
+        self.assertTrue(is_genuine_deal("BOGOF cocktails", None, None, None, "anyone"))
+        self.assertFalse(is_genuine_deal("Cocktails £8", "£8", 8, None, "anyone"))
+
+    def test_seasonal_regex(self):
+        from deal_sources.gate import SEASONAL_RE
+        self.assertTrue(SEASONAL_RE.search("Kids Eat Free this summer"))
+        self.assertTrue(SEASONAL_RE.search("all through the October holidays"))
+        self.assertFalse(SEASONAL_RE.search("Summer Hall offer, every Monday"))
 
 if __name__ == "__main__":
     unittest.main(verbosity=1)
