@@ -73,6 +73,7 @@ Snapshots of the plans approved in Claude Code plan mode. Each one is a record o
 
 | Plan | Status |
 |---|---|
+| [2026-10-08 More events and deals: sources, validation, soft-retire](plans/2026-10-08-event-and-deal-coverage.md) | In progress on branch `event-coverage`. |
 | [2026-10-07 Fill in Edinburgh place and deal data](plans/2026-10-07-data-enrichment.md) | Data written 7 Oct (407 places, 111 deals); app changes in PR #7. |
 | [2026-10-05 Pre-launch fixes and marketing](plans/2026-10-05-prelaunch-fixes.md) | Built; in PR #3. The SQL and dashboard steps are listed above. |
 | [2026-09-29 Ten fixes on staging](plans/2026-09-29-staging-fixes.md) | Shipped. |
