@@ -36,6 +36,7 @@ export const TRIBE_MAX_PAGES = 10;
 export const TRIBE_VENUES = [
   {
     provider: "voodoorooms",
+    status: "live", // spot-checked 10/10 on 8 Oct
     baseUrl: "https://thevoodoorooms.com",
     // Source: thevoodoorooms.com/contact/ (address line; Google Maps marker
     // lat/long in the page's av_google_map script block).
@@ -220,7 +221,7 @@ export function makeTribeAdapter(config) {
   return {
     name: config.provider,
     cadence: "daily",
-    status: "shadow",
+    status: config.status ?? "shadow",
     async run({ now }) {
       return adapterTribeEvents(config, now);
     },

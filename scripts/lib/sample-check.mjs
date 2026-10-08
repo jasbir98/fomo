@@ -41,6 +41,8 @@ export function titleTokenCoverage(name, venueName, text) {
   return found.length / tokens.length;
 }
 
+const WEEKDAYS = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
+
 /** True when `text` (lowercased page text) or `rawHtml` (lowercased) mentions the Y-M-D date in a common format. */
 export function pageHasDate(text, ymd, rawHtml = "") {
   const [y, m, d] = ymd.split("-").map(Number);
@@ -58,6 +60,10 @@ export function pageHasDate(text, ymd, rawHtml = "") {
     new RegExp(`(?<!\\d)${dayAlts}[/.\\-]0?${m}[/.\\-](?:${y}|${String(y).slice(2)})(?!\\d)`), // 09/10/2026, 9.10.26
   ];
   if (patterns.some((re) => re.test(text))) return true;
+  // Listing posts with day headers and no month on each ("SUNDAY 11th"): accept
+  // the right weekday + day, but only when the page names the month somewhere.
+  const weekday = WEEKDAYS[new Date(Date.UTC(y, m - 1, d)).getUTCDay()];
+  if (new RegExp(`\\b${weekday}\\s+${dayAlts}${ord}(?!\\d)`).test(text) && new RegExp(`\\b(?:${monthAlts})\\b`).test(text)) return true;
   const iso = `${y}-${mm}-${dd}`;
   if (text.includes(iso) || rawHtml.includes(iso)) return true;
   return false;

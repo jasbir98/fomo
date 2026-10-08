@@ -446,7 +446,7 @@ export function titleText(post) {
 export default {
   name: "jazzbar",
   cadence: "daily",
-  status: "shadow",
+  status: "live",
   async run({ now, write = false }) {
     const stats = emptyStats();
     const rejects = {};

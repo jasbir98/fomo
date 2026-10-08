@@ -108,17 +108,33 @@ async function main() {
   let passed = 0;
   let unchecked = 0;
   for (const row of sample) {
-    const page = await politeFetch(row.ticket_url);
-    if (!page.ok) {
+    // Check the ticket page first. Some sources (Forever Edinburgh) are read
+    // from their own page but link out to a third-party ticket page, so when
+    // provider_event_id is that source page, a pass there counts too.
+    const urls = [row.ticket_url];
+    if (/^https?:\/\//.test(row.provider_event_id ?? "") && row.provider_event_id !== row.ticket_url) urls.push(row.provider_event_id);
+    let r = null;
+    let usedUrl = null;
+    let lastReason = null;
+    for (const url of urls) {
+      const page = await politeFetch(url);
+      if (!page.ok) {
+        lastReason = page.reason;
+        continue;
+      }
+      r = checkRowAgainstHtml(row, page.html);
+      usedUrl = url;
+      if (r.pass) break;
+    }
+    if (!r) {
       unchecked += 1;
-      console.log(`  UNCHECKED  "${row.name}" -> ${page.reason} | ${row.ticket_url}`);
+      console.log(`  UNCHECKED  "${row.name}" -> ${lastReason} | ${row.ticket_url}`);
       continue;
     }
-    const r = checkRowAgainstHtml(row, page.html);
     checked += 1;
     if (r.pass) passed += 1;
     console.log(
-      `  ${r.pass ? "PASS     " : "FAIL     "}  "${row.name}" | title ${Math.round(r.titlePct * 100)}% | date ${r.ymd} ${r.dateFound ? "found" : "NOT found"} | ${row.ticket_url}`
+      `  ${r.pass ? "PASS     " : "FAIL     "}  "${row.name}" | title ${Math.round(r.titlePct * 100)}% | date ${r.ymd} ${r.dateFound ? "found" : "NOT found"} | ${usedUrl}`
     );
   }
 

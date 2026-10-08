@@ -47,3 +47,11 @@ test("pageText keeps title/meta text and drops scripts", () => {
   const t = pageText(`<title>Gig &amp; Co</title><meta property="og:description" content="Big Night"><script>var x='hidden'</script><p>Body</p>`);
   assert.ok(t.includes("gig & co") && t.includes("big night") && t.includes("body") && !t.includes("hidden"));
 });
+
+test("pageHasDate accepts weekday + ordinal day headers when the month is on the page", () => {
+  assert.equal(pageHasDate("listings 1st-15th october 2026 *** sunday 11th *** femme fierce", "2026-10-11"), true);
+  // wrong weekday for that day
+  assert.equal(pageHasDate("listings october *** monday 11th ***", "2026-10-11"), false);
+  // month never mentioned
+  assert.equal(pageHasDate("*** sunday 11th ***", "2026-10-11"), false);
+});

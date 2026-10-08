@@ -308,7 +308,7 @@ async function listEvents(stats) {
 export default {
   name: "foreveredinburgh",
   cadence: "weekly",
-  status: "shadow",
+  status: "live",
   async run({ now, write = false }) {
     const stats = emptyStats();
     const extra = { listed: 0, candidates: 0, pageFetches: 0, reemittedModified: 0, reemittedLedger: 0, capped: 0, longRange: 0, withTime: 0 };
