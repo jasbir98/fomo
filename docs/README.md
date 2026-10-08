@@ -7,6 +7,10 @@ Run `/plans` in Claude Code for a summary of this page.
 
 Things waiting on you, newest first. Tick them off here, or ask Claude to update this list.
 
+**Chat limits and earning money (8 Oct)**
+- [ ] Merge the chat-limits PR: signed in 30 questions/day (was 150) and 3 Google Maps lookups/day (was 10); site-wide cap 5,000/day (was 1,500). A question costs about $0.0007 on DeepSeek; a Google lookup $0.035.
+- [ ] Decide how Fomo earns money. Suggested order: venue partnerships (featured or Fomo-only deals), booking commissions (Viator, GetYourGuide, Skiddle, Ticketmaster via Awin), sponsored emails and posts, then Fomo+ (£2.99/month) once people come back weekly.
+
 **SEO: "askfomo" search and the stale Google snippet (7 Oct)**
 - [ ] Merge [PR #8](https://github.com/jasbir98/fomo/pull/8) (title and description, server-rendered pages, robots and sitemap).
 - [ ] Vercel production: `NEXT_PUBLIC_SITE_URL=https://askfomo.com`. Both the sitemap and canonical URLs read it.

@@ -18,7 +18,7 @@
  * history (the client keeps it in sessionStorage).
  *
  * Transport: the response body is a stream of newline-delimited JSON events —
- *   {"type":"quota","remaining":2,"limit":3}  (signed-out only, first event)
+ *   {"type":"quota","remaining":2,"limit":3}  (first event; questions left today)
  *   {"type":"status","text":"..."}        (0..n, progress note e.g. Google lookup)
  *   {"type":"text_delta","text":"..."}   (0..n, streamed as the model types)
  *   {"type":"done","blocks":[...]}        (final, assembled AiReplyBlock[])
@@ -40,7 +40,13 @@ import {
   refundAnonRateLimit,
   anonRateLimitedResponse,
 } from "@/lib/rate-limit";
-import { CHAT_ANON_DAILY_LIMIT, CHAT_ANON_ROUTE, anonWindowResetsAt } from "@/lib/chat/limits";
+import {
+  CHAT_ANON_DAILY_LIMIT,
+  CHAT_ANON_ROUTE,
+  CHAT_USER_DAILY_LIMIT,
+  CHAT_USER_ROUTE,
+  anonWindowResetsAt,
+} from "@/lib/chat/limits";
 import { searchPlacesForChat } from "@/lib/places/chat-search";
 import { todayHoursLabel } from "@/lib/places/hours";
 import { CITY } from "@/lib/city";
@@ -76,9 +82,9 @@ export const maxDuration = 60;
 
 // Pre-public-deploy abuse guards (rate limiting + input caps) — see
 // lib/rate-limit.ts and supabase/archive/add_rate_limits.sql. Two windows checked
-// per signed-in user: a short burst cap and a generous daily cap.
-const CHAT_RATE_LIMIT_BURST = { limit: 30, windowSeconds: 10 * 60 };
-const CHAT_RATE_LIMIT_DAILY = { limit: 150, windowSeconds: 24 * 60 * 60 };
+// per signed-in user: a short burst cap and the daily allowance
+// (CHAT_USER_DAILY_LIMIT in lib/chat/limits.ts).
+const CHAT_RATE_LIMIT_BURST = { limit: 15, windowSeconds: 10 * 60 };
 
 /**
  * Chat calls a paid LLM per request, so unlike /api/subscribe and
@@ -105,7 +111,7 @@ const CHAT_FAIL_CLOSED = process.env.NODE_ENV === "production";
  * checks above (CHAT_FAIL_CLOSED), unlike /api/subscribe and /api/tips's
  * own calls to the same underlying limiter.
  */
-const CHAT_GLOBAL_DAILY_LIMIT = { limit: 1500, windowSeconds: 24 * 60 * 60 };
+const CHAT_GLOBAL_DAILY_LIMIT = { limit: 5000, windowSeconds: 24 * 60 * 60 };
 
 /**
  * Google Places lookups (the `find_places` tool) cost real money per call, so
@@ -113,7 +119,7 @@ const CHAT_GLOBAL_DAILY_LIMIT = { limit: 1500, windowSeconds: 24 * 60 * 60 };
  * signed-out IP (1/day), and site-wide. A denied lookup doesn't fail the
  * request; the model just answers without Google (see runPlacesSearch).
  */
-const PLACES_USER_DAILY_LIMIT = { limit: 10, windowSeconds: 24 * 60 * 60 };
+const PLACES_USER_DAILY_LIMIT = { limit: 3, windowSeconds: 24 * 60 * 60 };
 const PLACES_ANON_DAILY_LIMIT = { limit: 1, windowSeconds: 24 * 60 * 60 };
 const PLACES_GLOBAL_DAILY_LIMIT = { limit: 150, windowSeconds: 24 * 60 * 60 };
 
@@ -828,6 +834,8 @@ async function handleChat(req: Request, slot: AnonSlot): Promise<Response> {
   } = await db.auth.getUser();
   const signedIn = !!user;
   const who = user ? parseWhoGroups(user.user_metadata) : [];
+  // Signed in: questions left today, from the consume call below (it already counts this one).
+  let userQuota: { limit: number; remaining: number } | null = null;
 
   if (user) {
     // Rate limit — burst window first, then daily; either exceeded denies the
@@ -838,8 +846,26 @@ async function handleChat(req: Request, slot: AnonSlot): Promise<Response> {
     // from the shared global counter.
     const burst = await consumeRateLimit(db, "chat:burst", { ...CHAT_RATE_LIMIT_BURST, failClosed: CHAT_FAIL_CLOSED });
     if (!burst.allowed) return rateLimitedResponse(burst);
-    const daily = await consumeRateLimit(db, "chat:day", { ...CHAT_RATE_LIMIT_DAILY, failClosed: CHAT_FAIL_CLOSED });
+    const daily = await consumeRateLimit(db, CHAT_USER_ROUTE, { ...CHAT_USER_DAILY_LIMIT, failClosed: CHAT_FAIL_CLOSED });
+    // A real denial (not a fail-closed RPC error, which has no resetAt) is the
+    // day's allowance used up: say so plainly rather than "try again in 900 minutes".
+    if (!daily.allowed && daily.resetAt) {
+      return new Response(
+        JSON.stringify({
+          error: "rate_limited",
+          message: `That's your ${CHAT_USER_DAILY_LIMIT.limit} questions for today. They reset tomorrow.`,
+          daily: true,
+          limit: CHAT_USER_DAILY_LIMIT.limit,
+          resetsAt: daily.resetAt,
+        }),
+        {
+          status: 429,
+          headers: { "content-type": "application/json", "Retry-After": String(CHAT_USER_DAILY_LIMIT.windowSeconds) },
+        }
+      );
+    }
     if (!daily.allowed) return rateLimitedResponse(daily);
+    userQuota = { limit: CHAT_USER_DAILY_LIMIT.limit, remaining: daily.remaining };
   } else {
     const anon = await consumeAnonRateLimit(req, CHAT_ANON_ROUTE, { ...CHAT_ANON_DAILY_LIMIT, failClosed: true });
     if (!anon.allowed) {
@@ -897,10 +923,10 @@ async function handleChat(req: Request, slot: AnonSlot): Promise<Response> {
     { role: "user" as const, content: body.userText },
   ];
 
-  // Signed-out visitors are told how many free questions they have left, as
-  // the stream's first event (the slot for this question is already consumed).
-  const anonQuota = signedIn
-    ? null
+  // Everyone is told how many questions they have left, as the stream's first
+  // event (the slot for this question is already consumed).
+  const quota = signedIn
+    ? userQuota
     : {
         limit: CHAT_ANON_DAILY_LIMIT.limit,
         remaining: Math.max(
@@ -919,7 +945,7 @@ async function handleChat(req: Request, slot: AnonSlot): Promise<Response> {
       };
 
       try {
-        if (anonQuota) send({ type: "quota", ...anonQuota });
+        if (quota) send({ type: "quota", ...quota });
         const client = getAnthropic();
 
         // One streaming model call; text deltas go straight to the client.
