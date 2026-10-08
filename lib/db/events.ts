@@ -102,6 +102,11 @@ export function isUnknownStatusColumn(error: { code?: string; message?: string }
   return (error.code === "42703" || error.code === "PGRST204" || /column .*status.* does not exist/i.test(msg)) && /status/i.test(msg);
 }
 
+/** Rows per request: Supabase's PostgREST max_rows. */
+const PAGE_SIZE = 1000;
+/** Safety ceiling when no `limit` is given (a 90-day window held ~1,200 rows in Oct 2026). */
+const MAX_UPCOMING_ROWS = 6000;
+
 export interface ListUpcomingEventsOpts {
   destination?: string;
   category?: string;
@@ -132,7 +137,8 @@ export async function listUpcomingEvents(
       .from("events")
       .select(embed ? LIST_SELECT : "*")
       .or(stillRunningFilter(fromDate))
-      .order("starts_at", { ascending: true });
+      .order("starts_at", { ascending: true })
+      .order("id", { ascending: true }); // stable order across pages
 
     // Retired rows (expired / gone / cancelled) stay in the table so saved
     // items and shared links keep working, but never appear in a list.
@@ -149,19 +155,37 @@ export async function listUpcomingEvents(
       }
     }
 
-    if (limit) query = query.limit(limit);
     return query;
   };
 
-  const { data, error } = await withEventFallbacks(build);
-  if (error) throw error;
+  // PostgREST caps a single response at its max_rows (1000 on Supabase), so
+  // read in pages until the window is exhausted or `limit` (default
+  // MAX_UPCOMING_ROWS) is reached. A plain `.limit(500)` used to cut "Coming
+  // up" off around three weeks out once the catalogue grew, because a daily
+  // tour spends ~31 rows of that budget on what renders as one card.
+  const wanted = limit ?? MAX_UPCOMING_ROWS;
+  const data: unknown[] = [];
+  let settled: QueryOpts | null = null;
+  for (let offset = 0; offset < wanted; offset += PAGE_SIZE) {
+    const end = Math.min(offset + PAGE_SIZE, wanted) - 1;
+    const res = settled
+      ? await build(settled).range(offset, end)
+      : await withEventFallbacks((o) => {
+          settled = o;
+          return build(o).range(offset, end);
+        });
+    if (res.error) throw res.error;
+    const page = res.data ?? [];
+    data.push(...page);
+    if (page.length < end - offset + 1) break;
+  }
   // Final in-memory guard, belt-and-braces: re-checks each row against its
   // own actual effective end (`eventEffectiveEndMs`), not just the SQL
   // approximation above — catches a clock-skew edge case or any future
   // query change that loosens the DB-level filter. Every list route reading
   // this function (feed/now/explore/discover/chat) inherits this guard for
   // free rather than re-implementing it per caller.
-  const live = ((data ?? []) as unknown as RawEvent[])
+  const live = (data as RawEvent[])
     .map(withCleanDescription)
     .filter((row) => eventIsLive(row, fromDate));
   return limit ? live.slice(0, limit) : live;
