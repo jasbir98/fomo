@@ -146,7 +146,7 @@ async function run({ now }) {
   const startDateTime = toTmDateTime(now);
   const endDateTime = toTmDateTime(new Date(now.getTime() + LOOKAHEAD_DAYS * 24 * 60 * 60 * 1000));
   const size = 100;
-  const MAX_PAGES = 15;
+  const MAX_PAGES = 30;
   let rows = [];
   for (let pageNum = 0; pageNum < MAX_PAGES; pageNum++) {
     const params = new URLSearchParams({

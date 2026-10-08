@@ -484,7 +484,7 @@ export default {
       if (okDates.length === 0) continue;
       const first = okDates[0];
       const last = okDates.at(-1);
-      if (last < today || first > windowEnd) continue; // does not overlap today..today+31
+      if (last < today || first > windowEnd) continue; // does not overlap the lookahead window
       used += 1;
       stats.parsed += 1;
 

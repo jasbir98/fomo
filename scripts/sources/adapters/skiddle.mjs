@@ -152,7 +152,7 @@ async function run({ now }) {
   const minDate = now.toISOString().slice(0, 10);
   const maxDate = new Date(now.getTime() + LOOKAHEAD_DAYS * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
   const limit = 100;
-  const MAX_PAGES = 15; // safety cap: 1500 events, comfortably above Edinburgh's 31-day volume
+  const MAX_PAGES = 30; // safety cap: 3000 events, comfortably above Edinburgh's 90-day volume
   let rows = [];
   let offset = 0;
   for (let page = 0; page < MAX_PAGES; page++) {

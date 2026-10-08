@@ -45,8 +45,8 @@ test("past: ended or started-with-no-end earlier than now", () => {
   assert.equal(validateRow(row({ starts_at: inDays(-1), ends_at: inDays(1) }), { now: NOW }).ok, true);
 });
 
-test("beyond_window: more than 31 days out", () => {
-  assert.equal(validateRow(row({ starts_at: inDays(32) }), { now: NOW }).reason, "beyond_window");
+test("beyond_window: more than LOOKAHEAD_DAYS (90) out", () => {
+  assert.equal(validateRow(row({ starts_at: inDays(91) }), { now: NOW }).reason, "beyond_window");
   assert.equal(validateRow(row({ starts_at: inDays(30) }), { now: NOW }).ok, true);
 });
 
@@ -126,7 +126,7 @@ test("soft fixes: entities decoded, whitespace collapsed, transient flag strippe
 
 test("validateRows: counts rejections by reason and keeps samples", () => {
   const { kept, rejected, samples } = validateRows(
-    [row(), row({ starts_at: inDays(40) }), row({ starts_at: inDays(41), name: "Other" }), row({ name: "" })],
+    [row(), row({ starts_at: inDays(100) }), row({ starts_at: inDays(101), name: "Other" }), row({ name: "" })],
     { now: NOW }
   );
   assert.equal(kept.length, 1);

@@ -17,7 +17,7 @@
  * .com/.sg variants Eventbrite serves map to the same row as existing .co.uk rows.
  */
 
-import { DESTINATION } from "../core/config.mjs";
+import { DESTINATION, LOOKAHEAD_DAYS } from "../core/config.mjs";
 import { fetchAndExtract } from "../core/jsonld.mjs";
 import { dedupeWithinSource } from "../core/normalize.mjs";
 import { emptyStats, mergeStats } from "../core/stats.mjs";
@@ -38,7 +38,7 @@ const MAX_LISTING_FETCHES = 40; // shared across listings, per run
 const MAX_PAGES_PER_LISTING = 49;
 const STALE_PAGES_TO_STOP = 2;
 const PAGE_GAP_MS = 3000;
-const WINDOW_MS = 31 * 24 * 60 * 60 * 1000;
+const WINDOW_MS = LOOKAHEAD_DAYS * 24 * 60 * 60 * 1000;
 const EB_HOST = "www.eventbrite.co.uk";
 const BLOCKED_REASON = /HTTP (401|403|405|429|503)|blocked|challenged/;
 
