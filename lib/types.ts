@@ -180,7 +180,30 @@ export interface EventItem {
   source: string | null;
   fetched_at: string | null;
   created_at: string;
+  /**
+   * Lifecycle (supabase/add_event_lifecycle.sql). Optional because rows read
+   * before that SQL has been applied don't carry it; treat missing as "active".
+   * The feed lists only 'active'; detail pages and saved items resolve any status.
+   */
+  status?: EventStatus;
+  /**
+   * The linked venue (`place_id` -> places), joined by lib/db/events.ts. List
+   * reads carry only `image_url` (all a card needs); single reads (detail page)
+   * add the name / address / website / Maps link. Absent or null when the
+   * event isn't linked to a venue. See scripts/sources/core/venues.mjs.
+   */
+  place?: EventVenue | null;
 }
+
+export interface EventVenue {
+  image_url: string | null;
+  name?: string | null;
+  address?: string | null;
+  website?: string | null;
+  google_maps_uri?: string | null;
+}
+
+export type EventStatus = "active" | "cancelled" | "gone" | "expired";
 
 export type EventItemInsert = Omit<EventItem, "id" | "created_at">;
 export type EventItemUpdate = Partial<

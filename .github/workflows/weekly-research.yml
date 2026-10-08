@@ -1,7 +1,7 @@
 name: Weekly Edinburgh research
 
 # Runs scraper/weekly_edinburgh.py (docs/weekly-pipeline.md): lifecycle sweep,
-# publisher pages, ~32 narrow DeepSeek topics, source re-verification, then
+# publisher pages, page-grounded deal sources, 47 narrow DeepSeek topics, source re-verification, then
 # upserts candidates into `happenings_staging`. It never publishes on the
 # schedule: every publish is reviewed first (approve rows with the SQL in the
 # run's report), then promoted with a manual "promote" run.

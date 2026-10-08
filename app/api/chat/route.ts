@@ -59,6 +59,7 @@ import { formatEventPrice, formatEventWhen, eventHasEnded } from "@/lib/events/f
 import type { AiReplyBlock, ChatItem, ChatPlace } from "@/lib/fomo-ai";
 import type { Happening } from "@/lib/happenings/types";
 import { defaultImageFor } from "@/lib/happenings/category-style";
+import { eventImageFor } from "@/lib/events/image";
 import { resolveHappeningCoords, loadPlacesForHappenings } from "@/lib/explore/coords";
 import {
   dateKeyLine,
@@ -337,7 +338,7 @@ async function buildCatalogue(db: Db, now: Date): Promise<Catalogue> {
       title: e.name,
       subtitle: [when, e.venue_name].filter(Boolean).join(" · ") || null,
       badge: price,
-      image_url: e.image_url,
+      image_url: eventImageFor(e),
       href: `/event/${e.id}`,
       lat: e.lat ?? null,
       lng: e.lng ?? null,

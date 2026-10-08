@@ -22,13 +22,10 @@ import re
 import subprocess
 import sys
 import threading
-import time
 import urllib.parse
 import urllib.robotparser
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from html import unescape
-from html.parser import HTMLParser
 from pathlib import Path
 from typing import Any, Iterable
 
@@ -56,8 +53,11 @@ from happenings_research import (  # noqa: E402
 from llm_client import RESEARCH_CALL_KWARGS, default_research_model, make_research_client  # noqa: E402
 from upsert_happenings import upsert_happenings  # noqa: E402
 from identity import Catalogue, reconcile  # noqa: E402
+from deal_sources.registry import get_sources as get_deal_sources  # noqa: E402
+from deal_sources.runner import DealRunResult, markdown_section as deal_sources_markdown, run_deal_sources, summary_json as deal_sources_summary  # noqa: E402
+from web_fetch import USER_AGENT, TextParser, _looks_like_challenge_page, robot_allows  # noqa: E402,F401
+from record_checks import record_is_fully_expired, stated_on_page, weekly_days_stated_on_page  # noqa: E402
 
-USER_AGENT = "FomoWeeklyEdinburgh/1.0 (+https://fomo.app; polite publisher-data refresh)"
 WEEKLY_CAP_USD = 3.00
 VERIFY_AFTER_DAYS = 21
 
@@ -114,11 +114,12 @@ DIRECT_SOURCES: tuple[Source, ...] = (
     Source("Edinburgh Festival Fringe", "https://www.edfringe.com/", "book-early"),
     Source("Edinburgh International Festival", "https://www.eif.co.uk/", "book-early"),
     Source("Edinburgh International Book Festival", "https://www.edbookfest.co.uk/", "book-early"),
-    # 5pm.co.uk, National Galleries of Scotland, and parkrun genuinely block
-    # this User-Agent (HTTP 403/401 on the page itself, not just robots.txt)
-    # -- confirmed live, not a URL or parser problem. Left in place: this
-    # script never bypasses bot protection, so they stay logged as blocked.
-    Source("5pm", "https://www.5pm.co.uk/edinburgh/", "offers"),
+    # National Galleries of Scotland and parkrun genuinely block this
+    # User-Agent (HTTP 403/401 on the page itself, not just robots.txt) --
+    # confirmed live, not a URL or parser problem. Left in place: this script
+    # never bypasses bot protection, so they stay logged as blocked. (5pm.co.uk
+    # was removed 2026-10-08: Cloudflare challenges every client, so there is
+    # nothing to read without bypassing the check.)
     Source("City of Edinburgh Council", "https://www.edinburgh.gov.uk/events", "calendar"),
 )
 
@@ -149,14 +150,14 @@ TOPICS: tuple[Topic, ...] = (
     Topic("student deals in Edinburgh", "offers", ("studentbeans.com", "myunidays.com"), 92),
     Topic("Edinburgh student nights by weekday", "whats-on", ("fatsoma.com", "fixr.co", "eusa.ed.ac.uk"), 92),
     Topic("students' association events", "whats-on", ("eusa.ed.ac.uk", "napierstudents.com", "hwunion.com", "qmusu.org.uk"), 91),
-    Topic("Edinburgh happy hours", "offers", ("5pm.co.uk", "designmynight.com/edinburgh"), 91),
+    Topic("Edinburgh happy hours", "offers", ("designmynight.com/edinburgh",), 91),
     Topic("Edinburgh 2-for-1 and bottomless brunch deals", "offers", ("designmynight.com/edinburgh",), 90),
     Topic("Edinburgh weekday pizza and burger deals", "offers", ("francomanca.co.uk", "honestburgers.co.uk"), 90),
-    Topic("Edinburgh cheap lunch deals under £10", "offers", ("5pm.co.uk",), 89),
+    Topic("Edinburgh cheap lunch deals under £10", "offers", ("edinburgh.org/planning/offers-deals/",), 89),
     Topic("Edinburgh pub quiz nights", "whats-on", ("designmynight.com/edinburgh",), 89),
     Topic("under-26 theatre tickets", "offers", ("lyceum.org.uk", "traverse.co.uk", "capitaltheatres.com"), 89),
     Topic("under-26 concessions", "offers", ("youngscot.org", "nationalgalleries.org"), 88),
-    Topic("cheap cinema days", "offers", ("filmhousecinema.co.uk", "dominioncinema.co.uk", "cameopicturehouse.co.uk"), 88),
+    Topic("cheap cinema days", "offers", ("filmhouse.org.uk", "dominioncinema.co.uk", "picturehouses.com/cinema/the-cameo"), 88),
     Topic("free and cheap comedy nights", "whats-on", ("monkeybarrelcomedy.com", "thestand.co.uk"), 87),
     Topic("free public lectures and talks", "whats-on", ("ed.ac.uk/events", "napier.ac.uk"), 86),
     Topic("Edinburgh pub chain offers", "offers", ("jdwetherspoon.com", "greeneking.co.uk"), 86),
@@ -195,105 +196,9 @@ TOPICS: tuple[Topic, ...] = (
 )
 
 
-class TextParser(HTMLParser):
-    def __init__(self) -> None:
-        super().__init__(convert_charrefs=True)
-        self.parts: list[str] = []
-        self.json_ld: list[str] = []
-        self._in_json_ld = False
-
-    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
-        if tag.lower() == "script" and dict(attrs).get("type", "").lower() == "application/ld+json":
-            self._in_json_ld = True
-
-    def handle_endtag(self, tag: str) -> None:
-        if tag.lower() == "script":
-            self._in_json_ld = False
-
-    def handle_data(self, data: str) -> None:
-        if self._in_json_ld:
-            self.json_ld.append(data)
-        elif data.strip():
-            self.parts.append(data.strip())
-
-    @property
-    def text(self) -> str:
-        return re.sub(r"\s+", " ", unescape(" ".join(self.parts)))
-
-
 def canonical_url(url: str) -> str:
     parsed = urllib.parse.urlsplit(url)
     return urllib.parse.urlunsplit((parsed.scheme, parsed.netloc.lower(), parsed.path.rstrip("/"), parsed.query, ""))
-
-
-def robot_allows(url: str, session: requests.Session) -> tuple[bool, str | None]:
-    parts = urllib.parse.urlsplit(url)
-    robots_url = f"{parts.scheme}://{parts.netloc}/robots.txt"
-    try:
-        response = session.get(robots_url, timeout=15)
-        if response.status_code >= 400:
-            # A missing OR blocked robots.txt is not evidence the target page
-            # itself disallows the bot. Several sites' WAFs return 401/403 on
-            # a bare robots.txt fetch from a non-browser User-Agent while the
-            # actual page loads fine (observed live for parkrun.org.uk and
-            # Summerhall, both of which then wrongly showed as fully blocked
-            # by robots.txt alone) -- let the page-level fetch and its own
-            # challenge detection make the real call instead.
-            return True, None
-        parser = urllib.robotparser.RobotFileParser()
-        parser.parse(response.text.splitlines())
-        if not parser.can_fetch(USER_AGENT, url):
-            return False, "robots.txt disallows this page"
-    except requests.RequestException:
-        pass  # an unavailable robots file is not treated as permission to bypass a page block.
-    return True, None
-
-
-# Precise, named vendor phrasing for bot-challenge/interstitial pages.
-# Deliberately excludes bare "captcha", "cloudflare", or "access denied":
-# real, fully-loaded publisher pages routinely trip those (a contact-form
-# reCAPTCHA widget, a cloudflarestream.com video embed, a "you have been
-# denied access to this resource" 404 body) without being blocked at all --
-# both false positives were confirmed live against Forever Edinburgh and
-# Edinburgh's Hogmanay in the first run, which had fully served, legitimate
-# 200 pages misreported as "blocked/challenged".
-CHALLENGE_MARKERS = (
-    "cf-chl-", "cf_chl_opt", "__cf_chl_rt_tk",
-    "checking your browser before accessing",
-    "just a moment...",
-    "attention required! | cloudflare",
-    "enable javascript and cookies to continue",
-    "verify you are human", "verifying you are human",
-    "request unsuccessful. incapsula",
-    "sorry, you have been blocked",
-    "unusual traffic from your computer network",
-)
-# NOT included, on purpose, despite looking like plausible markers:
-# "_incapsula_resource", "distil_r_captcha", "px-captcha", "perimeterx" --
-# all four are just the *filename/id* of a vendor's passive bot-management
-# script tag, which a normal, fully-served page on an Incapsula/Distil/
-# PerimeterX-protected site includes on every request regardless of whether
-# that request was challenged. Confirmed live: nandos.co.uk serves a
-# complete, real page (472KB, 228K chars of visible text) that references
-# "/_incapsula_resource?..." in a totally ordinary <script> tag, and the
-# bare-identifier version of this marker misclassified it as blocked.
-
-
-def _looks_like_challenge_page(html: str, visible_text: str) -> bool:
-    """Best-effort detection of a bot-challenge/interstitial body on a 200.
-
-    Two independent signals: named vendor interstitial copy (reliable but
-    narrow), or a suspiciously tiny rendered body on an otherwise-normal
-    response -- real content-bearing publisher pages essentially never
-    render under ~200 characters of visible text in a sub-20KB document,
-    while a JS-gated challenge shell routinely does.
-    """
-    lowered = html.lower()
-    if any(marker in lowered for marker in CHALLENGE_MARKERS):
-        return True
-    if len(html) < 20_000 and len(visible_text.strip()) < 200:
-        return True
-    return False
 
 
 def fetch_publisher_page(source: Source) -> tuple[str | None, str | None, str | None]:
@@ -711,91 +616,6 @@ def load_verification_text(urls: list[str]) -> tuple[str | None, str | None]:
     return None, "; ".join(reasons) if reasons else "no source URL to check"
 
 
-def _ordinal(n: int) -> str:
-    suffix = "th" if 10 <= n % 100 <= 20 else {1: "st", 2: "nd", 3: "rd"}.get(n % 10, "th")
-    return f"{n}{suffix}"
-
-
-def _date_text_variants(d) -> set[str]:
-    """Every common way a UK publisher page states a date in prose."""
-    month_full, month_abbr = d.strftime("%B"), d.strftime("%b")
-    variants = {
-        d.isoformat(),
-        d.strftime("%d/%m/%Y"), d.strftime("%d-%m-%Y"), d.strftime("%d.%m.%Y"),
-        d.strftime("%d/%m/%y"),
-        d.strftime("%d %B %Y"), d.strftime("%d %b %Y"),
-        d.strftime("%-d %B %Y"), d.strftime("%-d %b %Y"),
-        d.strftime("%B %-d, %Y"), d.strftime("%b %-d, %Y"),
-        f"{d.day} {month_full}", f"{d.day} {month_abbr}",
-        f"{_ordinal(d.day)} {month_full}", f"{_ordinal(d.day)} {month_abbr}",
-        f"{_ordinal(d.day)} of {month_full}",
-        d.strftime("%A %-d %B"), d.strftime("%a %-d %b"),
-        f"{month_full} {d.year}", f"{month_abbr} {d.year}",
-    }
-    return {v.strip() for v in variants if v and v.strip()}
-
-
-def _time_text_variants(dt) -> set[str]:
-    """Textual variants for a stated release/start TIME (not just the date).
-
-    Empty when the timestamp carries no real time component (midnight is
-    used as a "date only" placeholder throughout this pipeline -- see
-    build_full_record/booking_opens_at -- so it has nothing to check).
-    """
-    if dt.hour == 0 and dt.minute == 0:
-        return set()
-    h12 = dt.strftime("%I:%M%p").lstrip("0")
-    variants = {
-        dt.strftime("%H:%M"),
-        h12.lower(), h12.upper(),
-        h12.lower().replace(":00", ""),
-        dt.strftime("%I.%M%p").lstrip("0").lower(),
-        dt.strftime("%I%p").lstrip("0").lower(),
-    }
-    return {v.strip() for v in variants if v and v.strip()}
-
-
-def _parse_iso(value: str) -> datetime | None:
-    try:
-        return datetime.fromisoformat(value.replace("Z", "+00:00"))
-    except (ValueError, AttributeError):
-        return None
-
-
-def stated_on_page(value: str, text: str, is_date: bool = False, is_time: bool = False) -> bool:
-    """Hard-fact check. Verbatim/case-sensitive for non-dates (promo codes,
-    saving labels); for dates, verbatim OR any common textual format,
-    matched case-insensitively since a page writing "26 september" in
-    lower-case is not a different fact from "26 September"."""
-    if value in text:
-        return True
-    if not is_date:
-        return False
-    parsed = _parse_iso(value)
-    if parsed is None:
-        return False
-    lowered = text.lower()
-    if any(variant.lower() in lowered for variant in _date_text_variants(parsed.date())):
-        return True
-    if is_time:
-        return any(variant in lowered for variant in _time_text_variants(parsed))
-    return False
-
-
-_WEEKDAY_NAMES = ("Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday")
-
-
-def weekly_days_stated_on_page(days: list[Any], text: str) -> bool:
-    """Hard fact for a weekly recurrence: at least one of its stated weekdays
-    (schema: 0=Sunday) actually appears on the page, e.g. a ceilidh's page
-    saying "every Tuesday"."""
-    names = [_WEEKDAY_NAMES[d] for d in days if isinstance(d, int) and 0 <= d <= 6]
-    if not names:
-        return True  # nothing concrete stated in the record itself to check
-    lowered = text.lower()
-    return any(name.lower() in lowered for name in names)
-
-
 _SIGNIFICANT_WORD_RE = re.compile(r"[a-z0-9]+")
 _RELEVANCE_STOPWORDS = {
     "the", "and", "for", "with", "your", "this", "that", "from", "into",
@@ -885,54 +705,6 @@ def verify_record(record: dict[str, Any]) -> tuple[dict[str, Any], list[str]]:
     return record, missing
 
 
-def _coerce_date(value: Any):
-    if not isinstance(value, str) or not value.strip():
-        return None
-    value = value.strip()
-    try:
-        if re.fullmatch(r"\d{4}-\d{2}-\d{2}", value):
-            return datetime.strptime(value, "%Y-%m-%d").date()
-        return datetime.fromisoformat(value.replace("Z", "+00:00")).date()
-    except ValueError:
-        return None
-
-
-def record_is_fully_expired(record: dict[str, Any], today) -> bool:
-    """True only when this record carries a concrete date that has already
-    elapsed, with nothing upcoming behind it.
-
-    Narrower than "a one-off in the past" (already dropped inside
-    build_full_record at research time): a record can also carry a stale
-    concrete date under an "annual" or "weekly" recurrence label -- e.g.
-    this year's already-finished Fringe/Beltane dates tagged "annual", or a
-    weekly chain offer whose stated "until" cutoff has passed -- and neither
-    is caught by the once-only check. A record with NO concrete date at all
-    is never touched here: that is the correct, intended shape for a
-    genuine standing "annual"/"always" placeholder (rule 6 -- "next year's
-    row, not this year's, with no starts_at"), and inventing next year's
-    date ourselves to compare against would itself be a rule-1 violation.
-    """
-    if record.get("_collection_members"):
-        return False
-    # A season-bound offer (festival concessions etc.) is often stored as an
-    # "always" row with no concrete dates, and its evergreen policy page keeps
-    # re-verifying year-round -- season_valid_until is the one date that
-    # retires it (supabase/archive/add_season_valid_until.sql).
-    season_end = _coerce_date(record.get("season_valid_until"))
-    if season_end is not None and season_end < today:
-        return True
-    recurrence = record.get("recurrence") or {}
-    rec_type = recurrence.get("type")
-    if rec_type == "weekly":
-        until = _coerce_date(recurrence.get("until"))
-        return until is not None and until < today
-    if rec_type == "dates":
-        dates = [d for d in (_coerce_date(d) for d in recurrence.get("dates") or []) if d]
-        return bool(dates) and all(d < today for d in dates)
-    concrete = _coerce_date(record.get("ends_at")) or _coerce_date(record.get("starts_at"))
-    return concrete is not None and concrete < today
-
-
 def record_is_low_value(record: dict[str, Any]) -> bool:
     """Reject generic programme/meta narration that names no concrete thing
     to do or concrete offer -- e.g. "late ticket releases happen sometimes
@@ -961,7 +733,21 @@ def record_is_low_value(record: dict[str, Any]) -> bool:
     return not (has_date or has_money or has_recurrence_detail or has_venue)
 
 
-def make_report(batch_id: str, report: dict[str, Any], report_path: Path) -> None:
+def approve_sql(batch_id: str, review_slugs: list[str]) -> list[str]:
+    """The report's approve statement: every verified row in the batch that is not
+    approved yet, plus the review slugs the reader has checked."""
+    quoted_batch = batch_id.replace("'", "''")
+    slugs = ", ".join("'" + str(slug).replace("'", "''") + "'" for slug in review_slugs) or "''"
+    return [
+        "update happenings_staging",
+        "set approved = true, extraction_status = 'approved'",
+        f"where batch_id = '{quoted_batch}'",
+        f"  and (slug in ({slugs})",
+        "       or (extraction_status = 'validated' and approved = false));",
+    ]
+
+
+def make_report(batch_id: str, report: dict[str, Any], report_path: Path, deal_result: DealRunResult | None = None) -> None:
     review = report["review"]
     lines = [
         f"# Edinburgh weekly pipeline — {batch_id}", "",
@@ -972,6 +758,7 @@ def make_report(batch_id: str, report: dict[str, Any], report_path: Path) -> Non
         f"- Dropped as low-value/generic before staging: {len(report.get('dropped_low_value', []))}",
         f"- Verified records: {len(report['verified'])}",
         f"- Review required: {len(review)}", "",
+        *(deal_sources_markdown(deal_result) if deal_result is not None else []),
         "## Dropped — past/expired (not staged, not review items)", "",
     ]
     lines += [f"- {title}" for title in report.get("dropped_expired", [])] or ["- None"]
@@ -984,13 +771,14 @@ def make_report(batch_id: str, report: dict[str, Any], report_path: Path) -> Non
     lines += ["", "## Review required", ""]
     for item in review:
         lines.append(f"- **{item['title']}** — {item['reason']}")
-    lines += ["", "## Ready SQL", "", "```sql", "-- Approve only rows you have reviewed; keep all other rows in staging."]
-    slugs = ", ".join("'" + str(slug).replace("'", "''") + "'" for slug in report.get("review_staging_slugs", []))
-    slug_sql = slugs or "''"
     lines += [
-        "update happenings_staging",
-        "set approved = true, extraction_status = 'approved'",
-        f"where batch_id = '{batch_id}' and slug in ({slug_sql});",
+        "", "## Ready SQL", "",
+        "Approves this batch's verified rows (`extraction_status = 'validated'`, not yet approved) AND the review slugs listed",
+        "below. Delete any review slug you have not checked before running it.", "",
+        "```sql",
+    ]
+    lines += approve_sql(batch_id, report.get("review_staging_slugs", []))
+    lines += [
         "```", "", "## Publish reviewed rows", "",
         f"`node --env-file=.env.local scripts/promote-happenings.mjs --batch-id {batch_id}`", "",
         "## Sources skipped/failed", "",
@@ -1183,14 +971,40 @@ def main() -> None:
         "Applied before --limit-topics and priority ordering.",
     )
     parser.add_argument("--no-direct", action="store_true")
+    parser.add_argument("--deal-sources-usd", type=float, default=0.50, help="Sub-cap for the page-grounded deal sources (scraper/deal_sources/); counted inside --cap-usd.")
+    parser.add_argument("--skip-deal-sources", action="store_true", help="Do not run the page-grounded deal sources.")
+    parser.add_argument(
+        "--only-deal-sources", action="store_true",
+        help="Run only the deal sources (testing): no lifecycle sweep, direct sources, search topics or live rechecks.",
+    )
+    parser.add_argument(
+        "--deal-source", action="append", default=None, metavar="ID",
+        help="Run only this deal source id; repeatable (default: every configured source).",
+    )
+    parser.add_argument(
+        "--deal-sources-preview", action="store_true",
+        help="Fetch pages and extract deals (costs a few cents of DeepSeek) but write NOTHING except files under "
+        "scraper/out/<batch-id>/: no page-ledger access, no sweep, no staging. Implies --only-deal-sources; "
+        "cannot be combined with --stage/--publish.",
+    )
     parser.add_argument("--dry-run", action="store_true", help="Do not call AI, fetch publishers, write staging, or publish.")
     parser.add_argument("--stage", action="store_true", help="Upsert verified rows into happenings_staging (off by default).")
     parser.add_argument("--publish", action="store_true", help="Approve and promote verified rows. Requires --stage; never the default.")
     args = parser.parse_args()
     if args.publish and not args.stage:
         parser.error("--publish requires --stage")
-    if args.cap_usd <= 0 or args.topic_reserve_usd <= 0:
+    if args.cap_usd <= 0 or args.topic_reserve_usd <= 0 or args.deal_sources_usd < 0:
         parser.error("cost values must be positive")
+    if args.deal_sources_preview and (args.stage or args.publish):
+        parser.error("--deal-sources-preview writes nothing to the database: drop --stage/--publish")
+    if args.deal_sources_preview:
+        args.only_deal_sources = True
+    if args.only_deal_sources and args.skip_deal_sources:
+        parser.error("--only-deal-sources and --skip-deal-sources contradict each other")
+    try:
+        chosen_deal_sources = get_deal_sources(args.deal_source)
+    except ValueError as exc:
+        parser.error(str(exc))
 
     selected_topics = TOPICS
     if args.only:
@@ -1205,6 +1019,11 @@ def main() -> None:
             f"{len(selected_topics)} independent topics configured"
             + (f" (filtered from {len(TOPICS)} by --only)" if args.only else "") + "."
         )
+        print(
+            "[weekly-edinburgh] deal sources: "
+            + (", ".join(f"{s.id} ({s.status}, {s.trust})" for s in chosen_deal_sources) or "none")
+            + f"; sub-cap ${args.deal_sources_usd:.2f}" + (" (skipped by --skip-deal-sources)" if args.skip_deal_sources else "") + "."
+        )
         return
 
     out_dir = OUT_ROOT / args.batch_id
@@ -1214,10 +1033,10 @@ def main() -> None:
     candidates: list[dict[str, Any]] = []
 
     lifecycle_notes: list[str] = []
-    tidy_note = run_tidy()
+    tidy_note = None if args.only_deal_sources else run_tidy()
     if tidy_note:
         lifecycle_notes.append(tidy_note)
-    if not args.no_direct:
+    if not args.no_direct and not args.only_deal_sources:
         for source in DIRECT_SOURCES:
             html, final_url, failure = fetch_publisher_page(source)
             if failure:
@@ -1235,6 +1054,32 @@ def main() -> None:
     planned_topics = sorted(selected_topics, key=lambda topic: -topic.priority)
     if args.limit_topics is not None:
         planned_topics = planned_topics[:args.limit_topics]
+    if args.only_deal_sources:
+        planned_topics = []
+
+    # Page-grounded deal sources run after the direct sources and before the
+    # search topics, inside their own sub-cap. SHADOW sources are reported only;
+    # LIVE sources' records are staged below (see classify()).
+    deal_result: DealRunResult | None = None
+    deal_records: list[dict[str, Any]] = []
+    if not args.skip_deal_sources:
+        deal_result = run_deal_sources(
+            chosen_deal_sources,
+            batch_id=args.batch_id,
+            today=datetime.now(timezone.utc).date(),
+            now_iso=now,
+            cap_usd=min(args.deal_sources_usd, args.cap_usd),
+            in_rate=args.input_usd_per_million,
+            out_rate=args.output_usd_per_million,
+            catalogue=catalogue,
+            ledger_enabled=not args.deal_sources_preview,
+            stage_write=args.stage,
+            out_dir=out_dir / "deal-sources",
+            model=default_research_model(),
+        )
+        ledger.settle(0.0, Usage(input_tokens=deal_result.input_tokens, output_tokens=deal_result.output_tokens))
+        deal_records = deal_result.live_records
+        source_failures.extend(deal_result.failures)
 
     # Fill at most ``workers`` slots only after reserving a worst-case topic
     # amount. This preserves the cap even though actual usage arrives only
@@ -1306,22 +1151,36 @@ def main() -> None:
     review: list[dict[str, str]] = [{"slug": "(dedupe)", "title": "Duplicate candidates", "reason": reason} for reason in duplicates]
     rechecked_live: list[str] = []
     retired_live: list[str] = []
+    def classify(record: dict[str, Any], reasons: list[str]) -> None:
+        if record.get("_force_review"):
+            reasons = [*reasons, str(record["_force_review"])]
+        if reasons:
+            review.append({"slug": record["slug"], "title": record["title"], "reason": "; ".join(reasons)})
+            record["extraction_status"] = "pending"
+            record["validation_errors"] = reasons
+            staging_records.append(record)
+            review_staging_slugs.append(record["slug"])
+        else:
+            record["extraction_status"] = "validated"
+            verified.append(record)
+            staging_records.append(record)
+
     with concurrent.futures.ThreadPoolExecutor(max_workers=8) as pool:
         for record, reasons in pool.map(verify_record, merged):
-            if record.get("_force_review"):
-                reasons = [*reasons, str(record["_force_review"])]
-            if reasons:
-                review.append({"slug": record["slug"], "title": record["title"], "reason": "; ".join(reasons)})
-                record["extraction_status"] = "pending"
-                record["validation_errors"] = reasons
-                staging_records.append(record)
-                review_staging_slugs.append(record["slug"])
-            else:
-                record["extraction_status"] = "validated"
-                verified.append(record)
-                staging_records.append(record)
+            classify(record, reasons)
 
-    overdue_rows, overdue_failure = overdue_live_rows()
+    # Deal-source records already passed the page-grounded evidence gate against the
+    # page they came from (scraper/deal_sources/gate.py), so they are not re-fetched.
+    # An official source that passed everything counts as verified; a commercial
+    # source is always reviewed.
+    staged_slugs = {r["slug"] for r in staging_records}
+    for record in deal_records:
+        if record["slug"] in staged_slugs:
+            continue  # a topic candidate already took this slug in this batch
+        staged_slugs.add(record["slug"])
+        classify(record, ["commercial_source_review"] if record.get("_trust") == "commercial" else [])
+
+    overdue_rows, overdue_failure = ([], None) if args.only_deal_sources else overdue_live_rows()
     if overdue_failure:
         lifecycle_notes.append(overdue_failure)
     elif overdue_rows:
@@ -1382,12 +1241,16 @@ def main() -> None:
         "review": review,
         "review_staging_slugs": review_staging_slugs,
         "source_failures": source_failures + [{"source": f"DeepSeek: {row['topic']}", "reason": row["reason"]} for row in topic_failures] + [{"source": "pipeline", "reason": note} for note in lifecycle_notes],
-        "cost": {"spent_usd": ledger.spent, "cap_usd": ledger.cap, "input_tokens": ledger.usage.input_tokens, "output_tokens": ledger.usage.output_tokens, "searches": ledger.usage.searches},
+        "cost": {"spent_usd": ledger.spent, "deal_sources_usd": deal_result.cost_usd if deal_result is not None else 0.0, "cap_usd": ledger.cap, "input_tokens": ledger.usage.input_tokens, "output_tokens": ledger.usage.output_tokens, "searches": ledger.usage.searches},
+        "deal_sources": deal_sources_summary(deal_result) if deal_result is not None else None,
         "published": bool(args.publish and verified),
         "live_rechecks": {"confirmed": len(rechecked_live), "retired": len(retired_live)},
     }
     (out_dir / "weekly-report.json").write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\n")
-    make_report(args.batch_id, report, out_dir / "weekly-report.md")
+    make_report(args.batch_id, report, out_dir / "weekly-report.md", deal_result)
+    if deal_result is not None:
+        (out_dir / "deal-sources-report.md").write_text(
+            "\n".join(deal_sources_markdown(deal_result, heading=f"# Deal sources — {args.batch_id}")) + "\n")
     print(f"[weekly-edinburgh] verified={len(verified)} review={len(review)} report={out_dir / 'weekly-report.md'}")
 
 

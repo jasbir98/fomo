@@ -25,6 +25,7 @@ import { NextResponse } from "next/server";
 import { supabaseServer } from "@/lib/supabase/server";
 import { consumeRateLimit, rateLimitedResponse } from "@/lib/rate-limit";
 import type { Db } from "@/lib/supabase/types";
+import { EXCLUDE_EVENT_VENUES } from "@/lib/db/places";
 import { cachedJson, CACHE_SHORT } from "@/lib/http/cache";
 import { resolvePlaceDetails, GooglePlacesAutocompleteError } from "@/lib/places/autocomplete";
 
@@ -65,6 +66,8 @@ export async function GET(request: Request) {
     .from("places")
     .select("id, name, lat, lng")
     .eq("google_place_id", placeId)
+    // event-venue rows are venue metadata, not places to visit: fall through to live Google instead.
+    .or(EXCLUDE_EVENT_VENUES)
     .maybeSingle();
 
   if (error) {

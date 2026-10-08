@@ -31,6 +31,7 @@
 
 import { httpUrlOrNull } from "./lib/http-url.mjs";
 import { EDINBURGH_PLACES_QUERY, buildPlaceIndex, matchHappening } from "./lib/place-match.mjs";
+import { protectExistingFields, chunk, inList } from "./lib/promote-rules.mjs";
 
 function parseArg(name) {
   const flag = `--${name}`;
@@ -110,6 +111,9 @@ const HAPPENINGS_COLUMNS = [
   "eligibility",
   "eligibility_note",
   "allowance_note",
+  "price_text",
+  "includes",
+  "season_valid_until",
   "starts_at",
   "ends_at",
   "recurrence",
@@ -125,6 +129,8 @@ const HAPPENINGS_COLUMNS = [
   "country_code",
   "lat",
   "lng",
+  "place_id",
+  "image_url",
   "booking_url",
   "cta_label",
   "source_name",
@@ -140,7 +146,7 @@ const HAPPENINGS_COLUMNS = [
 // that isn't a real http(s) URL here rather than promote it straight
 // through to a column the app hands to window.open/location (see
 // scripts/lib/http-url.mjs and lib/http/safe-url.ts, its app-side twin).
-const URL_COLUMNS = new Set(["booking_url", "source_url"]);
+const URL_COLUMNS = new Set(["booking_url", "source_url", "image_url"]);
 
 function buildHappeningRow(staging) {
   const row = {};
@@ -181,14 +187,37 @@ function getPlaceIndex() {
 
 // Same unique-match-only rule as link-happening-places.mjs, so a deal with no
 // photo of its own borrows its venue's. Never overrides: a row that already
-// carries a place_id keeps it, and no match leaves the column out of the
-// upsert so an existing link on the row survives re-promotion.
+// carries a place_id (copied from the staging row by buildHappeningRow, which
+// the batch linker or a source adapter filled) keeps it and skips re-matching;
+// no match leaves the column out of the upsert so an existing link on the row
+// survives re-promotion.
 async function linkPlace(row) {
   if (row.place_id) return;
   const index = await getPlaceIndex();
   if (!index) return;
   const match = matchHappening(index, row);
   if (match.status === "linked") row.place_id = match.place.id;
+}
+
+// What the happenings table already holds for these slugs, so promotion can
+// keep evidence-backed text and an existing image (see lib/promote-rules.mjs).
+// enrich_sources only exists once supabase/add_enrichment_columns.sql has run;
+// until then there is nothing to protect, so fall back to image_url alone.
+async function fetchExistingRows(slugs) {
+  const byslug = new Map();
+  const unique = [...new Set(slugs.filter(Boolean))];
+  for (const part of chunk(unique, 40)) {
+    const filter = `slug=in.${encodeURIComponent(inList(part))}`;
+    let rows;
+    try {
+      rows = await rest(`happenings?${filter}&select=slug,image_url,enrich_sources`);
+    } catch (err) {
+      if (!/enrich_sources/.test(err.message)) throw err;
+      rows = await rest(`happenings?${filter}&select=slug,image_url`);
+    }
+    for (const row of rows ?? []) byslug.set(row.slug, row);
+  }
+  return byslug;
 }
 
 async function fetchApprovedUnpromotedStaging() {
@@ -223,6 +252,15 @@ async function main() {
 
   console.log(`[promote-happenings] found ${stagingRows.length} staging row(s) to promote.`);
 
+  let existingBySlug = new Map();
+  try {
+    existingBySlug = await fetchExistingRows(stagingRows.map((r) => r.slug));
+  } catch (err) {
+    // Fail closed: without knowing what is stored we could overwrite enriched text.
+    console.error(`[promote-happenings] fatal: could not read existing rows to protect enriched text: ${err.message}`);
+    process.exit(1);
+  }
+
   const results = [];
   let failed = 0;
 
@@ -234,6 +272,8 @@ async function main() {
     }
 
     const happeningRow = buildHappeningRow(staging);
+    const { kept } = protectExistingFields(happeningRow, existingBySlug.get(staging.slug) ?? null);
+    if (kept.length > 0) console.log(`[promote-happenings] keeping stored ${kept.join(", ")} for ${staging.slug}`);
     await linkPlace(happeningRow);
     let promoted;
     try {

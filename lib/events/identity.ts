@@ -1,6 +1,6 @@
 // Client-safe cross-source event identity helpers — TS port of
 // normalizeEventTitle / normalizeVenueKey / PROVIDER_PRIORITY in
-// scripts/daily-sources.mjs. KEEP IN SYNC: that script is plain .mjs run by
+// scripts/sources/core/dedupe.mjs. KEEP IN SYNC: that script is plain .mjs run by
 // node directly and cannot import this file, so the two copies must be
 // edited together.
 
@@ -62,12 +62,17 @@ export function normalizeVenueKey(venueName: string | null | undefined): string 
   return key || NO_VENUE_KEY;
 }
 
-/** Provider preference when two rows describe the same event. Same values as PROVIDER_PRIORITY in scripts/daily-sources.mjs. */
+/** Provider preference when two rows describe the same event. Same values as PROVIDER_PRIORITY in scripts/sources/core/dedupe.mjs. */
 export const PROVIDER_PRIORITY: Record<string, number> = {
   ticketmaster: 3,
   skiddle: 3,
+  edfestivals: 3,
   songkick: 2,
+  foreveredinburgh: 2,
+  jazzbar: 1,
   luma: 1,
   eventbrite: 1,
+  sneakypetes: 1,
+  voodoorooms: 1,
   allevents: 0,
 };

@@ -75,6 +75,12 @@ const SEARCH_MASK = "places.id,places.displayName,places.formattedAddress,places
 const DETAILS_MASK =
   "id,displayName,formattedAddress,location,regularOpeningHours,rating,userRatingCount,priceLevel,priceRange," +
   "websiteUri,nationalPhoneNumber,businessStatus,googleMapsUri,editorialSummary,reviewSummary,generativeSummary";
+// `source = 'event-venue'` places (minted by scripts/sources/core/google-venues.mjs
+// from event listings) are refreshed with this narrow mask only (id/address/location
+// are Essentials; displayName/googleMapsUri are Pro) and only google_maps_uri +
+// google_fetched_at are written — never the Enterprise fields (rating, reviews,
+// hours, website, phone, summaries) the full mask above buys.
+const VENUE_DETAILS_MASK = "id,displayName,formattedAddress,location,googleMapsUri";
 // Columns --apply-changes may touch (the fields `changes` can list).
 const CHANGEABLE_FIELDS = new Set(["address", "lat", "lng", "price_level", "hours", "opening_hours"]);
 
@@ -261,9 +267,9 @@ function textSearch(row) {
   });
 }
 
-function placeDetails(placeId) {
+function placeDetails(placeId, mask = DETAILS_MASK) {
   return googleFetch(`${DETAILS_URL}/${encodeURIComponent(placeId)}?languageCode=en&regionCode=GB`, {
-    headers: { "X-Goog-Api-Key": googleKey, "X-Goog-FieldMask": DETAILS_MASK },
+    headers: { "X-Goog-Api-Key": googleKey, "X-Goog-FieldMask": mask },
   });
 }
 
@@ -448,7 +454,8 @@ async function fetchProposals(targets, now) {
       continue;
     }
     stats.detailsCalls += 1;
-    const got = await placeDetails(placeId);
+    const isEventVenue = row.source === "event-venue";
+    const got = await placeDetails(placeId, isEventVenue ? VENUE_DETAILS_MASK : DETAILS_MASK);
     if (!got.ok) {
       proposal.status = "details_failed";
       proposal.error = `${got.status} ${got.error}`;
@@ -459,7 +466,9 @@ async function fetchProposals(targets, now) {
     proposal.status = "ok";
     // --refresh writes Google-owned fields only; fills belong to the first pass.
     proposal.fills = args.refresh ? {} : patch.fills;
-    proposal.google = patch.google;
+    proposal.google = isEventVenue
+      ? { google_maps_uri: patch.google.google_maps_uri, google_fetched_at: patch.google.google_fetched_at }
+      : patch.google;
     proposal.flags = patch.flags;
     proposal.changes = patch.changes;
   }

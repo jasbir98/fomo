@@ -30,13 +30,12 @@ EDINBURGH = CityHappeningsConfig(
     ),
     offer_sources=(
         "edinburgh.org/planning/offers-deals/",
-        "5pm.co.uk",
         "designmynight.com/edinburgh",
         "realmarykingsclose.com",
         "nms.ac.uk",
         "nationalgalleries.org",
-        "cameopicturehouse.co.uk",
-        "filmhouseedinburgh.org",
+        "picturehouses.com/cinema/the-cameo",
+        "filmhouse.org.uk",
         "dominioncinema.co.uk",
     ),
     national_sources=(
@@ -82,7 +81,7 @@ EDINBURGH = CityHappeningsConfig(
         "expect starts_at/ends_at to be null far more often than not, with the real timing "
         "captured in `recurrence` and `time_note`. Check edinburgh.org/planning/offers-deals/ "
         "and realmarykingsclose.com first for resident/local discounts and their exact promo "
-        "codes; check 5pm.co.uk and designmynight.com/edinburgh for venue happy-hour and "
+        "codes; check designmynight.com/edinburgh for venue happy-hour and "
         "2-for-1 deals. A promo code must be copied character-for-character from the page "
         "that prints it — if a discount is described but no code is printed, promo_code is "
         "null, never a guess at what the code 'probably' is.\n"
@@ -93,7 +92,7 @@ EDINBURGH = CityHappeningsConfig(
         "offer, e.g. Wetherspoon (jdwetherspoon.com) meal deals or Nando's student/Fridays "
         "offers (nandos.co.uk) — only record it if the chain's own page states the offer "
         "applies nationally/at Edinburgh branches; (3) cheap cinema days at Edinburgh's "
-        "independent cinemas — cameopicturehouse.co.uk, filmhouseedinburgh.org, "
+        "independent cinemas — picturehouses.com/cinema/the-cameo, filmhouse.org.uk, "
         "dominioncinema.co.uk (Filmhouse's own site, not a listings aggregator, for its "
         "current status). Separately, record permanently-free museums/galleries as "
         "kind=free_access with recurrence {\"type\":\"always\"} — e.g. National Museum of "

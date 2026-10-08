@@ -1,0 +1,28 @@
+# Annual promotions read by deal_sources/annual.py. Each entry is a `urls` source that is
+# only read inside its window: from six weeks before the first day of `usual_month` to the
+# last day of that month. All annual sources run in shadow.
+#
+# Keep `url` pointing at the announcement page for the current edition. Re-check it (and
+# usual_month) each year: the cinema event moved from summer to a September weekend in 2026.
+#
+# Left out on purpose:
+#   Museums at Night (Culture24): the festival stopped in 2019; the page is an archive.
+#   Kids eat free: no stable official list; the offers are commercial and per venue.
+
+- id: national-cinema-weekend
+  name: National Cinema Weekend (UK Cinema Association announcement)
+  usual_month: 9
+  url: https://www.cinemauk.org.uk/2026/08/national-cinema-weekend-announced-for-5-6-september/
+  trust: commercial
+
+- id: doors-open-days-edinburgh
+  name: Doors Open Days (Scottish Civic Trust)
+  usual_month: 9
+  url: https://www.scottishcivictrust.org.uk/activities/doors-open-days
+  trust: official
+
+- id: national-lottery-open-week
+  name: National Lottery Open Week (National Lottery Good Causes)
+  usual_month: 3
+  url: https://www.lotterygoodcauses.org.uk/open-week
+  trust: official
