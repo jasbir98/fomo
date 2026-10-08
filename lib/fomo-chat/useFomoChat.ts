@@ -47,19 +47,19 @@ export type UiMessage =
 /** The assistant half of `UiMessage`. */
 export type UiAssistantMessage = Extract<UiMessage, { role: "assistant" }>;
 
-/** A signed-out visitor's free questions left today (from /api/chat/quota and the chat stream's `quota` event). */
+/** Questions left today, signed in or out (from /api/chat/quota and the chat stream's `quota` event). */
 export interface Quota {
   remaining: number;
   limit: number;
 }
 
-/** null when signed in, on any failure, or if the route isn't there: the quota line just doesn't show. */
+/** null on any failure, or if the route isn't there: the quota line just doesn't show. */
 async function loadQuota(): Promise<Quota | null> {
   try {
     const res = await fetch("/api/chat/quota", { cache: "no-store" });
     if (!res.ok) return null;
     const data = (await res.json()) as { signedIn?: boolean; remaining?: number; limit?: number };
-    if (data.signedIn !== false || typeof data.remaining !== "number" || typeof data.limit !== "number") return null;
+    if (typeof data.remaining !== "number" || typeof data.limit !== "number") return null;
     return { remaining: data.remaining, limit: data.limit };
   } catch {
     return null;
@@ -209,7 +209,7 @@ export interface UseFomoChat {
   ready: boolean;
   /** null until the mount-time session check finishes. */
   signedIn: boolean | null;
-  /** Signed-out visitors only: free questions left today. Null until the fetch lands (or when signed in). */
+  /** Questions left today. Null until the fetch lands. */
   quota: Quota | null;
   loadFailed: boolean;
   /** Out of free questions: the composer is switched off until they sign in. */
@@ -245,7 +245,7 @@ export function useFomoChat({ seed = null, initialInput = "", autoSend = null }:
   // null until the session check on mount finishes; false = signed out (chat
   // lives in sessionStorage, nothing touches `chat_messages`).
   const [signedIn, setSignedIn] = useState<boolean | null>(null);
-  // Signed-out visitors only: free questions left today. Null until the quota fetch lands (or when signed in).
+  // Questions left today, signed in or out. Null until the quota fetch lands.
   const [quota, setQuota] = useState<Quota | null>(null);
   const [loadFailed, setLoadFailed] = useState(false);
   const [clearDialogOpen, setClearDialogOpen] = useState(false);
@@ -284,7 +284,7 @@ export function useFomoChat({ seed = null, initialInput = "", autoSend = null }:
   }, [db]);
 
   useEffect(() => {
-    if (signedIn !== false) return;
+    if (signedIn === null) return;
     let cancelled = false;
     void loadQuota().then((q) => {
       if (!cancelled && q) setQuota(q);
@@ -393,17 +393,20 @@ export function useFomoChat({ seed = null, initialInput = "", autoSend = null }:
       });
 
       // Rate limited. Out of free questions (signed out): keep the question in
-      // the chat and offer sign-in, which re-asks it. Otherwise show the
+      // the chat and offer sign-in, which re-asks it. Out of today's questions
+      // (signed in): the composer switches to its "reset tomorrow" note. Otherwise show the
       // server's "try again in N minutes" message and keep the question in the
       // composer so it can be resent later.
       if (res.status === 429) {
         let message = "You've hit the limit for now. Try again in a few minutes.";
         let needsSignin = false;
+        let dailyUsed = false;
         let limit: number | null = null;
         try {
-          const data = (await res.json()) as { message?: string; signin?: boolean; limit?: number };
+          const data = (await res.json()) as { message?: string; signin?: boolean; daily?: boolean; limit?: number };
           if (typeof data?.message === "string") message = data.message;
           needsSignin = data?.signin === true;
+          dailyUsed = data?.daily === true;
           if (typeof data?.limit === "number") limit = data.limit;
         } catch {
           // Keep the fallback message above.
@@ -415,6 +418,7 @@ export function useFomoChat({ seed = null, initialInput = "", autoSend = null }:
             `You've used your ${total} free questions for today. Sign in with your email (no password needed) and I'll answer this one straight away.`,
           );
         } else {
+          if (dailyUsed && limit !== null) setQuota({ remaining: 0, limit });
           setInput(trimmed);
           updateProvisional([{ kind: "text", text: message }]);
         }
@@ -523,7 +527,7 @@ export function useFomoChat({ seed = null, initialInput = "", autoSend = null }:
       );
       setInput(trimmed);
     } finally {
-      if (failed && !isSignedIn) void loadQuota().then((q) => q && setQuota(q));
+      if (failed) void loadQuota().then((q) => q && setQuota(q));
       streamedSoFar.current = "";
       setPendingStatus(null);
       setSending(false);
@@ -566,8 +570,8 @@ export function useFomoChat({ seed = null, initialInput = "", autoSend = null }:
   }, [ready]);
 
   const suggestions = seed ? suggestedQuestionsFor(seed.type) : ASK_FOMO_PROMPTS;
-  // Out of free questions: the composer is switched off until they sign in.
-  const exhausted = signedIn === false && quota?.remaining === 0;
+  // Out of questions for today: the composer is switched off (until they sign in, if signed out).
+  const exhausted = signedIn !== null && quota?.remaining === 0;
 
   return {
     messages,

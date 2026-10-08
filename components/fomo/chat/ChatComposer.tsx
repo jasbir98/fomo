@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { Icon } from "@/components/ui";
+import { CHAT_USER_LOW_QUOTA } from "@/lib/chat/limits";
 import type { Quota } from "@/lib/fomo-chat/useFomoChat";
 
 export interface ChatComposerProps {
@@ -10,9 +11,9 @@ export interface ChatComposerProps {
   /** Send `text` (the textarea's Enter/Send button pass the current input, suggestion chips pass their label). */
   onSend: (text: string) => void;
   sending: boolean;
-  /** Out of free questions: the textarea is replaced by a sign-in call to action. */
+  /** Out of questions for today: the textarea is replaced by a sign-in call to action (signed out) or a "reset tomorrow" note (signed in). */
   exhausted: boolean;
-  /** null until the session check finishes; the quota line only shows for signed-out visitors. */
+  /** null until the session check finishes. Signed out, the quota line always shows; signed in, only once it's low. */
   signedIn: boolean | null;
   quota: Quota | null;
   suggestions: string[];
@@ -69,8 +70,20 @@ export function ChatComposer({
         </p>
       ) : null}
 
-      {/* Out of free questions: a real way forward instead of a greyed-out box. */}
-      {exhausted ? (
+      {signedIn === true && quota && !exhausted && quota.remaining <= CHAT_USER_LOW_QUOTA ? (
+        <p className="mb-2 px-1 text-center text-label-md text-on-surface-variant">
+          {quota.remaining >= 2 ? `${quota.remaining} questions left today` : "Last question today"}
+        </p>
+      ) : null}
+
+      {/* Out of questions: a real way forward (signed out) or when they're back (signed in), instead of a greyed-out box. */}
+      {exhausted && signedIn === true ? (
+        <div className="rounded-2xl border border-outline-variant/60 bg-surface p-3 text-center shadow-[0_2px_12px_rgba(3,22,50,0.06)]">
+          <p className="text-label-md text-on-surface-variant">
+            That&apos;s your {quota?.limit ?? ""} questions for today. They reset tomorrow.
+          </p>
+        </div>
+      ) : exhausted ? (
         <div className="flex flex-col items-center gap-2 rounded-2xl border border-outline-variant/60 bg-surface p-3 text-center shadow-[0_2px_12px_rgba(3,22,50,0.06)]">
           <p className="text-label-md text-on-surface-variant">
             That&apos;s your free questions for today. They reset tomorrow.

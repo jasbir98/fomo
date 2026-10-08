@@ -144,6 +144,30 @@ export function rateLimitedResponse(result: RateLimitResult): Response {
   );
 }
 
+/**
+ * How many of a signed-in user's slots for `route` they've used in the
+ * current fixed window, without consuming one: for the chat screen's
+ * "N questions left" line. Reads api_rate_limits with the service role (the
+ * table has no select policy); window start mirrors consume_rate_limit's
+ * floor exactly. Returns 0 on any failure (display only).
+ */
+export async function peekRateLimit(userId: string, route: string, windowSeconds: number): Promise<number> {
+  try {
+    const windowStart = new Date(Math.floor(Date.now() / 1000 / windowSeconds) * windowSeconds * 1000).toISOString();
+    const { data } = await supabaseAdmin()
+      .from("api_rate_limits")
+      .select("count")
+      .eq("user_id", userId)
+      .eq("route", route)
+      .eq("window_start", windowStart)
+      .maybeSingle();
+    return (data as { count?: number } | null)?.count ?? 0;
+  } catch (err) {
+    console.warn(`[rate-limit] peek failed for "${route}"`, err);
+    return 0;
+  }
+}
+
 // ============================================================================
 // ANONYMOUS / GLOBAL rate limiting — supabase/archive/add_anon_rate_limits.sql's
 // `consume_anon_rate_limit`. Used by routes with no session at all
