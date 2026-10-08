@@ -867,6 +867,17 @@ def validate_recurrence(rec: Any, has_real_date: bool) -> dict[str, Any] | None:
     return fallback  # pragma: no cover — unreachable given the RECURRENCE_TYPES check above
 
 
+def _clean_text(value: Any) -> str | None:
+    return value.strip() if isinstance(value, str) and value.strip() else None
+
+
+def _clean_date(value: Any) -> str | None:
+    """YYYY-MM-DD or None (season_valid_until is a plain date column)."""
+    if isinstance(value, str) and re.fullmatch(r"\d{4}-\d{2}-\d{2}", value.strip()):
+        return value.strip()
+    return None
+
+
 def build_full_record(
     happening: dict[str, Any],
     batch_id: str,
@@ -1012,6 +1023,12 @@ def build_full_record(
         "eligibility": eligibility,
         "eligibility_note": happening.get("eligibility_note"),
         "allowance_note": happening.get("allowance_note"),
+        # Not part of HAPPENING_SCHEMA (the topic prompts never ask for them):
+        # only the page-grounded deal sources (scraper/deal_sources/) fill these,
+        # each backed by a verbatim page quote.
+        "price_text": _clean_text(happening.get("price_text")),
+        "includes": _clean_text(happening.get("includes")),
+        "season_valid_until": _clean_date(happening.get("season_valid_until")),
         "starts_at": starts_at,
         "ends_at": ends_at,
         "recurrence": recurrence,

@@ -6,12 +6,41 @@
 
 1. Runs the lifecycle sweep, moving expired one-off live entries to `dormant`. It never deletes a row or auto-retires a source merely because a request failed.
 2. Reads the configured official/publisher pages directly. It obeys `robots.txt`, and logs then drops pages which block, challenge, or rate-limit the script. JSON-LD events are imported without AI; a page with no structured event data is simply recorded as read.
-3. Runs 32 small DeepSeek research topics in priority order: ticket releases, resident rewards, concessions, offers, low-cost cinema, comedy, ceilidhs, parkruns, markets, free tours, family activity, museum lates, festivals, and seasonal/council events. Each has its own source seeds. Up to four run concurrently.
-4. Merges duplicate title/date candidates and creates conservative city-level collections for truly identical activity families: for example, Cramond, Holyrood, and Portobello become one **Edinburgh parkruns** card, while retaining and checking every individual source page. It does not collapse unrelated items merely because they share a category. Before verification, two silent (non-review) drops happen: a candidate whose every stated date has already passed (e.g. this year's already-finished Fringe dates mislabelled "annual"), and a candidate that names no concrete date, price/promo code, or venue — generic programme narration rather than a real thing to do or offer.
-5. The run then links high-confidence venues to existing places and reloads every remaining candidate's source page (falling back to its other `source_urls`/`booking_url` if the first is blocked or challenged). A price, promo code, date, stated recurrence weekday, and booking release date/time must still be visibly stated on that page — verbatim for promo codes/saving figures, verbatim OR any common textual format (UK numeric, ordinal-day, weekday-abbreviated, etc.) for dates. The title/venue name is only a soft relevance signal — an LLM-paraphrased title is expected to never match verbatim — used solely to catch a page that turns out to be about something else. Anything that fails a hard check remains a review item rather than a live entry.
-6. Writes a Markdown and JSON report plus the verified JSON output under `scraper/out/<batch-id>/`.
+3. Runs the page-grounded **deal sources** (see below), inside their own sub-cap, after the direct sources and before the search topics.
+4. Runs 47 small DeepSeek research topics in priority order: ticket releases, resident rewards, concessions, offers, low-cost cinema, comedy, ceilidhs, parkruns, markets, free tours, family activity, museum lates, festivals, sports fixtures, and seasonal/council events. Each has its own source seeds. Up to four run concurrently.
+5. Merges duplicate title/date candidates and creates conservative city-level collections for truly identical activity families: for example, Cramond, Holyrood, and Portobello become one **Edinburgh parkruns** card, while retaining and checking every individual source page. It does not collapse unrelated items merely because they share a category. Before verification, two silent (non-review) drops happen: a candidate whose every stated date has already passed (e.g. this year's already-finished Fringe dates mislabelled "annual"), and a candidate that names no concrete date, price/promo code, or venue — generic programme narration rather than a real thing to do or offer.
+6. The run then links high-confidence venues to existing places and reloads every remaining candidate's source page (falling back to its other `source_urls`/`booking_url` if the first is blocked or challenged). A price, promo code, date, stated recurrence weekday, and booking release date/time must still be visibly stated on that page — verbatim for promo codes/saving figures, verbatim OR any common textual format (UK numeric, ordinal-day, weekday-abbreviated, etc.) for dates. The title/venue name is only a soft relevance signal — an LLM-paraphrased title is expected to never match verbatim — used solely to catch a page that turns out to be about something else. Anything that fails a hard check remains a review item rather than a live entry.
+7. Writes a Markdown and JSON report plus the verified JSON output under `scraper/out/<batch-id>/`.
 
 When `--publish` is explicitly used, only the just-verified rows are marked approved and promoted; publisher preview images are then attached. The normal first run below never publishes.
+
+## Deal sources (`scraper/deal_sources/`)
+
+Deals are read straight from the pages that state them, instead of from search results. Each source in `scraper/deal_sources/registry.py` has a `trust` (`official` or `commercial`) and a `status` (`shadow` or `live`), and a `discover` rule: a WordPress REST query, a sitemap filter, a fixed URL list, or a listing page's links.
+
+Per page: fetch politely (the bot's real identity, robots.txt obeyed, skipped on 401/403/429/503 or a challenge); hash the text against the `source_pages` ledger and skip unchanged pages; one DeepSeek forced-tool call extracts every deal as `{value, quote}` fields; then the gate drops a deal unless:
+
+- every quote is found word for word in the page text (after normalising case, quotes, dashes, whitespace);
+- every £ and % figure in a value is in its quote, and any promo code is verbatim, exact case;
+- every date and weekday is stated in the quote;
+- it is in Edinburgh (an EH postcode in the deal's text, or an Edinburgh-only official source; a non-EH postcode rejects it);
+- it has not expired;
+- it passes the Python port of the app's `isGenuineDeal` (promo code, discount wording, or restricted eligibility with a positive saving). Plain-price vouchers are rejected as `not_a_deal`.
+
+Display-only text that fails its quote check (summary, includes, notes, venue, address, booking link) is dropped from the row rather than rejecting the deal. Survivors are matched against live and dormant rows by `scraper/identity.py`.
+
+- **Shadow** sources are extracted, gated and reported, never staged. Move a source to `live` in the registry only after reviewing one report.
+- **Live + official**, every check passed: treated as a verified row (eligible for `--publish`). **Live + commercial**: always staged for review with reason `commercial_source_review`.
+- The ledger (`source_pages`, `supabase/add_deal_source_columns.sql`, run by hand) is written only for live sources in a `--stage` run. If the table is missing the run logs it once and treats every page as changed.
+- Spend is capped by `--deal-sources-usd` (default `$0.50`), inside `--cap-usd`.
+
+Flags: `--skip-deal-sources`; `--only-deal-sources` (no sweep, direct sources, topics or live rechecks; for testing); `--deal-source ID` (repeatable); `--deal-sources-preview` (fetches and extracts, costs a few cents, writes only files under `scraper/out/<batch-id>/`; no sweep, no ledger, no staging; implies `--only-deal-sources` and refuses `--stage`/`--publish`). The report has a "Deal sources" section; `deal-sources-report.md` and per-source `deal-sources/<id>-records.json` (with every quote) land beside it.
+
+```bash
+python3 scraper/weekly_edinburgh.py --deal-sources-preview
+```
+
+Run `python3 scraper/test_deal_sources.py` for the unit tests.
 
 ## Cost cap
 
@@ -44,7 +73,7 @@ To preview the configured sources/topics without network, API, database, or file
 python3 scraper/weekly_edinburgh.py --dry-run
 ```
 
-To approve specific review rows after checking them, use the report's SQL, then run its `promote-happenings.mjs` command. A failed verification is never silently approved.
+The report's approve SQL covers every verified row in the batch (`extraction_status = 'validated'`, not yet approved) plus the listed review slugs: delete any review slug you have not checked, run it, then run the report's `promote-happenings.mjs` command. A failed verification is never silently approved.
 
 ## Automatic weekly publishing (after the first review)
 

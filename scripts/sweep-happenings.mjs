@@ -3,11 +3,13 @@
  * sweep-happenings.mjs — the trust mechanism behind the "still current"
  * story for `happenings`. Two independent jobs, both read-mostly:
  *
- *   1. Auto-retire expired one-offs: flips `status` live -> dormant for rows
- *      where `recurrence->>'type' = 'once' AND ends_at < now()`. Rows with
- *      any other recurrence type (always/weekly/annual/dates) are NEVER
- *      flipped by this sweep — an annual fixture whose date has passed is
- *      simply next year's row, not a dead one.
+ *   1. Auto-retire ended rows: flips `status` live -> dormant for
+ *        - expired one-offs (`recurrence->>'type' = 'once' AND ends_at < now()`),
+ *        - rows past their `season_valid_until`,
+ *        - live DEALS whose weekly recurrence has an `until` in the past, or
+ *          whose `dates` recurrence has no date left (scripts/lib/sweep-rules.mjs).
+ *      Always/annual rows are NEVER flipped by this sweep — an annual fixture
+ *      whose date has passed is simply next year's row, not a dead one.
  *
  *   2. --emit-worklist: prints JSON for rows that are past 1x their
  *      staleness budget (see STALENESS_BUDGET_DAYS below), grouped by
@@ -41,13 +43,16 @@
  * (server-only, see lib/supabase/admin.ts — never NEXT_PUBLIC_).
  */
 
+import { findEndedRecurringDeals, londonToday } from "./lib/sweep-rules.mjs";
+
 if (process.argv.includes("--help") || process.argv.includes("-h")) {
   console.log(`Usage: node --env-file=.env.local scripts/sweep-happenings.mjs [options]
 
 Two independent jobs:
   1. Flips status live -> dormant for expired one-off happenings
-     (recurrence.type='once' AND ends_at < now()). Never touches rows with
-     any other recurrence type, and never deletes or sets 'retired'.
+     (recurrence.type='once' AND ends_at < now()), rows past season_valid_until,
+     and live deals whose weekly 'until' or whose 'dates' have all passed.
+     Never touches always/annual rows, and never deletes or sets 'retired'.
   2. --emit-worklist prints a JSON worklist (grouped by source_name) of rows
      overdue for re-verification, for happenings_research.py --mode verify.
 
@@ -140,6 +145,18 @@ async function findPastSeasonRows() {
   }
 }
 
+// Deals with a weekly `until` or a `dates` list that has fully passed. The
+// app already hides them; this makes the lifecycle explicit (status 'dormant'),
+// the same way one-offs are handled. Filtering is in JS (sweep-rules.mjs) so
+// the rule is unit-tested; the query only narrows by kind and recurrence type.
+async function findEndedRecurringRows() {
+  const rows = await fetchAllPages(
+    `happenings?status=eq.live&kind=eq.deal&recurrence->>type=in.(weekly,dates)` +
+      `&select=id,slug,title,kind,status,recurrence`
+  );
+  return findEndedRecurringDeals(rows, londonToday());
+}
+
 async function flipToDormant(rows) {
   let ok = 0;
   let failed = 0;
@@ -162,6 +179,13 @@ async function flipToDormant(rows) {
 
 async function runRetireJob() {
   const expired = await findExpiredOnceRows();
+  const seenIds = new Set(expired.map((row) => row.id));
+  for (const row of await findEndedRecurringRows()) {
+    if (!seenIds.has(row.id)) {
+      seenIds.add(row.id);
+      expired.push(row);
+    }
+  }
   const pastSeason = await findPastSeasonRows();
   if (pastSeason === null) {
     console.log("[sweep-happenings] season_valid_until column missing — skipping season check.");
@@ -174,12 +198,12 @@ async function runRetireJob() {
   }
 
   if (expired.length === 0) {
-    console.log("[sweep-happenings] no expired one-off happenings to retire.");
+    console.log("[sweep-happenings] no expired happenings to retire.");
     return;
   }
 
   console.log(
-    `[sweep-happenings] ${expired.length} expired one-off happening(s) ${DRY_RUN ? "would be" : "will be"} flipped live -> dormant:`
+    `[sweep-happenings] ${expired.length} expired happening(s) ${DRY_RUN ? "would be" : "will be"} flipped live -> dormant:`
   );
   for (const row of expired) {
     console.log(`  - ${row.slug} (ended ${row.ends_at})`);

@@ -66,6 +66,9 @@ ALLOWED_COLUMNS = {
     "eligibility",
     "eligibility_note",
     "allowance_note",
+    "price_text",
+    "includes",
+    "season_valid_until",
     "starts_at",
     "ends_at",
     "recurrence",
@@ -101,11 +104,21 @@ ALLOWED_COLUMNS = {
 }
 
 
+# Columns added by supabase/add_deal_source_columns.sql. They are only sent when
+# a row actually has a value, so a batch with none (every topic-only run) still
+# upserts cleanly on a database where that migration has not been run yet.
+SPARSE_COLUMNS = {"price_text", "includes", "season_valid_until"}
+
+
 def _clean_row(record: dict[str, Any]) -> dict[str, Any] | None:
     """Keep only known columns; skip rows with no batch_id/slug (our dedupe key)."""
     if not record.get("batch_id") or not record.get("slug"):
         return None
-    return {k: record.get(k) for k in ALLOWED_COLUMNS if k in record}
+    return {
+        k: record.get(k)
+        for k in ALLOWED_COLUMNS
+        if k in record and not (k in SPARSE_COLUMNS and record.get(k) is None)
+    }
 
 
 def upsert_happenings(records: list[dict[str, Any]], table: str = "happenings_staging") -> int:
