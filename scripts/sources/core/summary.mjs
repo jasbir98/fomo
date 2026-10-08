@@ -22,6 +22,29 @@ export function printSummary(provider, stats, rows, { shadow = false } = {}) {
   }
 }
 
+/** Validation outcome for one adapter: how many rows came in, rejections by reason, a few examples. */
+export function printValidationSummary({ rowsIn, rejected, samples }) {
+  const entries = Object.entries(rejected).sort((a, b) => b[1] - a[1]);
+  if (entries.length === 0) return;
+  const total = entries.reduce((n, [, c]) => n + c, 0);
+  console.log(`    validation: in=${rowsIn} kept=${rowsIn - total} rejected(${entries.map(([k, v]) => `${k}=${v}`).join(" ")})`);
+  for (const [reason, list] of Object.entries(samples)) {
+    for (const x of list.slice(0, 2)) {
+      console.log(
+        `      rejected ${reason}: "${x.name ?? ""}" @ ${x.starts_at ?? "?"} | venue=${x.venue ?? "?"} city=${x.city ?? "?"} addr=${x.address ?? "?"}`
+      );
+    }
+  }
+}
+
+/** Image-check totals (image_broken is a soft fix: the row is kept with image_url=null). */
+export function printImageSummary(r, { existingKnown }) {
+  console.log(
+    `\n[daily-sources] images: checked=${r.checked} image_broken=${r.broken} unchanged-in-db=${r.skippedExisting} ` +
+      `over-cap-unchecked=${r.overCap}${Object.keys(r.reasons ?? {}).length ? ` broken-reasons(${Object.entries(r.reasons).map(([k, v]) => `${k}=${v}`).join(" ")})` : ""}${existingKnown ? "" : " (existing rows unknown: every row treated as new)"}`
+  );
+}
+
 /** Totals after cross-source dedupe, plus every collapse (kept <- dropped). */
 export function printDedupeSummary({ totalKept, merged, collapses }) {
   console.log(

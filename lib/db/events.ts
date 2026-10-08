@@ -35,6 +35,13 @@ function stillRunningFilter(at: Date): string {
   return `ends_at.gte.${nowIso},and(ends_at.is.null,starts_at.gte.${defaultDurationCutoff})`;
 }
 
+/** True when a PostgREST error says `events.status` doesn't exist yet (42703 undefined_column, or PostgREST's schema-cache miss). */
+export function isUnknownStatusColumn(error: { code?: string; message?: string } | null): boolean {
+  if (!error) return false;
+  const msg = error.message ?? "";
+  return (error.code === "42703" || error.code === "PGRST204" || /column .*status.* does not exist/i.test(msg)) && /status/i.test(msg);
+}
+
 export interface ListUpcomingEventsOpts {
   destination?: string;
   category?: string;
@@ -60,27 +67,39 @@ export async function listUpcomingEvents(
 
   const fromDate = from ? new Date(from) : new Date();
 
-  let query = db
-    .from("events")
-    .select("*")
-    .or(stillRunningFilter(fromDate))
-    .order("starts_at", { ascending: true });
+  const build = (activeOnly: boolean) => {
+    let query = db
+      .from("events")
+      .select("*")
+      .or(stillRunningFilter(fromDate))
+      .order("starts_at", { ascending: true });
 
-  if (to) query = query.lte("starts_at", to);
-  if (category) query = query.eq("category", category);
+    // Retired rows (expired / gone / cancelled) stay in the table so saved
+    // items and shared links keep working, but never appear in a list.
+    if (activeOnly) query = query.eq("status", "active");
+    if (to) query = query.lte("starts_at", to);
+    if (category) query = query.eq("category", category);
 
-  if (destination) {
-    const term = destination.split(",")[0]?.trim().replace(/[,()]/g, "") ?? "";
-    if (term) {
-      query = query.or(
-        `destination.ilike.%${term}%,city.ilike.%${term}%,address.ilike.%${term}%`
-      );
+    if (destination) {
+      const term = destination.split(",")[0]?.trim().replace(/[,()]/g, "") ?? "";
+      if (term) {
+        query = query.or(
+          `destination.ilike.%${term}%,city.ilike.%${term}%,address.ilike.%${term}%`
+        );
+      }
     }
+
+    if (limit) query = query.limit(limit);
+    return query;
+  };
+
+  let { data, error } = await build(true);
+  if (error && isUnknownStatusColumn(error)) {
+    // Deployed before supabase/add_event_lifecycle.sql was run: retry once
+    // without the status filter rather than blanking the feed.
+    console.warn("[events] events.status column missing — run supabase/add_event_lifecycle.sql; listing without the status filter");
+    ({ data, error } = await build(false));
   }
-
-  if (limit) query = query.limit(limit);
-
-  const { data, error } = await query;
   if (error) throw error;
   // Final in-memory guard, belt-and-braces: re-checks each row against its
   // own actual effective end (`eventEffectiveEndMs`), not just the SQL
@@ -92,7 +111,7 @@ export async function listUpcomingEvents(
   return limit ? live.slice(0, limit) : live;
 }
 
-/** Fetch a single event by id. Returns null if not found. */
+/** Fetch a single event by id, whatever its status (expired/gone/cancelled rows still resolve). Returns null if not found. */
 export async function getEvent(db: Db, id: string): Promise<EventItem | null> {
   const { data, error } = await db.from("events").select("*").eq("id", id).maybeSingle();
   if (error) throw error;
@@ -100,7 +119,7 @@ export async function getEvent(db: Db, id: string): Promise<EventItem | null> {
 }
 
 /**
- * Batch-fetch events by id, for resolving a saved-item id back into a full
+ * Batch-fetch events by id (any status), for resolving a saved-item id back into a full
  * row (GET /api/saved) — mirrors listPlacesByIds (lib/db/places.ts).
  */
 export async function listEventsByIds(db: Db, ids: string[]): Promise<EventItem[]> {

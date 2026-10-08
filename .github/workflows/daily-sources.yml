@@ -28,7 +28,7 @@ jobs:
     # TICKETMASTER_API_KEY live as Production environment secrets on
     # jasbir98/fomo, not repository secrets.
     environment: Production
-    timeout-minutes: 15
+    timeout-minutes: 35
     steps:
       - uses: actions/checkout@v4
 
@@ -47,4 +47,44 @@ jobs:
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           SKIDDLE_API_KEY: ${{ secrets.SKIDDLE_API_KEY }}
           TICKETMASTER_API_KEY: ${{ secrets.TICKETMASTER_API_KEY }}
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+          FESTIVALS_API_KEY: ${{ secrets.FESTIVALS_API_KEY }}
+          FESTIVALS_API_SECRET: ${{ secrets.FESTIVALS_API_SECRET }}
         run: node scripts/daily-sources.mjs --write
+
+  # Weekly accuracy spot-check (Mondays): for each live provider, fetch 5
+  # random upcoming events' own pages and confirm the title words and date
+  # appear there (scripts/check-event-sample.mjs). Reported in the job summary;
+  # never fails the workflow. Runs off the morning cron only (or by hand).
+  sample-check:
+    if: github.event_name == 'workflow_dispatch' || github.event.schedule == '17 6 * * *'
+    runs-on: ubuntu-latest
+    environment: Production
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Sample-check live providers
+        env:
+          EVENT_SCHEDULE: ${{ github.event_name }}
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL || secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: |
+          if [ "$EVENT_SCHEDULE" = "schedule" ] && [ "$(date -u +%u)" != "1" ]; then
+            echo "Not Monday: weekly sample check skipped."
+            exit 0
+          fi
+          providers=$(node --input-type=module -e "import { ADAPTERS } from './scripts/sources/registry.mjs'; console.log(ADAPTERS.filter((a) => a.status === 'live').map((a) => a.name).join(' '))")
+          {
+            echo "### Weekly event sample check"
+            echo
+            echo "| provider | accuracy | result |"
+            echo "| --- | --- | --- |"
+          } >> "$GITHUB_STEP_SUMMARY"
+          for p in $providers; do
+            node scripts/check-event-sample.mjs --provider="$p" --n=5 || true
+          done

@@ -204,42 +204,59 @@ export function mapVenueRssItem(item, { provider, feedUrl, destination, now, ven
   return { row, reason: null };
 }
 
+/** Hard cap on feed pages per venue per run (~10 items each). */
+const MAX_FEED_PAGES = 12;
+
 export async function adapterVenueRssFeed(config, now) {
   const { provider, feedUrl, venue, categoryMap } = config;
   const stats = emptyStats();
   let rows = [];
-  const result = await politeFetch(feedUrl);
-  if (!result.ok) {
-    if (result.reason === "robots_disallowed" || result.reason === "robots_unavailable") {
-      stats.skipped.robots += 1;
-    } else {
-      stats.skipped.blocked += 1;
+  // WordPress feeds list the newest post first and only ~10 items per page,
+  // and these venues date each post by its show date. So page 1 holds the
+  // furthest-future gigs; page with `?paged=N` until a page reaches past
+  // shows (everything after it is older still).
+  for (let page = 1; page <= MAX_FEED_PAGES; page += 1) {
+    const url = page === 1 ? feedUrl : `${feedUrl.replace(/\/?$/, "/")}?paged=${page}`;
+    const result = await politeFetch(url);
+    if (!result.ok) {
+      // A 404 past the last page is the normal end of the feed.
+      if (page > 1 && /HTTP 404/.test(result.reason ?? "")) break;
+      if (result.reason === "robots_disallowed" || result.reason === "robots_unavailable") {
+        stats.skipped.robots += 1;
+      } else {
+        stats.skipped.blocked += 1;
+      }
+      console.log(`  [${provider}] ${url} -> SKIPPED (${result.reason})`);
+      break;
     }
-    console.log(`  [${provider}] ${feedUrl} -> SKIPPED (${result.reason})`);
-    return { provider, rows, stats };
-  }
-  stats.fetched += 1;
+    stats.fetched += 1;
 
-  const items = extractRssItems(result.html);
-  for (const item of items) {
-    stats.parsed += 1;
-    const { row, reason } = mapVenueRssItem(item, { provider, feedUrl, destination: DESTINATION, now, venue, categoryMap });
-    if (!row) {
-      if (reason === "past") stats.skipped.past += 1;
-      else stats.skipped.invalid += 1;
-      continue;
+    const items = extractRssItems(result.html);
+    if (items.length === 0) break;
+    let sawPast = false;
+    for (const item of items) {
+      stats.parsed += 1;
+      const { row, reason } = mapVenueRssItem(item, { provider, feedUrl, destination: DESTINATION, now, venue, categoryMap });
+      if (!row) {
+        if (reason === "past") {
+          stats.skipped.past += 1;
+          sawPast = true;
+        } else stats.skipped.invalid += 1;
+        continue;
+      }
+      // Venue-supplied lat/lng is fixed and already Edinburgh — no notEdinburgh check needed.
+      if (isOffWedge(row)) {
+        stats.skipped.offWedge += 1;
+        console.log(`    [${provider}] off-wedge, skipped: "${row.name}" @ ${row.starts_at}`);
+        continue;
+      }
+      CATEGORY_STATS.before[row.category ?? "other"] = (CATEGORY_STATS.before[row.category ?? "other"] ?? 0) + 1;
+      row.category = classifyCategory(row);
+      CATEGORY_STATS.after[row.category ?? "other"] = (CATEGORY_STATS.after[row.category ?? "other"] ?? 0) + 1;
+      rows.push(row);
+      stats.kept += 1;
     }
-    // Venue-supplied lat/lng is fixed and already Edinburgh — no notEdinburgh check needed.
-    if (isOffWedge(row)) {
-      stats.skipped.offWedge += 1;
-      console.log(`    [${provider}] off-wedge, skipped: "${row.name}" @ ${row.starts_at}`);
-      continue;
-    }
-    CATEGORY_STATS.before[row.category ?? "other"] = (CATEGORY_STATS.before[row.category ?? "other"] ?? 0) + 1;
-    row.category = classifyCategory(row);
-    CATEGORY_STATS.after[row.category ?? "other"] = (CATEGORY_STATS.after[row.category ?? "other"] ?? 0) + 1;
-    rows.push(row);
-    stats.kept += 1;
+    if (sawPast) break;
   }
   rows = dedupeWithinSource(rows);
   return { provider, rows, stats };

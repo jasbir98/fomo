@@ -180,7 +180,15 @@ export interface EventItem {
   source: string | null;
   fetched_at: string | null;
   created_at: string;
+  /**
+   * Lifecycle (supabase/add_event_lifecycle.sql). Optional because rows read
+   * before that SQL has been applied don't carry it; treat missing as "active".
+   * The feed lists only 'active'; detail pages and saved items resolve any status.
+   */
+  status?: EventStatus;
 }
+
+export type EventStatus = "active" | "cancelled" | "gone" | "expired";
 
 export type EventItemInsert = Omit<EventItem, "id" | "created_at">;
 export type EventItemUpdate = Partial<

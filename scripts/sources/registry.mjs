@@ -15,5 +15,9 @@ import allevents from "./adapters/allevents.mjs";
 import skiddle from "./adapters/skiddle.mjs";
 import ticketmaster from "./adapters/ticketmaster.mjs";
 import sneakypetes from "./adapters/sneakypetes.mjs";
+import { voodoorooms } from "./adapters/tribe-events.mjs";
+import edfestivals from "./adapters/festivals-api.mjs";
+import foreveredinburgh from "./adapters/forever-edinburgh.mjs";
+import jazzbar from "./adapters/jazzbar.mjs";
 
-export const ADAPTERS = [luma, eventbrite, songkick, allevents, skiddle, ticketmaster, sneakypetes];
+export const ADAPTERS = [luma, eventbrite, songkick, allevents, skiddle, ticketmaster, sneakypetes, voodoorooms, edfestivals, foreveredinburgh, jazzbar];

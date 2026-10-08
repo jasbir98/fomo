@@ -165,6 +165,30 @@ export function canonicalUrl(url) {
   }
 }
 
+/** schema.org `eventStatus` -> events.status. EventCancelled and EventPostponed both read as "cancelled"; everything else is "active". */
+export function jsonLdStatus(obj) {
+  const raw = Array.isArray(obj.eventStatus) ? obj.eventStatus.join(" ") : String(obj.eventStatus ?? "");
+  return /EventCancelled|EventPostponed/i.test(raw) ? "cancelled" : "active";
+}
+
+/**
+ * True when the JSON-LD says the event has no physical location: an
+ * OnlineEventAttendanceMode, or a location that is only VirtualLocation(s).
+ * A MixedEventAttendanceMode event, or a Place alongside a VirtualLocation,
+ * is not online-only.
+ */
+export function jsonLdIsOnlineOnly(obj) {
+  const mode = Array.isArray(obj.eventAttendanceMode) ? obj.eventAttendanceMode.join(" ") : String(obj.eventAttendanceMode ?? "");
+  if (/OnlineEventAttendanceMode/i.test(mode) && !/Mixed/i.test(mode)) return true;
+  const locations = Array.isArray(obj.location) ? obj.location : obj.location ? [obj.location] : [];
+  if (locations.length === 0) return false;
+  const isVirtual = (l) => {
+    const t = l && typeof l === "object" ? l["@type"] : null;
+    return (Array.isArray(t) ? t : [t]).includes("VirtualLocation");
+  };
+  return locations.every(isVirtual);
+}
+
 /**
  * Convert one schema.org Event JSON-LD object to a normalized `events` row,
  * or null if it's missing what's needed for a stable key. Never throws —
@@ -224,8 +248,12 @@ export function mapJsonLdEvent(obj, { provider, pageUrl, destination, now }) {
     currency,
     destination,
     source: "api",
+    status: jsonLdStatus(obj),
     fetched_at: now.toISOString(),
   };
+  // Transient flag for core/validate.mjs (`online_only`); validateRow strips it
+  // before the row can reach the DB. Only set when true.
+  if (jsonLdIsOnlineOnly(obj)) row._online = true;
   return { row, reason: null };
 }
 

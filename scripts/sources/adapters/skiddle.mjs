@@ -5,14 +5,14 @@
  * lib/events/skiddle.ts has the same field mapping for the app's live path:
  * provider_event_id (and every other column) comes out byte-identical to what
  * that path would write, but this adapter pages over a lookahead window
- * (PROACTIVE_LOOKAHEAD_DAYS) instead of a single capped page. The
+ * (LOOKAHEAD_DAYS) instead of a single capped page. The
  * (provider, provider_event_id) unique index means a re-discovered event
  * upserts onto the same row rather than duplicating it.
  */
 
 import { cleanDescription } from "../../lib/describe.mjs";
 import { httpUrlOrNull } from "../../lib/http-url.mjs";
-import { DESTINATION, PROACTIVE_LOOKAHEAD_DAYS, PROACTIVE_RADIUS_MILES } from "../core/config.mjs";
+import { DESTINATION, LOOKAHEAD_DAYS, PROACTIVE_RADIUS_MILES } from "../core/config.mjs";
 import { CATEGORY_STATS, EDINBURGH_CENTER, classifyCategory, dedupeWithinSource, isOffWedge } from "../core/normalize.mjs";
 import { emptyStats } from "../core/stats.mjs";
 import { londonOffsetMinutes } from "../core/time.mjs";
@@ -150,9 +150,9 @@ async function run({ now }) {
   }
 
   const minDate = now.toISOString().slice(0, 10);
-  const maxDate = new Date(now.getTime() + PROACTIVE_LOOKAHEAD_DAYS * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+  const maxDate = new Date(now.getTime() + LOOKAHEAD_DAYS * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
   const limit = 100;
-  const MAX_PAGES = 15; // safety cap: 1500 events, comfortably above Edinburgh's 60-day volume
+  const MAX_PAGES = 15; // safety cap: 1500 events, comfortably above Edinburgh's 31-day volume
   let rows = [];
   let offset = 0;
   for (let page = 0; page < MAX_PAGES; page++) {

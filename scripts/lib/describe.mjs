@@ -46,7 +46,7 @@ const NAMED_ENTITIES = {
   amp_: "&",
 };
 
-function decodeHtmlEntities(s) {
+export function decodeHtmlEntities(s) {
   return s
     .replace(/&#x([0-9a-fA-F]+);/g, (_, hex) => String.fromCodePoint(parseInt(hex, 16)))
     .replace(/&#(\d+);/g, (_, dec) => String.fromCodePoint(parseInt(dec, 10)))

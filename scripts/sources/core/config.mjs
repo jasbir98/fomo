@@ -6,9 +6,13 @@
 
 export const DESTINATION = "Edinburgh, Scotland, United Kingdom";
 
-// Window for the two API adapters (Skiddle, Ticketmaster): how far ahead they
-// page, and the search radius around the Edinburgh centre.
-export const PROACTIVE_LOOKAHEAD_DAYS = 60;
+// Rolling window: how far ahead we keep events. The API adapters (Skiddle,
+// Ticketmaster) request exactly this window and core/validate.mjs drops any
+// row starting later (reason `beyond_window`).
+export const LOOKAHEAD_DAYS = 31;
+// Deprecated alias — adapters should import LOOKAHEAD_DAYS.
+export const PROACTIVE_LOOKAHEAD_DAYS = LOOKAHEAD_DAYS;
+// Search radius around the Edinburgh centre for the API adapters.
 export const PROACTIVE_RADIUS_MILES = 10; // brief: "Edinburgh ... radius ~10 miles"
 
 export const SUPABASE_URL = (process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL || "").replace(/\/$/, "");

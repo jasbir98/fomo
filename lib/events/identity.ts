@@ -66,9 +66,13 @@ export function normalizeVenueKey(venueName: string | null | undefined): string 
 export const PROVIDER_PRIORITY: Record<string, number> = {
   ticketmaster: 3,
   skiddle: 3,
+  edfestivals: 3,
   songkick: 2,
+  foreveredinburgh: 2,
+  jazzbar: 1,
   luma: 1,
   eventbrite: 1,
   sneakypetes: 1,
+  voodoorooms: 1,
   allevents: 0,
 };

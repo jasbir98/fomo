@@ -104,13 +104,27 @@
  * absent, in both dry-run and --write.
  */
 
+import { mkdirSync, writeFileSync } from "node:fs";
+import { dirname } from "node:path";
 import { ADAPTERS } from "./sources/registry.mjs";
 import { SUPABASE_URL, SERVICE_ROLE_KEY } from "./sources/core/config.mjs";
 import { dedupeAcrossSources } from "./sources/core/dedupe.mjs";
 import { backfillDescriptions } from "./sources/core/backfill.mjs";
 import { upsertEvents } from "./sources/core/upsert.mjs";
 import { emptyStats } from "./sources/core/stats.mjs";
-import { printSummary, printDedupeSummary, printCategorySummary, printBackfillSummary } from "./sources/core/summary.mjs";
+import { validateRows } from "./sources/core/validate.mjs";
+import { checkImages, fetchExistingRows } from "./sources/core/images.mjs";
+import { buildRunRows, recordRuns } from "./sources/core/runs.mjs";
+import { retireEvents } from "./sources/core/retire.mjs";
+import { reportHealth } from "./sources/core/health.mjs";
+import {
+  printSummary,
+  printValidationSummary,
+  printImageSummary,
+  printDedupeSummary,
+  printCategorySummary,
+  printBackfillSummary,
+} from "./sources/core/summary.mjs";
 
 if (process.argv.includes("--help") || process.argv.includes("-h")) {
   console.log(`Usage: node --env-file=.env.local scripts/daily-sources.mjs [options]
@@ -130,6 +144,9 @@ Options:
                    GitHub Actions runners) — if that happens on this workflow's runner,
                    set DAILY_SOURCES_SKIP=eventbrite there and run --only=eventbrite by hand
                    from an unaffected IP instead.
+  --dump=path     Write every validated row (live and shadow, before cross-source dedupe)
+                   to a JSON file: { generatedAt, rows: [{...row, _shadow}] }. Feed it to
+                   scripts/check-event-sample.mjs --from-file=path to spot-check shadow adapters.
   --all-cadences  Also run adapters with cadence "weekly" today (default: weekly
                    adapters only run on Mondays Europe/London, or when named in --only).
 
@@ -143,6 +160,8 @@ Optional: SKIDDLE_API_KEY / TICKETMASTER_API_KEY to enable those two adapters
 const WRITE = process.argv.includes("--write");
 const DRY_RUN = !WRITE;
 const ALL_CADENCES = process.argv.includes("--all-cadences");
+const dumpArg = process.argv.find((a) => a.startsWith("--dump="));
+const DUMP_PATH = dumpArg ? dumpArg.slice("--dump=".length) : null;
 
 const onlyArg = process.argv.find((a) => a.startsWith("--only="));
 const ONLY = onlyArg ? new Set(onlyArg.slice("--only=".length).split(",").map((s) => s.trim())) : null;
@@ -201,7 +220,8 @@ async function main() {
 
   console.log(`[daily-sources] mode=${DRY_RUN ? "DRY RUN (pass --write to upsert)" : "WRITE"} sources=${due.map((a) => a.name).join(",")}`);
 
-  const ctx = { now };
+  const runId = `daily-${now.toISOString()}${process.env.GITHUB_RUN_ID ? `-gh${process.env.GITHUB_RUN_ID}` : ""}`;
+  const ctx = { now, write: WRITE };
   const perSource = [];
   for (const adapter of due) {
     const name = adapter.name;
@@ -209,13 +229,34 @@ async function main() {
     console.log(`\n=== ${name}${shadow ? " [shadow]" : ""} ===`);
     try {
       const result = await adapter.run(ctx);
+      // Central validation: every adapter (live or shadow, existing or new)
+      // goes through the same hard rejects + soft fixes (core/validate.mjs).
+      const rowsIn = result.rows.length;
+      const validated = validateRows(result.rows, { now });
+      result.rows = validated.kept;
+      result.stats.rejected = validated.rejected;
       printSummary(result.provider, result.stats, result.rows, { shadow });
+      printValidationSummary({ rowsIn, rejected: validated.rejected, samples: validated.samples });
       perSource.push({ ...result, shadow });
     } catch (err) {
       console.error(`[${name}] adapter FAILED entirely: ${err.message}`);
-      perSource.push({ provider: name, rows: [], stats: emptyStats(), shadow });
+      perSource.push({ provider: name, rows: [], stats: emptyStats(), shadow, error: err.message });
     }
   }
+
+  // Image check on rows that are new to the DB (or changed image). Read-only,
+  // so it also runs in dry runs. Live adapters first so the 300-check cap
+  // goes to rows that will actually be written.
+  const existing = await fetchExistingRows([...new Set(perSource.map((s) => s.provider))], now);
+  const imageResult = await checkImages(
+    [...perSource].sort((a, b) => Number(a.shadow) - Number(b.shadow)).flatMap((s) => s.rows),
+    existing
+  );
+  for (const s of perSource) {
+    const broken = imageResult.perProvider[s.provider] ?? 0;
+    if (broken > 0) s.stats.rejected = { ...(s.stats.rejected ?? {}), image_broken: broken };
+  }
+  printImageSummary(imageResult, { existingKnown: existing != null });
 
   // Shadow adapters are reported above but never reach dedupe or upsert.
   const live = perSource.filter((s) => !s.shadow);
@@ -232,14 +273,35 @@ async function main() {
 
   printBackfillSummary({ blankBefore, blankAfter, backfillStats, backfillSamples });
 
+  if (DUMP_PATH) {
+    const rows = perSource.flatMap((s) => s.rows.map((r) => ({ ...r, _shadow: s.shadow })));
+    mkdirSync(dirname(DUMP_PATH), { recursive: true });
+    writeFileSync(DUMP_PATH, JSON.stringify({ generatedAt: now.toISOString(), rows }, null, 2));
+    console.log(`[daily-sources] dumped ${rows.length} validated row(s) (incl. shadow) to ${DUMP_PATH}`);
+  }
+
   if (DRY_RUN) {
-    console.log("[daily-sources] DRY RUN — pass --write to actually upsert. Nothing written.");
+    // What the retirement step WOULD change, plus the health table from this
+    // run's in-memory counts only.
+    const todayHealthy = live.filter((s) => !s.error && s.stats.fetched > 0 && s.rows.length > 0).map((s) => s.provider);
+    await retireEvents(now, { write: false, todayHealthy });
+    await reportHealth(perSource, { now, dryRun: true, runId });
+    console.log("\n[daily-sources] DRY RUN — pass --write to actually upsert. Nothing written.");
     return;
   }
 
-  const { ok, failed } = await upsertEvents(merged);
+  const { ok, failed } = await upsertEvents(merged, { runStart: now });
   console.log(`[daily-sources] write done: succeeded=${ok} failed=${failed}`);
   if (failed > 0) process.exitCode = 1;
+
+  // Run history first (the retirement health gate reads today's row), then retire, then report.
+  await recordRuns(buildRunRows({ runId, startedAt: now, perSource, upserted: merged, existing }));
+  if (failed > 0) {
+    console.log("[daily-sources] retire: skipped because some upserts failed (last_seen_at would be stale).");
+  } else {
+    await retireEvents(now, { write: true });
+  }
+  await reportHealth(perSource, { now, dryRun: false, runId });
 }
 
 main().catch((err) => {

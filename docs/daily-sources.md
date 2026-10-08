@@ -136,6 +136,15 @@ and no app code switches on specific provider strings for icons/formatting —
 every place that mentions "Skiddle/Ticketmaster" in a comment treats
 `EventItem.provider` as an opaque, generic value already.
 
+## Window, validation, retirement and health
+
+- **Window.** `LOOKAHEAD_DAYS = 31` (`core/config.mjs`). Skiddle and Ticketmaster request exactly that; anything starting later is dropped (`beyond_window`).
+- **Validation** (`core/validate.mjs`, applied in the orchestrator to every adapter, live or shadow). Hard rejects, counted per source in the run summary and in `event_source_runs.rejected`: `missing_name`, `missing_start`, `bad_url`, `junk_title` (fewer than 2 letters/digits, "test event", title equals venue), `online_only`, `past`, `beyond_window`, `end_before_start`, `not_edinburgh`. Soft fixes: HTML entities and whitespace in names, a non-http `image_url` becomes null. A row with no location data at all passes `not_edinburgh` only if its title names an Edinburgh locality.
+- **Image check** (`core/images.mjs`). New rows (or rows whose image changed) get a HEAD request (GET Range fallback, byte-sniffing when the CDN sends no content-type): 8s timeout, 300 checks per run. A broken image becomes null (`image_broken`). Rows over the cap are written unchecked.
+- **Lifecycle** (`supabase/add_event_lifecycle.sql`, run by hand first). Each upsert stamps `last_seen_at` and `status` (`cancelled` for JSON-LD `EventCancelled`/`EventPostponed` and Ticketmaster `cancelled`/`postponed`). With `--write`, after the upserts: rows past their end go `expired` (no `ends_at`: start plus 2h, as in `lib/events/format.ts`); active rows unseen for 3 days and starting within 25 days go `gone`, but only for providers with a healthy live run (ok, kept>0) on each of the last 3 London days, so a failing source never retires its rows and weekly sources are never retired. Nothing is deleted; a row that reappears goes back to `active`. A dry run prints what it would change. Until the SQL is applied the steps log a pointer and skip, and upserts fall back to the old columns.
+- **Health.** One `event_source_runs` row per adapter per `--write` run. The "Source health" table (stdout and `$GITHUB_STEP_SUMMARY`) flags `ZERO_TWICE` (kept 0 on this and the previous run) and `DROP` (below 40% of the 7-day median).
+- **Spot-check.** `node --env-file=.env.local scripts/check-event-sample.mjs --provider=x --n=10 [--source=db|dry-run] [--from-file=dump.json]` fetches each sampled event's own page and checks the title words and date. 90% to go live. `daily-sources.mjs --dump=path.json` writes the validated rows (including shadow adapters) for `--from-file`. A weekly CI job runs it for every live provider. Skiddle's event pages answer bots with an empty HTTP 202, so Skiddle rows can't be page-checked.
+
 ## Running it
 
 ```bash

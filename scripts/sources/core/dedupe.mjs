@@ -103,7 +103,7 @@ export function crossSourceKey(row) {
 // own RSS feed) sits at the discovery-scrape tier; it was previously missing
 // from this map and so defaulted to 0.
 // KEEP IN SYNC with PROVIDER_PRIORITY in lib/events/identity.ts.
-export const PROVIDER_PRIORITY = { ticketmaster: 3, skiddle: 3, songkick: 2, luma: 1, eventbrite: 1, sneakypetes: 1, allevents: 0 };
+export const PROVIDER_PRIORITY = { ticketmaster: 3, skiddle: 3, edfestivals: 3, songkick: 2, foreveredinburgh: 2, jazzbar: 1, luma: 1, eventbrite: 1, sneakypetes: 1, voodoorooms: 1, allevents: 0 };
 
 /** True if `candidate` should replace `existing` for the same cross-source key. */
 export function isBetterRow(candidate, existing) {

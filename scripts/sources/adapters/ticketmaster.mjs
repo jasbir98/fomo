@@ -10,7 +10,7 @@
 
 import { cleanDescription } from "../../lib/describe.mjs";
 import { httpUrlOrNull } from "../../lib/http-url.mjs";
-import { DESTINATION, PROACTIVE_LOOKAHEAD_DAYS, PROACTIVE_RADIUS_MILES } from "../core/config.mjs";
+import { DESTINATION, LOOKAHEAD_DAYS, PROACTIVE_RADIUS_MILES } from "../core/config.mjs";
 import { CATEGORY_STATS, EDINBURGH_CENTER, classifyCategory, dedupeWithinSource, isOffWedge } from "../core/normalize.mjs";
 import { emptyStats } from "../core/stats.mjs";
 
@@ -80,6 +80,12 @@ export function bestTicketmasterDescription(event, { title }) {
   return null;
 }
 
+/** Ticketmaster `dates.status.code` -> events.status: cancelled/postponed events stay in the table as "cancelled". */
+export function ticketmasterStatus(event) {
+  const code = String(event.dates?.status?.code ?? "").toLowerCase();
+  return code === "cancelled" || code === "canceled" || code === "postponed" ? "cancelled" : "active";
+}
+
 /** Mirrors lib/events/ticketmaster.ts's mapEvent() exactly — provider_event_id is event.id, untransformed. */
 export function mapTicketmasterEvent(event, { destination, now }) {
   const id = event.id;
@@ -118,6 +124,7 @@ export function mapTicketmasterEvent(event, { destination, now }) {
     currency: price?.currency ?? null,
     destination,
     source: "api",
+    status: ticketmasterStatus(event),
     fetched_at: now.toISOString(),
   };
   return { row, reason: null };
@@ -137,7 +144,7 @@ async function run({ now }) {
   }
 
   const startDateTime = toTmDateTime(now);
-  const endDateTime = toTmDateTime(new Date(now.getTime() + PROACTIVE_LOOKAHEAD_DAYS * 24 * 60 * 60 * 1000));
+  const endDateTime = toTmDateTime(new Date(now.getTime() + LOOKAHEAD_DAYS * 24 * 60 * 60 * 1000));
   const size = 100;
   const MAX_PAGES = 15;
   let rows = [];

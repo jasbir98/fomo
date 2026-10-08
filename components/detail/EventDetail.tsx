@@ -310,6 +310,28 @@ export function EventDetail({ id, presentation = "page", initialEvent }: DetailP
       </section>
 
       <div className={DETAIL_CONTENT_CLASS}>
+        {/* Retired events (supabase/add_event_lifecycle.sql) stay reachable from
+            saved items and shared links, so say plainly that they're over. */}
+        {event.status === "cancelled" ? (
+          <div role="status" className="flex items-start gap-2.5 rounded-2xl bg-error-container/40 p-3.5 text-on-surface">
+            <Icon name="event_busy" size={20} className="mt-0.5 shrink-0 text-error" />
+            <p className="text-body-md">
+              <span className="font-bold">Cancelled.</span> The organiser has cancelled or postponed this. Check the
+              official page for new dates.
+            </p>
+          </div>
+        ) : event.status === "expired" || event.status === "gone" ? (
+          <div role="status" className="flex items-start gap-2.5 rounded-2xl bg-error-container/40 p-3.5 text-on-surface">
+            <Icon name="event_busy" size={20} className="mt-0.5 shrink-0 text-error" />
+            <p className="text-body-md">
+              <span className="font-bold">This has finished.</span>{" "}
+              {event.status === "gone"
+                ? "It's no longer listed by the organiser. Check the official page before you go."
+                : "It's no longer running. Check the official page before you go."}
+            </p>
+          </div>
+        ) : null}
+
         {/* Description & stats */}
         <section className="rounded-xl border border-outline-variant/40 bg-surface-container-lowest p-5 shadow-sm">
           <div className="mb-3 flex items-center justify-between gap-3">
@@ -335,6 +357,22 @@ export function EventDetail({ id, presentation = "page", initialEvent }: DetailP
           ) : (
             <p className="mb-4 text-body-md text-on-surface-variant/80">{buildEventFallbackDescription(event)}</p>
           )}
+          {/* Licence duty (api.edinburghfestivalcity.com/licence): festival-sourced
+              listings must credit the API and say this is not an official festival app. */}
+          {event.provider === "edfestivals" ? (
+            <p className="mb-4 text-label-sm text-on-surface-variant/80">
+              Data courtesy of the{" "}
+              <a
+                href="https://api.edinburghfestivalcity.com/"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="underline-offset-2 hover:underline"
+              >
+                Edinburgh Festivals Listings API
+              </a>{" "}
+              &middot; Fomo is not an official festival app
+            </p>
+          ) : null}
           <div className="grid grid-cols-2 gap-4 border-t border-outline-variant/30 pt-4 lg:hidden">
             <div className="flex items-center gap-3">
               <Icon name="schedule" className="text-primary" />
