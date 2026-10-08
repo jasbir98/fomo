@@ -46,6 +46,9 @@ export const RIGHT: NavItem[] = [NAV_DEALS, NAV_EXPLORE];
 export const PRIMARY: NavItem[] = [NAV_FEED, NAV_DEALS, NAV_EXPLORE, NAV_SAVED];
 
 export function isActive(pathname: string, href: string) {
-  if (href === "/") return pathname === "/";
+  // The statically built home page is prerendered as "/index" (its RSC tree is
+  // ["", "index"]), and React doesn't patch a class mismatch on hydration, so
+  // without this Feed only lit up after the first client-side navigation.
+  if (href === "/") return pathname === "/" || pathname === "/index";
   return pathname === href || pathname.startsWith(`${href}/`);
 }
