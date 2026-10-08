@@ -7,6 +7,17 @@ Run `/plans` in Claude Code for a summary of this page.
 
 Things waiting on you, newest first. Tick them off here, or ask Claude to update this list.
 
+**More events and deals (8 Oct)**
+- [ ] Run `supabase/add_event_lifecycle.sql`, then `supabase/add_deal_source_columns.sql`, in the Supabase SQL editor. Do this before merging. The code falls back safely until they have run.
+- [ ] Merge the `event-coverage` PR.
+- [ ] Register at api.edinburghfestivalcity.com as an app developer (licence type C, which needs their approval). Then add `FESTIVALS_API_KEY` and `FESTIVALS_API_SECRET` as GitHub secrets (the daily workflow reads them from the Production environment). Storytelling Festival runs 21 to 31 Oct; Hogmanay 29 Dec to 1 Jan. Then flip `edfestivals` to live after a spot-check.
+- [ ] Check `DEEPSEEK_API_KEY` and `GOOGLE_PLACES_API_KEY` exist as repository or Production secrets. The daily workflow now reads them.
+- [ ] Run the "Probe event and deal sources" workflow once from the Actions tab, and read its summary.
+- [ ] Ask Young Scot for permission to list their discounts (their terms forbid scraping).
+- [ ] Ask 5pm for a feed or partnership.
+- [ ] Look at Awin and Partnerize affiliate feeds for Groupon and Wowcher (fits the money to-do).
+- [ ] Review the first weekly report's deal-source rows, and approve with its SQL.
+
 **Chat limits and earning money (8 Oct)**
 - [ ] Merge the chat-limits PR: signed in 30 questions/day (was 150) and 3 Google Maps lookups/day (was 10); site-wide cap 5,000/day (was 1,500). A question costs about $0.0007 on DeepSeek; a Google lookup $0.035.
 - [ ] Decide how Fomo earns money. Suggested order: venue partnerships (featured or Fomo-only deals), booking commissions (Viator, GetYourGuide, Skiddle, Ticketmaster via Awin), sponsored emails and posts, then Fomo+ (£2.99/month) once people come back weekly.
@@ -73,7 +84,7 @@ Snapshots of the plans approved in Claude Code plan mode. Each one is a record o
 
 | Plan | Status |
 |---|---|
-| [2026-10-08 More events and deals: sources, validation, soft-retire](plans/2026-10-08-event-and-deal-coverage.md) | In progress on branch `event-coverage`. |
+| [2026-10-08 More events and deals: sources, validation, soft-retire](plans/2026-10-08-event-and-deal-coverage.md) | Built on branch `event-coverage`; PR pending. SQL and keys listed above. |
 | [2026-10-07 Fill in Edinburgh place and deal data](plans/2026-10-07-data-enrichment.md) | Data written 7 Oct (407 places, 111 deals); app changes in PR #7. |
 | [2026-10-05 Pre-launch fixes and marketing](plans/2026-10-05-prelaunch-fixes.md) | Built; in PR #3. The SQL and dashboard steps are listed above. |
 | [2026-09-29 Ten fixes on staging](plans/2026-09-29-staging-fixes.md) | Shipped. |

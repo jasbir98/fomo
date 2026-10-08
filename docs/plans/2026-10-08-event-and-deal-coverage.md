@@ -1,5 +1,7 @@
 # Plan: more Edinburgh events and deals, more sources, proper validation
 
+> **Outcome (8 Oct):** built on branch `event-coverage`. Not built after checking: DICE (terms clause 6.4 forbids crawlers), Fatsoma (sitemap frozen in 2023), Royal Botanic Garden (robots disallows its events API), PizzaExpress deals (left in shadow, nothing passed the gate). The Festivals API adapter is built but waits for a key. Current state lives in `docs/daily-sources.md` and `docs/weekly-pipeline.md`.
+
 ## Context
 
 Fomo's events table holds **726 upcoming events** (checked 8 Oct). Skiddle supplies 389 and Ticketmaster 203. The other five sources are thin: Songkick 44, allevents 39, Sneaky Pete's 24 (none with photos), Eventbrite 15, Luma 12. Sites like 5pm.co.uk list far more, and the user wants coverage that feels complete, **for deals as well as events**.
