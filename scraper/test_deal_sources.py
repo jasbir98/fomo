@@ -383,7 +383,7 @@ class DiscoverTests(unittest.TestCase):
             "itison-edinburgh", "fort-kinnaird-offers", "omni-centre-offers",
             "edinburgh-leisure-offers", "pizzaexpress-offers",
         })
-        self.assertTrue(all(s.status == "shadow" for s in SOURCES))
+        self.assertTrue(all(s.status in ("shadow", "live") for s in SOURCES))
         by_id = {s.id: s for s in SOURCES}
         self.assertEqual(by_id["edinburgh-leisure-offers"].trust, "official")
         self.assertTrue(all(by_id[i].trust == "commercial" for i in (

@@ -100,7 +100,7 @@ SOURCES: tuple[DealSource, ...] = (
         id="forever-edinburgh-offers",
         name="Forever Edinburgh offers",
         trust="official",
-        status="shadow",
+        status="live",
         edinburgh=True,
         discover={
             "kind": "wp_rest",
@@ -122,7 +122,7 @@ SOURCES: tuple[DealSource, ...] = (
         id="more-by-the-shore",
         name="More By The Shore specials",
         trust="official",
-        status="shadow",
+        status="live",
         edinburgh=True,
         multi_deal_pages=True,
         segment=r"<div data-promotion-container\s",
@@ -144,7 +144,7 @@ SOURCES: tuple[DealSource, ...] = (
         id="resident-rewards",
         name="Forever Edinburgh Resident Rewards",
         trust="official",
-        status="shadow",
+        status="live",
         edinburgh=True,
         multi_deal_pages=True,
         segment=r"<div data-promotion-container\s",
@@ -168,7 +168,7 @@ SOURCES: tuple[DealSource, ...] = (
         id="itison-edinburgh",
         name="itison Edinburgh deals",
         trust="commercial",
-        status="shadow",
+        status="live",
         discover={
             "kind": "link_list",
             "url": "https://www.itison.com/edinburgh",
@@ -192,7 +192,7 @@ SOURCES: tuple[DealSource, ...] = (
         id="fort-kinnaird-offers",
         name="Fort Kinnaird offers",
         trust="commercial",
-        status="shadow",
+        status="live",
         multi_deal_pages=True,
         # The Location block of the offers page: "Newcraighall / Edinburgh / EH15 3RD".
         edinburgh_evidence="Newcraighall Edinburgh EH15 3RD",
@@ -218,7 +218,7 @@ SOURCES: tuple[DealSource, ...] = (
         id="omni-centre-offers",
         name="OMNi Edinburgh student offers",
         trust="commercial",
-        status="shadow",
+        status="live",
         multi_deal_pages=True,
         # The footer of the OMNi site: "OMNi Centre / Greenside Row, Edinburgh EH1 3AA".
         edinburgh_evidence="Greenside Row, Edinburgh EH1 3AA",
@@ -240,7 +240,7 @@ SOURCES: tuple[DealSource, ...] = (
         id="edinburgh-leisure-offers",
         name="Edinburgh Leisure offers",
         trust="official",
-        status="shadow",
+        status="live",
         edinburgh=True,
         discover={
             "kind": "sitemap",
