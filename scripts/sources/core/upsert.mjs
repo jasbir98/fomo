@@ -9,10 +9,17 @@
  * If supabase/add_event_lifecycle.sql hasn't been run yet those columns don't
  * exist; the batch is then retried without them (once warned) so the daily run
  * keeps working during the rollout.
+ *
+ * Overrides: after the stamping above, rows matching an entry in
+ * core/overrides.mjs get its manual corrections (set columns, or hide ->
+ * status 'gone') so a hand fix isn't undone by the next run. A hidden row is
+ * still upserted, so it keeps its fresh last_seen_at; retire.mjs only touches
+ * 'active' rows for the 'gone' step and moves gone -> expired once it ends.
  */
 
 import { SUPABASE_URL, SERVICE_ROLE_KEY } from "./config.mjs";
 import { isMissingSchemaError } from "./rest.mjs";
+import { applyEventOverrides } from "./overrides.mjs";
 
 // enriched_at ships in the same SQL file as last_seen_at/status.
 const LIFECYCLE_COLUMNS = ["last_seen_at", "status", "enriched_at"];
@@ -79,10 +86,22 @@ async function postBatch(batch) {
   return { ok: false, status: res.status, error, text };
 }
 
-export async function upsertEvents(rows, { runStart = new Date() } = {}) {
-  if (rows.length === 0) return { ok: 0, failed: 0 };
-  const seenAt = runStart.toISOString();
+/**
+ * Stamp lifecycle fields, then apply manual overrides. Overrides go last so a
+ * hide's status 'gone' isn't replaced by the 'active' default.
+ */
+export function prepareRows(rows, seenAt, overrides) {
   const stamped = rows.map((r) => ({ ...stripTransient(r), last_seen_at: seenAt, status: r.status ?? "active" }));
+  return applyEventOverrides(stamped, overrides);
+}
+
+export async function upsertEvents(rows, { runStart = new Date(), overrides } = {}) {
+  if (rows.length === 0) return { ok: 0, failed: 0 };
+  const { rows: stamped, applied } = prepareRows(rows, runStart.toISOString(), overrides);
+  for (const a of applied) {
+    const what = [a.hide ? "hide" : null, a.setKeys.length ? `set ${a.setKeys.join(",")}` : null].filter(Boolean).join(" + ");
+    console.log(`[daily-sources] override ${a.provider} ${a.provider_event_id}: ${what}`);
+  }
 
   // Null clobber guard (image_url, place_id, enriched_at): PostgREST writes
   // every key present in a bulk body on conflict, and takes the UNION of keys
