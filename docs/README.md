@@ -7,6 +7,11 @@ Run `/plans` in Claude Code for a summary of this page.
 
 Things waiting on you, newest first. Tick them off here, or ask Claude to update this list.
 
+**Event overrides and Fomo Finds (9 Oct)**
+- [ ] Merge [PR #14](https://github.com/jasbir98/fomo/pull/14) before the 06:17 UTC import, or tonight's thrift, Oktoberfest and duplicate fixes are undone by it.
+- [ ] Eventbrite has fetched nothing on its last two runs ("skipped, blocked or empty"). Decide whether to fix it or set it to shadow.
+- [ ] `merge-events.ts` misses curated-vs-imported pairs whose titles differ ("TAGS Fest: Tabletop & Graphic Storytelling Festival" vs "TAGS Festival"). For now they're hidden in `scripts/sources/core/overrides.mjs`; a looser same-day, same-venue rule would catch them.
+
 **More events and deals (8 Oct)**
 - [ ] Run `supabase/add_event_lifecycle.sql`, then `supabase/add_deal_source_columns.sql`, in the Supabase SQL editor. Do this before merging. The code falls back safely until they have run.
 - [ ] Merge the `event-coverage` PR.
