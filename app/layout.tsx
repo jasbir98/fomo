@@ -54,22 +54,25 @@ export const metadata: Metadata = {
 };
 
 // Tells search engines the site's name and its common spellings, so a search
-// for "askfomo" or "ask fomo" resolves here. No `sameAs` yet: add the
-// Instagram profile URL once it is linked from the app.
+// for "askfomo" or "ask fomo" resolves here. `sameAs` ties the Instagram
+// profile to the same brand.
+const SITE_ALTERNATE_NAMES = ["askfomo", "AskFomo", "Fomo Edinburgh", "askfomo.com"];
 const SITE_JSON_LD = [
   {
     "@context": "https://schema.org",
     "@type": "WebSite",
     name: SITE_NAME,
-    alternateName: ["AskFomo", "Fomo Edinburgh", "askfomo.com"],
+    alternateName: SITE_ALTERNATE_NAMES,
     url: SITE_URL,
   },
   {
     "@context": "https://schema.org",
     "@type": "Organization",
     name: SITE_NAME,
+    alternateName: SITE_ALTERNATE_NAMES,
     url: SITE_URL,
     logo: absoluteUrl("/icons/icon-512.png"),
+    sameAs: ["https://www.instagram.com/askfomo/"],
   },
 ];
 
