@@ -73,6 +73,25 @@ export const EVENT_OVERRIDES = [
       ticket_url: "https://edinburgh-oktoberfest.co.uk/tickets/",
     },
   },
+  {
+    provider: "foreveredinburgh",
+    provider_event_id: "https://edinburgh.org/event/clothes-cycle-thrift-market",
+    reason: "Third listing of the same ClothesCycle event (Sun 18 Oct, Meadowbank); the AllEvents row above carries the price and times.",
+    hide: true,
+  },
+  {
+    provider: "foreveredinburgh",
+    provider_event_id: "https://edinburgh.org/event/costa-rica-guitar-quartet-concert",
+    reason:
+      "Duplicates the curated happening venue-st-marys-cathedral-costa-rica-guitar-quartet-2026; titles differ too much for merge-events.ts to collapse them.",
+    hide: true,
+  },
+  {
+    provider: "foreveredinburgh",
+    provider_event_id: "https://edinburgh.org/event/tags-festival",
+    reason: "Duplicates the curated happening tags-fest-2026 (which has the 10:00-17:00 times); titles differ too much for merge-events.ts to collapse them.",
+    hide: true,
+  },
 ];
 
 /** Throws on a malformed entry or a `set` key that isn't a real events column. */
