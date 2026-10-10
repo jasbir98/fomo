@@ -48,6 +48,16 @@ function geoPlace(venueName: string | null, address: string | null, lat: number 
   };
 }
 
+/**
+ * No source records the promoter, so the venue stands in as the host: it is
+ * who runs or puts on most of what we list, and a named organizer is what
+ * Google asks for. Nothing comes back without a venue name.
+ */
+function venueOrganizer(venueName: string | null, website?: string | null) {
+  if (!venueName) return undefined;
+  return { "@type": "Organization", name: venueName, ...(website ? { url: website } : {}) };
+}
+
 export function happeningSeo(h: Happening, now: Date = new Date()): DetailSeo {
   const rec = normalizeRecurrence(h.recurrence);
   const next = nextOccurrence(h, now, new Date(now.getTime() + YEAR_MS));
@@ -72,12 +82,13 @@ export function happeningSeo(h: Happening, now: Date = new Date()): DetailSeo {
       "@context": "https://schema.org",
       "@type": "Event",
       name: h.title,
-      description: h.summary ?? undefined,
+      description: h.summary ?? description,
       startDate: next.startsAt,
       endDate: next.endsAt ?? undefined,
       eventStatus: "https://schema.org/EventScheduled",
       eventAttendanceMode: "https://schema.org/OfflineEventAttendanceMode",
       location,
+      organizer: venueOrganizer(h.venue_name),
       image: h.image_url ? [h.image_url] : undefined,
       url: absoluteUrl(`/happening/${h.id}`),
       offers:
@@ -88,6 +99,7 @@ export function happeningSeo(h: Happening, now: Date = new Date()): DetailSeo {
               priceCurrency: h.currency ?? "GBP",
               url: h.booking_url ?? h.source_url,
               availability: "https://schema.org/InStock",
+              validFrom: h.booking_opens_at ?? undefined,
             }
           : undefined,
     };
@@ -111,17 +123,20 @@ export function eventSeo(e: EventItem, now: Date = new Date()): DetailSeo {
   const location = geoPlace(e.venue_name, e.address, e.lat, e.lng);
   if (!noindex && location && !Number.isNaN(Date.parse(e.starts_at))) {
     const priced = e.is_free === true || e.price_from != null;
+    // Fall back to the linked venue's photo, the same one the card shows.
+    const image = e.image_url || e.place?.image_url;
     jsonLd = {
       "@context": "https://schema.org",
       "@type": "Event",
       name: e.name,
-      description: e.description ?? undefined,
+      description: e.description ?? description,
       startDate: e.starts_at,
       endDate: e.ends_at ?? undefined,
       eventStatus: "https://schema.org/EventScheduled",
       eventAttendanceMode: "https://schema.org/OfflineEventAttendanceMode",
       location,
-      image: e.image_url ? [e.image_url] : undefined,
+      organizer: venueOrganizer(e.place?.name ?? e.venue_name, e.place?.website),
+      image: image ? [image] : undefined,
       url: absoluteUrl(`/event/${e.id}`),
       offers: priced
         ? {

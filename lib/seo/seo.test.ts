@@ -94,6 +94,19 @@ test("eventSeo emits Event JSON-LD for a future event with a venue, and noindexe
   assert.equal(past.jsonLd, null);
 });
 
+test("eventSeo names the venue as organizer and falls back to its photo and the meta description", () => {
+  const ld = eventSeo(
+    event({
+      description: null,
+      place: { image_url: "https://img.example/venue.jpg", name: "The Stand Comedy Club", website: "https://thestand.co.uk" },
+    }),
+    NOW,
+  ).jsonLd as Record<string, unknown>;
+  assert.deepEqual(ld.organizer, { "@type": "Organization", name: "The Stand Comedy Club", url: "https://thestand.co.uk" });
+  assert.deepEqual(ld.image, ["https://img.example/venue.jpg"]);
+  assert.ok(typeof ld.description === "string" && (ld.description as string).includes("The Stand"));
+});
+
 function happening(overrides: Partial<Happening>): Happening {
   return {
     id: "h1",
@@ -154,4 +167,10 @@ test("happeningSeo gives a standing deal no Event JSON-LD", () => {
   const seo = happeningSeo(happening({ recurrence: { type: "always" }, kind: "deal", starts_at: null }), NOW);
   assert.equal(seo.jsonLd, null);
   assert.ok(seo.description?.includes("Every day"));
+});
+
+test("happeningSeo names the venue as organizer and dates the free offer from booking opening", () => {
+  const ld = happeningSeo(happening({ booking_opens_at: "2026-10-08T09:00:00Z" }), NOW).jsonLd as Record<string, unknown>;
+  assert.deepEqual(ld.organizer, { "@type": "Organization", name: "National Museum of Scotland" });
+  assert.equal((ld.offers as { validFrom?: string }).validFrom, "2026-10-08T09:00:00Z");
 });

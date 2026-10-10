@@ -7,6 +7,11 @@ Run `/plans` in Claude Code for a summary of this page.
 
 Things waiting on you, newest first. Tick them off here, or ask Claude to update this list.
 
+**Search Console: Event structured data (10 Oct)**
+- [ ] Merge the `seo-event-structured-data` PR, then click "Validate fix" in Search Console for organizer, image and description.
+- [ ] Store performers: save Ticketmaster's attractions (and Skiddle's artists, if it has them) into a new `events.performers` column, then emit `performer`. 64 events are flagged.
+- Left alone on purpose: `offers` without a known price, `endDate` the source doesn't give, and `validFrom` for events (no on-sale date stored).
+
 **Event overrides and Fomo Finds (9 Oct)**
 - [ ] Merge [PR #14](https://github.com/jasbir98/fomo/pull/14) before the 06:17 UTC import, or tonight's thrift, Oktoberfest and duplicate fixes are undone by it.
 - [ ] Eventbrite has fetched nothing on its last two runs ("skipped, blocked or empty"). Decide whether to fix it or set it to shadow.
