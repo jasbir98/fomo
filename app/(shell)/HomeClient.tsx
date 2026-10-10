@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { cityBadge, SUPPORTED_CITIES } from "@/lib/city";
+import { CITY, cityBadge, SUPPORTED_CITIES } from "@/lib/city";
 import { chooseCity, dismissCityPrompt, useSelectedCity } from "@/lib/useSelectedCity";
 import { prefetchJson, useCachedJson, usePeekCachedJson } from "@/lib/http/clientCache";
 import type { FeedCardData, FeedResponse, FeedWindow } from "@/lib/happenings/feed-types";
@@ -14,6 +14,7 @@ import { FomoSpot } from "@/components/fomo/FomoSpot";
 import { AnyDaySection, FeedHero, FeedListCard, FreeAnyTimeList, BookEarlyCard, SubscribeCard } from "@/components/happenings";
 import { TodaysDealsStrip } from "@/components/happenings/TodaysDealsStrip";
 import { todaysDeals } from "@/lib/happenings/today-deals";
+import { occurrenceIsPastLocalHours } from "@/lib/happenings/local-hours";
 import { AmbientWeather } from "@/components/weather/AmbientWeather";
 import { usePrefs } from "@/lib/personalise/usePrefs";
 import { openMakeFomoYours } from "@/lib/personalise/trigger";
@@ -240,6 +241,18 @@ export interface HomeClientProps {
  */
 export function HomeClient({ initialFeed = null }: HomeClientProps) {
   const [feedWindow, setWindow] = useState<FeedWindow>("now");
+  // Keep the hero's schedule cutoff live in an open tab too. The API filters
+  // using its request time, but cached feed data otherwise survives past a
+  // happening's local closing time without any state change to rerender it.
+  const [localClock, setLocalClock] = useState<Date | null>(null);
+  useEffect(() => {
+    const initialTick = window.setTimeout(() => setLocalClock(new Date()), 0);
+    const interval = window.setInterval(() => setLocalClock(new Date()), 15_000);
+    return () => {
+      window.clearTimeout(initialTick);
+      window.clearInterval(interval);
+    };
+  }, []);
   // Which way the content swap below the segmented control should slide in
   // from — derived from the tapped tab's index relative to the previous one
   // (right-of-current tab tapped ⇒ new content enters from the right, and
@@ -386,7 +399,11 @@ export function HomeClient({ initialFeed = null }: HomeClientProps) {
     feedResult.revalidate();
   }
 
-  const showHappeningHero = feed?.hero != null;
+  const heroPastLocalHours =
+    localClock !== null &&
+    feed?.hero?.kind === "happening" &&
+    occurrenceIsPastLocalHours(feed.hero.happening.time_note, feed.hero.occurrence.dayDate, localClock, CITY.timezone);
+  const showHappeningHero = feed?.hero != null && !heroPastLocalHours;
   const heroKind = feed?.heroKind ?? "fomo_pick";
   const whatsOnBucket = feed?.whatsOn[0] ?? null;
   const anyDayBucket = feed?.anyDay ?? null;

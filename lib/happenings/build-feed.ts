@@ -105,6 +105,7 @@ import {
   type FeedBucketKey,
 } from "@/lib/happenings/format";
 import { happeningRecommendationScore, eventRecommendationScore } from "@/lib/happenings/hero";
+import { occurrenceIsPastLocalHours } from "@/lib/happenings/local-hours";
 import { categoryStyle } from "@/lib/happenings/category-style";
 import { dealFacets, isGenuineDeal } from "@/lib/happenings/groups";
 import { groupHappeningsIntoSeries, seriesLookup, type HappeningSeriesGroup } from "@/lib/happenings/series";
@@ -393,6 +394,7 @@ function pickHero(
     if (!isDated(h)) continue;
     const occurrence = nextOccurrence(h, happeningFrom, happeningTo, timeZone);
     if (!occurrence) continue;
+    if (occurrenceIsPastLocalHours(h.time_note, occurrence.dayDate, now, timeZone)) continue;
     const { score, reason } = happeningRecommendationScore(h, occurrence, now, timeZone, who);
     // London midnight, not UTC midnight — a dateless occurrence's tie-break
     // instant must sort against real `starts_at` instants (both happenings'
