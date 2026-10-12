@@ -158,7 +158,12 @@ export function PlaceDetail({ id, presentation = "page" }: DetailProps) {
   const [place, setPlace] = useState<Place | null>(null);
   const [photos, setPhotos] = useState<PlacePhoto[]>([]);
   const [offers, setOffers] = useState<Happening[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [placeLoading, setPlaceLoading] = useState(true);
+  // The page waits for offers too: they render above the description, so
+  // arriving late would push the whole page down after first paint. Both
+  // requests start together, so this costs little.
+  const [offersLoading, setOffersLoading] = useState(true);
+  const loading = placeLoading || offersLoading;
 
   useEffect(() => {
     let cancelled = false;
@@ -170,7 +175,7 @@ export function PlaceDetail({ id, presentation = "page" }: DetailProps) {
       })
       .catch((err) => console.error("Failed to load place", err))
       .finally(() => {
-        if (!cancelled) setLoading(false);
+        if (!cancelled) setPlaceLoading(false);
       });
     return () => {
       cancelled = true;
@@ -183,7 +188,10 @@ export function PlaceDetail({ id, presentation = "page" }: DetailProps) {
       .then((data) => {
         if (!cancelled) setOffers(data);
       })
-      .catch((err) => console.error("Failed to load place offers", err));
+      .catch((err) => console.error("Failed to load place offers", err))
+      .finally(() => {
+        if (!cancelled) setOffersLoading(false);
+      });
     return () => {
       cancelled = true;
     };
@@ -316,6 +324,30 @@ export function PlaceDetail({ id, presentation = "page" }: DetailProps) {
           </div>
         ) : null}
 
+        {/* Offers here — every live Deals & Offers happening linked to this
+            place via place_id (Home restructure task 2). Reuses
+            FeedListCard's happening row, same chrome as the Home Deals
+            section's single (non-venue-grouped) cards. Sits straight under
+            the photo, above the description: a venue deal card on /deals
+            opens this page, and the offers it promised were a long scroll
+            below the venue's details. */}
+        {offers.length > 0 ? (
+          <section className="flex flex-col gap-3">
+            <div className="flex items-center gap-2">
+              <Icon name="sell" size={20} className="text-accent" />
+              <h2 className="text-headline-sm text-primary">Offers Here</h2>
+              <span className="rounded-full bg-surface-container px-2.5 py-0.5 text-label-sm font-bold text-secondary">
+                {offers.length}
+              </span>
+            </div>
+            <div className="flex flex-col gap-3 lg:grid lg:grid-cols-2 lg:gap-4">
+              {toOfferCards(offers).map((card) => (
+                <FeedListCard key={card.happening.id} card={card} />
+              ))}
+            </div>
+          </section>
+        ) : null}
+
         {/* Description & stats */}
         <section className="rounded-2xl bg-surface-container-lowest p-5 shadow-level-1">
           <div className="mb-3 flex items-center justify-between gap-3">
@@ -421,27 +453,6 @@ export function PlaceDetail({ id, presentation = "page" }: DetailProps) {
             ) : null}
           </div>
         </section>
-
-        {/* Offers here — every live Deals & Offers happening linked to this
-            place via place_id (Home restructure task 2). Reuses
-            FeedListCard's happening row, same chrome as the Home Deals
-            section's single (non-venue-grouped) cards. */}
-        {offers.length > 0 ? (
-          <section className="flex flex-col gap-3">
-            <div className="flex items-center gap-2">
-              <Icon name="sell" size={20} className="text-accent" />
-              <h2 className="text-headline-sm text-primary">Offers Here</h2>
-              <span className="rounded-full bg-surface-container px-2.5 py-0.5 text-label-sm font-bold text-secondary">
-                {offers.length}
-              </span>
-            </div>
-            <div className="flex flex-col gap-3 lg:grid lg:grid-cols-2 lg:gap-4">
-              {toOfferCards(offers).map((card) => (
-                <FeedListCard key={card.happening.id} card={card} />
-              ))}
-            </div>
-          </section>
-        ) : null}
 
         {/* Fomo's Tips */}
         {tips.length > 0 ? (
