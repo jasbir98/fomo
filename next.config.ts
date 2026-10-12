@@ -126,6 +126,10 @@ const nextConfig: NextConfig = {
       { source: "/fomo/translator", destination: "/fomo", permanent: false },
       { source: "/setup/:path*", destination: "/profile", permanent: false },
       { source: "/kit", destination: "/", permanent: false },
+      // The Map tab was renamed Explore for good: a real 308 (the old page
+      // called redirect() mid-stream, which reached crawlers as a 200 with a
+      // meta refresh).
+      { source: "/map", destination: "/explore", permanent: true },
     ];
   },
   // PostHog's /ingest/* reverse proxy lives in proxy.ts (it strips cookies

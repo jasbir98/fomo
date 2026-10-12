@@ -71,7 +71,7 @@ export default async function HappeningDetailPage({ params }: { params: Promise<
   const { id } = await params;
   const data = await loadHappening(id);
   if (data && !data.happening) notFound();
-  const jsonLd = data?.happening ? happeningSeo(data.happening).jsonLd : null;
+  const jsonLd = data?.happening ? happeningSeo(data.happening, new Date(), data.venueWebsite).jsonLd : null;
   return (
     <>
       {jsonLd ? <JsonLd data={jsonLd} /> : null}

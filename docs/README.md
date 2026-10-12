@@ -7,8 +7,14 @@ Run `/plans` in Claude Code for a summary of this page.
 
 Things waiting on you, newest first. Tick them off here, or ask Claude to update this list.
 
+**Search Console: noindex, redirects, organizer url (12 Oct)**
+- [ ] Merge the `seo-indexing-fixes` PR. Then in Search Console, resubmit `sitemap.xml` and click "Validate fix" on "Excluded by 'noindex' tag" and on the Events "Missing field url (in organizer)" issue.
+- "Excluded by 'noindex'" will never reach zero: an event that ends is noindexed on purpose. The bug was the sitemap still listing 107 of them.
+- "Page with redirect" is expected for http://, www. and `/map`. Nothing to fix there.
+- Organizer url is still missing for events and deals not linked to a venue (`place_id` empty). Linking more of them to places fixes those.
+
 **Search Console: Event structured data (10 Oct)**
-- [ ] Merge the `seo-event-structured-data` PR, then click "Validate fix" in Search Console for organizer, image and description.
+- [x] Merge the `seo-event-structured-data` PR, then click "Validate fix" in Search Console for organizer, image and description.
 - [ ] Store performers: save Ticketmaster's attractions (and Skiddle's artists, if it has them) into a new `events.performers` column, then emit `performer`. 64 events are flagged.
 - Left alone on purpose: `offers` without a known price, `endDate` the source doesn't give, and `validFrom` for events (no on-sale date stored).
 
