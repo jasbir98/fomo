@@ -7,6 +7,11 @@ Run `/plans` in Claude Code for a summary of this page.
 
 Things waiting on you, newest first. Tick them off here, or ask Claude to update this list.
 
+**Weekly research: credit and this week's batch (12 Oct)**
+- [ ] Top up DeepSeek at platform.deepseek.com before next Monday's run. The balance ran out mid-run on 12 Oct.
+- [ ] Merge [PR #21](https://github.com/jasbir98/fomo/pull/21). With it, a run that runs out of credit goes red instead of green, and a failed staging upload no longer loses deal pages.
+- [ ] Review batch `edi-weekly-2026-10-12` in `happenings_staging`: 229 rows, 129 verified and 100 waiting for review, none approved. 198 of them were recovered by hand from the failed run's artifact, so there's no weekly report for those. Each row's `validation_errors` gives its review reasons.
+
 **Search Console: noindex, redirects, organizer url (12 Oct)**
 - [ ] Merge the `seo-indexing-fixes` PR. Then in Search Console, resubmit `sitemap.xml` and click "Validate fix" on "Excluded by 'noindex' tag" and on the Events "Missing field url (in organizer)" issue.
 - "Excluded by 'noindex'" will never reach zero: an event that ends is noindexed on purpose. The bug was the sitemap still listing 107 of them.

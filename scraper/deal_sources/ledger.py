@@ -9,6 +9,10 @@ Modes:
   read  -- reads the ledger, never writes (dry runs, shadow sources, previews).
   rw    -- reads and records hashes (only for LIVE sources in a --stage run).
 
+With defer=True, `record()` only queues the row and `commit()` writes the queue.
+The weekly run commits after its staging upsert succeeds, so a failed upsert
+cannot leave pages marked as handled whose rows never reached staging.
+
 If the table does not exist yet (HTTP 404 / PGRST205 / 42P01) or the credentials
 are missing, that is logged once and every page is treated as changed.
 """
@@ -50,7 +54,7 @@ def table_missing(status: int, body: Any) -> bool:
 
 
 class Ledger:
-    def __init__(self, mode: str = "off", connection: tuple[str, str] | None = None, log=print) -> None:
+    def __init__(self, mode: str = "off", connection: tuple[str, str] | None = None, log=print, defer: bool = False) -> None:
         if mode not in ("off", "read", "rw"):
             raise ValueError(f"ledger mode must be off|read|rw, got {mode!r}")
         self.mode = mode
@@ -60,6 +64,8 @@ class Ledger:
         self._warned = False
         self._known: dict[str, dict[str, Any]] = {}
         self.writes = 0
+        self.defer = defer
+        self._queue: list[tuple[str, dict[str, Any], dict[str, Any] | None]] = []
         if mode != "off" and self.connection is None:
             self._warn("Supabase credentials unavailable; treating every page as changed")
 
@@ -127,6 +133,18 @@ class Ledger:
         }
         if previous is None or previous.get("content_hash") != new_hash:
             row["last_changed_at"] = now
+        if self.defer:
+            self._queue.append((url, row, previous))
+            return True
+        return self._write(url, row, previous)
+
+    def commit(self) -> int:
+        """Write every deferred row. Returns how many were written."""
+        queue, self._queue = self._queue, []
+        return sum(1 for url, row, previous in queue if self.available and self._write(url, row, previous))
+
+    def _write(self, url: str, row: dict[str, Any], previous: dict[str, Any] | None) -> bool:
+        assert self.connection
         try:
             resp = requests.post(
                 f"{self.connection[0]}/rest/v1/{TABLE}",
