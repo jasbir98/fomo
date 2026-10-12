@@ -5,7 +5,7 @@ paraphrase the research LLM is known to produce. Expected verdicts are
 "match" (reuse the slug), "possible" (review) or None (unrelated).
 """
 
-from identity import Catalogue
+from identity import Catalogue, reconcile
 
 KNOWN = [
     {"id": "1", "slug": "stand-fri", "title": "The Friday Show at The Stand Edinburgh", "kind": "event", "status": "live",
@@ -55,6 +55,18 @@ def main() -> int:
         failures += not ok
         print(("ok  " if ok else "FAIL"), record["title"][:55].ljust(56), got_verdict, got_target, found.why if found else "")
     print(f"{len(CASES) - failures}/{len(CASES)} passed")
+
+    # Two candidates matching the same live row must not both take its slug
+    # (2026-10-12: two Red Raw pages from The Stand failed the staging upsert).
+    pair = [
+        {"title": "Friday Night Comedy Show at The Stand", "kind": "event", "recurrence": {"type": "weekly", "days": [5]}, "venue_name": "The Stand"},
+        {"title": "The Friday Show at The Stand Edinburgh", "kind": "event", "recurrence": {"type": "weekly", "days": [5]}, "venue_name": "The Stand"},
+    ]
+    kept, dropped, _ = reconcile(pair, catalogue)
+    slugs = [r["slug"] for r in kept]
+    ok = slugs == ["stand-fri"] and len(dropped) == 1
+    failures += not ok
+    print(("ok  " if ok else "FAIL"), "second match to a claimed slug is dropped".ljust(56), slugs, dropped)
     return 1 if failures else 0
 
 

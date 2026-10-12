@@ -138,6 +138,18 @@ def upsert_happenings(records: list[dict[str, Any]], table: str = "happenings_st
     if skipped:
         print(f"[upsert-happenings] skipped {skipped} record(s) with no batch_id/slug", file=sys.stderr)
 
+    # Postgres refuses the whole ON CONFLICT upsert if one request repeats a
+    # conflict key ("cannot affect row a second time"), so keep the first row
+    # per (batch_id, slug) rather than lose the batch.
+    unique: dict[tuple[Any, Any], dict[str, Any]] = {}
+    for row in rows:
+        key = (row["batch_id"], row["slug"])
+        if key in unique:
+            print(f"[upsert-happenings] dropped duplicate slug {row['slug']!r} in this batch", file=sys.stderr)
+            continue
+        unique[key] = row
+    rows = list(unique.values())
+
     if not rows:
         print("[upsert-happenings] nothing to upsert.")
         return 0
