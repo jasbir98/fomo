@@ -8,7 +8,7 @@ import { FomoFace } from "../onboarding/Characters";
 import { FomoLogo } from "../ui/FomoLogo";
 import { Icon } from "../ui/Icon";
 import { UserAvatar } from "./UserAvatar";
-import { NAV_SAVED, PRIMARY, isActive, type NavItem } from "./nav-items";
+import { PRIMARY, isActive, type NavItem } from "./nav-items";
 
 /** Secondary destinations, below the primary tabs. No per-tab colour: they take the neutral navy tint. */
 const BROWSE: NavItem[] = [
@@ -18,8 +18,6 @@ const BROWSE: NavItem[] = [
   { href: "/weekend", icon: "weekend", label: "This weekend", text: "text-primary", pill: "bg-primary/10" },
 ];
 const TIP: NavItem = { href: "/tip", icon: "lightbulb", label: "Suggest a tip", text: "text-primary", pill: "bg-primary/10" };
-/** Saved left the primary tabs for "For you" on 12 Oct 2026; it sits with Tip and Profile now, in the same neutral tint. */
-const SAVED: NavItem = { ...NAV_SAVED, text: "text-primary", pill: "bg-primary/10" };
 const PROFILE: NavItem = { href: "/profile", icon: "person", label: "Profile", text: "text-primary", pill: "bg-primary/10" };
 
 /** SSR-safe matchMedia subscription (false on the server and until hydrated). */
@@ -93,8 +91,9 @@ function NavLink({
  *
  * Layout top to bottom: logo, the raised "Ask Fomo" action, the four primary
  * tabs (the same data BottomNav renders, from ./nav-items), a Browse group of
- * secondary pages, then Saved, Suggest a tip and Profile/Sign in pinned to the
- * bottom. z-50, the same layer as BottomNav, above the sticky headers (40).
+ * secondary pages, then Suggest a tip and Profile/Sign in pinned to the
+ * bottom. Saved is not here: like on phones, it's the header's bookmark
+ * (signed in only), so desktop and mobile reach it the same way. z-50, the same layer as BottomNav, above the sticky headers (40).
  * Labelled "Main" rather than "Primary" so the landmark name doesn't repeat
  * BottomNav's (hidden at this size, but cheap insurance).
  */
@@ -157,9 +156,6 @@ export function SideNav() {
       </ul>
 
       <ul role="list" className="mt-auto flex w-full flex-col items-center gap-1 pt-4">
-        <li className="xl:w-full">
-          <NavLink item={SAVED} active={isActive(pathname, SAVED.href)} tooltip={tooltip} />
-        </li>
         <li className="xl:w-full">
           <NavLink item={TIP} active={isActive(pathname, TIP.href)} tooltip={tooltip} />
         </li>

@@ -340,7 +340,10 @@ export function PlaceDetail({ id, presentation = "page" }: DetailProps) {
                 {offers.length}
               </span>
             </div>
-            <div className="flex flex-col gap-3 lg:grid lg:grid-cols-2 lg:gap-4">
+            {/* One column at every size, like phones: this content column is
+                narrow on desktop (beside the aside, and narrower still in the
+                modal), and two cards abreast cut titles to "Traverse £1…". */}
+            <div className="flex flex-col gap-3">
               {toOfferCards(offers).map((card) => (
                 <FeedListCard key={card.happening.id} card={card} />
               ))}
