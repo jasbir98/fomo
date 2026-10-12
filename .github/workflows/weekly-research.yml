@@ -55,7 +55,7 @@ jobs:
       # Playwright (in requirements.txt) isn't used by this script; skip the
       # browser download.
       - name: Install dependencies
-        run: pip install "requests>=2.31,<3" "python-dotenv>=1.0,<2" "anthropic>=0.40,<1"
+        run: pip install "requests>=2.31,<3" "python-dotenv>=1.0,<2" "anthropic>=0.40,<1" "pyyaml>=6,<7"
 
       - name: Run weekly research
         env:
