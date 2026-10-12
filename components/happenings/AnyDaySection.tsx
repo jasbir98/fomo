@@ -3,16 +3,10 @@
 import { useState } from "react";
 import type { FeedCardData } from "@/lib/happenings/feed-types";
 import { FeedListCard, type FeedCardSurface } from "./FeedListCard";
+import { feedCardKey } from "@/lib/personalise/freshness";
 
 /** Cards shown before the "Show N more" button. */
 export const ANY_DAY_CAP = 3;
-
-function cardKey(card: FeedCardData): string {
-  if (card.kind === "happening") return `happening-${card.happening.id}`;
-  if (card.kind === "series") return `series-${card.key}`;
-  if (card.kind === "recurring") return `recurring-${card.key}`;
-  return `event-${card.event.id}`;
-}
 
 export interface AnyDaySectionProps {
   /** Already filtered/ordered by the caller (personal boost, /whats-on filters). Renders nothing when empty. */
@@ -44,7 +38,7 @@ export function AnyDaySection({ cards, surface, desktopGrid = false, gridClassNa
         <p className="text-label-sm text-on-surface-variant">Always on, go whenever suits</p>
       </div>
       {visible.map((card, i) => (
-        <FeedListCard key={cardKey(card)} card={card} surface={surface} position={i} />
+        <FeedListCard key={feedCardKey(card)} card={card} surface={surface} position={i} />
       ))}
       {hidden > 0 ? (
         <button

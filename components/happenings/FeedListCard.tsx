@@ -1,5 +1,6 @@
 "use client";
 
+import { createContext, useContext } from "react";
 import { Icon, NavCard, SaveButton, SmartImage } from "@/components/ui";
 import { eventIsInProgress, formatEventDate, formatEventPrice, formatEventTimeSpan, formatEventWhen } from "@/lib/events/format";
 import {
@@ -30,6 +31,10 @@ import { happeningToPreview, prefetchHappening, setHappeningPreview } from "@/li
 import { eventToPreview, prefetchEvent, setEventPreview } from "@/lib/events/preview-cache";
 import { eventImageFor } from "@/lib/events/image";
 import { track, priceBand, trackOutboundClicked } from "@/lib/analytics/track";
+import { isNewSince, useNewSinceCutoff } from "@/lib/personalise/freshness";
+
+/** Set by FeedListCard for the row it renders; CardShell reads it to show the "New" badge. */
+const CardIsNew = createContext(false);
 
 /** Where this list is mounted — sent as `card_opened`'s `surface` so
  *  analytics can tell a Home "What's on" tap apart from the same card
@@ -199,13 +204,19 @@ function CardShell({
   onPointerDown?: () => void;
   onNavigate?: () => void;
 }) {
+  const isNew = useContext(CardIsNew);
   return (
     <NavCard
       href={href}
       onPointerDown={onPointerDown}
       onNavigate={onNavigate}
-      className="flex cursor-pointer flex-col gap-2 rounded-2xl bg-surface-container-lowest p-3.5 shadow-level-1 transition-shadow hover:shadow-level-2"
+      className="relative flex cursor-pointer flex-col gap-2 rounded-2xl bg-surface-container-lowest p-3.5 shadow-level-1 transition-shadow hover:shadow-level-2"
     >
+      {isNew ? (
+        <span className="absolute left-2 top-2 z-10 rounded-full bg-accent px-1.5 py-0.5 text-[10px] font-extrabold uppercase leading-none tracking-wide text-on-accent shadow-level-1">
+          New
+        </span>
+      ) : null}
       {children}
     </NavCard>
   );
@@ -582,6 +593,13 @@ function EventRow({ event, surface, position }: { event: EventItem; surface?: Fe
  * CTA), matching the mockup's Doors Open Days card.
  */
 export function FeedListCard({ card, surface, position }: FeedListCardProps) {
+  // "New since your last visit" (lib/personalise/freshness.ts): badges the
+  // card without moving it, so the list keeps its time order.
+  const isNew = isNewSince(card, useNewSinceCutoff());
+  return <CardIsNew.Provider value={isNew}>{feedRow(card, surface, position)}</CardIsNew.Provider>;
+}
+
+function feedRow(card: FeedCardData, surface: FeedCardSurface | undefined, position: number | undefined) {
   if (card.kind === "series") return <SeriesRow card={card} surface={surface} position={position} />;
   if (card.kind === "recurring") return <RecurringRow card={card} surface={surface} position={position} />;
   if (card.kind === "happening") {

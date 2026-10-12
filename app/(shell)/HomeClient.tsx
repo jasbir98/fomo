@@ -20,6 +20,7 @@ import { usePrefs } from "@/lib/personalise/usePrefs";
 import { openMakeFomoYours } from "@/lib/personalise/trigger";
 import { personalBoost, reorderWithBoost, type BoostPrefs } from "@/lib/personalise/score";
 import { useEffectiveWho } from "@/lib/personalise/useEffectiveWho";
+import { londonDayKey, rotateDaily } from "@/lib/personalise/freshness";
 import type { RankedDealItem } from "@/lib/happenings/venue-deals";
 import { track } from "@/lib/analytics/track";
 
@@ -443,8 +444,10 @@ export function HomeClient({ initialFeed = null }: HomeClientProps) {
     [whatsOnCards, boostPrefs]
   );
   // "Any day" (lib/happenings/everyday.ts) — boosted within its own section,
-  // never merged into the dated list above.
-  const anyDayCards = useMemo(() => anyDayBucket?.cards ?? [], [anyDayBucket]);
+  // never merged into the dated list above. Rotated daily first
+  // (lib/personalise/freshness.ts): these have no natural order, so without it
+  // the same three led the section on every visit.
+  const anyDayCards = useMemo(() => rotateDaily(anyDayBucket?.cards ?? [], londonDayKey()), [anyDayBucket]);
   const boostedAnyDayCards = useMemo(
     () => reorderWithBoost(anyDayCards, (card) => personalBoost(card, boostPrefs)),
     [anyDayCards, boostPrefs]

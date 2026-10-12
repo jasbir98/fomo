@@ -16,6 +16,7 @@ import { cardOnDay, cardPillDate } from "@/components/happenings/DateFilterRow";
 import { usePrefs } from "@/lib/personalise/usePrefs";
 import { personalBoost, type BoostPrefs } from "@/lib/personalise/score";
 import { useEffectiveWho } from "@/lib/personalise/useEffectiveWho";
+import { londonDayKey, rotateDaily } from "@/lib/personalise/freshness";
 import { track } from "@/lib/analytics/track";
 
 /** Only these two windows are date windows at all — `book_early` is a
@@ -142,8 +143,9 @@ function WhatsOnPageInner() {
   // "Any day" (lib/happenings/everyday.ts): the active window's everyday cards,
   // kept out of `cards` so the date chips/list never see them. Independent of
   // the date filter (a specific day chip still shows them — they're on every
-  // day), but subject to the category / Free only / For you controls.
-  const anyDayAll = useMemo(() => feedResult.data?.anyDay?.cards ?? [], [feedResult.data]);
+  // day), but subject to the category / Free only / For you controls. Rotated
+  // daily, same order as Home's (lib/personalise/freshness.ts).
+  const anyDayAll = useMemo(() => rotateDaily(feedResult.data?.anyDay?.cards ?? [], londonDayKey()), [feedResult.data]);
   const error = feedResult.error != null && feedResult.data === undefined;
   // Same "nothing cached and the last attempt failed" contract as `error`
   // above, but over both windows — what "This weekend" actually needs.
