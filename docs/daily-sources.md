@@ -172,7 +172,7 @@ Requires `NEXT_PUBLIC_SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` for `--write
 
 ## Scheduling
 
-`.github/workflows/daily-sources.yml` runs `--write` in the `Production` environment at two times: 06:17 UTC, and 17:43 UTC as a second pass. GitHub drops scheduled runs under load (the first 06:17 run on 27 Sep never fired), and upserts are idempotent, so the extra run costs nothing. The job has a 35-minute timeout. The Monday part of the 06:17 run also does the weekly sample check (5 random rows per live provider, reported in the job summary, never fails the workflow). Manual runs go through `workflow_dispatch`.
+`.github/workflows/daily-sources.yml` runs `--write` in the `Production` environment at two times: 11:17 UTC, and 17:43 UTC as a second pass. Both are outside DeepSeek's weekday peak (01:00–04:00 and 06:00–10:00 UTC), and the Jazz Bar adapter's DeepSeek fallback refuses to run in peak anyway (`scripts/sources/core/deepseek.mjs`). GitHub drops scheduled runs under load (the first morning run on 27 Sep never fired), and upserts are idempotent, so the extra run costs nothing. The job has a 35-minute timeout. The Monday part of the 11:17 run also does the weekly sample check (5 random rows per live provider, reported in the job summary, never fails the workflow). Manual runs go through `workflow_dispatch`.
 
 Secrets live as **Production environment** secrets on `jasbir98/fomo`:
 

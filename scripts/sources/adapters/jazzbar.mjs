@@ -418,7 +418,7 @@ export async function extractViaLlm(lines, parsed, budget, rejects) {
     if (!r.ok) {
       rejects.llm_call_failed = (rejects.llm_call_failed ?? 0) + 1;
       console.log(`  [${PROVIDER}] LLM call failed: ${r.reason}`);
-      if (r.reason === "budget_exhausted" || r.reason === "no_api_key") break;
+      if (r.reason === "budget_exhausted" || r.reason === "no_api_key" || r.reason === "deepseek_peak_hours") break;
       continue;
     }
     for (const g of r.input.gigs ?? []) {

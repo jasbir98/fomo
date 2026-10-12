@@ -9,6 +9,10 @@
  *
  * Spend is tracked per budget object and capped; callTool refuses a call that could exceed the cap
  * (worst case = estimated input + max_tokens of output).
+ *
+ * Never during DeepSeek's peak hours (double price): 01:00-04:00 and 06:00-10:00 UTC, Mon-Fri,
+ * per https://api-docs.deepseek.com/quick_start/pricing. callTool refuses with reason
+ * "deepseek_peak_hours". Same windows as scraper/deepseek_hours.py; change both together.
  */
 
 export const DEEPSEEK_URL = "https://api.deepseek.com/anthropic/v1/messages";
@@ -18,6 +22,14 @@ export const INPUT_USD_PER_M = 0.28;
 export const OUTPUT_USD_PER_M = 0.42;
 export const DEFAULT_MAX_SPEND_USD = 0.1;
 export const REQUEST_TIMEOUT_MS = 120_000;
+export const PEAK_HOURS_UTC = [[1, 4], [6, 10]]; // [start, end) hours, Monday-Friday
+
+export function inPeak(now = new Date()) {
+  const day = now.getUTCDay(); // 0 Sunday, 6 Saturday
+  if (day === 0 || day === 6) return false;
+  const hour = now.getUTCHours();
+  return PEAK_HOURS_UTC.some(([start, end]) => start <= hour && hour < end);
+}
 
 export function costUsd(inputTokens, outputTokens) {
   return (inputTokens * INPUT_USD_PER_M + outputTokens * OUTPUT_USD_PER_M) / 1_000_000;
@@ -44,10 +56,11 @@ function addUsage(budget, usage) {
 /**
  * One forced-tool call. `tool` = { name, description, input_schema }.
  * Returns { ok:true, input, usage } or { ok:false, reason }. Never throws.
- * `fetchImpl` and `apiKey` are injectable for tests.
+ * `fetchImpl`, `apiKey` and `now` are injectable for tests.
  */
-export async function callTool({ system, user, tool, maxTokens = 4096, budget, apiKey = process.env.DEEPSEEK_API_KEY, fetchImpl = fetch }) {
+export async function callTool({ system, user, tool, maxTokens = 4096, budget, apiKey = process.env.DEEPSEEK_API_KEY, fetchImpl = fetch, now = new Date() }) {
   if (!apiKey) return { ok: false, reason: "no_api_key" };
+  if (inPeak(now)) return { ok: false, reason: "deepseek_peak_hours" };
   const worstCase = costUsd(estimateTokens(system) + estimateTokens(user) + 200, maxTokens);
   if (budget.spentUsd + worstCase > budget.maxUsd) return { ok: false, reason: "budget_exhausted" };
 

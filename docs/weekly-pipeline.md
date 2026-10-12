@@ -132,7 +132,7 @@ python3 scraper/weekly_edinburgh.py --stage --publish
 
 ## Scheduling later
 
-**GitHub Actions (current):** `.github/workflows/weekly-research.yml` runs `--stage --workers 1` every Monday 05:23 UTC. It never publishes: the report lands in the run summary and as an artifact. Approve rows with the report's SQL, then run the workflow manually with `mode: promote` (and the batch id) to publish them. Needs `DEEPSEEK_API_KEY`, `NEXT_PUBLIC_SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` on the Production environment.
+**GitHub Actions (current):** `.github/workflows/weekly-research.yml` runs `--stage --workers 1` every Monday 11:23 UTC. It never calls DeepSeek in its weekday peak hours (01:00–04:00 and 06:00–10:00 UTC, double price): a scheduled run that GitHub starts late waits for a clear off-peak hour, a manual run in peak stops with the next start time, and `scraper/llm_client.py` refuses DeepSeek in peak regardless (`scraper/deepseek_hours.py`). It never publishes: the report lands in the run summary and as an artifact. Approve rows with the report's SQL, then run the workflow manually with `mode: promote` (and the batch id) to publish them. Needs `DEEPSEEK_API_KEY`, `NEXT_PUBLIC_SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` on the Production environment.
 
 The local options below remain for running it off GitHub.
 

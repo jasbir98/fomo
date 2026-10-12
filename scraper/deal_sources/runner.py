@@ -27,6 +27,7 @@ from typing import Any, Callable
 from happenings.cities.edinburgh import EDINBURGH
 from happenings_research import build_full_record, slugify
 from identity import Catalogue, reconcile
+from deepseek_hours import DeepSeekPeakHours
 from llm_client import default_research_model, make_research_client, research_provider
 
 from deal_sources.discover import PageRef, discover
@@ -304,7 +305,10 @@ def run_deal_sources(
             if research_provider() == "none":
                 llm_error = "no LLM API key set (DEEPSEEK_API_KEY)"
             else:
-                llm, _provider = make_research_client("deal-sources")
+                try:
+                    llm, _provider = make_research_client("deal-sources")
+                except DeepSeekPeakHours as exc:  # pages stay unrecorded, so the next off-peak run redoes them
+                    llm_error = str(exc)
         return llm
 
     def call_llm(prompt: str) -> ExtractResult:
