@@ -32,19 +32,22 @@ function NavTab({ item, active }: { item: NavItem; active: boolean }) {
 }
 
 /**
- * Canonical Fomo bottom navigation: Feed · Saved · [Fomo FAB] · Deals · Explore.
- * Reels left the nav on 2026-09-26 (no Edinburgh reels yet; reels live on the
- * Instagram account) — /reels still works as a page. Saved points at /saved,
- * its own dedicated page (app/(shell)/saved/page.tsx).
+ * Canonical Fomo bottom navigation: Feed · For you · [Fomo FAB] · Deals · Explore.
+ * History: Reels left the nav on 2026-09-26 (no Edinburgh reels yet; reels live on
+ * the Instagram account; /reels still works as a page). Deals took Saved's slot
+ * in the Home decluttering pass, and Saved came back beside Feed until 12 Oct
+ * 2026, when "For you" (the hand-picked weekly steals plus recommendations,
+ * /for-you, internally "Finds") replaced it: Saved only works signed in, so
+ * most visitors met an empty sign-in card there. Saved now lives in the top bar
+ * (a bookmark button beside search, signed-in only; components/shell/
+ * AppHeader.tsx), in Profile, and in SideNav's bottom group. The last tab was
+ * renamed Map -> Explore (same map view, app/(shell)/explore/page.tsx); `/map`
+ * still works as a redirect for old links.
  * Fixed to the bottom of the max-w-[480px] phone column; the centre Fomo FAB
  * is a raised 64px button wearing the mascot's face (components/onboarding/
  * Characters.tsx), which grins while you're chatting with it. Hidden from lg
  * (1024px) up, where SideNav takes over; both read their tab data from
- * ./nav-items. Deals took
- * Saved's slot in the Home decluttering pass — Deals & Offers is now its own
- * full page (app/(shell)/deals/page.tsx) instead of a Home section. The last tab was
- * renamed Map -> Explore (same map view, app/(shell)/explore/page.tsx); `/map`
- * still works as a redirect for old links.
+ * ./nav-items.
  */
 export function BottomNav() {
   const pathname = usePathname();

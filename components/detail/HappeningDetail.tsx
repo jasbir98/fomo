@@ -30,6 +30,8 @@ import { ensurePushSubscribed, pushReasonMessage } from "@/lib/push/client";
 import { getHappeningPreview, takePrefetchedHappening, type HappeningPreview } from "@/lib/happenings/preview-cache";
 import { interestForHappeningCategory } from "@/lib/personalise/interests";
 import { track, trackOutboundClicked } from "@/lib/analytics/track";
+import { FindBadge } from "@/components/finds/FindBadge";
+import { useFind } from "@/lib/finds/useFinds";
 import {
   ASIDE_CARD_CLASS,
   DETAIL_CONTENT_CLASS,
@@ -106,6 +108,8 @@ async function fetchHappening(id: string): Promise<{ happening: Happening | null
  * comment.
  */
 export function HappeningDetail({ id, presentation = "page", initialData }: DetailProps & { initialData?: HappeningResponse }) {
+  // On this week's hand-picked "For you" list? Drives the badge + "why" line under the tag row. Called up here, before the early returns below, like every hook.
+  const find = useFind("happening", id);
 
   // `initialData` is what the server rendered for this route (app/(shell)/
   // happening/[id]/page.tsx), so a shared link's first HTML already holds the
@@ -687,6 +691,7 @@ export function HappeningDetail({ id, presentation = "page", initialData }: Deta
             ) : null}
           </div>
           <h1 className="text-headline-lg font-extrabold leading-snug text-on-surface">{happening.title}</h1>
+          {find ? <FindBadge why={find.why} className="mt-2" /> : null}
 
           {priceText ? (
             <p className="mt-2 text-headline-sm font-extrabold text-primary">{priceText}</p>

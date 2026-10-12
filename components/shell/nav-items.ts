@@ -23,6 +23,18 @@ export const NAV_SAVED: NavItem = {
   text: "text-cat-nightlife",
   pill: "bg-cat-nightlife/12",
 };
+/**
+ * "For you": the hand-picked weekly steals plus recommendations (internally
+ * "Finds"; the same picks run on Instagram as "Fomo Finds"). Took Saved's
+ * bottom-nav slot and colour on 12 Oct 2026.
+ */
+export const NAV_FINDS: NavItem = {
+  href: "/for-you",
+  icon: "auto_awesome",
+  label: "For you",
+  text: "text-cat-nightlife",
+  pill: "bg-cat-nightlife/12",
+};
 export const NAV_DEALS: NavItem = {
   href: "/deals",
   icon: "sell",
@@ -39,11 +51,11 @@ export const NAV_EXPLORE: NavItem = {
 };
 
 /** BottomNav's two halves, either side of the centre Fomo FAB. */
-export const LEFT: NavItem[] = [NAV_FEED, NAV_SAVED];
+export const LEFT: NavItem[] = [NAV_FEED, NAV_FINDS];
 export const RIGHT: NavItem[] = [NAV_DEALS, NAV_EXPLORE];
 
 /** SideNav's primary list, in desktop reading order. */
-export const PRIMARY: NavItem[] = [NAV_FEED, NAV_DEALS, NAV_EXPLORE, NAV_SAVED];
+export const PRIMARY: NavItem[] = [NAV_FEED, NAV_FINDS, NAV_DEALS, NAV_EXPLORE];
 
 export function isActive(pathname: string, href: string) {
   // The statically built home page is prerendered as "/index" (its RSC tree is

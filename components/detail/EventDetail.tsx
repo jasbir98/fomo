@@ -17,6 +17,8 @@ import { Button, ErrorState, FomoLoader, Icon, PhotoCarousel, ShareButton, Statu
 import type { CarouselPhoto } from "@/components/ui";
 import { getEventPreview, takePrefetchedEvent, type EventPreview } from "@/lib/events/preview-cache";
 import { track, trackOutboundClicked } from "@/lib/analytics/track";
+import { FindBadge } from "@/components/finds/FindBadge";
+import { useFind } from "@/lib/finds/useFinds";
 import {
   ASIDE_CARD_CLASS,
   DETAIL_CONTENT_CLASS,
@@ -89,6 +91,8 @@ export function EventDetail({ id, presentation = "page", initialEvent }: DetailP
   const db = supabaseBrowserAuth();
   const pathname = usePathname();
   const { isSaved: checkSaved, toggle: toggleSaved } = useSaved();
+  // On this week's hand-picked "For you" list? Drives the badge + "why" line at the top of the details card.
+  const find = useFind("event", id);
 
   // `initialEvent` is what the server rendered for this route (app/(shell)/
   // event/[id]/page.tsx), so a shared link's first HTML already holds the
@@ -356,6 +360,7 @@ export function EventDetail({ id, presentation = "page", initialEvent }: DetailP
 
         {/* Description & stats */}
         <section className="rounded-xl border border-outline-variant/40 bg-surface-container-lowest p-5 shadow-sm">
+          {find ? <FindBadge why={find.why} className="mb-3" /> : null}
           <div className="mb-3 flex items-center justify-between gap-3">
             {event.category ? (
               <span className="rounded-full bg-surface-container-low px-3 py-1 text-label-sm capitalize text-on-surface-variant">

@@ -12,6 +12,8 @@ import { happeningToPreview, prefetchHappening, setHappeningPreview } from "@/li
 import { eventToPreview, prefetchEvent, setEventPreview } from "@/lib/events/preview-cache";
 import { eventImageFor } from "@/lib/events/image";
 import { track, priceBand, trackOutboundClicked } from "@/lib/analytics/track";
+import { FindBadge } from "@/components/finds/FindBadge";
+import { useFind } from "@/lib/finds/useFinds";
 
 /** Leading thumbnail — same convention as FeedListCard's: the subject's own
  *  `image_url`, else a bundled per-category default. Larger than the list
@@ -57,6 +59,10 @@ function TierPill({ label }: { label: string }) {
 export function BookEarlyCard({ card, initialSubscribed = false, position }: BookEarlyCardProps) {
   const [subscribed, setSubscribed] = useState(initialSubscribed);
   const [notifyError, setNotifyError] = useState<string | null>(null);
+  // Hand-picked "For you" item? Gets a "Picked for you" pill on its own line at
+  // the top of the card body (the tier/price/save row above the title is
+  // already full on a 480px phone, so it doesn't share that row).
+  const find = useFind(card.kind === "event" ? "event" : "happening", card.kind === "event" ? card.event.id : card.happening.id);
 
   /**
    * Ensures a live push subscription for this device, then records the
@@ -118,6 +124,7 @@ export function BookEarlyCard({ card, initialSubscribed = false, position }: Boo
       >
         <Thumbnail src={thumbnail} alt="" />
         <div className="flex min-w-0 flex-1 flex-col gap-2">
+          {find ? <FindBadge className="self-start" /> : null}
           <div className="flex items-center justify-between gap-2">
             <TierPill label={card.label} />
             <div className="flex items-center gap-2">
@@ -172,6 +179,7 @@ export function BookEarlyCard({ card, initialSubscribed = false, position }: Boo
     >
       <Thumbnail src={thumbnail} alt="" />
       <div className="flex min-w-0 flex-1 flex-col gap-2">
+        {find ? <FindBadge className="self-start" /> : null}
         <div className="flex items-center justify-between gap-2">
           <div className="flex min-w-0 items-center gap-1.5">
             <TierPill label={card.label} />

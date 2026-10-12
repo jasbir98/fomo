@@ -33,6 +33,12 @@
    staging/provenance tables service-role only, keeps `place_photos`
    read-only, and caps the `avatars` bucket at 5 MB / jpeg-png-webp.
 
+4. **`add_finds.sql`** — creates the `finds` table (Fomo Finds, the
+   hand-approved steals list) with RLS: anon/authenticated read `live` rows
+   only, writes are service-role only (`scripts/finds.ts`). Safe to run before
+   or after the app deploy (the app shows no Finds until it exists). Safe to
+   re-run.
+
 Then run **`verify_security.sql`** (read-only, one result set) and check it
 shows no `no_rls`, `anon_write_policy`, `legacy_table` or
 `anon_exec_definer_fn` rows.
@@ -62,6 +68,7 @@ Tables as they exist after `archive/drop_legacy.sql` (applied 2026-09-28). "RLS 
 | `events` | Skiddle + Ticketmaster event cache | `scripts/daily-sources.mjs` (GitHub Actions, service role; proactive crawl + API pull) | Everyone (`lib/db/events.ts` — feed/explore/chat) | `read_all` |
 | `happenings` | "What's On" money/access deals catalog (discounts, free-entry days, Book Early offers) | Pipeline: `scraper/happenings_research.py` → `scraper/upsert_happenings.py` → `happenings_staging` → `scripts/promote-happenings.mjs` (service role) | Everyone (`lib/db/happenings.ts`) | `read_all` |
 | `happening_sources` | Per-field citation provenance for promoted happenings | Same pipeline (service role) | Not read by the app today; kept readable, same as `place_sources` | `read_all` |
+| `finds` | Fomo Finds: the hand-approved list of steals (a `why` line + 1-5 Fomo level pointing at an event or happening) | `scripts/finds.ts` (service role): `suggest` drafts, a person `approve`s | Everyone, `live` rows only (`lib/db/finds.ts`, `/finds`, `/api/finds`) | `read_all` for `status = 'live'` only; writes service-role only |
 | `happenings_staging` | Review queue for scraped happenings before promotion | `scraper/upsert_happenings.py` (service role) | `scripts/promote-happenings.mjs`, `scripts/sweep-happenings.mjs` (service role) | service-role-only |
 | `email_subscribers` | "Fomo Friday" weekly digest mailing list | Public, `POST /api/subscribe` (service-role insert; anon-insert policy still open until `tighten_public_inserts.sql` runs) | Service role only (`scripts/fomo-friday.mjs` send job, `/api/unsubscribe`, `/api/resend/webhook`) | write-only mailbox → service-role-only after `tighten_public_inserts.sql` |
 | `email_events` | Append-only Resend webhook delivery log (sends/opens/clicks/bounces) | `app/api/resend/webhook` (service role) | Service role only (ad hoc, e.g. "did this subscriber get the email") | service-role-only |

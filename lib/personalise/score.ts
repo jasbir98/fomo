@@ -46,7 +46,7 @@ function cardEvent(card: Card): EventItem | null {
   return null;
 }
 
-function cardInterest(card: Card): InterestKey | null {
+export function cardInterest(card: Card): InterestKey | null {
   const happening = cardHappening(card);
   if (happening) return interestForHappeningCategory(happening.category);
   const event = cardEvent(card);
@@ -54,7 +54,7 @@ function cardInterest(card: Card): InterestKey | null {
 }
 
 /** Deal cards (lib/happenings/feed-types.ts's `DealCardData`) already carry their own precomputed `who` facet — reuse it instead of re-deriving from `eligibility` so this never disagrees with lib/happenings/groups.ts's own `matchesDealFilters`. */
-function cardWho(card: Card): DealWhoGroup | null {
+export function cardWho(card: Card): DealWhoGroup | null {
   if ("who" in card) return card.who;
   const happening = cardHappening(card);
   return happening ? whoGroupForEligibility(happening.eligibility) : null;
@@ -66,7 +66,7 @@ function cardWho(card: Card): DealWhoGroup | null {
  *  ever carry `is_free`, no comparable numeric "what would I actually pay"
  *  figure (a deal's `saving_amount` is an amount OFF, not a price) — so
  *  "under10" only ever tightens further on an event's `price_from`. */
-function fitsBudget(card: Card, budget: FomoBudget): boolean {
+export function fitsBudget(card: Card, budget: FomoBudget): boolean {
   if (budget === "any") return false;
   if (isFreeCard(card as FeedCardData)) return true;
   if (budget === "free") return false;

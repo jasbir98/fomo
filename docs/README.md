@@ -7,6 +7,16 @@ Run `/plans` in Claude Code for a summary of this page.
 
 Things waiting on you, newest first. Tick them off here, or ask Claude to update this list.
 
+**For you tab: hand-picked steals and recommendations (12 Oct)**
+- [ ] Run `supabase/add_finds.sql` in the Supabase SQL editor. Until you do, "Picked for you" stays empty, and the recommendations still work.
+- [ ] Merge the `fomo-finds` PR.
+- [ ] Every Friday:
+  1. Run `npx tsx --env-file=.env.local scripts/finds.ts suggest`. It is off-peak only for DeepSeek; add `--no-ai` to skip it.
+  2. Run `scripts/finds.ts approve 1,3,4`. You can change a line first with `edit <n> --why "…" --level 4`.
+  3. Then run the IG carousel and Fomo Friday as usual. They now lead with the live picks.
+- [ ] The first real `suggest` is the first live test of the candidate and DeepSeek steps, which were only tested against fixtures. Read its table before approving.
+- Known, not new: long-running imported events (a weekly quiz listed from 1 Sep to 30 Dec) show their first date, e.g. "Tue 1 Sep", on every card, Home included.
+
 **Weekly research: credit and this week's batch (12 Oct)**
 - [ ] Top up DeepSeek at platform.deepseek.com before next Monday's run. The balance ran out mid-run on 12 Oct.
 - [ ] Merge [PR #21](https://github.com/jasbir98/fomo/pull/21). With it, a run that runs out of credit goes red instead of green, and a failed staging upload no longer loses deal pages.
@@ -105,6 +115,7 @@ Snapshots of the plans approved in Claude Code plan mode. Each one is a record o
 
 | Plan | Status |
 |---|---|
+| [2026-10-12 For you: hand-picked steals and recommendations](plans/2026-10-12-fomo-finds.md) | Built on branch `fomo-finds`; PR pending. SQL listed above. |
 | [2026-10-08 More events and deals: sources, validation, soft-retire](plans/2026-10-08-event-and-deal-coverage.md) | Built on branch `event-coverage`; PR pending. SQL and keys listed above. |
 | [2026-10-07 Fill in Edinburgh place and deal data](plans/2026-10-07-data-enrichment.md) | Data written 7 Oct (407 places, 111 deals); app changes in PR #7. |
 | [2026-10-05 Pre-launch fixes and marketing](plans/2026-10-05-prelaunch-fixes.md) | Built; in PR #3. The SQL and dashboard steps are listed above. |

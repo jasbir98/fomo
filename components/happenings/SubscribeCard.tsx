@@ -7,7 +7,7 @@ import { track } from "@/lib/analytics/track";
 
 export interface SubscribeCardProps {
   /** Where this card is mounted — sent as `source` to POST /api/subscribe so the digest signup list can tell which surface drove a signup. */
-  source: "weekend" | "home" | "signup";
+  source: "weekend" | "home" | "signup" | "finds";
   className?: string;
 }
 
@@ -49,7 +49,8 @@ function rememberSubscribed() {
  * client, see the route's doc comment on not leaking that).
  *
  * Mounted on This weekend (app/(shell)/weekend/page.tsx, source "weekend")
- * and Home (app/(shell)/page.tsx, source "home").
+ * Home (app/(shell)/page.tsx, source "home") and the For you tab
+ * (app/(shell)/for-you, source "finds").
  */
 export function SubscribeCard({ source, className = "" }: SubscribeCardProps) {
   // Home mounts two copies (phone column + desktop rail, one always `display:none`), so the input id can't be a fixed string.

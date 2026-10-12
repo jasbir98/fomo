@@ -171,6 +171,7 @@ function itemRowHtml(item) {
           <td style="vertical-align:top;">
             <a href="${escapeHtml(withUtm(item.url))}" style="color:${NAVY};text-decoration:none;font-weight:700;font-size:16px;line-height:1.3;">${escapeHtml(item.title)}</a>
             <div style="color:#5b6472;font-size:13px;margin-top:4px;">${meta}</div>
+            ${item.why ? `<div style="color:${NAVY};font-size:13px;font-weight:600;margin-top:4px;">${escapeHtml(item.why)}</div>` : ""}
           </td>
           <td width="72" style="vertical-align:top;text-align:right;white-space:nowrap;">
             ${item.price ? `<span style="display:inline-block;background:${item.price === "FREE" ? "#1e7d4c" : NAVY};color:#ffffff;font-size:12px;font-weight:700;padding:4px 8px;border-radius:999px;">${escapeHtml(item.price)}</span>` : ""}
