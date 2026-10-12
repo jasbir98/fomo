@@ -51,14 +51,16 @@ function geoPlace(venueName: string | null, address: string | null, lat: number 
 /**
  * No source records the promoter, so the venue stands in as the host: it is
  * who runs or puts on most of what we list, and a named organizer is what
- * Google asks for. Nothing comes back without a venue name.
+ * Google asks for. Its url is the venue's own website, else its page here
+ * when the row is linked to one. Nothing comes back without a venue name.
  */
-function venueOrganizer(venueName: string | null, website?: string | null) {
+function venueOrganizer(venueName: string | null, placeId: string | null, website?: string | null) {
   if (!venueName) return undefined;
-  return { "@type": "Organization", name: venueName, ...(website ? { url: website } : {}) };
+  const url = website || (placeId ? absoluteUrl(`/place/${placeId}`) : undefined);
+  return { "@type": "Organization", name: venueName, ...(url ? { url } : {}) };
 }
 
-export function happeningSeo(h: Happening, now: Date = new Date()): DetailSeo {
+export function happeningSeo(h: Happening, now: Date = new Date(), venueWebsite?: string | null): DetailSeo {
   const rec = normalizeRecurrence(h.recurrence);
   const next = nextOccurrence(h, now, new Date(now.getTime() + YEAR_MS));
   // The row's own saving label ("£5 student tickets") says more than the short badge ("£5").
@@ -88,7 +90,7 @@ export function happeningSeo(h: Happening, now: Date = new Date()): DetailSeo {
       eventStatus: "https://schema.org/EventScheduled",
       eventAttendanceMode: "https://schema.org/OfflineEventAttendanceMode",
       location,
-      organizer: venueOrganizer(h.venue_name),
+      organizer: venueOrganizer(h.venue_name, h.place_id, venueWebsite),
       image: h.image_url ? [h.image_url] : undefined,
       url: absoluteUrl(`/happening/${h.id}`),
       offers:
@@ -135,7 +137,7 @@ export function eventSeo(e: EventItem, now: Date = new Date()): DetailSeo {
       eventStatus: "https://schema.org/EventScheduled",
       eventAttendanceMode: "https://schema.org/OfflineEventAttendanceMode",
       location,
-      organizer: venueOrganizer(e.place?.name ?? e.venue_name, e.place?.website),
+      organizer: venueOrganizer(e.place?.name ?? e.venue_name, e.place_id, e.place?.website),
       image: image ? [image] : undefined,
       url: absoluteUrl(`/event/${e.id}`),
       offers: priced

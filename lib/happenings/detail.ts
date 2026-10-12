@@ -38,12 +38,18 @@ export interface HappeningDetailData {
    * lookup above it).
    */
   siblings: Happening[];
+  /**
+   * The linked venue's own website, for the page's Event structured data
+   * (organizer.url). Server page only; the API route leaves it out.
+   */
+  venueWebsite?: string | null;
 }
 
 /** Throws only if the happening lookup itself fails; a missing row is `{ happening: null }`. */
 export async function loadHappeningDetail(db: Db, id: string): Promise<HappeningDetailData> {
   let happening = await getHappeningById(db, id);
   let siblings: Happening[] = [];
+  let venueWebsite: string | null = null;
   if (happening) {
     try {
       const all = await listLiveHappenings(db, CITY);
@@ -60,12 +66,16 @@ export async function loadHappeningDetail(db: Db, id: string): Promise<Happening
     // one query. Best-effort: a lookup failure just leaves image_url as
     // the DB had it (the page's own category-default <img onError> still
     // covers that case), never fails the whole response.
+    // The happening's own venue rides along in the same query, for its website.
     const needingPlaceImage = [happening, ...siblings].filter((h) => !h.image_url && h.place_id);
-    if (needingPlaceImage.length > 0) {
+    const placeIds = Array.from(
+      new Set([happening.place_id, ...needingPlaceImage.map((h) => h.place_id)].filter((id): id is string => !!id))
+    );
+    if (placeIds.length > 0) {
       try {
-        const placeIds = Array.from(new Set(needingPlaceImage.map((h) => h.place_id as string)));
         const places = await listPlacesByIds(db, placeIds);
         const placesById = new Map(places.map((p) => [p.id, p]));
+        venueWebsite = (happening.place_id && placesById.get(happening.place_id)?.website) || null;
         happening = withPlaceImageFallback(happening, placesById);
         siblings = siblings.map((s) => withPlaceImageFallback(s, placesById));
       } catch (err) {
@@ -73,5 +83,5 @@ export async function loadHappeningDetail(db: Db, id: string): Promise<Happening
       }
     }
   }
-  return { happening, siblings };
+  return { happening, siblings, venueWebsite };
 }

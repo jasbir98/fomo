@@ -174,3 +174,12 @@ test("happeningSeo names the venue as organizer and dates the free offer from bo
   assert.deepEqual(ld.organizer, { "@type": "Organization", name: "National Museum of Scotland" });
   assert.equal((ld.offers as { validFrom?: string }).validFrom, "2026-10-08T09:00:00Z");
 });
+
+test("organizer.url is the venue's website, else its page here, else left out", () => {
+  const withSite = happeningSeo(happening({ place_id: "p1" }), NOW, "https://www.nms.ac.uk").jsonLd as Record<string, unknown>;
+  assert.equal((withSite.organizer as { url?: string }).url, "https://www.nms.ac.uk");
+  const linked = eventSeo(event({ place_id: "p2" }), NOW).jsonLd as Record<string, unknown>;
+  assert.equal((linked.organizer as { url?: string }).url, "https://askfomo.com/place/p2");
+  const unlinked = eventSeo(event({}), NOW).jsonLd as Record<string, unknown>;
+  assert.equal((unlinked.organizer as { url?: string }).url, undefined);
+});

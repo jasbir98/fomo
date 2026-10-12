@@ -29,11 +29,16 @@ const MAX_DYNAMIC_URLS = 4800;
 /**
  * GET /sitemap.xml — static public pages plus every live happening and
  * upcoming event, so search engines can find deal/event detail pages
- * without following in-app links. Regenerated at most hourly (Next's ISR
- * for metadata routes); a lookup failure degrades to just the static pages
- * rather than 500ing the whole sitemap.
+ * without following in-app links. A lookup failure degrades to just the
+ * static pages rather than 500ing the whole sitemap.
+ *
+ * Built per request. It used to be hourly ISR, but the cached copy on
+ * Vercel stopped refreshing (still the 10 Oct build on 12 Oct), so it
+ * kept listing events that had ended, whose pages are noindex, and Search
+ * Console reported them as "Excluded by 'noindex' tag". Crawlers fetch a
+ * sitemap a few times a day, so a fresh read is cheap.
  */
-export const revalidate = 3600;
+export const dynamic = "force-dynamic";
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const staticEntries: MetadataRoute.Sitemap = STATIC_PATHS.map((path) => ({
@@ -41,8 +46,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     lastModified: new Date(),
   }));
 
-  // Cookie-less anon client: everything here is public catalogue data, and
-  // reading cookies() would make this route dynamic instead of hourly-ISR.
+  // Cookie-less anon client: everything here is public catalogue data.
   const db = supabaseAnon();
   const now = new Date();
 
