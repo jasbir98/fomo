@@ -442,6 +442,15 @@ Fomo already lists these (title | date | venue). Do NOT return them again unless
 """
 
 
+OUT_OF_CREDIT = "out of DeepSeek credit"
+
+
+def is_out_of_credit(exc: Exception) -> bool:
+    """DeepSeek answers 402 "Insufficient Balance" once the account is empty;
+    every later call fails the same way, so the run should stop, not skip."""
+    return getattr(exc, "status_code", None) == 402 or "Insufficient Balance" in str(exc)
+
+
 def research_topic(topic: Topic, batch_id: str, model: str, known_lines: list[str] | None = None) -> tuple[Topic, list[dict[str, Any]], Usage, str | None]:
     """Two-phase DeepSeek/Anthropic call for one narrow topic, with usage kept.
 
@@ -483,7 +492,8 @@ def research_topic(topic: Topic, batch_id: str, model: str, known_lines: list[st
                    if (record := build_full_record(item, batch_id, EDINBURGH, topic.mode, model, now))]
         return topic, records, usage, None
     except Exception as exc:  # an individual topic is a reportable failure, never a whole-run failure.
-        return topic, [], usage, f"{exc.__class__.__name__}: {exc}"
+        prefix = f"{OUT_OF_CREDIT}: " if is_out_of_credit(exc) else ""
+        return topic, [], usage, f"{prefix}{exc.__class__.__name__}: {exc}"
 
 
 def normalized_title(value: str) -> str:
@@ -1051,6 +1061,7 @@ def main() -> None:
     ledger = CostLedger(args.cap_usd, args.input_usd_per_million, args.output_usd_per_million, args.search_usd)
     research_records = 0
     topic_failures: list[dict[str, str]] = []
+    out_of_credit = False
     planned_topics = sorted(selected_topics, key=lambda topic: -topic.priority)
     if args.limit_topics is not None:
         planned_topics = planned_topics[:args.limit_topics]
@@ -1111,6 +1122,10 @@ def main() -> None:
                     cost = ledger.settle(reserved, usage)
                     if failure:
                         topic_failures.append({"topic": result_topic.name, "reason": failure})
+                        if failure.startswith(OUT_OF_CREDIT) and not out_of_credit:
+                            out_of_credit = exhausted = True  # start no more topics; in-flight ones finish
+                            skipped = [t.name for t in iterator]
+                            topic_failures.extend({"topic": name, "reason": f"not started: {OUT_OF_CREDIT}"} for name in skipped)
                     else:
                         candidates.extend(records)
                         research_records += len(records)
@@ -1213,6 +1228,8 @@ def main() -> None:
     (out_dir / "edinburgh-weekly-verified.json").write_text(json.dumps({"records": verified}, ensure_ascii=False, indent=2) + "\n")
     if args.stage and staging_records:
         upsert_happenings(staging_records)
+    if args.stage and deal_result is not None:
+        deal_result.commit_ledgers()  # only now: a failed upsert above leaves pages unrecorded
 
     # Promotion remains an explicit second-run action.  The first invocation
     # cannot become live by accident, even if someone uses --stage.
@@ -1252,6 +1269,9 @@ def main() -> None:
         (out_dir / "deal-sources-report.md").write_text(
             "\n".join(deal_sources_markdown(deal_result, heading=f"# Deal sources — {args.batch_id}")) + "\n")
     print(f"[weekly-edinburgh] verified={len(verified)} review={len(review)} report={out_dir / 'weekly-report.md'}")
+    if out_of_credit:
+        print(f"::error::Stopped early: {OUT_OF_CREDIT}. Top up at platform.deepseek.com, then re-run.", flush=True)
+        sys.exit(1)
 
 
 if __name__ == "__main__":

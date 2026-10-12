@@ -8,6 +8,7 @@ from __future__ import annotations
 import json
 import sys
 import unittest
+from unittest import mock
 from datetime import date, datetime, timezone
 from pathlib import Path
 
@@ -307,6 +308,24 @@ class LedgerTests(unittest.TestCase):
         self.assertFalse(led.is_unchanged("u", "other"))
         self.assertFalse(led.record("u", "s", "other"))  # read-only: no request attempted
         self.assertEqual(led.writes, 0)
+
+    def test_deferred_rw_writes_nothing_until_commit(self):
+        # 2026-10-12: a run recorded page hashes, then its staging upsert failed,
+        # and the re-run skipped those pages as unchanged. Deferred rows only
+        # reach source_pages when the caller commits after staging.
+        posted = []
+
+        class Ok:
+            status_code = 201
+
+        led = Ledger("rw", connection=("http://x", "k"), defer=True)
+        with mock.patch("deal_sources.ledger.requests.post", lambda *a, **kw: (posted.append(kw["json"]), Ok())[1]):
+            self.assertTrue(led.record("u", "s", "text"))
+            self.assertEqual((posted, led.writes), ([], 0))  # an upsert failing here leaves source_pages untouched
+            self.assertEqual(led.commit(), 1)
+        self.assertEqual([row["url"] for row in posted], ["u"])
+        self.assertTrue(led.is_unchanged("u", "text"))
+        self.assertEqual(led.commit(), 0)  # the queue is drained
 
     def test_missing_credentials_or_table_is_logged_once(self):
         logs = []

@@ -93,6 +93,11 @@ class DealRunResult:
     identity_review: list[str] = field(default_factory=list)
     budget_exhausted: bool = False
     cap_usd: float = 0.0
+    ledgers: list[Ledger] = field(default_factory=list)
+
+    def commit_ledgers(self) -> int:
+        """Record this run's page hashes. Call only once its rows are staged."""
+        return sum(ledger.commit() for ledger in self.ledgers)
 
 
 def page_slug(url: str) -> str:
@@ -284,7 +289,8 @@ def run_deal_sources(
     log: Callable[[str], None] = print,
 ) -> DealRunResult:
     """Run `sources`. `ledger_enabled=False` never touches the database. Ledger
-    writes happen only for LIVE sources and only when `stage_write` is true."""
+    writes happen only for LIVE sources and only when `stage_write` is true, and
+    then only when the caller runs `result.commit_ledgers()` after staging."""
     result = DealRunResult(cap_usd=cap_usd)
     fetcher = fetcher or PoliteFetcher()
     model = model or default_research_model()
@@ -311,7 +317,8 @@ def run_deal_sources(
         stats = SourceStats(source.id, source.name, source.trust, source.status)
         result.stats.append(stats)
         mode = "off" if not ledger_enabled else ("rw" if (source.status == "live" and stage_write) else "read")
-        ledger = Ledger(mode, log=log)
+        ledger = Ledger(mode, log=log, defer=True)
+        result.ledgers.append(ledger)
         ledger.load(source.id)
 
         refs, notes = discover(source, fetcher, now_dt)
