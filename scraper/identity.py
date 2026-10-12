@@ -297,13 +297,17 @@ def reconcile(records: list[dict[str, Any]], catalogue: Catalogue) -> tuple[list
         review (it was retired on purpose -- a human decides if it's back);
       - confident match to a provider EVENT (non-deal) -> dropped; the daily
         feeds already supply it, with a booking link;
-      - possible match to anything -> kept but forced to review.
+      - possible match to anything -> kept but forced to review;
+      - a SECOND confident match to a happening another candidate already
+        claimed this run -> dropped; both would reuse the same slug, and
+        staging rejects a batch with a repeated (batch_id, slug).
     `_force_review` is read by the verify step; underscore keys never reach
     staging (upsert_happenings only sends ALLOWED_COLUMNS).
     """
     kept: list[dict[str, Any]] = []
     dropped: list[str] = []
     review: list[str] = []
+    claimed: dict[str, str] = {}  # known slug -> title of the candidate that took it
     for record in records:
         found = catalogue.best_match(record)
         title = str(record.get("title") or record.get("slug"))
@@ -315,6 +319,10 @@ def reconcile(records: list[dict[str, Any]], catalogue: Catalogue) -> tuple[list
             dropped.append(f"{title}: already in provider feed as '{known.title}' ({found.why})")
             continue
         if found.verdict == "match" and known.slug:
+            if known.slug in claimed:
+                dropped.append(f"{title}: same row '{known.title}' as candidate '{claimed[known.slug]}' ({found.why})")
+                continue
+            claimed[known.slug] = title
             record["slug"] = known.slug
             record["_known_happening_id"] = known.id
             if known.status != "live":
