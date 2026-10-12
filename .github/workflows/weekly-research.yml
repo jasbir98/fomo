@@ -7,9 +7,11 @@ name: Weekly Edinburgh research
 # run's report), then promoted with a manual "promote" run.
 on:
   schedule:
-    # Monday 05:23 UTC, so the staged batch is ready to review before the
-    # Wednesday carousel and Friday email (weekly-content.yml).
-    - cron: "23 5 * * 1"
+    # Monday 11:23 UTC, so the staged batch is ready to review before the
+    # Wednesday carousel and Friday email (weekly-content.yml). After
+    # DeepSeek's weekday peak (01-04 and 06-10 UTC, double price): Fomo never
+    # calls DeepSeek in peak (scraper/deepseek_hours.py).
+    - cron: "23 11 * * 1"
   workflow_dispatch:
     inputs:
       mode:
@@ -42,7 +44,9 @@ jobs:
     environment: Production
     # --workers 1: concurrent DeepSeek research calls have crashed the
     # streaming path (seen 2026-09-14), so topics run one at a time.
-    timeout-minutes: 240
+    # 340, not 240: a scheduled run GitHub starts late, inside or just before a
+    # DeepSeek peak window, can wait up to ~5 h for off-peak before it starts.
+    timeout-minutes: 340
     steps:
       - uses: actions/checkout@v4
 
@@ -56,6 +60,20 @@ jobs:
       # browser download.
       - name: Install dependencies
         run: pip install "requests>=2.31,<3" "python-dotenv>=1.0,<2" "anthropic>=0.40,<1" "pyyaml>=6,<7"
+
+      # DeepSeek bills double 01-04 and 06-10 UTC on weekdays. GitHub starts
+      # scheduled runs hours late, so a scheduled run waits for a clear
+      # off-peak hour; a manual run in peak stops at once with the next start
+      # time instead of idling on paid Actions minutes. llm_client.py refuses
+      # DeepSeek in peak regardless, so this step only avoids a wasted run.
+      - name: Wait for DeepSeek off-peak
+        if: ${{ github.event_name == 'schedule' || inputs.mode == 'stage' }}
+        run: |
+          if [[ "${{ github.event_name }}" == "schedule" ]]; then
+            python3 scraper/deepseek_hours.py --wait 60
+          else
+            python3 scraper/deepseek_hours.py --check 60
+          fi
 
       - name: Run weekly research
         env:

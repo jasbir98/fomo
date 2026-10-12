@@ -59,6 +59,8 @@ from typing import Any
 
 from dotenv import load_dotenv
 
+from deepseek_hours import guard as guard_deepseek_hours
+
 SCRAPER_DIR = Path(__file__).resolve().parent
 REPO_ROOT = SCRAPER_DIR.parent
 
@@ -115,6 +117,7 @@ def make_research_client(tag: str) -> tuple[Any, str]:
     from anthropic import Anthropic
 
     if provider == "deepseek":
+        guard_deepseek_hours()  # raises DeepSeekPeakHours during DeepSeek's peak windows
         return Anthropic(api_key=os.environ["DEEPSEEK_API_KEY"].strip(), base_url=DEEPSEEK_BASE_URL), provider
     return Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"].strip()), provider
 

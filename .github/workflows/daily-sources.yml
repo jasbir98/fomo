@@ -7,11 +7,14 @@ name: Daily Tier-1 events ingest
 # secrets, and how to run this by hand.
 on:
   schedule:
-    # 06:17 UTC daily — off-the-hour on purpose, same reasoning any cron
+    # 11:17 UTC daily — off-the-hour on purpose, same reasoning any cron
     # scheduling guide gives: avoids the top-of-hour pile-up on GitHub's
-    # shared runners.
-    - cron: "17 6 * * *"
-    # Second pass: GitHub drops scheduled runs under load (the first 06:17
+    # shared runners. After DeepSeek's 06:00-10:00 UTC weekday peak (double
+    # price, scraper/deepseek_hours.py): the Jazz Bar adapter's DeepSeek
+    # fallback refuses to run in peak anyway, but GitHub starts these runs
+    # hours late, so starting after the window keeps the fallback available.
+    - cron: "17 11 * * *"
+    # Second pass: GitHub drops scheduled runs under load (the first morning
     # run on 2026-09-27 never fired). Upserts are idempotent, so a double run
     # costs nothing.
     - cron: "43 17 * * *"
@@ -58,7 +61,7 @@ jobs:
   # appear there (scripts/check-event-sample.mjs). Reported in the job summary;
   # never fails the workflow. Runs off the morning cron only (or by hand).
   sample-check:
-    if: github.event_name == 'workflow_dispatch' || github.event.schedule == '17 6 * * *'
+    if: github.event_name == 'workflow_dispatch' || github.event.schedule == '17 11 * * *'
     runs-on: ubuntu-latest
     environment: Production
     timeout-minutes: 20
