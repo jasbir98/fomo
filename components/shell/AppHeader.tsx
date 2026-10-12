@@ -56,7 +56,8 @@ export interface AppHeaderProps {
 
 /**
  * Shared top app bar used by every tab: Fomo wordmark, weather chip, Search
- * link, "Get the app" chip (phones, until installed), Profile/Sign in.
+ * link, Saved bookmark (signed in only), "Get the app" chip (phones, until
+ * installed), Profile/Sign in.
  * Home passes its city picker pill through `leading`; other tabs skip it (it's
  * noise there, and with SUPPORTED_CITIES.length === 1 it never renders anyway,
  * see lib/city.ts).
@@ -159,6 +160,19 @@ export function AppHeader({ title, leading, weather: weatherProp, className = ""
           >
             <Icon name="search" size={24} />
           </Link>
+          {signedIn === true ? (
+            // Saved moved here from the bottom nav (12 Oct 2026, "For you" took its tab).
+            // Signed-in only: signed out it would just lead to a sign-in prompt.
+            // On desktop it sits before the avatar; from lg the search field is
+            // on the left, so there is no search icon beside it.
+            <Link
+              href="/saved"
+              aria-label="Saved"
+              className="flex h-10 w-10 items-center justify-center rounded-full text-on-surface-variant transition-colors hover:bg-surface-container hover:text-on-surface"
+            >
+              <Icon name="bookmark" size={24} />
+            </Link>
+          ) : null}
           {showInstallChip ? (
             // Icon-only until there's room for the words (480px: below that the
             // words pushed the right cluster over the wordmark); gone below 380px

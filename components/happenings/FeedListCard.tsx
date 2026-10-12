@@ -32,14 +32,19 @@ import { eventToPreview, prefetchEvent, setEventPreview } from "@/lib/events/pre
 import { eventImageFor } from "@/lib/events/image";
 import { track, priceBand, trackOutboundClicked } from "@/lib/analytics/track";
 import { isNewSince, useNewSinceCutoff } from "@/lib/personalise/freshness";
+import { FindBadge } from "@/components/finds/FindBadge";
+import { useFind } from "@/lib/finds/useFinds";
+import type { FindSubjectType } from "@/lib/finds/types";
 
 /** Set by FeedListCard for the row it renders; CardShell reads it to show the "New" badge. */
 const CardIsNew = createContext(false);
+/** Set by FeedListCard when its caller passed `onOpen`; fired from the row's navigate handler, so a tap on the card (not on its bookmark or CTA) is the only thing that counts. */
+const CardOnOpen = createContext<(() => void) | undefined>(undefined);
 
 /** Where this list is mounted — sent as `card_opened`'s `surface` so
  *  analytics can tell a Home "What's on" tap apart from the same card
  *  rendered on /whats-on, /weekend, /deals, /free or /book-early. */
-export type FeedCardSurface = "home_whats_on" | "whats_on" | "weekend" | "free" | "deals" | "book_early" | "home_any_day" | "whats_on_any_day";
+export type FeedCardSurface = "home_whats_on" | "whats_on" | "weekend" | "free" | "deals" | "book_early" | "home_any_day" | "whats_on_any_day" | "for_you";
 
 export interface FeedListCardProps {
   card: FeedCardData;
@@ -47,6 +52,8 @@ export interface FeedListCardProps {
   surface?: FeedCardSurface;
   /** 0-based index within its list, when cheaply known at the call site. */
   position?: number;
+  /** Extra hook for a surface with its own analytics (the "For you" tab's `for_you_rec_opened`); runs when the card is opened, alongside the normal `card_opened`. */
+  onOpen?: () => void;
 }
 
 /** One `card_opened` call site for every happening-backed row variant below
@@ -120,8 +127,7 @@ function CategoryDot({ category }: { category: Happening["category"] }) {
  * after the client-side feed fetch (`useCachedJson`'s server snapshot is
  * always empty), never in SSR HTML.
  */
-function occurrenceWhenLabel(occurrence: Occurrence): string {
-  const now = new Date();
+export function occurrenceWhenLabel(occurrence: Occurrence, now: Date = new Date()): string {
   if (occurrenceIsLive(occurrence, now)) return happeningOnNowLabel(occurrence, now);
   return happeningTimeLabel(occurrence, now) ?? happeningDayLabel(occurrence, now);
 }
@@ -182,6 +188,14 @@ function CardFooter({ children, save }: { children?: React.ReactNode; save: Reac
   );
 }
 
+function NewPill({ className = "" }: { className?: string }) {
+  return (
+    <span className={`rounded-full bg-accent px-1.5 py-0.5 text-[10px] font-extrabold uppercase leading-none tracking-wide text-on-accent ${className}`}>
+      New
+    </span>
+  );
+}
+
 /** Makes the whole card row navigate to `href` while keeping its own inner
  *  buttons/links working — see components/ui/NavCard.tsx's doc comment for
  *  why this is a div, not a wrapping `<a>`/`<Link>` (a bookmark button or
@@ -191,11 +205,14 @@ function CardFooter({ children, save }: { children?: React.ReactNode; save: Reac
  *  glass-panel treatment (app/globals.css's elevation doc comment). */
 function CardShell({
   href,
+  subject,
   children,
   onPointerDown,
   onNavigate,
 }: {
   href: string;
+  /** The happening/event this row stands for, so a hand-picked "For you" item gets the "Picked for you" pill (lib/finds/useFinds.ts). */
+  subject?: { type: FindSubjectType; id: string };
   children: React.ReactNode;
   /** Card→detail instant-preview hand-off (task: happening detail page
    *  load) — see lib/happenings/preview-cache.ts. Undefined for a row that
@@ -205,17 +222,28 @@ function CardShell({
   onNavigate?: () => void;
 }) {
   const isNew = useContext(CardIsNew);
+  const onOpen = useContext(CardOnOpen);
+  const find = useFind(subject?.type ?? "happening", subject?.id);
   return (
     <NavCard
       href={href}
       onPointerDown={onPointerDown}
-      onNavigate={onNavigate}
+      onNavigate={() => {
+        onNavigate?.();
+        onOpen?.();
+      }}
       className="relative flex cursor-pointer flex-col gap-2 rounded-2xl bg-surface-container-lowest p-3.5 shadow-level-1 transition-shadow hover:shadow-level-2"
     >
-      {isNew ? (
-        <span className="absolute left-2 top-2 z-10 rounded-full bg-accent px-1.5 py-0.5 text-[10px] font-extrabold uppercase leading-none tracking-wide text-on-accent shadow-level-1">
-          New
-        </span>
+      {find ? (
+        // A pick gets its own pill row at the top of the card (only the few
+        // hand-picked rows grow by one line). "New" then sits in that row
+        // instead of floating over the card's corner, where it would overlap.
+        <div className="flex items-center gap-1.5">
+          <FindBadge />
+          {isNew ? <NewPill /> : null}
+        </div>
+      ) : isNew ? (
+        <NewPill className="absolute left-2 top-2 z-10 shadow-level-1" />
       ) : null}
       {children}
     </NavCard>
@@ -256,6 +284,7 @@ function HappeningRow({
   return (
     <CardShell
       href={`/happening/${happening.id}`}
+      subject={{ type: "happening", id: happening.id }}
       onPointerDown={() => prefetchHappening(happening.id)}
       onNavigate={() => {
         setHappeningPreview(
@@ -331,6 +360,7 @@ function SeriesRow({ card, surface, position }: { card: SeriesCardData; surface?
   return (
     <CardShell
       href={`/happening/${lead.id}`}
+      subject={{ type: "happening", id: lead.id }}
       onPointerDown={() => prefetchHappening(lead.id)}
       onNavigate={() => {
         setHappeningPreview(
@@ -398,6 +428,7 @@ function RecurringRow({ card, surface, position }: { card: RecurringCardData; su
   return (
     <CardShell
       href={href}
+      subject={lead.kind === "happening" ? { type: "happening", id: lead.happening.id } : { type: "event", id: lead.event.id }}
       onPointerDown={() => (lead.kind === "happening" ? prefetchHappening(lead.happening.id) : prefetchEvent(lead.event.id))}
       onNavigate={() => {
         if (lead.kind === "happening") {
@@ -447,6 +478,8 @@ function RecurringRow({ card, surface, position }: { card: RecurringCardData; su
 }
 
 function FestivalRow({ happening, surface, position }: { happening: Happening; surface?: FeedCardSurface; position?: number }) {
+  const find = useFind("happening", happening.id);
+  const onOpen = useContext(CardOnOpen);
   const priceLabel = priceLabelForHappening(happening);
   const ctaHref = happening.booking_url ?? happening.source_url;
   const ctaLabel = happening.cta_label ?? "View Details";
@@ -466,6 +499,7 @@ function FestivalRow({ happening, surface, position }: { happening: Happening; s
       onNavigate={() => {
         setHappeningPreview(happening.id, happeningToPreview(happening, { priceLabel: savingBadgeLabel(happening) }));
         trackCardOpened("festival", happening.id, surface, position, happening.is_free);
+        onOpen?.();
       }}
       className="flex cursor-pointer flex-col overflow-hidden rounded-3xl bg-surface-container-lowest shadow-level-2"
     >
@@ -487,6 +521,7 @@ function FestivalRow({ happening, surface, position }: { happening: Happening; s
             <span className={`rounded-full px-2 py-0.5 text-label-sm font-bold uppercase tracking-wide ${kindStyle("festival").className}`}>
               Festival
             </span>
+            {find ? <FindBadge /> : null}
             {happening.editorial_tag ? (
               <span className="text-label-sm font-bold text-secondary">{happening.editorial_tag}</span>
             ) : null}
@@ -548,6 +583,7 @@ function EventRow({ event, surface, position }: { event: EventItem; surface?: Fe
   return (
     <CardShell
       href={`/event/${event.id}`}
+      subject={{ type: "event", id: event.id }}
       onPointerDown={() => prefetchEvent(event.id)}
       onNavigate={() => {
         setEventPreview(
@@ -592,11 +628,15 @@ function EventRow({ event, surface, position }: { event: EventItem; surface?: Fe
  * instead renders the wider civic variant (source-link row + full-width
  * CTA), matching the mockup's Doors Open Days card.
  */
-export function FeedListCard({ card, surface, position }: FeedListCardProps) {
+export function FeedListCard({ card, surface, position, onOpen }: FeedListCardProps) {
   // "New since your last visit" (lib/personalise/freshness.ts): badges the
   // card without moving it, so the list keeps its time order.
   const isNew = isNewSince(card, useNewSinceCutoff());
-  return <CardIsNew.Provider value={isNew}>{feedRow(card, surface, position)}</CardIsNew.Provider>;
+  return (
+    <CardOnOpen.Provider value={onOpen}>
+      <CardIsNew.Provider value={isNew}>{feedRow(card, surface, position)}</CardIsNew.Provider>
+    </CardOnOpen.Provider>
+  );
 }
 
 function feedRow(card: FeedCardData, surface: FeedCardSurface | undefined, position: number | undefined) {

@@ -28,6 +28,16 @@
  *   (`eligibility: 'over_60'`) rows — the wedge is students + young
  *   professionals — and down-rank `kind: 'festival'` programme rows.
  *
+ * LIVE FINDS FIRST. Approved Fomo Finds (the `finds` table, curated with
+ * scripts/finds.ts; "For you" in the app) whose subject occurs in the send
+ * window lead the result: genuine deals go first in `deals`, everything else
+ * (events, non-deal happenings) first in `picks`, each in the Find's Fomo
+ * level order, de-duplicated against the normal selection and still inside
+ * the same caps. Each such item carries the Find's `why` line and
+ * `fomoLevel` so ig-carousel / fomo-friday can show them. With no live Finds,
+ * or before supabase/add_finds.sql has been run (missing table), the
+ * selection is exactly what it was without this.
+ *
  * DB ACCESS. Plain `fetch` against `${NEXT_PUBLIC_SUPABASE_URL}/rest/v1`
  * with the service-role key — NOT `@supabase/supabase-js`, whose mandatory
  * Realtime/WebSocket init throws under plain Node 20. Same house pattern as
@@ -466,6 +476,103 @@ function normalizedTitleKey(title, dayDate) {
   return `${title.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim()}|${dayDate}`;
 }
 
+// --- live Fomo Finds (the `finds` table; see scripts/finds.ts) --------------
+
+/** True when a rest() failure means the `finds` table doesn't exist yet (PostgREST PGRST205 / Postgres 42P01). */
+function isMissingFindsTable(err) {
+  return /PGRST205|42P01/.test(String(err?.message ?? ""));
+}
+
+const EVENT_OFF_STATUSES = new Set(["cancelled", "gone", "expired"]);
+
+/**
+ * Live Finds whose subject lands in the send window, as pick/deal-shaped items
+ * in Fomo-level order. `deal: true` marks a genuine deal (goes to `deals`).
+ * Returns [] when there are none or the table is missing; any OTHER error is
+ * rethrown, since silently dropping approved Finds would mislead the sender.
+ * The user approved these by hand, so the audience gate and price tiers that
+ * filter the automatic selection are deliberately NOT re-applied; ended /
+ * dormant / out-of-window / cancelled subjects are still dropped.
+ */
+async function liveFindItems(rest, happenings, window) {
+  let finds;
+  try {
+    finds = await rest(`finds?status=eq.live&select=*`);
+  } catch (err) {
+    if (isMissingFindsTable(err)) return [];
+    throw err;
+  }
+  if (finds.length === 0) return [];
+
+  const eventIds = finds.filter((f) => f.subject_type === "event").map((f) => f.subject_id);
+  const events = eventIds.length ? await rest(`events?id=in.(${eventIds.join(",")})&select=*`) : [];
+  const eventById = new Map(events.map((e) => [e.id, e]));
+  // `happenings` is the live-only list, so a dormant/retired subject is simply absent.
+  const happeningById = new Map(happenings.map((h) => [h.id, h]));
+
+  finds.sort(
+    (a, b) =>
+      b.fomo_level - a.fomo_level ||
+      String(a.approved_at ?? "").localeCompare(String(b.approved_at ?? "")) ||
+      String(a.id).localeCompare(String(b.id))
+  );
+
+  const items = [];
+  for (const f of finds) {
+    const find = { why: f.why, fomoLevel: f.fomo_level, find: true };
+    if (f.subject_type === "happening") {
+      const h = happeningById.get(f.subject_id);
+      if (!h || !h.title || endedReason(h, window.todayDayDate)) continue;
+      const occ = occurrenceInWindow(h, window.windowFromDayDate, window.windowToDayDate);
+      if (!occ) continue;
+      const deal = h.kind === "deal" && isGenuineDeal(h);
+      items.push({
+        ...find,
+        deal,
+        title: h.title,
+        when: deal ? null : whenLabelForHappening(h, occ),
+        price: priceLabelForHappening(h),
+        venue: h.venue_name,
+        url: `https://askfomo.com/happening/${h.id}`,
+        image_url: h.image_url,
+        category: h.category ?? "other",
+        source: "happening",
+      });
+    } else {
+      const e = eventById.get(f.subject_id);
+      if (!e || !e.name || !e.starts_at || EVENT_OFF_STATUSES.has(e.status)) continue;
+      const startMs = new Date(e.starts_at).getTime();
+      if (Number.isNaN(startMs) || startMs < new Date(window.fromIso).getTime() || startMs > new Date(window.toIso).getTime()) continue;
+      items.push({
+        ...find,
+        deal: false,
+        title: e.name,
+        when: whenLabelForEvent(e.starts_at),
+        price: priceLabelForEvent(e),
+        venue: e.venue_name,
+        url: `https://askfomo.com/event/${e.id}`,
+        image_url: e.image_url,
+        category: e.category ?? "other",
+        source: "event",
+      });
+    }
+  }
+  return items;
+}
+
+/**
+ * Finds first, then the automatic selection minus anything a Find already
+ * covers (same URL, or same title — within one weekend window a repeated title
+ * is the same thing), capped. Never drops a Find for the cap before an
+ * automatic pick: Finds are at the front, the slice cuts from the tail.
+ */
+function mergeFindsFirst(findItems, selection, cap) {
+  const urls = new Set(findItems.map((i) => i.url));
+  const titles = new Set(findItems.map((i) => normalizedTitleKey(i.title, "")));
+  const rest = selection.filter((i) => !urls.has(i.url) && !titles.has(normalizedTitleKey(i.title, "")));
+  return [...findItems, ...rest].slice(0, cap);
+}
+
 /**
  * The coming Fri 17:00 -> Sun 23:59:59 Europe/London window, as local day
  * strings plus their UTC instants (the latter needed for the `events`
@@ -645,13 +752,25 @@ export async function getWeeklyPicks({ supabaseUrl, serviceRoleKey, now = new Da
   const evergreenPicks = [];
   if (evergreenBudget > 0) takeCategoryCapped(evergreenCandidates, evergreenBudget, evergreenPicks);
 
-  const picks = [...datedPicks, ...evergreenPicks];
+  // Approved Finds lead (see "LIVE FINDS FIRST" in the module doc). The
+  // counts below keep describing the automatic selection only.
+  const findItems = await liveFindItems(rest, happenings, window);
+  const picks = mergeFindsFirst(
+    findItems.filter((i) => !i.deal),
+    [...datedPicks, ...evergreenPicks],
+    maxPicks
+  );
+  const dealsWithFinds = mergeFindsFirst(
+    findItems.filter((i) => i.deal),
+    deals,
+    maxDeals
+  );
   const datedFromHappenings = datedPicks.filter((p) => p.source === "happening").length;
   const datedFromEvents = datedPicks.filter((p) => p.source === "event").length;
 
   return {
     picks,
-    deals,
+    deals: dealsWithFinds,
     window,
     excludedEndedDeals,
     counts: {
@@ -659,6 +778,7 @@ export async function getWeeklyPicks({ supabaseUrl, serviceRoleKey, now = new Da
       datedFromEvents,
       evergreen: evergreenPicks.length,
       totalPicks: picks.length,
+      finds: findItems.length,
     },
   };
 }

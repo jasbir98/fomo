@@ -11,6 +11,9 @@ import { PriceTag } from "@/components/happenings/PriceTag";
 import { useEffectiveWho } from "@/lib/personalise/useEffectiveWho";
 import type { DealCardData } from "@/lib/happenings/feed-types";
 import { track, priceBand } from "@/lib/analytics/track";
+import { FindBadge } from "@/components/finds/FindBadge";
+import { useFindKeys } from "@/lib/finds/useFinds";
+import { findKey } from "@/lib/finds/types";
 
 export interface VenueDealCardProps {
   /** `null` when this group has no resolvable `places` row (a normalised-
@@ -69,6 +72,10 @@ function VenueDealSummary({
   priceLabel: PriceLabel | null;
 }) {
   const who = useEffectiveWho();
+  // Any of this venue's offers hand-picked for "For you"? Show the pill under
+  // the subtitle; the card itself still links to the whole venue.
+  const findKeys = useFindKeys();
+  const hasFind = offers.some((o) => findKeys.has(findKey("happening", o.happening.id)));
   // Offer in plain words + count ("Up to 30% off · 2 deals"); the title above is the venue.
   const best = dealGroupSubtitle(offers.map((o) => o.happening));
   const count = `${offers.length} deal${offers.length === 1 ? "" : "s"}`;
@@ -87,6 +94,7 @@ function VenueDealSummary({
         <PriceTag label={priceLabel} variant="compact" />
       </div>
       <span className="line-clamp-1 text-body-sm text-on-surface-variant">{subtitle}</span>
+      {hasFind ? <FindBadge className="mt-0.5" /> : null}
       {qualifies ? (
         <span className="inline-flex w-fit items-center gap-1 rounded-full bg-secondary-container/25 px-2 py-0.5 text-label-sm font-bold text-primary">
           <Icon name="check_circle" filled size={12} />

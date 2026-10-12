@@ -105,6 +105,8 @@ const PUBLIC_API_PREFIXES = [
   "/api/feed",
   "/api/happenings",
   "/api/explore",
+  // Live Finds (GET only): the For you page (/for-you) and the "Picked for you" badge store.
+  "/api/finds",
   "/api/weather",
   // GET half of the Fomo Friday one-click unsubscribe link — the page
   // itself (app/unsubscribe/page.tsx) calls this on mount with no session.

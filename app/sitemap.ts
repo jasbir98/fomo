@@ -11,6 +11,7 @@ import { SITE_URL } from "@/lib/seo/site";
 const STATIC_PATHS = [
   "/",
   "/weekend",
+  "/for-you",
   "/deals",
   "/whats-on",
   "/free",

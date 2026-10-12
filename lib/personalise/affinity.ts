@@ -19,7 +19,7 @@ const STORAGE_KEY = "fomo:affinity";
  *  this many times. */
 const CAP_PER_INTEREST = 2;
 
-type AffinityMap = Partial<Record<InterestKey, number>>;
+export type AffinityMap = Partial<Record<InterestKey, number>>;
 
 function read(): AffinityMap {
   if (typeof window === "undefined") return {};

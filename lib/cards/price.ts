@@ -1,4 +1,5 @@
-import "server-only";
+// Not `server-only`: pure, no secrets, and lib/happenings/hero.ts (which
+// imports it) also runs in the For you tab, scripts/finds.ts and tests.
 import type { EventItem } from "@/lib/types";
 
 // ---------------------------------------------------------------------------
