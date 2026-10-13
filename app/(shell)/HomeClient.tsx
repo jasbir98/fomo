@@ -20,6 +20,8 @@ import { usePrefs } from "@/lib/personalise/usePrefs";
 import { openMakeFomoYours } from "@/lib/personalise/trigger";
 import { personalBoost, reorderWithBoost, type BoostPrefs } from "@/lib/personalise/score";
 import { useEffectiveWho } from "@/lib/personalise/useEffectiveWho";
+import { useAffinity } from "@/lib/personalise/useAffinity";
+import { useSignedIn } from "@/lib/useSaved";
 import { londonDayKey, rotateDaily } from "@/lib/personalise/freshness";
 import type { RankedDealItem } from "@/lib/happenings/venue-deals";
 import { track } from "@/lib/analytics/track";
@@ -288,12 +290,11 @@ export function HomeClient({ initialFeed = null }: HomeClientProps) {
   const pendingScrollRef = useRef(false);
   const prevFeedWindowRef = useRef<FeedWindow>(feedWindow);
   const prefs = usePrefs();
-  // Signed-in AND signed-out visitors both need a "who" — a signed-out
-  // visitor who answered "Make Fomo yours" has their eligibility in
-  // localStorage (lib/personalise/usePrefs.ts), which lib/useSaved.ts's own
-  // `who` can't see; useEffectiveWho reconciles the two. See its own doc
-  // comment for why this can't just live in lib/useSaved.ts.
+  // The visitor's eligibility set. Empty while signed out: personalisation
+  // (ranking, "You qualify") needs an account. See useEffectiveWho's doc
+  // comment for why this lives in lib/personalise/, not lib/useSaved.ts.
   const dealWho = useEffectiveWho();
+  const affinity = useAffinity();
   const { city, source: citySource, shouldPrompt: shouldPromptCity } = useSelectedCity();
   const [cityPickerOpen, setCityPickerOpen] = useState(false);
 
@@ -325,8 +326,10 @@ export function HomeClient({ initialFeed = null }: HomeClientProps) {
   // happening-id set, so each BookEarlyCard renders correctly subscribed
   // instead of resetting to "Notify me" on every load. `key: null` when the
   // feature's off (NEXT_PUBLIC_VAPID_PUBLIC_KEY unset) disables the fetch
-  // entirely — same as the old `if (!NOTIFY_ME_ENABLED) return` guard.
-  const alertsResult = useCachedJson<string[]>(NOTIFY_ME_ENABLED ? "alerts" : null, fetchAlertIds, {
+  // entirely — same as the old `if (!NOTIFY_ME_ENABLED) return` guard. Alerts
+  // need an account, so it's also off unless signed in (the route 401s).
+  const signedIn = useSignedIn();
+  const alertsResult = useCachedJson<string[]>(NOTIFY_ME_ENABLED && signedIn === true ? "alerts" : null, fetchAlertIds, {
     staleMs: ALERTS_STALE_MS,
   });
   const alertHappeningIds = useMemo(() => new Set(alertsResult.data ?? []), [alertsResult.data]);
@@ -440,8 +443,8 @@ export function HomeClient({ initialFeed = null }: HomeClientProps) {
     [prefs.interests, prefs.budget, dealWho]
   );
   const boostedWhatsOnCards = useMemo(
-    () => reorderWithBoost(whatsOnCards, (card) => personalBoost(card, boostPrefs)),
-    [whatsOnCards, boostPrefs]
+    () => reorderWithBoost(whatsOnCards, (card) => personalBoost(card, boostPrefs, affinity)),
+    [whatsOnCards, boostPrefs, affinity]
   );
   // "Any day" (lib/happenings/everyday.ts) — boosted within its own section,
   // never merged into the dated list above. Rotated daily first
@@ -449,8 +452,8 @@ export function HomeClient({ initialFeed = null }: HomeClientProps) {
   // the same three led the section on every visit.
   const anyDayCards = useMemo(() => rotateDaily(anyDayBucket?.cards ?? [], londonDayKey()), [anyDayBucket]);
   const boostedAnyDayCards = useMemo(
-    () => reorderWithBoost(anyDayCards, (card) => personalBoost(card, boostPrefs)),
-    [anyDayCards, boostPrefs]
+    () => reorderWithBoost(anyDayCards, (card) => personalBoost(card, boostPrefs, affinity)),
+    [anyDayCards, boostPrefs, affinity]
   );
   // Tab count / badge = dated list + Any day, so the number never shrinks just
   // because an item moved sections. Same rule as /whats-on.
@@ -458,9 +461,9 @@ export function HomeClient({ initialFeed = null }: HomeClientProps) {
   const boostedTodaysDeals = useMemo(
     () =>
       reorderWithBoost(todaysDealsList, (item: RankedDealItem) =>
-        personalBoost(item.kind === "group" ? item.offers[0] : item.card, boostPrefs)
+        personalBoost(item.kind === "group" ? item.offers[0] : item.card, boostPrefs, affinity)
       ),
-    [todaysDealsList, boostPrefs]
+    [todaysDealsList, boostPrefs, affinity]
   );
 
   function cardKey(card: FeedCardData): string {

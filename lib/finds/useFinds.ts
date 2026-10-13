@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useSyncExternalStore } from "react";
+import { useSignedIn } from "@/lib/useSaved";
 import { findKey, type FindItem, type FindsResponse, type FindSubjectType } from "./types";
 
 /**
@@ -8,6 +9,13 @@ import { findKey, type FindItem, type FindsResponse, type FindSubjectType } from
  * the Finds; the @askfomo Instagram series is still called "Fomo Finds"), so
  * any card or detail page can ask "is this one of them?" and show the
  * "Picked for you" badge without every caller fetching.
+ *
+ * Account-only, like the list itself: the store fetches only once the visitor
+ * is known to be signed in (`useSignedIn() === true`) and holds an empty set
+ * otherwise, so a "Picked for you" badge can never reveal which items are on
+ * the list to a signed-out visitor. (GET /api/finds would only hand a signed-out
+ * caller the 2-pick teaser anyway; the badge store doesn't ask.) It fetches as
+ * soon as the visitor signs in, and drops back to empty on sign-out.
  *
  * Same shape as lib/useSaved.ts and AppHeader's `fetchWeatherOnce`:
  *  - module-level state read through `useSyncExternalStore`, shared by every
@@ -29,6 +37,8 @@ let state: FindsState = EMPTY;
 const listeners = new Set<() => void>();
 let inFlight: Promise<void> | null = null;
 let loaded = false;
+/** Bumped on sign-out so a fetch still in flight for the old session can't fill the store afterwards. */
+let generation = 0;
 
 function subscribe(listener: () => void): () => void {
   listeners.add(listener);
@@ -47,12 +57,14 @@ function itemKey(item: FindItem): string {
 function fetchOnce(): Promise<void> {
   if (loaded) return Promise.resolve();
   if (!inFlight) {
+    const startedIn = generation;
     inFlight = fetch("/api/finds")
       .then((res) => {
         if (!res.ok) throw new Error(`GET /api/finds ${res.status}`);
         return res.json() as Promise<FindsResponse>;
       })
       .then((json) => {
+        if (startedIn !== generation) return;
         loaded = true;
         state = { byKey: new Map((json.items ?? []).map((item) => [itemKey(item), item])) };
         for (const listener of listeners) listener();
@@ -66,10 +78,23 @@ function fetchOnce(): Promise<void> {
   return inFlight;
 }
 
+/** Signed out (or signed out again): forget the list so no badge outlives the session. */
+function clearStore(): void {
+  generation += 1;
+  inFlight = null;
+  loaded = false;
+  if (state !== EMPTY) {
+    state = EMPTY;
+    for (const listener of listeners) listener();
+  }
+}
+
 function useEnsureLoaded(): void {
+  const signedIn = useSignedIn();
   useEffect(() => {
-    void fetchOnce();
-  }, []);
+    if (signedIn === true) void fetchOnce();
+    else if (signedIn === false) clearStore();
+  }, [signedIn]);
 }
 
 /** The live pick for this happening or event, or null (also null until the one shared fetch lands). */

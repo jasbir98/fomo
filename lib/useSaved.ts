@@ -6,6 +6,7 @@ import { listSavedItems, saveItem, unsaveItem } from "@/lib/db/saved";
 import { describeSupabaseError } from "@/lib/db/errors";
 import { parseWhoGroups, type DealWhoGroup } from "@/lib/happenings/groups";
 import type { CardSubjectType } from "@/lib/types";
+import { sendToSignIn } from "@/lib/auth/send-to-signin";
 
 /**
  * One shared, page-load-wide answer to "is this visitor signed in, and what
@@ -90,11 +91,6 @@ function ensureInitialized(): void {
   });
 }
 
-function sendToSignIn(): void {
-  const next = `${window.location.pathname}${window.location.search}`;
-  window.location.assign(`/signin?next=${encodeURIComponent(next)}&reason=save`);
-}
-
 /**
  * Shared optimistic save/unsave core: moves (subjectType, subjectId) to
  * `desired` (true = saved, false = unsaved). No-ops if already in that
@@ -106,7 +102,7 @@ async function setSavedState(
   desired: boolean
 ): Promise<void> {
   if (state.signedIn === false) {
-    sendToSignIn();
+    sendToSignIn("save");
     return;
   }
   const key = keyOf(subjectType, subjectId);
@@ -131,7 +127,7 @@ async function setSavedState(
     else reverted.add(key);
     setState({ ...state, keys: reverted });
     // Tapped before the session check finished, and there was no session.
-    if (state.signedIn !== true) sendToSignIn();
+    if (state.signedIn !== true) sendToSignIn("save");
   } finally {
     inFlight.delete(key);
   }

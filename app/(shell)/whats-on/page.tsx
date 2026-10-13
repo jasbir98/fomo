@@ -16,6 +16,9 @@ import { cardOnDay, cardPillDate } from "@/components/happenings/DateFilterRow";
 import { usePrefs } from "@/lib/personalise/usePrefs";
 import { personalBoost, type BoostPrefs } from "@/lib/personalise/score";
 import { useEffectiveWho } from "@/lib/personalise/useEffectiveWho";
+import { useAffinity } from "@/lib/personalise/useAffinity";
+import { useSignedIn } from "@/lib/useSaved";
+import { sendToSignIn } from "@/lib/auth/send-to-signin";
 import { londonDayKey, rotateDaily } from "@/lib/personalise/freshness";
 import { track } from "@/lib/analytics/track";
 
@@ -91,6 +94,13 @@ function WhatsOnPageInner() {
   // sorts by boost"), so it's a plain client toggle with no URL state.
   const [forYou, setForYouState] = useState(false);
   function setForYou(next: boolean) {
+    // Ranking by your picks needs an account: signed out, the chip goes to
+    // sign-in instead of toggling. While the session check is still running
+    // (`null`) it behaves as normal.
+    if (signedIn === false) {
+      sendToSignIn("for_you");
+      return;
+    }
     setForYouState(next);
     track("filter_used", { filter: "for_you", value: next, page: "whats_on" });
   }
@@ -104,6 +114,8 @@ function WhatsOnPageInner() {
   }
   const who = useEffectiveWho();
   const prefs = usePrefs();
+  const affinity = useAffinity();
+  const signedIn = useSignedIn();
   const boostPrefs: BoostPrefs = useMemo(
     () => ({ interests: prefs.interests, budget: prefs.budget, who }),
     [prefs.interests, prefs.budget, who]
@@ -235,19 +247,19 @@ function WhatsOnPageInner() {
   const visibleCards = useMemo(() => {
     if (!forYou) return filteredCards;
     return filteredCards
-      .map((card, index) => ({ card, index, score: personalBoost(card, boostPrefs) }))
+      .map((card, index) => ({ card, index, score: personalBoost(card, boostPrefs, affinity) }))
       .sort((a, b) => b.score - a.score || a.index - b.index)
       .map((entry) => entry.card);
-  }, [filteredCards, forYou, boostPrefs]);
+  }, [filteredCards, forYou, boostPrefs, affinity]);
 
   // Same "For you" sort, applied within the Any day section on its own.
   const visibleAnyDay = useMemo(() => {
     if (!forYou) return filteredAnyDay;
     return filteredAnyDay
-      .map((card, index) => ({ card, index, score: personalBoost(card, boostPrefs) }))
+      .map((card, index) => ({ card, index, score: personalBoost(card, boostPrefs, affinity) }))
       .sort((a, b) => b.score - a.score || a.index - b.index)
       .map((entry) => entry.card);
-  }, [filteredAnyDay, forYou, boostPrefs]);
+  }, [filteredAnyDay, forYou, boostPrefs, affinity]);
 
   // Count = dated list + Any day (matches Home's tab badge).
   const visibleTotal = visibleCards.length + visibleAnyDay.length;

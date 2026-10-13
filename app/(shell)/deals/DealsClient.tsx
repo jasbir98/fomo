@@ -14,6 +14,7 @@ import { FomoSpot } from "@/components/fomo/FomoSpot";
 import { usePrefs } from "@/lib/personalise/usePrefs";
 import { personalBoost, reorderWithBoost, type BoostPrefs } from "@/lib/personalise/score";
 import { useEffectiveWho } from "@/lib/personalise/useEffectiveWho";
+import { useAffinity } from "@/lib/personalise/useAffinity";
 import { track } from "@/lib/analytics/track";
 
 type DealListItem =
@@ -81,6 +82,7 @@ export function DealsClient({ initialDeals = null }: DealsClientProps) {
   }
   const who = useEffectiveWho();
   const prefs = usePrefs();
+  const affinity = useAffinity();
   const boostPrefs: BoostPrefs = useMemo(
     () => ({ interests: prefs.interests, budget: prefs.budget, who }),
     [prefs.interests, prefs.budget, who]
@@ -112,9 +114,9 @@ export function DealsClient({ initialDeals = null }: DealsClientProps) {
   const dealItems = useMemo(
     () =>
       reorderWithBoost(unrankedDealItems, (item) =>
-        personalBoost(item.kind === "venue" ? item.group.offers[0] : item.card, boostPrefs)
+        personalBoost(item.kind === "venue" ? item.group.offers[0] : item.card, boostPrefs, affinity)
       ),
-    [unrankedDealItems, boostPrefs]
+    [unrankedDealItems, boostPrefs, affinity]
   );
 
   const totalBeforeFilters = (deals?.venueGroups.length ?? 0) + (deals?.singles.length ?? 0);

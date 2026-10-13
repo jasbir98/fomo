@@ -27,6 +27,8 @@ import type { CarouselPhoto } from "@/components/ui";
 import { NOTIFY_ME_ENABLED } from "@/lib/happenings/book-early";
 import { NotifyMeButton } from "@/components/happenings";
 import { ensurePushSubscribed, pushReasonMessage } from "@/lib/push/client";
+import { useSignedIn } from "@/lib/useSaved";
+import { sendToSignIn } from "@/lib/auth/send-to-signin";
 import { getHappeningPreview, takePrefetchedHappening, type HappeningPreview } from "@/lib/happenings/preview-cache";
 import { interestForHappeningCategory } from "@/lib/personalise/interests";
 import { track, trackOutboundClicked } from "@/lib/analytics/track";
@@ -131,6 +133,7 @@ export function HappeningDetail({ id, presentation = "page", initialData }: Deta
   const [copyFailed, setCopyFailed] = useState(false);
   const [imgError, setImgError] = useState(false);
   const [notifySubscribed, setNotifySubscribed] = useState(false);
+  const signedIn = useSignedIn();
   const [notifyError, setNotifyError] = useState<string | null>(null);
   // A card's click-time write to the preview cache, if there is one — powers
   // the instant hero while `loading` is still true; `null` means this page was
@@ -173,7 +176,7 @@ export function HappeningDetail({ id, presentation = "page", initialData }: Deta
   // per-happening endpoint, matching Home's own GET /api/alerts read; this
   // page only has the one card to check membership for.
   useEffect(() => {
-    if (!NOTIFY_ME_ENABLED) return;
+    if (!NOTIFY_ME_ENABLED || signedIn !== true) return;
     let cancelled = false;
     fetch("/api/alerts")
       .then((res) => res.json())
@@ -184,10 +187,15 @@ export function HappeningDetail({ id, presentation = "page", initialData }: Deta
     return () => {
       cancelled = true;
     };
-  }, [id]);
+  }, [id, signedIn]);
 
   async function handleNotify() {
     setNotifyError(null);
+    // Alerts need an account: signed out, go to sign-in before any permission prompt.
+    if (signedIn === false) {
+      sendToSignIn("notify");
+      return;
+    }
     const result = await ensurePushSubscribed();
     if (!result.ok) {
       setNotifyError(pushReasonMessage(result.reason) ?? "Couldn't turn on alerts. Try again.");

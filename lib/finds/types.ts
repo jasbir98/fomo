@@ -35,10 +35,19 @@ export type FindItem =
   | { id: string; why: string; fomoLevel: number; kind: "happening"; happening: Happening }
   | { id: string; why: string; fomoLevel: number; kind: "event"; event: EventItem };
 
-/** GET /api/finds */
+/**
+ * GET /api/finds. Signed in: every live Find. Signed out: only the first
+ * `TEASER_COUNT` (the teaser), with `total` still the full count so the locked
+ * card can say how many more there are. `total` is the number of live Finds
+ * either way (>= items.length).
+ */
 export interface FindsResponse {
   items: FindItem[];
+  total: number;
 }
+
+/** How many picks a signed-out visitor sees on /for-you before the sign-in card. */
+export const TEASER_COUNT = 2;
 
 /** Badge lookup key, same "type:id" form lib/useSaved.ts uses. */
 export function findKey(type: FindSubjectType, id: string): string {

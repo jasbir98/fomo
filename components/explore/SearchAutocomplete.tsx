@@ -4,6 +4,8 @@ import { useEffect, useId, useRef, useState, type KeyboardEvent } from "react";
 import { useRouter } from "next/navigation";
 import type { ExplorePin } from "@/lib/explore/types";
 import { Icon } from "@/components/ui";
+import { useSignedIn } from "@/lib/useSaved";
+import { sendToSignIn } from "@/lib/auth/send-to-signin";
 
 export interface ResolvedPlace {
   source: "fomo" | "google";
@@ -36,7 +38,11 @@ export interface SearchAutocompleteProps {
 const MAX_FOMO_MATCHES = 4;
 
 /** Flattened option list for keyboard nav across every group ("ask" is always last). */
-type Option = { kind: "pin"; pin: ExplorePin } | { kind: "google"; suggestion: GoogleSuggestion } | { kind: "ask" };
+type Option =
+  | { kind: "pin"; pin: ExplorePin }
+  | { kind: "google"; suggestion: GoogleSuggestion }
+  | { kind: "signin" }
+  | { kind: "ask" };
 
 /**
  * Explore's search box + suggestions dropdown. Two groups: "On Fomo" is an
@@ -44,7 +50,9 @@ type Option = { kind: "pin"; pin: ExplorePin } | { kind: "google"; suggestion: G
  * current layer/area — no network round trip. "Places" is Google Places
  * Autocomplete (New), debounced 250ms and session-tokened per Google's
  * billing model (server side: lib/places/autocomplete.ts via
- * app/api/places/autocomplete/route.ts).
+ * app/api/places/autocomplete/route.ts). That route needs an account, so
+ * signed out (or while the session check runs) nothing is fetched and the
+ * Places group is a single "Sign in to search every place on Google Maps" row.
  *
  * Selecting either option clears the search box rather than filling it with
  * the picked label: the result surfaces through the map (flyTo + the pin
@@ -61,6 +69,7 @@ export function SearchAutocomplete({
   placeholder = "Search Edinburgh…",
 }: SearchAutocompleteProps) {
   const router = useRouter();
+  const signedIn = useSignedIn();
   const [open, setOpen] = useState(false);
   const [googleSuggestions, setGoogleSuggestions] = useState<GoogleSuggestion[]>([]);
   const [activeIndex, setActiveIndex] = useState(-1);
@@ -74,7 +83,9 @@ export function SearchAutocomplete({
   // fetch effect below never fires below that) — this just hides a stale
   // batch the instant the query is backspaced short again, without a
   // synchronous setState-in-effect to clear it (see that effect's own note).
-  const visibleGoogleSuggestions = q.length >= 2 ? googleSuggestions : [];
+  const visibleGoogleSuggestions = q.length >= 2 && signedIn === true ? googleSuggestions : [];
+  // Signed out: one row in the Places group instead of Google suggestions.
+  const showSignInRow = q.length >= 2 && signedIn === false;
 
   function ensureSession(): string {
     if (!sessionRef.current) sessionRef.current = crypto.randomUUID();
@@ -90,7 +101,7 @@ export function SearchAutocomplete({
   // exactly the cascading-render pattern react-hooks/set-state-in-effect
   // flags.
   useEffect(() => {
-    if (q.length < 2) return;
+    if (q.length < 2 || signedIn !== true) return;
     const controller = new AbortController();
     const timer = setTimeout(() => {
       (async () => {
@@ -111,16 +122,18 @@ export function SearchAutocomplete({
       clearTimeout(timer);
       controller.abort();
     };
-  }, [q]);
+  }, [q, signedIn]);
 
   const options: Option[] = [
     ...fomoMatches.map((pin): Option => ({ kind: "pin", pin })),
     ...visibleGoogleSuggestions.map((suggestion): Option => ({ kind: "google", suggestion })),
+    ...(showSignInRow ? [{ kind: "signin" } as Option] : []),
     // Open questions ("cheap biryani") don't match a pin title; hand them to the AI.
     ...(q.length >= 2 ? [{ kind: "ask" } as Option] : []),
   ];
   const showDropdown = open && options.length > 0;
   const askIndex = options.length - 1;
+  const signInIndex = fomoMatches.length;
 
   function selectPin(pin: ExplorePin) {
     setOpen(false);
@@ -151,6 +164,10 @@ export function SearchAutocomplete({
   function selectOption(option: Option) {
     if (option.kind === "pin") selectPin(option.pin);
     else if (option.kind === "google") void selectGoogle(option.suggestion);
+    else if (option.kind === "signin") {
+      setOpen(false);
+      sendToSignIn("places");
+    }
     else askFomo();
   }
 
@@ -280,9 +297,33 @@ export function SearchAutocomplete({
             </>
           ) : null}
 
+          {showSignInRow ? (
+            <>
+              <li role="presentation" className="px-2 pb-0.5 pt-1 text-label-sm font-semibold text-on-surface-variant">
+                Places
+              </li>
+              <li role="presentation">
+                <button
+                  id={`${listboxId}-opt-${signInIndex}`}
+                  role="option"
+                  aria-selected={activeIndex === signInIndex}
+                  type="button"
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={() => selectOption({ kind: "signin" })}
+                  className={`flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-body-sm text-on-surface transition-colors ${
+                    activeIndex === signInIndex ? "bg-surface-container" : "hover:bg-surface-container"
+                  }`}
+                >
+                  <Icon name="lock" size={16} className="shrink-0 text-primary" />
+                  <span>Sign in to search every place on Google Maps</span>
+                </button>
+              </li>
+            </>
+          ) : null}
+
           {q.length >= 2 ? (
             <>
-              {fomoMatches.length + visibleGoogleSuggestions.length > 0 ? (
+              {fomoMatches.length + visibleGoogleSuggestions.length + (showSignInRow ? 1 : 0) > 0 ? (
                 <li role="presentation" aria-hidden="true" className="mx-2 my-0.5 border-t border-hairline" />
               ) : null}
               <li role="presentation">
