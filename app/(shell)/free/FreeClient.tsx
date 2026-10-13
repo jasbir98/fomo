@@ -173,7 +173,7 @@ export function FreeClient({ initialItems = null }: FreeClientProps) {
               <p className="text-body-sm text-on-surface-variant">Nothing matches. Clear filters</p>
             </div>
           ) : (
-            <div className="flex flex-col gap-2.5 lg:grid lg:grid-cols-2 lg:items-start lg:gap-4 2xl:grid-cols-3">
+            <div className="flex flex-col gap-2.5 lg:grid lg:grid-cols-2 lg:gap-4 2xl:grid-cols-3">
               {filteredItems.slice(0, visibleCount).map((item) => (
                 <FreeAnyTimeRow key={`${item.kind}-${item.id}`} item={item} />
               ))}
