@@ -1,7 +1,9 @@
 /**
  * The "For you" tab's recommendations (docs/plans/2026-10-12-fomo-finds.md).
  *
- * Two lists, built from what the page already has: the live Finds (the
+ * The page shows two groups, Deals & offers (`kind: "deal"`, as on the
+ * Deals tab) and Events (everything else), each with its own two lists,
+ * built from what the page already has: the live Finds (the
  * hand-approved weekly steals, lib/finds/*) and the feed's own cards (What's
  * on, Any day and every deal, from both feed windows).
  *
@@ -11,7 +13,7 @@
  *    can't use (a student price for someone who said they work) drops to
  *    the bottom. Nothing is hidden: there are only ~12 Finds and they are
  *    the point of the tab.
- *  - `more`: up to MORE_LIMIT non-Find cards in the next MORE_DAYS days.
+ *  - `more`: up to MORE_LIMIT non-Find cards per group in the next MORE_DAYS days.
  *    The base is the Home hero's recommendation score (lib/happenings/hero.ts)
  *    so a weak card never wins on taste alone; taste is weighted on top.
  *    With prefs or save history, only cards that match them count, topped up
@@ -40,8 +42,9 @@ import { cardInterest, cardWho, fitsBudget, personalBoost, type BoostPrefs } fro
 
 type Card = FeedCardData | DealCardData;
 
-export const MORE_LIMIT = 10;
-/** Below this many taste matches, `more` is topped up from the best of the rest. */
+/** Recommendations per group (Deals & offers, Events). */
+export const MORE_LIMIT = 6;
+/** Below this many taste matches in a group, its `more` is topped up from the best of the rest. */
 export const MORE_MIN = 4;
 export const MORE_DAYS = 7;
 export const MAX_PER_INTEREST = 3;
@@ -76,10 +79,24 @@ export interface ForYouEntry {
   score: number;
 }
 
+export type ForYouGroupKey = "deals" | "events";
+
+/** One of the page's two groups. Each has its own picks and its own recommendations. */
+export interface ForYouGroup {
+  key: ForYouGroupKey;
+  title: "Deals & offers" | "Events";
+  picks: ForYouEntry[];
+  more: ForYouEntry[];
+}
+
 export interface ForYouResult {
   /** True when the visitor has prefs or save history to personalise from. */
   personalised: boolean;
+  /** Deals & offers first, then Events; a group with nothing in it is left out. */
+  groups: ForYouGroup[];
+  /** Every group's picks, best first. */
   picks: ForYouEntry[];
+  /** Every group's recommendations, group by group. */
   more: ForYouEntry[];
   moreTitle: "More for you" | "Popular this week";
 }
@@ -113,6 +130,14 @@ export function subjectKey(card: Card): string {
   if (card.kind === "event") return `event:${card.event.id}`;
   if (card.kind === "series") return `series:${card.key}`;
   return `recurring:${card.key}`;
+}
+
+/** Deals & offers = `kind: "deal"` happenings, the same rows the Deals tab lists; everything else (events, free entry, tours, festivals) is Events. */
+export function groupOf(card: Card): ForYouGroupKey {
+  if (card.kind === "event") return "events";
+  if (card.kind === "series") return card.lead.kind === "deal" ? "deals" : "events";
+  if (card.kind === "recurring") return groupOf(card.lead);
+  return card.happening.kind === "deal" ? "deals" : "events";
 }
 
 /** Subject keys a card covers: a series or recurring card also covers its lead, so a Find's lead isn't shown twice. */
@@ -204,31 +229,47 @@ export function buildForYou({
   }
   pool.sort((a, b) => b.entry.score - a.entry.score);
 
-  const perInterest = new Map<string, number>();
-  const take = (entries: ForYouEntry[], out: ForYouEntry[]) => {
-    for (const entry of entries) {
-      if (out.length >= MORE_LIMIT) return;
-      const interest = cardInterest(entry.card) ?? "none";
-      const used = perInterest.get(interest) ?? 0;
-      if (interest !== "none" && used >= MAX_PER_INTEREST) continue;
-      perInterest.set(interest, used + 1);
-      out.push(entry);
+  /** Up to MORE_LIMIT from one group's pool, each interest capped at MAX_PER_INTEREST. */
+  const recommend = (groupPool: typeof pool): ForYouEntry[] => {
+    const perInterest = new Map<string, number>();
+    const out: ForYouEntry[] = [];
+    const take = (entries: ForYouEntry[]) => {
+      for (const entry of entries) {
+        if (out.length >= MORE_LIMIT) return;
+        const interest = cardInterest(entry.card) ?? "none";
+        const used = perInterest.get(interest) ?? 0;
+        if (interest !== "none" && used >= MAX_PER_INTEREST) continue;
+        perInterest.set(interest, used + 1);
+        out.push(entry);
+      }
+    };
+    if (personalised) {
+      take(groupPool.filter((p) => p.matches).map((p) => p.entry));
+      if (out.length < MORE_MIN) {
+        const taken = new Set(out.map((e) => e.key));
+        take(groupPool.filter((p) => !taken.has(p.entry.key)).map((p) => p.entry));
+      }
+    } else {
+      take(groupPool.map((p) => p.entry));
     }
+    return out;
   };
 
-  const more: ForYouEntry[] = [];
-  if (personalised) {
-    take(pool.filter((p) => p.matches).map((p) => p.entry), more);
-    if (more.length < MORE_MIN) {
-      const taken = new Set(more.map((e) => e.key));
-      take(pool.filter((p) => !taken.has(p.entry.key)).map((p) => p.entry), more);
-    }
-  } else {
-    take(pool.map((p) => p.entry), more);
-  }
+  const GROUPS: { key: ForYouGroupKey; title: ForYouGroup["title"] }[] = [
+    { key: "deals", title: "Deals & offers" },
+    { key: "events", title: "Events" },
+  ];
+  const groups: ForYouGroup[] = GROUPS.map(({ key, title }) => ({
+    key,
+    title,
+    picks: picks.filter((e) => groupOf(e.card) === key),
+    more: recommend(pool.filter((p) => groupOf(p.entry.card) === key)),
+  })).filter((g) => g.picks.length > 0 || g.more.length > 0);
+  const more = groups.flatMap((g) => g.more);
 
   return {
     personalised,
+    groups,
     picks,
     more,
     moreTitle: personalised ? "More for you" : "Popular this week",
