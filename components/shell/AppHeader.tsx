@@ -163,8 +163,9 @@ export function AppHeader({ title, leading, weather: weatherProp, className = ""
           {signedIn === true ? (
             // Saved moved here from the bottom nav (12 Oct 2026, "For you" took its tab).
             // Signed-in only: signed out it would just lead to a sign-in prompt.
-            // On desktop it sits before the avatar; from lg the search field is
-            // on the left, so there is no search icon beside it.
+            // On desktop it sits before the avatar (from lg the search field is
+            // on the left, so there is no search icon beside it). It's the only
+            // way to Saved on both sizes; the side nav doesn't repeat it.
             <Link
               href="/saved"
               aria-label="Saved"

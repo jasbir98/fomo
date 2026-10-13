@@ -144,3 +144,16 @@ test("a visitor who answered 'Working' isn't recommended student-only offers", (
   const known = buildForYou({ finds: [], cards, prefs: working, affinity: {}, whoKnown: true, now: NOW });
   assert.deepEqual(known.more.map((e) => e.key), ["happening:ok"]);
 });
+
+test("splits into Deals & offers then Events, and drops an empty group", () => {
+  const deal = happening("d", { kind: "deal", saving_label: "2-for-1" });
+  const gig = eventCard("g");
+  const r = buildForYou({ finds: [find(deal, 4)], cards: [gig, hapCard(happening("t"))], prefs: NO_PREFS, affinity: {}, now: NOW });
+  assert.deepEqual(r.groups.map((g) => g.title), ["Deals & offers", "Events"]);
+  assert.deepEqual(r.groups[0].picks.map((e) => e.find?.id), ["f-d"]);
+  assert.equal(r.groups[0].more.length, 0);
+  assert.deepEqual(r.groups[1].more.map((e) => e.key).sort(), ["event:g", "happening:t"]);
+
+  const eventsOnly = buildForYou({ finds: [], cards: [gig], prefs: NO_PREFS, affinity: {}, now: NOW });
+  assert.deepEqual(eventsOnly.groups.map((g) => g.key), ["events"]);
+});

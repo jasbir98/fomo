@@ -7,6 +7,7 @@
 >   - **More for you:** up to 10 cards from the next 7 days. Each card's score is the Home hero score plus a taste boost, and each comes with a reason ("You're into Comedy", "Student offer").
 >   - Taste comes from the existing prefs (`usePrefs`, `useEffectiveWho`) and save history (`readAffinity`).
 >   - With no taste signals, the second list is titled "Popular this week" and the page shows the "Make Fomo yours" prompt.
+> - 13 Oct: the page is split into two groups, **Deals & offers** (`kind: "deal"`, as on the Deals tab) and **Events** (everything else). Each group has its own picks and up to 6 recommendations.
 > - `lib/cards/price.ts` lost its `server-only` import. The file is pure, so the hero scorer can now run in the browser, scripts and tests.
 >
 > The sections below are the original plan. Where they say "Fomo Finds", `/finds` or "Fomo Find", read "For you", `/for-you` and "Picked for you".

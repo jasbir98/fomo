@@ -16,13 +16,6 @@ export const NAV_FEED: NavItem = {
   text: "text-brand-orange-ink",
   pill: "bg-brand-orange-ink/12",
 };
-export const NAV_SAVED: NavItem = {
-  href: "/saved",
-  icon: "bookmark",
-  label: "Saved",
-  text: "text-cat-nightlife",
-  pill: "bg-cat-nightlife/12",
-};
 /**
  * "For you": the hand-picked weekly steals plus recommendations (internally
  * "Finds"; the same picks run on Instagram as "Fomo Finds"). Took Saved's

@@ -115,7 +115,10 @@ export function FindsClient({ initialFinds, initialCards }: FindsClientProps) {
         : buildForYou({ finds: findItems, cards: [], prefs: NO_PREFS, affinity: NO_AFFINITY }),
     [mounted, findItems, cards, boostPrefs, affinity, whoKnown]
   );
-  const { picks, more, moreTitle, personalised } = result;
+  const { groups, picks, more, moreTitle, personalised } = result;
+  // Analytics positions stay page-wide (0..n across both groups), as before the split.
+  const pickPosition = useMemo(() => new Map(picks.map((e, i) => [e.key, i])), [picks]);
+  const morePosition = useMemo(() => new Map(more.map((e, i) => [e.key, i])), [more]);
 
   const feedPending = cards.length === 0 && (now.data == null || later.data == null) && now.error == null && later.error == null;
   const moreLoading = !mounted || feedPending;
@@ -145,20 +148,64 @@ export function FindsClient({ initialFinds, initialCards }: FindsClientProps) {
           </div>
         ) : null}
 
-        {hasPicks ? (
-          <section aria-labelledby="picked-heading" className="flex flex-col gap-3">
-            <h2 id="picked-heading" className="px-1 text-headline-sm font-extrabold tracking-tight text-on-surface">
-              Picked for you
-            </h2>
-            <div className="flex flex-col gap-3 lg:grid lg:grid-cols-2 lg:items-start lg:gap-4 xl:grid-cols-3">
-              {picks.map((entry, i) =>
-                entry.find ? <FindCard key={entry.key} item={entry.find} reason={entry.reason} position={i} /> : null
-              )}
-            </div>
-          </section>
-        ) : null}
-
         {mounted && !personalised ? <ForYouPrompt /> : null}
+
+        {/* Two groups, Deals & offers then Events (lib/personalise/for-you.ts
+            `groupOf`), each with its hand-picked Finds and then its
+            recommendations. A group with nothing in it isn't rendered. */}
+        {groups.map((group) => (
+          <section key={group.key} aria-labelledby={`group-${group.key}`} className="flex flex-col gap-3">
+            <h2
+              id={`group-${group.key}`}
+              className="flex items-center gap-2 px-1 text-headline-md font-extrabold tracking-tight text-on-surface"
+            >
+              <Icon name={group.key === "deals" ? "sell" : "event"} size={24} className="text-primary" />
+              {group.title}
+            </h2>
+
+            {group.picks.length > 0 ? (
+              <>
+                <h3 className="px-1 text-label-lg font-bold uppercase tracking-wide text-on-surface-variant">Picked for you</h3>
+                <div className="flex flex-col gap-3 lg:grid lg:grid-cols-2 lg:gap-4 xl:grid-cols-3">
+                  {group.picks.map((entry) =>
+                    entry.find ? (
+                      <FindCard key={entry.key} item={entry.find} reason={entry.reason} position={pickPosition.get(entry.key) ?? 0} />
+                    ) : null
+                  )}
+                </div>
+              </>
+            ) : null}
+
+            {group.more.length > 0 ? (
+              <>
+                <h3 className="px-1 pt-1 text-label-lg font-bold uppercase tracking-wide text-on-surface-variant">{moreTitle}</h3>
+                <div className="flex flex-col gap-3 lg:grid lg:grid-cols-2 lg:gap-4 xl:grid-cols-3">
+                  {group.more.map((entry) => (
+                    // Grid rows stretch, and the card (last child) grows to fill, so
+                    // every card in a row ends at the same line. A missing reason
+                    // still takes its line on desktop, keeping the cards' tops level.
+                    <div key={entry.key} className="flex flex-col gap-1.5 [&>*:last-child]:flex-1">
+                      {entry.reason ? (
+                        <span className="inline-flex w-fit max-w-full items-center gap-1 px-1 text-label-sm font-bold text-primary">
+                          <Icon name="auto_awesome" filled size={12} className="shrink-0" />
+                          <span className="truncate">{entry.reason}</span>
+                        </span>
+                      ) : (
+                        <span aria-hidden="true" className="hidden h-4 lg:block" />
+                      )}
+                      <FeedListCard
+                        card={entry.card}
+                        surface="for_you"
+                        position={morePosition.get(entry.key) ?? 0}
+                        onOpen={() => trackRecOpened(entry)}
+                      />
+                    </div>
+                  ))}
+                </div>
+              </>
+            ) : null}
+          </section>
+        ))}
 
         {moreLoading ? (
           <div className="flex flex-col gap-3 lg:grid lg:grid-cols-2 lg:gap-4 xl:grid-cols-3" role="status" aria-live="polite">
@@ -167,25 +214,6 @@ export function FindsClient({ initialFinds, initialCards }: FindsClientProps) {
               <div key={i} className={`h-24 animate-pulse rounded-lg bg-surface-container ${i === 2 ? "hidden xl:block" : ""}`} />
             ))}
           </div>
-        ) : more.length > 0 ? (
-          <section aria-labelledby="more-heading" className="flex flex-col gap-3">
-            <h2 id="more-heading" className="px-1 text-headline-sm font-extrabold tracking-tight text-on-surface">
-              {moreTitle}
-            </h2>
-            <div className="flex flex-col gap-3 lg:grid lg:grid-cols-2 lg:items-start lg:gap-4 xl:grid-cols-3">
-              {more.map((entry, i) => (
-                <div key={entry.key} className="flex flex-col gap-1.5">
-                  {entry.reason ? (
-                    <span className="inline-flex w-fit max-w-full items-center gap-1 px-1 text-label-sm font-bold text-primary">
-                      <Icon name="auto_awesome" filled size={12} className="shrink-0" />
-                      <span className="truncate">{entry.reason}</span>
-                    </span>
-                  ) : null}
-                  <FeedListCard card={entry.card} surface="for_you" position={i} onOpen={() => trackRecOpened(entry)} />
-                </div>
-              ))}
-            </div>
-          </section>
         ) : null}
 
         <SubscribeCard source="finds" />

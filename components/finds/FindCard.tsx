@@ -161,7 +161,7 @@ function Shell({
       ariaLabel={title}
       onPointerDown={onPointerDown}
       onNavigate={onNavigate}
-      className="flex cursor-pointer flex-col overflow-hidden rounded-2xl bg-surface-container-lowest shadow-level-1 transition-shadow hover:shadow-level-2"
+      className="flex h-full cursor-pointer flex-col overflow-hidden rounded-2xl bg-surface-container-lowest shadow-level-1 transition-shadow hover:shadow-level-2"
     >
       <div className="relative">
         <SmartImage
@@ -174,7 +174,9 @@ function Shell({
         />
         <div className="absolute right-3 top-3">{price}</div>
       </div>
-      <div className="flex flex-col gap-2 p-3.5">
+      {/* flex-1 + the footer's mt-auto: in a grid row every card is as tall
+          as the tallest, and the Fomo level row lines up along the bottom. */}
+      <div className="flex flex-1 flex-col gap-2 p-3.5">
         {reason ? (
           <span className="inline-flex w-fit max-w-full items-center gap-1 rounded-full bg-secondary-container/25 px-2 py-0.5 text-label-sm font-bold text-primary">
             <Icon name="auto_awesome" filled size={12} className="shrink-0" />
@@ -185,8 +187,8 @@ function Shell({
           <h3 className="line-clamp-2 text-headline-sm font-bold leading-snug text-on-surface">{title}</h3>
           {meta ? <p className="truncate text-label-md font-medium text-on-surface-variant">{meta}</p> : null}
         </div>
-        <p className="text-body-md font-semibold leading-snug text-on-surface">{item.why}</p>
-        <div className="flex items-center justify-between gap-2">
+        <p className="line-clamp-3 text-body-md font-semibold leading-snug text-on-surface">{item.why}</p>
+        <div className="mt-auto flex items-center justify-between gap-2 pt-1">
           <FomoLevel level={item.fomoLevel} />
           <div className="shrink-0">{save}</div>
         </div>
