@@ -39,10 +39,15 @@ export function StickyFilterBar({ children, className = "" }: StickyFilterBarPro
   useLayoutEffect(() => {
     const header = document.querySelector("header");
     if (!header) return;
-    const update = () => setHeaderHeight(header.getBoundingClientRect().height);
+    // AppHeader's sticky block is the <header> bar plus the page title row
+    // under it (both inside one `sticky top-0` wrapper). Measuring the bar
+    // alone left this bar sliding under the title on every titled page.
+    const parent = header.parentElement;
+    const stuck = parent && getComputedStyle(parent).position === "sticky" ? parent : header;
+    const update = () => setHeaderHeight(stuck.getBoundingClientRect().height);
     update();
     const observer = new ResizeObserver(update);
-    observer.observe(header);
+    observer.observe(stuck);
     return () => observer.disconnect();
   }, []);
 

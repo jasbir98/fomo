@@ -1,11 +1,12 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import { AppHeader } from "@/components/shell/AppHeader";
 import { FindCard } from "@/components/finds/FindCard";
 import { ForYouPrompt } from "@/components/finds/ForYouPrompt";
 import { FeedListCard, SubscribeCard } from "@/components/happenings";
-import { Icon } from "@/components/ui";
+import { Icon, SegmentedControl, StickyFilterBar, type SegmentOption } from "@/components/ui";
 import { FomoSpot } from "@/components/fomo/FomoSpot";
 import { track } from "@/lib/analytics/track";
 import type { FindsResponse, FindItem } from "@/lib/finds/types";
@@ -13,7 +14,7 @@ import { forYouCards, type ForYouCard } from "@/lib/finds/for-you-cards";
 import type { FeedResponse, FeedWindow } from "@/lib/happenings/feed-types";
 import { useCachedJson } from "@/lib/http/clientCache";
 import { readAffinity, type AffinityMap } from "@/lib/personalise/affinity";
-import { buildForYou, type ForYouEntry } from "@/lib/personalise/for-you";
+import { buildForYou, type ForYouEntry, type ForYouGroupKey } from "@/lib/personalise/for-you";
 import type { BoostPrefs } from "@/lib/personalise/score";
 import { useEffectiveWho } from "@/lib/personalise/useEffectiveWho";
 import { usePrefs } from "@/lib/personalise/usePrefs";
@@ -121,6 +122,34 @@ export function FindsClient({ initialFinds, initialCards }: FindsClientProps) {
   const morePosition = useMemo(() => new Map(more.map((e, i) => [e.key, i])), [more]);
 
   const feedPending = cards.length === 0 && (now.data == null || later.data == null) && now.error == null && later.error == null;
+
+  // Deals & offers | Events switch at the top, so Events isn't a long scroll
+  // away. Kept in the URL (`?tab=events`) so an IG link can land on Events;
+  // the page is statically rendered, so the URL is read once after mount
+  // (same pattern as /weekend's `?free=1`).
+  const router = useRouter();
+  const [tab, setTabState] = useState<ForYouGroupKey>("deals");
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).get("tab") === "events") queueMicrotask(() => setTabState("events"));
+  }, []);
+  function setTab(next: ForYouGroupKey) {
+    setTabState(next);
+    track("filter_used", { filter: "for_you_tab", value: next, page: "for_you" });
+    const params = new URLSearchParams(window.location.search);
+    if (next === "events") params.set("tab", "events");
+    else params.delete("tab");
+    router.replace(`/for-you${params.toString() ? `?${params.toString()}` : ""}`, { scroll: false });
+  }
+  const groupCount = (key: ForYouGroupKey) => {
+    const g = groups.find((x) => x.key === key);
+    return g ? g.picks.length + g.more.length : 0;
+  };
+  const tabOptions: SegmentOption<ForYouGroupKey>[] = [
+    { value: "deals", label: "Deals & offers", icon: "sell", ...(mounted && !feedPending ? { count: groupCount("deals") } : {}) },
+    { value: "events", label: "Events", icon: "event", ...(mounted && !feedPending ? { count: groupCount("events") } : {}) },
+  ];
+  const group = groups.find((g) => g.key === tab) ?? null;
+
   const moreLoading = !mounted || feedPending;
 
   const hasPicks = picks.length > 0;
@@ -148,24 +177,19 @@ export function FindsClient({ initialFinds, initialCards }: FindsClientProps) {
           </div>
         ) : null}
 
+        <StickyFilterBar className="-mx-4 px-4 lg:-mx-8 lg:px-8">
+          <SegmentedControl value={tab} options={tabOptions} onChange={setTab} className="flex w-full lg:max-w-md" />
+        </StickyFilterBar>
+
         {mounted && !personalised ? <ForYouPrompt /> : null}
 
-        {/* Two groups, Deals & offers then Events (lib/personalise/for-you.ts
-            `groupOf`), each with its hand-picked Finds and then its
-            recommendations. A group with nothing in it isn't rendered. */}
-        {groups.map((group) => (
-          <section key={group.key} aria-labelledby={`group-${group.key}`} className="flex flex-col gap-3">
-            <h2
-              id={`group-${group.key}`}
-              className="flex items-center gap-2 px-1 text-headline-md font-extrabold tracking-tight text-on-surface"
-            >
-              <Icon name={group.key === "deals" ? "sell" : "event"} size={24} className="text-primary" />
-              {group.title}
-            </h2>
-
+        {/* One group at a time, Deals & offers or Events (lib/personalise/for-you.ts
+            `groupOf`): its hand-picked Finds, then its recommendations. */}
+        {group ? (
+          <section aria-label={group.title} className="flex flex-col gap-3">
             {group.picks.length > 0 ? (
               <>
-                <h3 className="px-1 text-label-lg font-bold uppercase tracking-wide text-on-surface-variant">Picked for you</h3>
+                <h2 className="px-1 text-label-lg font-bold uppercase tracking-wide text-on-surface-variant">Picked for you</h2>
                 <div className="flex flex-col gap-3 lg:grid lg:grid-cols-2 lg:gap-4 xl:grid-cols-3">
                   {group.picks.map((entry) =>
                     entry.find ? (
@@ -178,7 +202,7 @@ export function FindsClient({ initialFinds, initialCards }: FindsClientProps) {
 
             {group.more.length > 0 ? (
               <>
-                <h3 className="px-1 pt-1 text-label-lg font-bold uppercase tracking-wide text-on-surface-variant">{moreTitle}</h3>
+                <h2 className="px-1 pt-1 text-label-lg font-bold uppercase tracking-wide text-on-surface-variant">{moreTitle}</h2>
                 <div className="flex flex-col gap-3 lg:grid lg:grid-cols-2 lg:gap-4 xl:grid-cols-3">
                   {group.more.map((entry) => (
                     // Grid rows stretch, and the card (last child) grows to fill, so
@@ -205,7 +229,14 @@ export function FindsClient({ initialFinds, initialCards }: FindsClientProps) {
               </>
             ) : null}
           </section>
-        ))}
+        ) : mounted && !feedPending && !nothingAtAll ? (
+          <p className="px-1 py-6 text-center text-body-md text-on-surface-variant">
+            {tab === "deals" ? "No deals for you this week yet." : "No events for you this week yet."}{" "}
+            <button type="button" onClick={() => setTab(tab === "deals" ? "events" : "deals")} className="font-semibold text-primary underline">
+              See {tab === "deals" ? "events" : "deals & offers"}
+            </button>
+          </p>
+        ) : null}
 
         {moreLoading ? (
           <div className="flex flex-col gap-3 lg:grid lg:grid-cols-2 lg:gap-4 xl:grid-cols-3" role="status" aria-live="polite">
