@@ -207,7 +207,7 @@ function renderHtml({ picks, deals, unsubscribeUrl }) {
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:560px;background:#ffffff;border-radius:12px;overflow:hidden;">
   <tr>
     <td style="background:${NAVY};padding:24px;text-align:center;">
-      <div style="color:#ffffff;font-size:20px;font-weight:800;letter-spacing:0.02em;">FOMO</div>
+      <div style="color:#ffffff;font-size:26px;font-weight:800;letter-spacing:-0.03em;">fom<span style="color:#fc8a40;">o</span></div>
       <div style="color:#c7d2e3;font-size:13px;margin-top:4px;">Edinburgh, free & cheap</div>
     </td>
   </tr>
@@ -239,7 +239,7 @@ function renderHtml({ picks, deals, unsubscribeUrl }) {
 
 function renderText({ picks, deals, unsubscribeUrl }) {
   const lines = [];
-  lines.push("FOMO FRIDAY · Edinburgh, free & cheap");
+  lines.push("Fomo Friday · Edinburgh, free & cheap");
   lines.push("");
   lines.push("THIS WEEKEND");
   for (const p of picks) {

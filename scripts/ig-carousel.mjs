@@ -169,12 +169,13 @@ function baseSlide(children) {
   );
 }
 
+/** The app's lowercase wordmark: "fom" with the orange dot as the last "o" (components/ui/FomoLogo.tsx). */
 function wordmark() {
   return h(
     "div",
-    { style: { display: "flex", alignItems: "center", position: "absolute", top: 56, left: 72 } },
-    h("div", { style: { display: "flex", width: 14, height: 14, borderRadius: 999, background: ACCENT, marginRight: 10 } }),
-    h("div", { style: { fontSize: 30, fontWeight: 800, letterSpacing: 2, display: "flex" } }, "FOMO")
+    { style: { display: "flex", alignItems: "flex-end", position: "absolute", top: 50, left: 72 } },
+    h("div", { style: { fontSize: 40, fontWeight: 800, letterSpacing: -1.6, lineHeight: 1, display: "flex" } }, "fom"),
+    h("div", { style: { display: "flex", width: 21, height: 21, borderRadius: 999, background: ACCENT, marginLeft: 2, marginBottom: 3 } })
   );
 }
 
@@ -408,6 +409,8 @@ function ctaSlide() {
 }
 
 const HASHTAGS = [
+  // Brand tag: never #fomo, which is a huge generic tag and reads as the acronym.
+  "#askfomo",
   "#edinburgh",
   "#edinburghstudents",
   "#thingstodoinedinburgh",
