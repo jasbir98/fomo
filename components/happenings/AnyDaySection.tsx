@@ -32,7 +32,7 @@ export function AnyDaySection({ cards, surface, desktopGrid = false, gridClassNa
   const hidden = cards.length - ANY_DAY_CAP;
 
   return (
-    <section aria-label="Any day" className={`flex flex-col gap-2 pt-1 ${desktopGrid ? `lg:col-span-2 lg:grid lg:grid-cols-2 lg:items-start lg:gap-4 ${gridClassName}` : ""}`}>
+    <section aria-label="Any day" className={`flex flex-col gap-2 pt-1 ${desktopGrid ? `lg:col-span-2 lg:grid lg:grid-cols-2 lg:gap-4 ${gridClassName}` : ""}`}>
       <div className={`flex flex-col gap-0.5 px-1 ${desktopGrid ? "lg:col-span-full" : ""}`}>
         <h3 className="text-body-lg font-extrabold tracking-tight text-on-surface">Any day</h3>
         <p className="text-label-sm text-on-surface-variant">Always on, go whenever suits</p>

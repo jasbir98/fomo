@@ -857,7 +857,7 @@ export function HomeClient({ initialFeed = null }: HomeClientProps) {
               // switch, not on a same-window background revalidation;
               // `windowSlideClass` picks the entrance direction to match
               // which side of the current tab was tapped.
-              <div key={feedWindow} ref={whatsOnContentRef} className={`${windowSlideClass} flex flex-col gap-3 lg:grid lg:grid-cols-2 lg:items-start lg:gap-4`}>
+              <div key={feedWindow} ref={whatsOnContentRef} className={`${windowSlideClass} flex flex-col gap-3 lg:grid lg:grid-cols-2 lg:gap-4`}>
                 {whatsOnCards.length === 0 ? (
                   <div className="flex flex-col items-center gap-2 px-1 text-center lg:col-span-2">
                     <FomoSpot mood="meh" pose="shrug" className="h-16 w-16" />

@@ -157,7 +157,7 @@ export function WeekendClient({ initial = null }: WeekendClientProps) {
             </p>
           </div>
         ) : (
-          <div className="flex flex-col gap-3 lg:grid lg:grid-cols-2 lg:items-start lg:gap-4 xl:grid-cols-3">
+          <div className="flex flex-col gap-3 lg:grid lg:grid-cols-2 lg:gap-4 xl:grid-cols-3">
             {cards.slice(0, revealCount).map((card, i) => (
               <FeedListCard key={weekendCardKey(card)} card={card} surface="weekend" position={i} />
             ))}

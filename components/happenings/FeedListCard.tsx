@@ -181,7 +181,9 @@ function scopeTag(tag: string): React.ReactNode {
  */
 function CardFooter({ children, save }: { children?: React.ReactNode; save: React.ReactNode }) {
   return (
-    <div className="flex min-w-0 items-center justify-between gap-2">
+    // mt-auto: in a desktop grid row the cards stretch to the tallest one,
+    // so the footer sits on the same line in every card of the row.
+    <div className="mt-auto flex min-w-0 items-center justify-between gap-2">
       <div className="flex min-w-0 items-center gap-2 text-label-md text-on-surface-variant">{children}</div>
       <div className="ml-auto shrink-0">{save}</div>
     </div>
@@ -232,7 +234,7 @@ function CardShell({
         onNavigate?.();
         onOpen?.();
       }}
-      className="relative flex cursor-pointer flex-col gap-2 rounded-2xl bg-surface-container-lowest p-3.5 shadow-level-1 transition-shadow hover:shadow-level-2"
+      className="relative flex h-full cursor-pointer flex-col gap-2 rounded-2xl bg-surface-container-lowest p-3.5 shadow-level-1 transition-shadow hover:shadow-level-2"
     >
       {find ? (
         // A pick gets its own pill row at the top of the card (only the few

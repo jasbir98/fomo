@@ -401,7 +401,7 @@ function WhatsOnPageInner() {
             <p className="text-body-md text-on-surface-variant">{emptyMessage()}</p>
           </div>
         ) : (
-          <div className="flex flex-col gap-3 lg:grid lg:grid-cols-2 lg:items-start lg:gap-4">
+          <div className="flex flex-col gap-3 lg:grid lg:grid-cols-2 lg:gap-4">
             {visibleCards.slice(0, revealCount).map((card, i) => (
               <FeedListCard key={cardKey(card)} card={card} surface="whats_on" position={i} />
             ))}
