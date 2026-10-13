@@ -14,6 +14,7 @@ import { CATEGORY_ORDER } from "@/lib/happenings/category-style";
 import type { HappeningCategory } from "@/lib/happenings/types";
 import { useCachedJson } from "@/lib/http/clientCache";
 import { useProgressiveReveal } from "@/lib/useProgressiveReveal";
+import { useSignedIn } from "@/lib/useSaved";
 import { ErrorState, Icon, PageHeader, StickyFilterBar } from "@/components/ui";
 import { BookEarlyCard, BookEarlyFilters } from "@/components/happenings";
 import { FomoSpot } from "@/components/fomo/FomoSpot";
@@ -81,7 +82,9 @@ export default function BookEarlyPage() {
   // vice versa) means no second network round trip. A BookEarlyCard needs
   // this up front or the button flashes "Notify me" before resetting to
   // "Notified" a moment later.
-  const alertsResult = useCachedJson<string[]>(NOTIFY_ME_ENABLED ? "alerts" : null, fetchAlertIds, {
+  // Alerts need an account, so no fetch (it would 401) unless signed in.
+  const signedIn = useSignedIn();
+  const alertsResult = useCachedJson<string[]>(NOTIFY_ME_ENABLED && signedIn === true ? "alerts" : null, fetchAlertIds, {
     staleMs: ALERTS_STALE_MS,
   });
   const alertHappeningIds = useMemo(() => new Set(alertsResult.data ?? []), [alertsResult.data]);

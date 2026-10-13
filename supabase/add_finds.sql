@@ -20,8 +20,12 @@
 --   and `suggest` dropping drafts whose subject has ended), so a retired or
 --   rejected subject is remembered and not suggested again.
 --
--- RLS: anon + authenticated can read LIVE rows only (suggested/retired rows are
--- the curator's working set, not public). No insert/update/delete policy, so
+-- RLS: only SIGNED-IN users (`authenticated`) can read LIVE rows (suggested/
+-- retired rows are the curator's working set). `anon` has no policy and no
+-- grant, so the full list can't be read with the public anon key that ships in
+-- the browser. Signed-out visitors see a 2-pick teaser that the server reads
+-- with the service role (lib/finds/load.ts, GET /api/finds) -- that is the only
+-- door to the list for anyone not signed in. No insert/update/delete policy, so
 -- only the service role (scripts/finds.ts, which bypasses RLS) can write.
 
 create table if not exists finds (
@@ -46,14 +50,17 @@ alter table finds enable row level security;
 drop policy if exists "read_live" on finds;
 create policy "read_live" on finds
   for select
-  to anon, authenticated
+  to authenticated
   using (status = 'live');
 
--- Verify (read-only): one policy, cmd SELECT, qual (status = 'live').
+-- Verify (read-only): one policy, cmd SELECT, roles {authenticated}, qual
+-- (status = 'live'). No policy lists anon.
 -- select policyname, roles, cmd, qual from pg_policies
 -- where schemaname = 'public' and tablename = 'finds';
 
 -- Belt and braces, same as lock_pipeline_tables.sql: RLS already has no write
 -- policy, and this also drops the default table grants, so only the service
--- role (scripts/finds.ts) can ever write.
+-- role (scripts/finds.ts) can ever write. anon also loses SELECT outright, so
+-- the signed-out door stays shut even if a policy is added by mistake.
 revoke insert, update, delete on finds from anon, authenticated;
+revoke select on finds from anon;

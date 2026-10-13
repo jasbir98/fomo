@@ -16,7 +16,7 @@ import type { EventItem } from "@/lib/types";
 import { isFreeCard } from "@/lib/happenings/price-label";
 import { whoGroupForEligibility, type DealWhoGroup } from "@/lib/happenings/groups";
 import { interestForEventCategory, interestForHappeningCategory, type InterestKey } from "./interests";
-import { affinityBonus, readAffinity } from "./affinity";
+import { affinityBonus, type AffinityMap } from "./affinity";
 import type { FomoBudget } from "./usePrefs";
 
 type Card = FeedCardData | DealCardData;
@@ -80,8 +80,10 @@ export function fitsBudget(card: Card, budget: FomoBudget): boolean {
  * prefs at all (every `includes`/`fitsBudget` check is vacuously false) —
  * which is what makes "no prefs → order unchanged" hold in
  * `reorderWithBoost` below without a separate early-return special case.
+ * `affinity` defaults to none: callers pass `useAffinity()`'s map (empty while
+ * signed out) so implicit learning never ranks for a signed-out visitor.
  */
-export function personalBoost(card: Card, prefs: BoostPrefs, affinity = readAffinity()): number {
+export function personalBoost(card: Card, prefs: BoostPrefs, affinity: AffinityMap = {}): number {
   let score = 0;
   const interest = cardInterest(card);
   if (interest && prefs.interests.includes(interest)) score += INTEREST_MATCH_BOOST;

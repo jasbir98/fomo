@@ -7,6 +7,10 @@ Run `/plans` in Claude Code for a summary of this page.
 
 Things waiting on you, newest first. Tick them off here, or ask Claude to update this list.
 
+**What sits behind sign-in (13 Oct)**
+- [ ] Merge [PR #27](https://github.com/jasbir98/fomo/pull/27). It edits `supabase/add_finds.sql` so only signed-in visitors can read the hand-picks. If you run that SQL before merging, re-run the policy part after.
+- [ ] After it deploys, sign in and check For you shows every pick and the "You qualify" badges are back. Signed out, For you shows 2 picks and a sign-in card.
+
 **For you tab: hand-picked steals and recommendations (12 Oct)**
 - [ ] Run `supabase/add_finds.sql` in the Supabase SQL editor. Until you do, "Picked for you" stays empty, and the recommendations still work.
 - [ ] Merge the `fomo-finds` PR.
@@ -115,6 +119,7 @@ Snapshots of the plans approved in Claude Code plan mode. Each one is a record o
 
 | Plan | Status |
 |---|---|
+| [2026-10-13 What sits behind sign-in](plans/2026-10-13-login-wall.md) | Built; in [PR #27](https://github.com/jasbir98/fomo/pull/27). Changes `add_finds.sql`, so run that after merging. |
 | [2026-10-12 For you: hand-picked steals and recommendations](plans/2026-10-12-fomo-finds.md) | Built on branch `fomo-finds`; PR pending. SQL listed above. |
 | [2026-10-08 More events and deals: sources, validation, soft-retire](plans/2026-10-08-event-and-deal-coverage.md) | Built on branch `event-coverage`; PR pending. SQL and keys listed above. |
 | [2026-10-07 Fill in Edinburgh place and deal data](plans/2026-10-07-data-enrichment.md) | Data written 7 Oct (407 places, 111 deals); app changes in PR #7. |

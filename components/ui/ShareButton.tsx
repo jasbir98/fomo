@@ -5,6 +5,7 @@ import { Icon } from "./Icon";
 import { recordAffinity } from "@/lib/personalise/affinity";
 import type { InterestKey } from "@/lib/personalise/interests";
 import { track } from "@/lib/analytics/track";
+import { useSignedIn } from "@/lib/useSaved";
 
 export type ShareButtonProps = {
   /** Native share sheet title. */
@@ -16,7 +17,7 @@ export type ShareButtonProps = {
   /** Icon-only circular button (default, matches PageHeader's back button) or an icon+label pill. */
   variant?: "icon" | "labelled";
   className?: string;
-  /** This card's personalisation interest (lib/personalise/interests.ts) — feeds the implicit-learning affinity counter (lib/personalise/affinity.ts) on a completed share, same signal SaveButton's own `interestHint` records on a save. Omit where the interest isn't readily available. */
+  /** This card's personalisation interest (lib/personalise/interests.ts) — feeds the implicit-learning affinity counter (lib/personalise/affinity.ts) on a completed share by a signed-in visitor, same signal SaveButton's own `interestHint` records on a save. Omit where the interest isn't readily available. */
   interestHint?: InterestKey | null;
   /** `share_completed`'s `kind` — what's being shared (happening/event/place/weekend page, ...). Omit only where the caller has no natural subject type (nothing shares without one today, but the event stays no-op-safe). */
   kind?: string;
@@ -39,6 +40,10 @@ export type ShareButtonProps = {
 export function ShareButton({ title, text, url, variant = "icon", className = "", interestHint = null, kind }: ShareButtonProps) {
   const [copied, setCopied] = useState(false);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Sharing stays open to everyone, but only a signed-in share teaches the
+  // affinity counter (it only ever feeds personalised ranking, which needs an
+  // account), mirroring SaveButton.
+  const signedIn = useSignedIn();
 
   useEffect(() => {
     return () => {
@@ -93,7 +98,7 @@ export function ShareButton({ title, text, url, variant = "icon", className = ""
       try {
         const urlWithUtm = addUtmParams(url, "native");
         await navigator.share({ title, text, url: urlWithUtm });
-        recordAffinity(interestHint);
+        if (signedIn === true) recordAffinity(interestHint);
         track("share_completed", { method: "native", kind });
         return;
       } catch (err) {
@@ -103,7 +108,7 @@ export function ShareButton({ title, text, url, variant = "icon", className = ""
       }
     }
     await copyToClipboard();
-    recordAffinity(interestHint);
+    if (signedIn === true) recordAffinity(interestHint);
     track("share_completed", { method: "clipboard", kind });
   }
 

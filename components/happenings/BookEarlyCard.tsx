@@ -7,6 +7,8 @@ import { savingBadgeLabel } from "@/lib/happenings/format";
 import { defaultImageFor } from "@/lib/happenings/category-style";
 import { NOTIFY_ME_ENABLED, type BookEarlyCardData } from "@/lib/happenings/book-early";
 import { ensurePushSubscribed, pushReasonMessage } from "@/lib/push/client";
+import { useSignedIn } from "@/lib/useSaved";
+import { sendToSignIn } from "@/lib/auth/send-to-signin";
 import { NotifyMeButton } from "./NotifyMeButton";
 import { happeningToPreview, prefetchHappening, setHappeningPreview } from "@/lib/happenings/preview-cache";
 import { eventToPreview, prefetchEvent, setEventPreview } from "@/lib/events/preview-cache";
@@ -30,7 +32,7 @@ export interface BookEarlyCardProps {
   card: BookEarlyCardData;
   /** Whether the signed-in caller already has an on-sale alert for this
    *  happening — Home (app/(shell)/page.tsx) loads the caller's full alert
-   *  list once via GET /api/alerts and passes each card's membership in so
+   *  list once via GET /api/alerts (signed in only) and passes each card's membership in so
    *  the button renders correctly subscribed on load instead of resetting
    *  to "Notify me" every refresh. Defaults to false for any other caller. */
   initialSubscribed?: boolean;
@@ -59,6 +61,7 @@ function TierPill({ label }: { label: string }) {
 export function BookEarlyCard({ card, initialSubscribed = false, position }: BookEarlyCardProps) {
   const [subscribed, setSubscribed] = useState(initialSubscribed);
   const [notifyError, setNotifyError] = useState<string | null>(null);
+  const signedIn = useSignedIn();
   // Hand-picked "For you" item? Gets a "Picked for you" pill on its own line at
   // the top of the card body (the tier/price/save row above the title is
   // already full on a 480px phone, so it doesn't share that row).
@@ -69,9 +72,15 @@ export function BookEarlyCard({ card, initialSubscribed = false, position }: Boo
    * per-item alert (POST /api/alerts). Only ever called from
    * NotifyMeButton's onClick — `ensurePushSubscribed` requests Notification
    * permission the first time, which only works from a user gesture.
+   * Alerts need an account, so a signed-out tap goes to sign-in first,
+   * before any permission prompt or request.
    */
   async function handleNotify(happeningId: string) {
     setNotifyError(null);
+    if (signedIn === false) {
+      sendToSignIn("notify");
+      return;
+    }
     const result = await ensurePushSubscribed();
     if (!result.ok) {
       setNotifyError(pushReasonMessage(result.reason) ?? "Couldn't turn on alerts. Try again.");

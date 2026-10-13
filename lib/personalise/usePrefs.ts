@@ -12,7 +12,12 @@ import { INTEREST_ORDER, type InterestKey } from "./interests";
  * `user_metadata` (no table, same convention lib/happenings/groups.ts's
  * `fomo_who` already established). Signed-out: mirrored to localStorage
  * `fomo:prefs`, wrapped in try/catch, and merged into `user_metadata` on
- * sign-in when the account has none of this yet (task brief §1).
+ * sign-in when the account has none of this yet (task brief §1). That local
+ * copy is only a carry-over for the sign-in merge: personalisation needs an
+ * account, so while `signedIn !== true` the hook's `prefs` score as the
+ * defaults (no interests, no budget, no eligibility) and only `done` (so a
+ * dismissed Home banner stays dismissed) and `draft` (what the visitor has
+ * picked in the sheet so far) read through.
  *
  * `fomo_who` (lib/useSaved.ts's `setWhoGroups`/`who`) stays the single
  * source every "You qualify" badge and `personalBoost` eligibility check
@@ -248,15 +253,21 @@ export function usePrefs() {
     ensureInitialized();
   }, []);
   const snapshot = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
+  // Signed out (or still checking): every scoring-relevant field is the
+  // default, so ranking and "You qualify" stay neutral. Only `done` reads
+  // through, from localStorage.
+  const prefs: FomoPrefs = snapshot.signedIn === true ? snapshot.prefs : { ...DEFAULT_PREFS, done: snapshot.prefs.done };
   return {
-    ...snapshot.prefs,
+    ...prefs,
+    /** The raw prefs behind `prefs`: the account's when signed in, otherwise the visitor's own local answers. Only the Make Fomo yours sheet should read this (to show what they've picked); anything that scores or ranks reads the top-level fields. */
+    draft: snapshot.prefs,
     signedIn: snapshot.signedIn,
     save: savePrefs,
     dismiss: dismissPrefs,
   };
 }
 
-/** Read-only peek at the current prefs without subscribing to changes — for a caller (e.g. `personalBoost`'s callers) that already has `who`/prefs from its own render and just needs the raw snapshot once. */
+/** Read-only peek at the current prefs without subscribing to changes — for a caller (e.g. `personalBoost`'s callers) that already has `who`/prefs from its own render and just needs the snapshot once. Same neutral-unless-signed-in rule as `usePrefs`. */
 export function getPrefsSnapshot(): FomoPrefs {
-  return state.prefs;
+  return state.signedIn === true ? state.prefs : { ...DEFAULT_PREFS, done: state.prefs.done };
 }

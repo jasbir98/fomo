@@ -5,9 +5,11 @@
  * nudges a small localStorage-only per-interest counter, which
  * lib/personalise/score.ts's `personalBoost` reads back as a small capped
  * bonus on top of the visitor's explicit "Into…" picks. No server writes —
- * this never touches user_metadata, so it works for signed-out visitors too
- * and never contradicts (or duplicates) a deliberate interest pick, it only
- * ever adds a small amount on top of one.
+ * this never touches user_metadata, and it never contradicts (or duplicates)
+ * a deliberate interest pick, it only ever adds a small amount on top of one.
+ * Personalised ranking needs an account, so SaveButton/ShareButton only
+ * record for a signed-in visitor and ranking reads it through `useAffinity`,
+ * which is empty while signed out.
  */
 import type { InterestKey } from "./interests";
 
@@ -42,6 +44,36 @@ function write(map: AffinityMap): void {
     // Private mode / storage full — the counter just doesn't persist;
     // never worth surfacing to the visitor over.
   }
+  for (const listener of listeners) listener();
+}
+
+const listeners = new Set<() => void>();
+
+/** For `useAffinity` (lib/personalise/useAffinity.ts). */
+export function subscribeAffinity(listener: () => void): () => void {
+  listeners.add(listener);
+  return () => {
+    listeners.delete(listener);
+  };
+}
+
+/** For `useAffinity`: the raw stored string, a stable primitive for useSyncExternalStore. */
+export function readAffinityRaw(): string | null {
+  try {
+    return window.localStorage.getItem(STORAGE_KEY);
+  } catch {
+    return null;
+  }
+}
+
+export function parseAffinity(raw: string | null): AffinityMap {
+  if (!raw) return {};
+  try {
+    const parsed = JSON.parse(raw) as unknown;
+    return parsed && typeof parsed === "object" ? (parsed as AffinityMap) : {};
+  } catch {
+    return {};
+  }
 }
 
 /** Bump one interest's counter — call from a save or share action. Silent no-op off-browser, for an unmapped card (`interest: null`), or on storage failure. */
@@ -59,6 +91,7 @@ export function affinityBonus(interest: InterestKey | null, map?: AffinityMap): 
   return Math.min(source[interest] ?? 0, CAP_PER_INTEREST);
 }
 
+/** The raw local counters, regardless of sign-in. Callers that rank must only use this for a signed-in visitor (or use `useAffinity`, which gates for them). */
 export function readAffinity(): AffinityMap {
   return read();
 }
