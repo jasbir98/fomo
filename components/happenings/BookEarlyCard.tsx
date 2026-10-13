@@ -41,7 +41,12 @@ export interface BookEarlyCardProps {
 }
 
 /** Small filled pill for the tier label ("Just on sale" / "Tickets open 1 Oct" / "On sale now") — same visual weight as FeedListCard's TypeTag, distinct component since Book Early's label is a full sentence fragment, not a short type tag. */
+/** The default tier, true of almost every card, so it isn't worth a pill. */
+const DEFAULT_TIER_LABEL = "On sale now";
+
+/** Only the labels that say something: "Just on sale", "Tickets open …". */
 function TierPill({ label }: { label: string }) {
+  if (label === DEFAULT_TIER_LABEL) return null;
   return (
     <span className="rounded-full bg-primary-container px-2.5 py-0.5 text-label-sm font-bold uppercase tracking-wide text-on-primary-container">
       {label}
@@ -129,7 +134,7 @@ export function BookEarlyCard({ card, initialSubscribed = false, position }: Boo
           setEventPreview(event.id, eventToPreview(event, { priceLabel: price, whenLabel: card.dateLabel }));
           track("card_opened", { kind: "event", id: event.id, source: "event", surface: "book_early", position, price_band: priceBand(event.is_free) });
         }}
-        className="flex cursor-pointer gap-3 rounded-2xl bg-surface-container-lowest p-3.5 shadow-level-1 transition-shadow hover:shadow-level-2"
+        className="flex h-full cursor-pointer gap-3 rounded-2xl bg-surface-container-lowest p-3.5 shadow-level-1 transition-shadow hover:shadow-level-2"
       >
         <Thumbnail src={thumbnail} alt="" />
         <div className="flex min-w-0 flex-1 flex-col gap-2">
@@ -154,7 +159,7 @@ export function BookEarlyCard({ card, initialSubscribed = false, position }: Boo
               e.stopPropagation();
               trackOutboundClicked("event", event.id, event.ticket_url, "get_tickets");
             }}
-            className="mt-1 flex items-center justify-center gap-1 rounded-lg bg-primary py-2.5 text-label-md font-bold text-on-primary transition-opacity hover:opacity-90 active:scale-[0.98]"
+            className="mt-auto flex min-h-11 items-center justify-center gap-1 rounded-full border border-primary/30 px-4 py-2 text-label-md font-bold text-primary transition-colors hover:bg-surface-container active:scale-[0.98] self-start"
           >
             Get tickets
             <Icon name="north_east" size={16} />
@@ -184,7 +189,7 @@ export function BookEarlyCard({ card, initialSubscribed = false, position }: Boo
         setHappeningPreview(happening.id, happeningToPreview(happening, { priceLabel: priceBadge, whenLabel: card.dateLabel }));
         track("card_opened", { kind: "happening", id: happening.id, source: happening.kind, surface: "book_early", position, price_band: priceBand(happening.is_free) });
       }}
-      className="flex cursor-pointer gap-3 rounded-2xl bg-surface-container-lowest p-3.5 shadow-level-1 transition-shadow hover:shadow-level-2"
+      className="flex h-full cursor-pointer gap-3 rounded-2xl bg-surface-container-lowest p-3.5 shadow-level-1 transition-shadow hover:shadow-level-2"
     >
       <Thumbnail src={thumbnail} alt="" />
       <div className="flex min-w-0 flex-1 flex-col gap-2">
@@ -212,7 +217,7 @@ export function BookEarlyCard({ card, initialSubscribed = false, position }: Boo
           {happening.venue_name ? ` · ${happening.venue_name}` : ""}
         </span>
         {card.sublabel ? <span className="text-label-sm font-semibold text-secondary">{card.sublabel}</span> : null}
-        <div className="mt-1 flex items-center gap-2">
+        <div className="mt-auto flex items-center gap-2 pt-1">
           <a
             href={ctaHref}
             target="_blank"
@@ -221,7 +226,7 @@ export function BookEarlyCard({ card, initialSubscribed = false, position }: Boo
               e.stopPropagation();
               trackOutboundClicked("happening", happening.id, ctaHref, "get_tickets");
             }}
-            className="flex flex-1 items-center justify-center gap-1 rounded-lg bg-primary py-2.5 text-label-md font-bold text-on-primary transition-opacity hover:opacity-90 active:scale-[0.98]"
+            className="flex min-h-11 items-center justify-center gap-1 rounded-full border border-primary/30 px-4 py-2 text-label-md font-bold text-primary transition-colors hover:bg-surface-container active:scale-[0.98]"
           >
             Get tickets
             <Icon name="north_east" size={16} />

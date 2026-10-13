@@ -225,7 +225,7 @@ export default function BookEarlyPage() {
               <p className="text-body-sm text-on-surface-variant">Nothing matches. Clear filters</p>
             </div>
           ) : (
-            <div className="flex flex-col gap-3 lg:grid lg:grid-cols-2 lg:items-start lg:gap-4 2xl:grid-cols-3">
+            <div className="flex flex-col gap-3 lg:grid lg:grid-cols-2 lg:gap-4 2xl:grid-cols-3">
               {filteredCards.slice(0, visibleCount).map((card, i) => (
                 <BookEarlyCard
                   key={bookEarlyCardKey(card)}
