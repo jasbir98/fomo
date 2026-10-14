@@ -90,7 +90,7 @@ const INSIGHTS = [
     name: "Daily visitors",
     description:
       "Unique visitors per day, split by consent_status. Exact: cookie visitors (granted) by ID, everyone else by PostHog's daily hash.",
-    replaces: ["DAU", "WAU / DAU", "DAU / WAU", "Daily active users"],
+    replaces: ["Daily active users (DAUs)"],
     query: trends({
       series: [ev("$pageview", { math: "dau" })],
       breakdownFilter: { breakdown: "consent_status", breakdown_type: "event" },
@@ -110,7 +110,7 @@ const INSIGHTS = [
     name: "Weekly visitors (range)",
     description:
       "Cookieless visitors get a new ID each day, so weekly uniques are a range: low = persistent + busiest day's cookieless, high = persistent + sum of every day's cookieless. persistent_visitors is exact.",
-    replaces: ["WAU", "Weekly active users"],
+    replaces: ["Weekly active users (WAUs)"],
     query: hogqlTable(weeklyVisitorsSql(8)),
   },
   {
@@ -156,7 +156,7 @@ const INSIGHTS = [
     name: "Key funnel (same day)",
     description:
       "Pageview → card opened → outbound click within one day. One-day window because cookieless visitors' IDs only last a day.",
-    replaces: ["Funnel", "Pageview → card → outbound", "$pageview → card_opened → outbound_clicked"],
+    replaces: ["Pageview → card_opened → outbound_clicked user conversion rate"],
     query: {
       kind: "InsightVizNode",
       source: {
@@ -171,7 +171,7 @@ const INSIGHTS = [
   {
     name: "Key funnel by source (same day)",
     description: "The key funnel broken down by utm_source.",
-    replaces: ["Funnel by utm_source", "Funnel by source"],
+    replaces: [],
     query: {
       kind: "InsightVizNode",
       source: {
@@ -206,7 +206,7 @@ const INSIGHTS = [
   {
     name: "Saves + shares per visitor",
     description: "(save_added + share_completed) ÷ daily visitors, 7-day smoothed.",
-    replaces: ["Saves/shares per WAU", "Saves / shares per WAU", "Saves and shares per WAU"],
+    replaces: [],
     query: trends({
       series: [ev("save_added"), ev("share_completed"), ev("$pageview", { math: "dau" })],
       trendsFilter: { display: "ActionsLineGraph", formula: "(A + B) / C", smoothingIntervals: 7 },
@@ -215,7 +215,7 @@ const INSIGHTS = [
   {
     name: "Visitors by referrer",
     description: "Daily visitors by referring domain ($direct = typed/bookmarked/in-app).",
-    replaces: [],
+    replaces: ["Referring domain (last 14 days)"],
     query: trends({
       series: [ev("$pageview", { math: "dau" })],
       breakdownFilter: { breakdown: "$referring_domain", breakdown_type: "event", breakdown_limit: 8 },
@@ -225,7 +225,7 @@ const INSIGHTS = [
   {
     name: "Visitors by utm_source",
     description: "Daily visitors arriving with a utm_source (campaign links).",
-    replaces: ["utm_source", "Breakdown by utm_source"],
+    replaces: [],
     query: trends({
       series: [ev("$pageview", { math: "dau", properties: [prop("utm_source", null, "is_set")] })],
       breakdownFilter: { breakdown: "utm_source", breakdown_type: "event" },
@@ -245,7 +245,7 @@ const INSIGHTS = [
   {
     name: "PWA installs",
     description: "pwa_installed, weekly.",
-    replaces: ["Installs", "pwa_installed"],
+    replaces: [],
     query: trends({
       series: [ev("pwa_installed")],
       interval: "week",
@@ -257,7 +257,7 @@ const INSIGHTS = [
     name: "Retention (cookie visitors)",
     description:
       "Weekly return rate for visitors who tapped OK (persistent ID). Cookieless visitors can't be followed across days, so they're excluded.",
-    replaces: ["Retention", "Retention on card_opened", "Retention: card_opened"],
+    replaces: ["Retention"],
     query: {
       kind: "InsightVizNode",
       source: {
@@ -278,7 +278,7 @@ const INSIGHTS = [
   {
     name: "Retention on outbound clicks (cookie visitors)",
     description: "Weekly: of cookie visitors who clicked out, how many click out again in later weeks.",
-    replaces: ["Retention on outbound_clicked", "Retention: outbound_clicked"],
+    replaces: [],
     query: {
       kind: "InsightVizNode",
       source: {
@@ -297,9 +297,26 @@ const INSIGHTS = [
     },
   },
   {
+    name: "Growth accounting (cookie visitors)",
+    description:
+      "New / returning / resurrecting / dormant each week, for visitors with a persistent ID. Cookieless visitors would all look new every day.",
+    replaces: ["Growth accounting"],
+    query: {
+      kind: "InsightVizNode",
+      source: {
+        kind: "LifecycleQuery",
+        filterTestAccounts: true,
+        dateRange: { date_from: "-8w" },
+        interval: "week",
+        properties: [GRANTED],
+        series: [ev("$pageview")],
+      },
+    },
+  },
+  {
     name: "Stickiness (cookie visitors)",
     description: "Days active in the last 30, for visitors with a persistent ID only.",
-    replaces: ["Stickiness", "DAU/WAU stickiness"],
+    replaces: [],
     query: {
       kind: "InsightVizNode",
       source: {
@@ -315,7 +332,7 @@ const INSIGHTS = [
   {
     name: "Median session length (cookie visitors)",
     description: "Median session duration for visitors with a persistent ID — cookieless visits have no session ID.",
-    replaces: ["Median session duration", "Session duration"],
+    replaces: [],
     query: trends({
       series: [ev("$pageview", { math: "median", math_property: "$session_duration", math_property_type: "session_properties" })],
       properties: [GRANTED],
