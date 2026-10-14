@@ -34,7 +34,8 @@ function rememberSubscribed() {
 }
 
 /**
- * "Get Fomo Friday" email capture — the account-free retention loop for the
+ * Weekend email capture ("This weekend in Edinburgh, under £10", sent
+ * Thursday evening by .github/workflows/weekly-content.yml) — the account-free retention loop for the
  * Edinburgh wedge (students + young professionals who won't sign up for an
  * account, but will give an email for a weekly digest). POSTs
  * /api/subscribe, which is public (see proxy.ts's `PUBLIC_POST_PREFIXES`).
@@ -96,7 +97,7 @@ export function SubscribeCard({ source, className = "" }: SubscribeCardProps) {
         className={`flex items-center gap-3 rounded-2xl bg-primary-container px-4 py-3 text-on-primary-container ${className}`}
       >
         <Icon name="check_circle" size={22} filled />
-        <p className="text-body-md font-semibold">You&rsquo;re in. See you Friday.</p>
+        <p className="text-body-md font-semibold">You&rsquo;re in. See you Thursday.</p>
       </div>
     );
   }
@@ -107,10 +108,10 @@ export function SubscribeCard({ source, className = "" }: SubscribeCardProps) {
       className={`flex flex-col gap-3 rounded-2xl border border-hairline-strong bg-surface-container-low p-3.5 ${className}`}
     >
       <div className="flex flex-col gap-0.5">
-        <h3 className="text-title-sm font-extrabold tracking-tight text-on-surface">Get Fomo Friday</h3>
-        <p className="text-body-sm text-on-surface-variant">
-          10 free &amp; cheap things in Edinburgh, every Friday. No account needed.
-        </p>
+        <h3 className="text-title-sm font-extrabold tracking-tight text-on-surface">
+          This weekend in Edinburgh, under &pound;10
+        </h3>
+        <p className="text-body-sm text-on-surface-variant">In your inbox Thursday by 6pm. One email, no account.</p>
       </div>
 
       <div className="flex min-w-0 items-center gap-2">

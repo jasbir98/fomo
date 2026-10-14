@@ -104,7 +104,7 @@ import {
   shortLocationLine,
   type FeedBucketKey,
 } from "@/lib/happenings/format";
-import { happeningRecommendationScore, eventRecommendationScore } from "@/lib/happenings/hero";
+import { happeningRecommendationScore, eventRecommendationScore, eventImageUrl, isPhotoImage } from "@/lib/happenings/hero";
 import { occurrenceIsPastLocalHours } from "@/lib/happenings/local-hours";
 import { categoryStyle } from "@/lib/happenings/category-style";
 import { dealFacets, isGenuineDeal } from "@/lib/happenings/groups";
@@ -388,7 +388,7 @@ function pickHero(
   // spurious "Property does not exist on type 'never'" at the read site.
   // Collecting candidates into a plain array and reducing in a second, non-
   // nested loop sidesteps that entirely.
-  const candidates: { card: FeedHeroCard; score: number; startMs: number; everyday: boolean }[] = [];
+  const candidates: { card: FeedHeroCard; score: number; startMs: number; everyday: boolean; photo: boolean }[] = [];
 
   for (const h of happenings) {
     if (!isDated(h)) continue;
@@ -409,6 +409,7 @@ function pickHero(
       score,
       startMs,
       everyday: isEverydayRecurrence(h.recurrence),
+      photo: isPhotoImage(h.image_url),
     });
   }
 
@@ -417,13 +418,16 @@ function pickHero(
     if (Number.isNaN(startMs) || startMs < eventFrom || startMs > eventCutoff) continue;
     if (priceSignalForEvent(e) !== "cheap") continue; // free-or-cheap only, never a guessed-cheap sports exemption
     const { score, reason } = eventRecommendationScore(e, now, timeZone);
-    candidates.push({ card: { kind: "event", event: e, reason }, score, startMs, everyday: false });
+    candidates.push({ card: { kind: "event", event: e, reason }, score, startMs, everyday: false, photo: isPhotoImage(eventImageUrl(e)) });
   }
 
   // Something on every day (a daily guided walk, the free walking tour) is
   // never the pick while anything else qualifies — it'd lead the page every
   // single day. It lives in the "Any day" section instead (everyday.ts).
-  const pool = candidates.some((c) => !c.everyday) ? candidates.filter((c) => !c.everyday) : candidates;
+  const notEveryday = candidates.some((c) => !c.everyday) ? candidates.filter((c) => !c.everyday) : candidates;
+  // Same rule for a timetable, poster or default tile: never the pick while
+  // a photo-led candidate exists (hero.ts `isPhotoImage`).
+  const pool = notEveryday.some((c) => c.photo) ? notEveryday.filter((c) => c.photo) : notEveryday;
   let best: (typeof candidates)[number] | null = null;
   for (const c of pool) {
     if (!best || c.score > best.score || (c.score === best.score && c.startMs < best.startMs)) {
@@ -1119,7 +1123,9 @@ export async function buildFeed(db: Db, opts: BuildFeedOptions): Promise<FeedRes
   let bookEarly = bookEarlyAll;
   let heroKind: FeedResponse["heroKind"];
   if (window === "book_early") {
-    const topIndex = bookEarlyAll.findIndex((c) => c.kind === "happening");
+    // Top-ranked happening with a real photo, else the top-ranked happening.
+    const photoIndex = bookEarlyAll.findIndex((c) => c.kind === "happening" && isPhotoImage(c.happening.image_url));
+    const topIndex = photoIndex >= 0 ? photoIndex : bookEarlyAll.findIndex((c) => c.kind === "happening");
     const top: BookEarlyHappeningCard | undefined =
       topIndex >= 0 && bookEarlyAll[topIndex].kind === "happening"
         ? (bookEarlyAll[topIndex] as BookEarlyHappeningCard)

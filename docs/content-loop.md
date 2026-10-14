@@ -1,6 +1,6 @@
 # Content loop — "the DB is the content"
 
-Fomo Friday email + Instagram carousel, both built from the exact same
+Weekend email + Instagram carousel, both built from the exact same
 weekly selection (`scripts/lib/weekly-picks.mjs`): live `happenings` +
 upcoming `events` for the coming Fri 17:00 → Sun 23:59 Europe/London, plus
 genuine deals. Nothing here is hand-curated — it's a read of the DB.
@@ -17,7 +17,7 @@ Writes `scripts/out/ig-<date>/00.png … NN.png` + `caption.txt` (1080×1350,
 cover + one slide per pick + CTA). Upload the PNGs as an IG carousel post,
 paste `caption.txt`'s contents as the caption.
 
-**Friday 8am — email digest**
+**Thursday ~5pm — email digest** (GitHub Actions `weekly-content.yml`, cron `7 16 * * 4` UTC: 17:07 BST, 16:07 GMT; the signup card promises "Thursday by 6pm", under £10)
 
 ```bash
 # 1. Dry run first — always. Writes HTML/text to scripts/out/, prints the

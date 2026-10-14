@@ -1,7 +1,7 @@
 /**
  * Fomo — POST /api/subscribe
  *
- * Public, account-free email capture for the weekly "Fomo Friday" digest —
+ * Public, account-free email capture for the weekly weekend email —
  * the retention loop for the Edinburgh wedge (see SubscribeCard, the form
  * this route serves). No session required: proxy.ts's `PUBLIC_API_PREFIXES`
  * is GET/HEAD-only by design (read-only catalogue APIs), so this route is
@@ -90,7 +90,7 @@ function welcomeHtml(email: string, weekendUrl: string, unsubscribeUrl: string):
   <tr>
     <td style="padding:28px 24px 8px;">
       <div style="font-size:18px;font-weight:800;color:${NAVY};">You're on the list</div>
-      <p style="color:#3d4552;font-size:14px;line-height:1.6;margin:8px 0 0;">Every Friday we'll send you Fomo Friday: the free and cheap things worth doing in Edinburgh that weekend. No spam, just what's actually on.</p>
+      <p style="color:#3d4552;font-size:14px;line-height:1.6;margin:8px 0 0;">Every Thursday by 6pm, one email: the free and under-£10 things worth doing in Edinburgh that weekend.</p>
     </td>
   </tr>
   <tr>
@@ -100,7 +100,7 @@ function welcomeHtml(email: string, weekendUrl: string, unsubscribeUrl: string):
   </tr>
   <tr>
     <td style="padding:16px 24px 28px;text-align:center;color:#8b93a3;font-size:11px;line-height:1.6;">
-      You're getting this because ${escapeHtml(email)} signed up for the Fomo Friday digest at askfomo.com.<br />
+      You're getting this because ${escapeHtml(email)} signed up for Fomo's weekend email at askfomo.com.<br />
       ${SENDER_ADDRESS ? `${escapeHtml(SENDER_ADDRESS)}<br />` : ""}
       Not you? <a href="${escapeHtml(unsubscribeUrl)}" style="color:#8b93a3;text-decoration:underline;">Unsubscribe</a>
     </td>
@@ -118,11 +118,11 @@ function welcomeText(email: string, weekendUrl: string, unsubscribeUrl: string):
     "",
     "You're on the list.",
     "",
-    "Every Friday we'll send you Fomo Friday: the free and cheap things worth doing in Edinburgh that weekend. No spam, just what's actually on.",
+    "Every Thursday by 6pm, one email: the free and under-£10 things worth doing in Edinburgh that weekend.",
     "",
     `See this weekend: ${weekendUrl}`,
     "",
-    `You're getting this because ${email} signed up for the Fomo Friday digest at askfomo.com.`,
+    `You're getting this because ${email} signed up for Fomo's weekend email at askfomo.com.`,
     ...(SENDER_ADDRESS ? [SENDER_ADDRESS] : []),
     `Not you? Unsubscribe: ${unsubscribeUrl}`,
   ].join("\n");
