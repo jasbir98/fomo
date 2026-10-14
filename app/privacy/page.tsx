@@ -1,7 +1,7 @@
 // Not legal advice: worth a solicitor's (or Termly/iubenda's) review. The bullet points describing what data
 // this app collects were derived by reading the actual code (see each
-// section's inline source references below) as of 2026-09-28 (PostHog
-// analytics added); re-check them whenever a new data-collecting feature
+// section's inline source references below) as of 2026-10-14 (PostHog
+// cookieless counting added); re-check them whenever a new data-collecting feature
 // ships.
 
 import Link from "next/link";
@@ -27,7 +27,7 @@ export default function PrivacyPage() {
     <div className="flex min-h-dvh w-full flex-col bg-background pb-safe">
       <PageHeader title="Privacy Policy" showBack />
       <main className="mx-auto flex w-full max-w-sm flex-1 flex-col gap-6 px-5 pb-12 lg:max-w-3xl lg:px-8 lg:py-12">
-        <p className="text-label-sm text-on-surface-variant">Last updated 5 October 2026.</p>
+        <p className="text-label-sm text-on-surface-variant">Last updated 14 October 2026.</p>
 
         <Section title="Who we are">
           <p>
@@ -85,13 +85,16 @@ export default function PrivacyPage() {
             <li>
               <strong>Product analytics.</strong>{" "}We use Vercel Analytics (page views, no cookies, no
               personal identification) and PostHog, hosted in the EU, to understand how people use
-              Fomo: which pages and features get used, session recordings with every input masked, and
-              (via a survey pop-up) feedback you choose to give us. PostHog only starts saving anything
-              across visits once you accept the cookie banner (see &ldquo;Cookies&rdquo; below); before
-              that, or if you decline, nothing is written to your device. If you&rsquo;re signed in, the
-              events PostHog records are linked to your account status (student/working, budget,
-              whether you&rsquo;ve set preferences) so we can see which features matter to which kind of
-              visitor, never your email or chat content.
+              Fomo: which pages and features get used. Until you tap &ldquo;OK&rdquo; on the cookie bar
+              (or if you tap &ldquo;No thanks&rdquo;), nothing is written to your device: PostHog counts
+              your visit with an anonymous code worked out on its own servers from your IP address,
+              browser and a random value that changes every day and is then deleted, so it can&rsquo;t be
+              traced back to you or linked across days. Once you tap &ldquo;OK&rdquo; (see
+              &ldquo;Cookies&rdquo; below), PostHog also remembers your device across visits, records
+              sessions with every input masked, and may show a survey pop-up asking for feedback. If
+              you&rsquo;ve tapped &ldquo;OK&rdquo; and you&rsquo;re signed in, those events are linked to your
+              account status (student/working, budget, whether you&rsquo;ve set preferences) so we can see
+              which features matter to which kind of visitor, never your email or chat content.
             </li>
           </ul>
         </Section>
@@ -103,7 +106,8 @@ export default function PrivacyPage() {
             again on every page, and it isn&rsquo;t something you can opt out of. The second is
             PostHog&rsquo;s analytics cookie, which only gets set once you tap &ldquo;OK&rdquo; on the
             cookie bar at the bottom of the screen; tapping &ldquo;No thanks&rdquo; means nothing is
-            stored on your device for analytics, and you won&rsquo;t be asked again either way. We
+            stored on your device for analytics apart from a note of that choice, and you won&rsquo;t be
+            asked again either way. We
             don&rsquo;t use advertising or third-party tracking cookies.
           </p>
         </Section>

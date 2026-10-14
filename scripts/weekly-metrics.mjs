@@ -18,12 +18,17 @@
  * - Tips/feedback: new this week, split [Feedback] vs tips, titles (max 10)
  * - Chat: rows this week + distinct user_id count
  * - Catalogue: live happenings, upcoming events
+ * - Visitors (PostHog, only when POSTHOG_PERSONAL_API_KEY is set): avg daily
+ *   visitors, weekly visitor range, outbound clicks, cookie-bar choices —
+ *   see scripts/lib/posthog.mjs for why weekly visitors are a range
  *
  * Usage:
  *   node --env-file=.env.local scripts/weekly-metrics.mjs           # text output
  *   node --env-file=.env.local scripts/weekly-metrics.mjs --json    # JSON output
  *   node --env-file=.env.local scripts/weekly-metrics.mjs --help
  */
+
+import { posthogClient, posthogConfig, windowSummarySql } from "./lib/posthog.mjs";
 
 if (process.argv.includes("--help") || process.argv.includes("-h")) {
   console.log(`Usage: node --env-file=.env.local scripts/weekly-metrics.mjs [options]
@@ -331,6 +336,18 @@ async function main() {
     metrics.upcomingEvents = null;
   }
 
+  if (posthogConfig().configured) {
+    try {
+      // --- visitors (PostHog) ---
+      const ph = posthogClient();
+      const [thisWeekVisitors] = await ph.hogql(windowSummarySql(thisWeek.startISO, thisWeek.endISO));
+      const [lastWeekVisitors] = await ph.hogql(windowSummarySql(lastWeek.startISO, lastWeek.endISO));
+      metrics.visitors = { thisWeek: thisWeekVisitors, lastWeek: lastWeekVisitors };
+    } catch (err) {
+      metrics.visitors = { error: String(err.message ?? err).slice(0, 160) };
+    }
+  }
+
   // --- output ---
   if (JSON_OUTPUT) {
     console.log(JSON.stringify(metrics, null, 2));
@@ -351,6 +368,24 @@ function printTextReport(m) {
     `${"Metric".padEnd(30)} ${"This Week".padStart(12)} ${"Last Week".padStart(12)} ${"Delta".padStart(10)}`
   );
   lines.push("-".repeat(64));
+
+  // Visitors (PostHog)
+  if (m.visitors && !m.visitors.error) {
+    const t = m.visitors.thisWeek;
+    const l = m.visitors.lastWeek;
+    const row = (label, a, b) =>
+      `${label.padEnd(30)} ${String(a ?? 0).padStart(12)} ${String(b ?? 0).padStart(12)} ${formatDelta(Math.round(((a ?? 0) - (b ?? 0)) * 10) / 10).padStart(10)}`;
+    const range = (v) => `${(v.persistent_visitors ?? 0) + (v.max_daily_cookieless ?? 0)}-${(v.persistent_visitors ?? 0) + (v.sum_daily_cookieless ?? 0)}`;
+    lines.push(row("Avg daily visitors", t.avg_daily_visitors, l.avg_daily_visitors));
+    lines.push(`${"  Weekly visitors (range)".padEnd(30)} ${range(t).padStart(12)} ${range(l).padStart(12)}`);
+    lines.push(row("  With cookie ID (exact)", t.persistent_visitors, l.persistent_visitors));
+    lines.push(row("Outbound clicks", t.outbound_clicks, l.outbound_clicks));
+    lines.push(row("Cookie bar: OK", t.consent_accepted, l.consent_accepted));
+    lines.push(row("Cookie bar: No thanks", t.consent_declined, l.consent_declined));
+  } else if (m.visitors) {
+    lines.push(`Visitors (PostHog): n/a — ${m.visitors.error}`);
+  }
+  if (m.visitors) lines.push("");
 
   // Sign-ups
   if (m.signups && m.signups.thisWeek !== null) {

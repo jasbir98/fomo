@@ -5,6 +5,7 @@ import type { Session, User } from "@supabase/supabase-js";
 import { supabaseBrowserAuth } from "@/lib/supabase/client";
 import { usePrefs } from "@/lib/personalise/usePrefs";
 import { track } from "@/lib/analytics/track";
+import { CONSENT_CHANGED_EVENT } from "./ConsentBar";
 
 /** sessionStorage key app/signin/page.tsx sets right before it hands off to
  *  a real sign-in (OTP verify, Google ID-token exchange, or the OAuth
@@ -33,6 +34,16 @@ function isNewUser(user: User): boolean {
   return Number.isFinite(created) && Date.now() - created < 10 * 60 * 1000;
 }
 
+/** identify()/reset() only once the visitor has tapped "OK". In cookieless
+ *  mode (no answer yet, or "No thanks") the anonymous distinct_id is the
+ *  `$posthog_cookieless` sentinel; identifying would send it as
+ *  `$anon_distinct_id` and merge every cookieless browser into one person.
+ *  Signed-in visitors without consent are still counted (by the daily hash)
+ *  and carry `signed_in: true`. See instrumentation-client.ts. */
+function hasConsent(): boolean {
+  return window.posthog?.get_explicit_consent_status?.() === "granted";
+}
+
 function isStandalone(): boolean {
   if (typeof window === "undefined") return false;
   const nav = navigator as Navigator & { standalone?: boolean };
@@ -53,11 +64,21 @@ function interestsCountFromMetadata(userMetadata: Record<string, unknown> | null
 }
 
 /** Identifies the signed-in visitor to PostHog (never their email — see
- *  brief) and registers the app-wide super properties every event should
- *  carry. Mounted once in AppShell, alongside ConsentBar. */
+ *  brief, and only with consent — see `hasConsent`) and registers the
+ *  app-wide super properties every event should carry. Mounted once in
+ *  AppShell, alongside ConsentBar. */
 export function IdentifyUser() {
   const prefs = usePrefs();
   const [signedIn, setSignedIn] = useState(false);
+  // Bumped on every cookie-bar choice: opting in resets PostHog's identity
+  // and super properties, so both effects below re-run on it.
+  const [consentVersion, setConsentVersion] = useState(0);
+
+  useEffect(() => {
+    const onConsentChanged = () => setConsentVersion((v) => v + 1);
+    window.addEventListener(CONSENT_CHANGED_EVENT, onConsentChanged);
+    return () => window.removeEventListener(CONSENT_CHANGED_EVENT, onConsentChanged);
+  }, []);
 
   // Auth identity — separate from the super-properties effect below so a
   // prefs-only change (e.g. toggling a budget chip) never re-runs the
@@ -66,6 +87,8 @@ export function IdentifyUser() {
     const db = supabaseBrowserAuth();
 
     function identifySession(session: Session) {
+      setSignedIn(true);
+      if (!hasConsent()) return;
       const user = session.user;
       const meta = (user.user_metadata ?? {}) as Record<string, unknown>;
       window.posthog?.identify?.(user.id, {
@@ -76,7 +99,6 @@ export function IdentifyUser() {
         budget: typeof meta.fomo_budget === "string" ? meta.fomo_budget : null,
         prefs_set: meta.fomo_prefs_done === true,
       });
-      setSignedIn(true);
     }
 
     // Current session, once — covers both "already signed in, page just
@@ -97,24 +119,24 @@ export function IdentifyUser() {
         const pendingMethod = readAndClearPendingSigninMethod();
         if (pendingMethod) track("signin_completed", { method: pendingMethod, is_new_user: isNewUser(session.user) });
       } else if (event === "SIGNED_OUT") {
-        window.posthog?.reset?.();
+        if (hasConsent()) window.posthog?.reset?.();
         setSignedIn(false);
       }
     });
 
     return () => subscription.unsubscribe();
-  }, []);
+  }, [consentVersion]);
 
   // Super properties — attached to every event, identified or not.
   // Re-registered whenever `signedIn`/`prefs.done` changes (sign-in/out,
-  // Make Fomo yours completed/skipped/edited).
+  // Make Fomo yours completed/skipped/edited) and after a cookie-bar choice.
   useEffect(() => {
     window.posthog?.register?.({
       signed_in: signedIn,
       standalone: isStandalone(),
       prefs_set: prefs.done,
     });
-  }, [signedIn, prefs.done]);
+  }, [signedIn, prefs.done, consentVersion]);
 
   return null;
 }

@@ -9,14 +9,18 @@ export type FeedbackLinkProps = {
 
 /**
  * Feedback entry point — a tonal chip/button that either displays a PostHog survey
- * (if NEXT_PUBLIC_POSTHOG_FEEDBACK_SURVEY_ID and posthog exist) or navigates to /tip?type=feedback.
+ * (if NEXT_PUBLIC_POSTHOG_FEEDBACK_SURVEY_ID is set and the visitor accepted analytics cookies)
+ * or navigates to /tip?type=feedback.
  */
 export function FeedbackLink({ className = "" }: FeedbackLinkProps) {
   const router = useRouter();
 
   function handleClick() {
     const surveyId = process.env.NEXT_PUBLIC_POSTHOG_FEEDBACK_SURVEY_ID;
-    if (surveyId && typeof window !== "undefined" && window.posthog?.displaySurvey) {
+    // Surveys only run once the visitor has tapped "OK" on the cookie bar —
+    // they're disabled in cookieless mode (instrumentation-client.ts).
+    const surveysOn = typeof window !== "undefined" && window.posthog?.get_explicit_consent_status?.() === "granted";
+    if (surveyId && surveysOn && window.posthog?.displaySurvey) {
       window.posthog.displaySurvey(surveyId);
     } else {
       router.push("/tip?type=feedback");
