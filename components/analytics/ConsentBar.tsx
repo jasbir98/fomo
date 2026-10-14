@@ -2,9 +2,13 @@
 
 import { useState, useSyncExternalStore } from "react";
 import Link from "next/link";
+import { track } from "@/lib/analytics/track";
 
 /** localStorage key remembering the visitor's choice — set once, never asked again either way (accept or decline), matching SubscribeCard's own `fomo_subscribed` convention (components/happenings/SubscribeCard.tsx). */
 const CONSENT_KEY = "fomo:consent";
+
+/** Window event fired after a choice — IdentifyUser re-identifies on it. */
+export const CONSENT_CHANGED_EVENT = "fomo:consent-changed";
 
 type Consent = "accepted" | "declined";
 
@@ -33,12 +37,13 @@ function writeConsent(value: Consent) {
 /**
  * UK PECR cookie/consent bar — small, non-blocking, mounted once in
  * AppShell above BottomNav (never inside it, so it never eats nav taps).
- * PostHog always initialises with `persistence: "memory"` (see
- * instrumentation-client.ts's doc comment) — no cookies or localStorage
- * written — until this bar's "OK" flips that to
- * "localStorage+cookie". "No thanks" leaves memory persistence in place
- * (events still capture for the current page load/session, nothing
- * persisted) and, like "OK", is remembered so the bar never asks twice.
+ * Until a choice is made PostHog captures cookieless — nothing written to
+ * cookies/localStorage, visitors counted by a server-side daily hash (see
+ * instrumentation-client.ts's doc comment). "OK" calls
+ * `posthog.opt_in_capturing()` (persistent cookie identity from then on);
+ * "No thanks" calls `opt_out_capturing()`, which records the refusal and
+ * keeps capture cookieless. Either way the choice is also remembered in
+ * `fomo:consent` so the bar never asks twice.
  *
  * Renders nothing once a choice has been made. The stored choice is read
  * via useSyncExternalStore with a "pending" server snapshot, so SSR and the
@@ -55,8 +60,14 @@ export function ConsentBar() {
     writeConsent(value);
     setConsent(value);
     if (value === "accepted") {
-      window.posthog?.set_config?.({ persistence: "localStorage+cookie" });
+      window.posthog?.opt_in_capturing?.({ captureEventName: false });
+    } else {
+      window.posthog?.opt_out_capturing?.();
     }
+    track("consent_choice", { choice: value });
+    // Opting in resets PostHog's identity and super properties —
+    // IdentifyUser listens for this to identify and re-register them.
+    window.dispatchEvent(new Event(CONSENT_CHANGED_EVENT));
   }
 
   if (consent !== null || stored !== null) return null;

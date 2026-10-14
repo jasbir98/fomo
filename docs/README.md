@@ -7,6 +7,13 @@ Run `/plans` in Claude Code for a summary of this page.
 
 Things waiting on you, newest first. Tick them off here, or ask Claude to update this list.
 
+**Accurate visitor numbers in PostHog (14 Oct)**
+- [ ] In PostHog, turn on Project settings → Web analytics → **Cookieless server hash mode**. Do this *before* merging the `analytics-cookieless` PR.
+- [ ] Create a PostHog personal API key (scopes `insight:write`, `dashboard:write`, `query:read`, `annotation:write`, `project:write`) and add it to `.env.local` as `POSTHOG_PERSONAL_API_KEY`. Then ask Claude to run `scripts/posthog-dashboards.mjs --dump` and fix dashboard 980079.
+- [ ] Merge the `analytics-cookieless` PR, then run `scripts/posthog-dashboards.mjs --since <deploy date>`.
+- [ ] A day after deploy, check cookieless visitors are spread over many daily IDs, not one. One giant "person" means `proxy.ts` is sending Vercel's IP instead of the visitor's.
+- [ ] After 2–3 days, compare PostHog's "Daily visitors" with Vercel Analytics visitors. They should be close.
+
 **What sits behind sign-in (13 Oct)**
 - [ ] Merge [PR #27](https://github.com/jasbir98/fomo/pull/27). It edits `supabase/add_finds.sql` so only signed-in visitors can read the hand-picks. If you run that SQL before merging, re-run the policy part after.
 - [ ] After it deploys, sign in and check For you shows every pick and the "You qualify" badges are back. Signed out, For you shows 2 picks and a sign-in card.
@@ -119,6 +126,7 @@ Snapshots of the plans approved in Claude Code plan mode. Each one is a record o
 
 | Plan | Status |
 |---|---|
+| [2026-10-14 Accurate visitor numbers in PostHog](plans/2026-10-14-posthog-accurate-metrics.md) | Built on branch `analytics-cookieless`; PR pending. Cookieless server hash mode and the API key come first (above). |
 | [2026-10-13 What sits behind sign-in](plans/2026-10-13-login-wall.md) | Built; in [PR #27](https://github.com/jasbir98/fomo/pull/27). Changes `add_finds.sql`, so run that after merging. |
 | [2026-10-12 For you: hand-picked steals and recommendations](plans/2026-10-12-fomo-finds.md) | Built on branch `fomo-finds`; PR pending. SQL listed above. |
 | [2026-10-08 More events and deals: sources, validation, soft-retire](plans/2026-10-08-event-and-deal-coverage.md) | Built on branch `event-coverage`; PR pending. SQL and keys listed above. |

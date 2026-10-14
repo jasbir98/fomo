@@ -19,24 +19,37 @@ new: `instrumentation-client.ts` (init), `next.config.ts` (reverse proxy),
   `script-src 'self'` already cover it; `worker-src blob:` for session
   replay was already in the CSP). `skipTrailingSlashRedirect: true` stops
   Next's own trailing-slash redirect racing the rewrite.
-- **Dev**: still initialises (so events are testable locally) but starts
-  opted out via `opt_out_capturing_by_default`, unless
-  `NEXT_PUBLIC_POSTHOG_DEBUG=1` is set in `.env.local`.
-- **Consent (UK PECR)**: `components/analytics/ConsentBar.tsx`, mounted once
-  in `AppShell` (so it's never shown on `/signin`/`/welcome`, which sit
-  outside the shell). Before a choice, PostHog runs with
-  `persistence: "memory"` — nothing written to cookies/localStorage, events
-  still flow for the current page load. Tapping **OK** calls
-  `posthog.set_config({ persistence: "localStorage+cookie" })`; **No
-  thanks** leaves memory persistence in place. Either way the choice is
-  remembered in `localStorage["fomo:consent"]` and the bar never asks again.
+- **Dev**: not initialised at all unless `NEXT_PUBLIC_POSTHOG_DEBUG=1` is
+  set in `.env.local`.
+- **Consent (UK PECR) — cookieless until "OK"**: `cookieless_mode:
+  "on_reject"` + `opt_out_capturing_by_default: true`. Until the visitor
+  taps **OK** on `components/analytics/ConsentBar.tsx` (mounted once in
+  `AppShell`, so never on `/signin`/`/welcome`), posthog-js captures in
+  cookieless mode: nothing written to cookies/localStorage, every event
+  sent with the `$posthog_cookieless` distinct_id, which PostHog's servers
+  replace with `hash(project, daily salt, IP, user agent, host)`. **No
+  thanks** calls `posthog.opt_out_capturing()` (stays cookieless, stores the
+  refusal); **OK** calls `posthog.opt_in_capturing()` (normal cookie identity
+  from then on). The bar also remembers the choice in
+  `localStorage["fomo:consent"]` and never asks twice; visitors who chose
+  before cookieless mode existed are carried over by
+  `migrateLegacyConsent` in `instrumentation-client.ts`. Needs **Cookieless
+  server hash mode** on in the PostHog project (Project settings → Web
+  analytics). Replay and surveys only run after OK.
+- **`consent_status` on every event** (`granted` / `pending` / `denied`),
+  set in `before_send` so even the initial pageview has it. Every visitor
+  metric splits on it — see "What each number means".
 - **Identity**: `components/analytics/IdentifyUser.tsx`, also mounted once
   in `AppShell`. Watches `supabaseBrowserAuth().auth.onAuthStateChange`;
-  on sign-in calls `posthog.identify(user.id, {...})` with
-  `signin_method`, `fomo_status`, `who_groups`, `interests_count`, `budget`,
-  `prefs_set` — **never the email address**. On sign-out, `posthog.reset()`.
-  Also registers three super properties on every event: `signed_in`,
-  `standalone` (installed PWA vs browser tab), `prefs_set`.
+  on sign-in, **if the visitor tapped OK**, calls
+  `posthog.identify(user.id, {...})` with `signin_method`, `fomo_status`,
+  `who_groups`, `interests_count`, `budget`, `prefs_set` — **never the email
+  address**. On sign-out (again only with consent), `posthog.reset()`.
+  Without consent it never identifies: in cookieless mode that would merge
+  every cookieless browser into one person. Also registers three super
+  properties on every event: `signed_in`, `standalone` (installed PWA vs
+  browser tab), `prefs_set`; and re-runs both after a cookie-bar choice
+  (`fomo:consent-changed`), since opting in resets PostHog's identity.
 - **Events**: `lib/analytics/track.ts` exports `track(event, props)` — a
   safe no-op wrapper around `window.posthog?.capture`. Every call site below
   goes through this (or the shared `trackOutboundClicked`/`priceBand`
@@ -60,10 +73,46 @@ new: `instrumentation-client.ts` (init), `next.config.ts` (reverse proxy),
 | `prefs_completed` / `prefs_skipped` | — | `MakeFomoYours` — Save vs. Skip for now |
 | `signin_completed` | `method` (email/google/apple) | `/signin`, once per real sign-in (see below) |
 | `pwa_installed` | — | `AppShell`'s `appinstalled` listener |
+| `consent_choice` | `choice` (accepted/declined) | `ConsentBar`, on OK / No thanks |
 
-Every event also carries the super properties `signed_in`, `standalone`,
-`prefs_set` (see Identity above), plus whatever PostHog adds automatically
-(`$current_url`, `$pathname`, UTM params, etc.).
+Every event also carries `consent_status` and the super properties
+`signed_in`, `standalone`, `prefs_set` (see above), plus whatever PostHog
+adds automatically (`$current_url`, `$pathname`, UTM params, etc.).
+
+## What each number means
+
+Before 15 Oct 2026, visitors who hadn't tapped OK ran with in-memory
+persistence, so **every full page load, new tab or return visit was a new
+"user"**: users, WAU, retention and funnels from before then are inflated.
+The dashboard is annotated at the switch and starts there.
+
+Now there are two kinds of visitor:
+
+| | Who | ID | Lasts |
+|---|---|---|---|
+| Cookie visitor | tapped **OK** | random ID in a first-party cookie | across visits |
+| Cookieless visitor | never answered, or **No thanks** (most people) | PostHog's server-side hash | one day |
+
+So:
+
+- **Daily visitors — exact.** Cookie visitors by ID + cookieless by hash.
+  The headline traffic number; compare it with Vercel Analytics visitors
+  (also a daily hash) as a sanity check.
+- **Weekly/monthly visitors — a range.** A cookieless visitor who comes on
+  3 days counts 3 times. Low = cookie visitors + the busiest day's
+  cookieless; high = cookie visitors + the sum of every day's cookieless.
+- **Funnels, per-visitor rates (outbound clicks per visitor, saves +
+  shares per visitor) — exact within a day**, so funnels use a 1-day window.
+- **Retention, stickiness, session length — cookie visitors only.** Nobody
+  else can be followed across days. Watch "Visitors with a cookie ID (%)" to
+  know how big that sample is.
+- **Signed-in accounts** — use Supabase (`scripts/weekly-metrics.mjs`), the
+  source of truth; in PostHog, `signed_in = true` gives daily signed-in
+  visitors.
+- On the day someone taps OK they can be counted twice (once by hash, once
+  by their new ID). One-off per visitor, small.
+- Cookieless events get no GeoIP or bot detection (PostHog strips the IP
+  before those run).
 
 ### `signin_completed`'s "exactly once" trick
 
@@ -88,28 +137,41 @@ curl -s -o /dev/null -w "%{http_code}\n" http://localhost:3000/ingest/flags
 
 Both should come back as a PostHog response (200, or PostHog's own 4xx for
 a malformed request) — never Next's 404 page — confirming the rewrite is
-live. Open the app in a browser, accept the cookie bar, and check the
-Network tab for `POST /ingest/e/` (capture) — the same request should show
-a `200` and, in the PostHog project's Activity tab, the event should land
-within a few seconds.
+live. Open the app in a fresh browser profile: before answering the cookie
+bar, `posthog.get_distinct_id()` in the console is `$posthog_cookieless`,
+`get_explicit_consent_status()` is `"pending"` and there are no `ph_*`
+cookies or localStorage keys, while `POST /ingest/i/v0/e/` still returns
+200. Tap OK: the ID becomes a UUID, a `ph_*` cookie appears, and it
+survives a reload. Tap No thanks instead: status `"denied"`, still
+cookieless.
 
 ## Owner setup (PostHog UI)
 
-1. **Project**: create one on the EU cloud (eu.posthog.com), copy its
-   Project API key into `NEXT_PUBLIC_POSTHOG_KEY` (`.env.local` and Vercel,
-   all environments).
-2. **Dashboard "Fomo v1"** — create these insights:
-   - WAU / DAU (trend on `$pageview`, unique users, daily and weekly)
-   - Stickiness (DAU/WAU ratio insight)
-   - Retention on `card_opened` and separately on `outbound_clicked`
-     (first-time vs. returning)
-   - Median session duration (session insight, median aggregation)
-   - Funnel: `$pageview` → `card_opened` → `outbound_clicked`
-   - Breakdown of the above funnel by `utm_source` (PostHog captures UTM
-     params automatically as event/person properties)
-   - Installs: trend on `pwa_installed`
-   - Saves/shares per WAU: trend on `save_added` + `share_completed`,
-     divided by the WAU number (formula mode, or eyeball two panels)
+1. **Project**: EU cloud (eu.posthog.com), project 286067. Its Project API
+   key is `NEXT_PUBLIC_POSTHOG_KEY` (`.env.local` and Vercel, all
+   environments).
+2. **Cookieless server hash mode**: Project settings → Web analytics → on.
+   Must be on before the cookieless code ships.
+3. **Dashboard** (980079) — managed by `scripts/posthog-dashboards.mjs`,
+   not by hand. Needs a personal API key (Settings → Personal API keys;
+   scopes `insight:write`, `dashboard:write`, `query:read`,
+   `annotation:write`, `project:write`) in `.env.local` as
+   `POSTHOG_PERSONAL_API_KEY`. Optional: `POSTHOG_PROJECT_ID` (default
+   286067), `POSTHOG_HOST` (default https://eu.posthog.com).
+
+   ```bash
+   node --env-file=.env.local scripts/posthog-dashboards.mjs --dump      # what's there now
+   node --env-file=.env.local scripts/posthog-dashboards.mjs --dry-run   # validate + plan
+   node --env-file=.env.local scripts/posthog-dashboards.mjs --since 2026-10-15
+   ```
+
+   It fixes existing tiles in place (matched by name), creates missing
+   ones, sets test-account filters to `$host = askfomo.com` (previews,
+   staging and localhost share the key), and with `--since` annotates the
+   switch and floors the dashboard's date range there.
+   `--remove-unmanaged` takes tiles it doesn't manage off the dashboard
+   (insights kept). The same key adds a Visitors block to
+   `scripts/weekly-metrics.mjs`.
 3. **Surveys** (Surveys tab → New survey):
    - **2nd-visit prompt**: "What were you looking for that you didn't
      find?" — open text, trigger on "user has visited the site 2 times"
@@ -139,9 +201,11 @@ within a few seconds.
   environments) — analytics is entirely inert without it.
 - Optionally set `NEXT_PUBLIC_POSTHOG_DEBUG=1` locally to see events while
   developing.
-- Create the PostHog project, dashboard and surveys per the steps above,
-  and set `NEXT_PUBLIC_POSTHOG_FEEDBACK_SURVEY_ID` once the always-on
-  survey exists.
+- Turn on Cookieless server hash mode, add `POSTHOG_PERSONAL_API_KEY`,
+  run `scripts/posthog-dashboards.mjs`, create the surveys per the steps
+  above, and set `NEXT_PUBLIC_POSTHOG_FEEDBACK_SURVEY_ID` once the
+  always-on survey exists (it only shows to visitors who tapped OK; others
+  get `/tip?type=feedback`).
 - Fill in the survey trigger conditions in the PostHog UI — the exact
   wording of "3rd session or 7 days" targeting depends on what that
   account's PostHog plan exposes in the survey targeting editor.

@@ -21,9 +21,14 @@ interface PosthogLike {
    *  `window.posthog` in the codebase) so every file that touches it agrees
    *  on one shape instead of TypeScript rejecting conflicting re-declarations. */
   capture?(event: string, properties?: Record<string, unknown>): void;
-  /** components/analytics/ConsentBar.tsx's only call — flips persistence
-   *  from the pre-consent "memory" mode to "localStorage+cookie" on accept. */
-  set_config?(config: Record<string, unknown>): void;
+  /** components/analytics/ConsentBar.tsx's calls — "OK" switches from
+   *  cookieless capture to a persistent cookie identity, "No thanks" records
+   *  the refusal (capture stays cookieless). See instrumentation-client.ts. */
+  opt_in_capturing?(options?: { captureEventName?: string | null | false }): void;
+  opt_out_capturing?(): void;
+  /** "granted" only after "OK" — identify (IdentifyUser) and surveys
+   *  (FeedbackLink) are gated on it, since neither works cookieless. */
+  get_explicit_consent_status?(): "granted" | "denied" | "pending";
   /** components/analytics/IdentifyUser.tsx's calls — identity + super properties. */
   identify?(id: string, properties?: Record<string, unknown>): void;
   reset?(): void;
