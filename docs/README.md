@@ -8,7 +8,7 @@ Run `/plans` in Claude Code for a summary of this page.
 Things waiting on you, newest first. Tick them off here, or ask Claude to update this list.
 
 **Stale dates on long-running events (15 Oct)**
-- [ ] Merge the `fix-span-event-dates` PR. Imported events listed as one long run (a weekly quiz "1 Sep – 30 Dec") showed their first date, e.g. "Tue 1 Sep", in Today. They now read "On now".
+- [ ] Merge [PR #38](https://github.com/jasbir98/fomo/pull/38). Imported events listed as one long run (a weekly quiz "1 Sep – 30 Dec") showed their first date, e.g. "Tue 1 Sep", in Today. They now read "On now".
 - Known, not fixed: some of those runs are really one night a week. "Victoria Bar's Wednesday Quiz Night" sits in Today on every day, Thursday included. Same for "Easy Sundays" and others.
 
 **Shareable weekend plan (15 Oct)**
