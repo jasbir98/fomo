@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Icon, NavCard, SmartImage } from "@/components/ui";
-import { eventIsInProgress, formatEventDate, formatEventPrice, formatEventTimeSpan, formatEventWhen } from "@/lib/events/format";
+import { eventIsInProgress, eventDateLabel, formatEventPrice, formatEventTimeSpan, formatEventWhen } from "@/lib/events/format";
 import { eventOnNowLabel } from "@/lib/happenings/format";
 import { eventDefaultImage } from "@/lib/events/image";
 import { HappeningHero } from "./HappeningHero";
@@ -55,7 +55,7 @@ function EventHero({ event, reason, surface }: { event: EventItem; reason: strin
   const price = formatEventPrice(event);
   // Same rule as the feed's EventRow: a running span reads "On now · until …",
   // never its long-gone start date.
-  const eventDate = eventIsInProgress(event) ? eventOnNowLabel(event.ends_at) : formatEventDate(event.starts_at);
+  const eventDate = eventIsInProgress(event) ? eventOnNowLabel(event.ends_at) : eventDateLabel(event);
   const eventTime = formatEventTimeSpan(event.starts_at, event.ends_at);
   const ownImage = event.image_url || event.place?.image_url || null;
   const heroImage = ownImage && !imgError ? ownImage : eventDefaultImage(event);

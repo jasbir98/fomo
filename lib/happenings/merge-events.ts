@@ -34,7 +34,8 @@
  */
 import type { EventItem } from "@/lib/types";
 import type { HappeningCardData, SeriesCardData } from "@/lib/happenings/feed-types";
-import { localDayDate } from "@/lib/happenings/occurrence";
+import { weeklySpanOf, type WeeklySpan } from "@/lib/events/format";
+import { localDayDate, weekdayOf } from "@/lib/happenings/occurrence";
 import { NO_VENUE_KEY, PROVIDER_PRIORITY, normalizeEventTitle, normalizeVenueKey } from "@/lib/events/identity";
 
 /** The two What's-on card kinds a provider event can be merged into — never
@@ -220,6 +221,26 @@ function cardVenue(card: MergeableCard): string | null {
   return card.kind === "happening" ? card.happening.venue_name : card.lead.venue_name;
 }
 
+/** "Victoria Bar's" -> "Victoria Bar" — see `isWeeklySpanMatch`. */
+const POSSESSIVE_RE = /['\u2019]s\b/gi;
+
+/**
+ * A weekly span event ("Victoria Bar's Wednesday Quiz Night", one date-only
+ * row for 1 Sep – 30 Dec — see lib/events/format.ts's `weeklySpanOf`) has no
+ * single day to gate on, so it pairs with a curated card ("Wednesday Quiz
+ * Night at Victoria Bar", weekly on Wednesdays) on any of its run's matching
+ * weekdays instead. Looser day gate, so the venue must agree too (a hard
+ * gate here, unlike the tiebreak in the main loop), and possessives are
+ * dropped from both titles so "Bar's" and "Bar" are the same token.
+ */
+function isWeeklySpanMatch(card: MergeableCard, event: EventItem, span: WeeklySpan): boolean {
+  const day = card.occurrence.dayDate;
+  if (day < span.firstDay || day > span.lastDay || weekdayOf(day) !== span.weekday) return false;
+  const venueKey = normalizeVenueKey(cardVenue(card));
+  if (venueKey === NO_VENUE_KEY || venueKey !== normalizeVenueKey(event.venue_name)) return false;
+  return isTitleMatch(cardTitle(card).replace(POSSESSIVE_RE, ""), event.name.replace(POSSESSIVE_RE, ""));
+}
+
 /**
  * Copies `card` with `bookingUrl` grafted onto its happening/lead object,
  * UNLESS the card already has one of its own — curated `booking_url` always
@@ -274,13 +295,18 @@ export function mergeProviderEventsIntoCards(
   for (const event of events) {
     const eventDay = localDayDate(new Date(event.starts_at), timeZone);
     const eventVenue = event.venue_name;
+    const span = weeklySpanOf(event);
 
     let bestIndex = -1;
     let bestScore = -1;
     for (let i = 0; i < mergedCards.length; i++) {
       const card = mergedCards[i];
-      if (card.occurrence.dayDate !== eventDay) continue;
-      if (!isTitleMatch(cardTitle(card), event.name)) continue;
+      if (span) {
+        if (!isWeeklySpanMatch(card, event, span)) continue;
+      } else {
+        if (card.occurrence.dayDate !== eventDay) continue;
+        if (!isTitleMatch(cardTitle(card), event.name)) continue;
+      }
       let score = titleSimilarity(cardTitle(card), event.name);
       // Venue agreement only ever nudges a tie between two same-day,
       // already-matching candidates towards the more plausible one — it

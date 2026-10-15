@@ -3,7 +3,8 @@
  * filters (components/happenings/DateFilterRow.tsx) and server-rendered pages
  * (This weekend's first paint) can share it; DateFilterRow re-exports these.
  */
-import { localDayDate } from "@/lib/happenings/occurrence";
+import { weeklySpanOf } from "@/lib/events/format";
+import { localDayDate, weekdayOf } from "@/lib/happenings/occurrence";
 import type { FeedCardData } from "@/lib/happenings/feed-types";
 
 /** A What's on card's local calendar day — `occurrence.dayDate` for a
@@ -31,8 +32,14 @@ function cardLastDayDate(card: FeedCardData): string {
 /** Whether a card is on `day` — inside its run for multi-day happenings, or
  *  (a recurring card) one of its exact occurrence dates — its dates aren't
  *  necessarily contiguous (e.g. every Tuesday), so this checks membership
- *  rather than a `first <= day <= last` range. */
+ *  rather than a `first <= day <= last` range. A weekly span event
+ *  (lib/events/format.ts's `weeklySpanOf`: "Easy Sundays", 13 Sep – 29 Nov)
+ *  is on each of its run's matching weekdays. */
 export function cardOnDay(card: FeedCardData, day: string): boolean {
   if (card.kind === "recurring") return card.dates.includes(day);
+  if (card.kind === "event") {
+    const span = weeklySpanOf(card.event);
+    if (span) return span.firstDay <= day && day <= span.lastDay && weekdayOf(day) === span.weekday;
+  }
   return cardDayDate(card) <= day && day <= cardLastDayDate(card);
 }

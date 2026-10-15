@@ -13,8 +13,9 @@
 // device happened to be in instead — same class of bug lib/happenings/
 // occurrence.ts's module doc warns about, just not yet fixed in this file.
 import { CITY } from "@/lib/city";
-import { addDays, localDayDate } from "@/lib/happenings/occurrence";
-import { monthShort } from "@/lib/happenings/format";
+import { addDays, localDayDate, weekdayOf } from "@/lib/happenings/occurrence";
+import { monthShort, shortDayLabel } from "@/lib/happenings/format";
+import type { Weekday } from "@/lib/happenings/types";
 import type { EventItem } from "@/lib/types";
 
 /** An event with no `ends_at` is assumed to run this long — mirrors the
@@ -35,6 +36,79 @@ export function isDateOnlyStart(iso: string): boolean {
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return false;
   return d.getUTCHours() === 0 && d.getUTCMinutes() === 0 && d.getUTCSeconds() === 0;
+}
+
+const WEEKDAY_STEMS: Record<string, Weekday> = { sun: 0, mon: 1, tues: 2, wednes: 3, thurs: 4, fri: 5, satur: 6 };
+const WEEKDAY_WORD_RE = /\b(sun|mon|tues|wednes|thurs|fri|satur)days?\b/gi;
+/** Named one-off days ("Black Friday", "Easter Sunday") say nothing about
+ *  which weekday a run is on, so they're blanked out before matching. */
+const NAMED_DAY_RE =
+  /\b(?:black|good|cyber|easter|palm|ash|maundy|shrove|super|giving)\s+(?:sun|mon|tues|wednes|thurs|fri|satur)day\b/gi;
+
+/** A date-only span that's really one night a week (see `weeklySpanOf`). Days
+ *  are "YYYY-MM-DD"; `lastDay` is inclusive. */
+export interface WeeklySpan {
+  weekday: Weekday;
+  firstDay: string;
+  lastDay: string;
+}
+
+/**
+ * Some imported listings are a weekly night stored as one long date-only run:
+ * "Victoria Bar's Wednesday Quiz Night", 1 Sep – 30 Dec. Taken at face value
+ * that's on every day, so the feed floored it into Today on a Thursday too.
+ * When such a run's title names exactly one weekday ("Wednesday", "Easy
+ * Sundays"), it only happens on that weekday — this returns that weekday and
+ * the run's first/last day, else null. Requires a date-only start (a timed
+ * row's own clock already pins it) and an end on a later day than the start
+ * (a one-day row has no other days to wrongly appear on). A run that never
+ * touches the named weekday at all is left alone (null): the title's day isn't
+ * its schedule then. Days are read off the UTC calendar date, since these
+ * rows store the bare date as midnight / 23:59:59 UTC.
+ */
+export function weeklySpanOf(
+  e: Pick<EventItem, "starts_at" | "ends_at"> & { name?: string | null }
+): WeeklySpan | null {
+  if (!e.ends_at || !isDateOnlyStart(e.starts_at)) return null;
+  const end = new Date(e.ends_at);
+  if (Number.isNaN(end.getTime())) return null;
+  const firstDay = new Date(e.starts_at).toISOString().slice(0, 10);
+  const lastDay = end.toISOString().slice(0, 10);
+  if (lastDay <= firstDay) return null;
+
+  const named = new Set<Weekday>();
+  for (const m of String(e.name ?? "").replace(NAMED_DAY_RE, " ").matchAll(WEEKDAY_WORD_RE)) {
+    named.add(WEEKDAY_STEMS[m[1].toLowerCase()]);
+  }
+  if (named.size !== 1) return null;
+  const [weekday] = named;
+  const span = { weekday, firstDay, lastDay };
+  return nextWeeklySpanDay(span, firstDay) ? span : null;
+}
+
+/** The first day on/after `fromDay` (and the run's own first day) that falls
+ *  on the span's weekday, or null when the run has none left. */
+export function nextWeeklySpanDay(span: WeeklySpan, fromDay: string): string | null {
+  const start = fromDay > span.firstDay ? fromDay : span.firstDay;
+  const day = addDays(start, (span.weekday - weekdayOf(start) + 7) % 7);
+  return day <= span.lastDay ? day : null;
+}
+
+/**
+ * The local day an event is next on, as of `today` — the day the feed
+ * buckets and sorts it by. A run already under way counts as on today (never
+ * its long-gone start day); a weekly span (see `weeklySpanOf`) is on its next
+ * matching weekday instead, and null once it has none left.
+ */
+export function eventNextDay(
+  e: Pick<EventItem, "starts_at" | "ends_at"> & { name?: string | null },
+  today: string,
+  timeZone: string = CITY.timezone
+): string | null {
+  const span = weeklySpanOf(e);
+  if (span) return nextWeeklySpanDay(span, today);
+  const startDay = localDayDate(new Date(e.starts_at), timeZone);
+  return startDay < today ? today : startDay;
 }
 
 /** Events at/after this local hour read as "Tonight"; earlier same-day ones
@@ -78,7 +152,7 @@ export function eventIsLive(e: Pick<EventItem, "starts_at" | "ends_at">, at: Dat
  *  now" check behind the feed's "On now" pill; `eventIsLive` alone is also
  *  true for a future event, so it can't be used for this. */
 export function eventIsInProgress(
-  e: Pick<EventItem, "starts_at" | "ends_at">,
+  e: Pick<EventItem, "starts_at" | "ends_at"> & { name?: string | null },
   at: Date = new Date(),
   timeZone: string = CITY.timezone
 ): boolean {
@@ -89,9 +163,13 @@ export function eventIsInProgress(
   // and is still live is a running span (a "1 Sep – 30 Dec" listing), on now
   // for the whole day, like an all-day happening span (occurrence.ts's
   // `occurrenceIsLive`). Without this the feed floors it into Today but its
-  // card still read "Tue 1 Sep", the long-gone start date.
+  // card still read "Tue 1 Sep", the long-gone start date. A weekly span
+  // (`weeklySpanOf`) is only on now on its own weekday.
   if (!isDateOnlyStart(e.starts_at)) return true;
-  return localDayDate(new Date(startMs), timeZone) < localDayDate(at, timeZone);
+  const today = localDayDate(at, timeZone);
+  if (localDayDate(new Date(startMs), timeZone) >= today) return false;
+  const span = weeklySpanOf(e);
+  return !span || weekdayOf(today) === span.weekday;
 }
 
 /**
@@ -175,6 +253,25 @@ export function formatEventDate(starts_at: string, timeZone: string = CITY.timez
   const eventDay = localDayDate(d, timeZone);
   const weekday = new Intl.DateTimeFormat("en-GB", { weekday: "short", timeZone }).format(d);
   return `${weekday} ${Number(eventDay.slice(8, 10))} ${monthShort(eventDay)}`;
+}
+
+/**
+ * A feed card's date label: `formatEventDate`, except a weekly span (see
+ * `weeklySpanOf`) reads as its next matching day ("Wed 21 Oct", "Tomorrow")
+ * rather than the run's long-gone first day — it's sorted under that day.
+ */
+export function eventDateLabel(
+  e: Pick<EventItem, "starts_at" | "ends_at"> & { name?: string | null },
+  now: Date = new Date(),
+  timeZone: string = CITY.timezone
+): string {
+  const span = weeklySpanOf(e);
+  const today = localDayDate(now, timeZone);
+  const day = span ? nextWeeklySpanDay(span, today) : null;
+  if (!day) return formatEventDate(e.starts_at, timeZone);
+  if (day === today) return "Today";
+  if (day === addDays(today, 1)) return "Tomorrow";
+  return shortDayLabel(day);
 }
 
 /**

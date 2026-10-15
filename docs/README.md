@@ -14,6 +14,11 @@ GitHub Actions ran the Thursday email 4–7 hours late. A Vercel cron now starts
 - [ ] Merge the weekly-email cron PR. Check Vercel → Settings → Cron Jobs lists `/api/cron/weekly-email`. "Run" there sends the real email, so only press it on a Thursday you want a send.
 - [ ] Next Thursday (22 Oct), check Vercel's cron log and the Actions run both happened before 5pm.
 
+**Stale dates on long-running events (15 Oct)**
+- [x] Merge [PR #38](https://github.com/jasbir98/fomo/pull/38). Imported events listed as one long run (a weekly quiz "1 Sep – 30 Dec") showed their first date, e.g. "Tue 1 Sep", in Today. They now read "On now".
+- [ ] Merge [PR #40](https://github.com/jasbir98/fomo/pull/40). Some of those runs are really one night a week: "Victoria Bar's Wednesday Quiz Night" sat in Today every day, Thursday included, and so did "Easy Sundays". A run whose title names one weekday now only shows on that weekday, reads its next date ("Wed 21 Oct") on other days, and merges with the matching curated card at the same venue.
+- Known, not fixed: a weekly run whose title doesn't name its day (or names two) still shows in Today every day.
+
 **Shareable weekend plan (15 Oct)**
 - [x] Run `supabase/add_plans.sql` in the Supabase SQL editor (done 15 Oct).
 - [ ] Merge [PR #34](https://github.com/jasbir98/fomo/pull/34).
