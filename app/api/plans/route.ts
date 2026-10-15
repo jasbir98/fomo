@@ -14,7 +14,7 @@
  * exists, like /api/subscribe). 503 until supabase/add_plans.sql has run.
  */
 import "server-only";
-import { NextResponse } from "next/server";
+import { after, NextResponse } from "next/server";
 import { anonRateLimitedResponse, consumeAnonRateLimit, consumeGlobalRateLimit } from "@/lib/rate-limit";
 import { PlansUnavailableError, savePlan } from "@/lib/plans/db";
 import { buildPlanItems, planItemsHash } from "@/lib/plans/snapshot";
@@ -26,6 +26,25 @@ const IP_LIMIT = { limit: 20, windowSeconds: 60 * 60 };
 const GLOBAL_LIMIT = { limit: 3000, windowSeconds: 24 * 60 * 60 };
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const DAY_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+/**
+ * Requests the plan page and its share image once, right after the plan is
+ * made, so both are rendered and cached (ISR) before anyone pastes the link.
+ * WhatsApp only waits a few seconds for a preview, and a cold render of the
+ * image fetches up to four photos. Best effort: failures are only logged.
+ */
+async function warmPlan(origin: string, id: string) {
+  try {
+    const res = await fetch(`${origin}/plan/${id}`, { signal: AbortSignal.timeout(20_000) });
+    const html = await res.text();
+    const images = [...html.matchAll(/<meta (?:property="og:image"|name="twitter:image") content="([^"]+)"/g)].map((m) =>
+      m[1].replace(/&amp;/g, "&").replace(/^https?:\/\/[^/]+/, origin)
+    );
+    await Promise.all(images.map((url) => fetch(url, { signal: AbortSignal.timeout(20_000) }).then((r) => r.arrayBuffer())));
+  } catch (err) {
+    console.warn(`[api/plans] warming /plan/${id} failed`, err instanceof Error ? err.message : err);
+  }
+}
 
 function bad(message: string, status = 400) {
   return NextResponse.json({ error: message }, { status });
@@ -72,6 +91,7 @@ export async function POST(request: Request) {
       return bad("Some of those have ended. Pick another and try again.", 422);
     }
     const { id, created } = await savePlan(items, planItemsHash(items));
+    after(() => warmPlan(new URL(request.url).origin, id));
     return NextResponse.json({ id, created }, { status: created ? 201 : 200 });
   } catch (err) {
     if (err instanceof PlansUnavailableError) {

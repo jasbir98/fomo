@@ -17,7 +17,32 @@ Writes `scripts/out/ig-<date>/00.png … NN.png` + `caption.txt` (1080×1350,
 cover + one slide per pick + CTA). Upload the PNGs as an IG carousel post,
 paste `caption.txt`'s contents as the caption.
 
-**Thursday ~5pm — email digest** (GitHub Actions `weekly-content.yml`, cron `7 16 * * 4` UTC: 17:07 BST, 16:07 GMT; the signup card promises "Thursday by 6pm", under £10)
+**Thursday afternoon — email digest** (the signup card promises "Thursday by 6pm", under £10)
+
+How it's triggered:
+
+1. Vercel Cron (`vercel.json`, `0 15 * * 4`) calls `GET /api/cron/weekly-email`
+   (`app/api/cron/weekly-email/route.ts`). On Hobby the call lands anywhere
+   in 15:00–15:59 UTC: 16:00–16:59 BST, 15:00–15:59 GMT. Under 6pm all year,
+   so nothing changes when the clocks do.
+2. The route checks Vercel's `Authorization: Bearer $CRON_SECRET` header, then
+   calls GitHub's workflow_dispatch API for `weekly-content.yml` with
+   `action=email-send`.
+3. The Actions `email` job runs `scripts/fomo-friday.mjs --send`. The email
+   arrives a few minutes after step 1.
+
+Why not an Actions `schedule`: scheduled runs on this repo started 4–7 hours
+late (7, 9 and 14 Oct). A dispatch starts within a minute or two. The
+Thursday schedule was removed, not kept as a fallback, so there's only one
+trigger and no way to send twice. If the cron fails (Vercel → Settings →
+Cron Jobs shows the log; the route returns 503 when an env var is missing,
+502 when GitHub refuses), send by hand: Actions → Weekly content → Run
+workflow → `email-send`, or `gh workflow run weekly-content.yml -f action=email-send`.
+
+The Wednesday carousel still uses the Actions schedule (`7 16 * * 3`); a
+late run doesn't matter there.
+
+Running it locally:
 
 ```bash
 # 1. Dry run first — always. Writes HTML/text to scripts/out/, prints the
@@ -34,10 +59,8 @@ node --env-file=.env.local scripts/fomo-friday.mjs --send
 ```
 
 Both scripts are read-only against the DB — they never write to
-`happenings`, `events`, or `email_subscribers`. Recommended: wire these two
-as scheduled runs (cron / GitHub Actions, same as `scripts/daily-sources.mjs`
-and `scripts/sweep-happenings.mjs` already are) once the env vars below are
-set somewhere the scheduler can read them.
+`happenings`, `events`, or `email_subscribers`. Both run on a schedule via
+`.github/workflows/weekly-content.yml` (see above for how each is triggered).
 
 ## Env vars needed
 
@@ -49,7 +72,17 @@ set somewhere the scheduler can read them.
 | `FOMO_FROM_EMAIL` | `fomo-friday.mjs --send` / `--to` | e.g. `Fomo <friday@askfomo.com>` — must be on a domain verified in Resend (see below) |
 | `SENDER_ADDRESS` | `fomo-friday.mjs` (dry-run warns, `--send`/`--to` refuse without it) | a real physical postal address — legally required, see checklist below |
 
-`ig-carousel.mjs` needs only the two Supabase vars.
+`ig-carousel.mjs` needs only the two Supabase vars. The email job reads
+these from the GitHub `Production` environment's secrets/vars.
+
+The trigger needs two more, in **Vercel production** env vars (not GitHub):
+
+| Var | Used by | Notes |
+|---|---|---|
+| `CRON_SECRET` | `app/api/cron/weekly-email` | random string, 16+ characters (`openssl rand -hex 32`). Vercel sends it as `Authorization: Bearer …` on every cron call; the route 401s anything else |
+| `GITHUB_DISPATCH_TOKEN` | `app/api/cron/weekly-email` | fine-grained GitHub token, repository access `jasbir98/fomo` only, permission **Actions: Read and write**. Renew it before it expires, or Thursday's email silently stops (the cron log shows a 502) |
+
+Redeploy after adding them. Crons only run on production deployments.
 
 ### Domain verification in Resend
 
@@ -92,6 +125,8 @@ Before `--send`/`--to` will actually deliver mail:
   `lib/happenings/groups.ts`'s `isGenuineDeal`. If either of those change,
   this file's copies need updating too.
 - `scripts/fomo-friday.mjs` — renders + sends the email.
+- `app/api/cron/weekly-email/route.ts` + `vercel.json` `crons` — Thursday's
+  trigger (dispatches `.github/workflows/weekly-content.yml`).
 - `scripts/ig-carousel.mjs` — renders the IG carousel PNGs + caption.
 - `app/unsubscribe/page.tsx` + `app/api/unsubscribe/route.ts` — the
   unsubscribe landing page and its GET/RFC-8058-one-click-POST API route.
