@@ -5,6 +5,7 @@ import { EventDetail } from "@/components/detail/EventDetail";
 import { JsonLd } from "@/components/seo/JsonLd";
 import { getEvent } from "@/lib/db/events";
 import { supabaseAnon } from "@/lib/supabase/anon";
+import { breadcrumbJsonLd, LIST_PAGES } from "@/lib/seo/breadcrumbs";
 import { pageMetadata } from "@/lib/seo/metadata";
 import { eventSeo } from "@/lib/seo/detail";
 import { SITE_DESCRIPTION } from "@/lib/seo/site";
@@ -74,6 +75,7 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
   return (
     <>
       {jsonLd ? <JsonLd data={jsonLd} /> : null}
+      {event ? <JsonLd data={breadcrumbJsonLd(LIST_PAGES.whatsOn, event.name, `/event/${id}`)} /> : null}
       <EventDetail id={id} initialEvent={event} />
     </>
   );

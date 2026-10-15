@@ -41,9 +41,11 @@ import {
   DETAIL_HERO_CLASS,
   DetailAside,
   DetailTopBar,
+  MoreInLink,
   detailGridClass,
   type DetailProps,
 } from "./shared";
+import { listPageForHappening } from "@/lib/seo/breadcrumbs";
 
 /** The preview cache never changes under a mounted page; nothing to subscribe to. */
 const noopSubscribe = () => () => {};
@@ -722,7 +724,14 @@ export function HappeningDetail({ id, presentation = "page", initialData }: Deta
             <div className="mt-4 flex items-start gap-2.5 border-t border-outline-variant/30 pt-4 text-on-surface-variant">
               <Icon name="storefront" className="mt-0.5 shrink-0 text-primary" />
               <div className="flex min-w-0 flex-col">
-                {happening.venue_name ? (
+                {happening.venue_name && happening.place_id ? (
+                  <Link
+                    href={`/place/${happening.place_id}`}
+                    className="text-body-md font-medium text-on-surface underline decoration-outline-variant underline-offset-2"
+                  >
+                    {happening.venue_name}
+                  </Link>
+                ) : happening.venue_name ? (
                   <p className="text-body-md font-medium text-on-surface">{happening.venue_name}</p>
                 ) : null}
                 {happening.address ? <p className="text-label-md text-on-surface-variant">{happening.address}</p> : null}
@@ -941,6 +950,8 @@ export function HappeningDetail({ id, presentation = "page", initialData }: Deta
             </button>
           ) : null}
         </section>
+
+        <MoreInLink list={listPageForHappening(happening)} />
       </div>
 
       {/* Aside. Below lg this is `display: contents`: the CTA bar is a plain

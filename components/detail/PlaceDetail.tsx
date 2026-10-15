@@ -5,12 +5,12 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { supabaseBrowserAuth } from "@/lib/supabase/client";
 import { buildAskFomoHref } from "@/lib/chat-seed";
-import { getPlace, listPlacePhotos } from "@/lib/db";
+import { getPlace, listPlacePhotos, listUpcomingEventsForPlace } from "@/lib/db";
 import { useSaved } from "@/lib/useSaved";
 import { buildDirectionsUrl } from "@/lib/maps/links";
 import { CITY } from "@/lib/city";
 import { localWeekday, todayHoursLabel, weekHoursLines } from "@/lib/places/hours";
-import type { Place, PlacePhoto } from "@/lib/types";
+import type { EventItem, Place, PlacePhoto } from "@/lib/types";
 import { Button, FomoLoader, Icon, PhotoCarousel, ScrollRail, ShareButton, StatusPill } from "@/components/ui";
 import type { CarouselPhoto } from "@/components/ui";
 import { FeedListCard } from "@/components/happenings";
@@ -19,6 +19,8 @@ import type { Happening } from "@/lib/happenings/types";
 import type { HappeningCardData } from "@/lib/happenings/feed-types";
 import type { PlaceOffersResponse } from "@/app/api/places/[id]/offers/route";
 import { trackOutboundClicked } from "@/lib/analytics/track";
+import type { PlaceDetailData } from "@/lib/places/detail";
+import { LIST_PAGES } from "@/lib/seo/breadcrumbs";
 import {
   ASIDE_CARD_CLASS,
   DETAIL_CONTENT_CLASS,
@@ -26,6 +28,7 @@ import {
   DETAIL_HERO_CLASS,
   DetailAside,
   DetailTopBar,
+  MoreInLink,
   detailGridClass,
   type DetailProps,
 } from "./shared";
@@ -44,15 +47,16 @@ function toOfferCards(offers: Happening[]): HappeningCardData[] {
   });
 }
 
-async function fetchPlaceOffers(id: string): Promise<Happening[]> {
+/** Null on failure, so a failed refresh leaves the server-rendered offers in place. */
+async function fetchPlaceOffers(id: string): Promise<Happening[] | null> {
   try {
     const res = await fetch(`/api/places/${id}/offers`);
-    if (!res.ok) return [];
+    if (!res.ok) return null;
     const json = (await res.json()) as PlaceOffersResponse;
     return json.offers;
   } catch (err) {
     console.error("[place] offers fetch failed", err);
-    return [];
+    return null;
   }
 }
 
@@ -121,7 +125,10 @@ function PlaceHours({ place }: { place: Place }) {
       <Icon name="schedule" className="mt-0.5 text-primary" />
       <div className="min-w-0">
         <p className="text-label-sm text-on-surface-variant">Hours</p>
-        <p className="text-label-md text-on-surface">{today ?? place.hours ?? "–"}</p>
+        {/* "Open today…" depends on the day: a cached page served just after midnight renders yesterday's. */}
+        <p className="text-label-md text-on-surface" suppressHydrationWarning>
+          {today ?? place.hours ?? "–"}
+        </p>
         {week.length > 0 ? (
           <>
             <button
@@ -150,19 +157,26 @@ function PlaceHours({ place }: { place: Place }) {
   );
 }
 
-export function PlaceDetail({ id, presentation = "page" }: DetailProps) {
+export function PlaceDetail({ id, presentation = "page", initialData }: DetailProps & { initialData?: PlaceDetailData }) {
   const db = supabaseBrowserAuth();
   const pathname = usePathname();
   const { isSaved: checkSaved, toggle: toggleSaved } = useSaved();
 
-  const [place, setPlace] = useState<Place | null>(null);
-  const [photos, setPhotos] = useState<PlacePhoto[]>([]);
-  const [offers, setOffers] = useState<Happening[]>([]);
-  const [placeLoading, setPlaceLoading] = useState(true);
+  // `initialData` is what the server rendered for this route (app/(shell)/
+  // place/[id]/page.tsx), so a shared link's first HTML already holds the
+  // place. The overlay and in-app navigations don't pass it and load as
+  // before. Either way the effects below still fetch a fresh copy.
+  const hasInitial = initialData?.place != null;
+  const [place, setPlace] = useState<Place | null>(initialData?.place ?? null);
+  const [photos, setPhotos] = useState<PlacePhoto[]>(initialData?.photos ?? []);
+  const [offers, setOffers] = useState<Happening[]>(initialData?.offers ?? []);
+  const [events, setEvents] = useState<EventItem[]>(initialData?.events ?? []);
+  const [placeLoading, setPlaceLoading] = useState(!hasInitial);
   // The page waits for offers too: they render above the description, so
   // arriving late would push the whole page down after first paint. Both
-  // requests start together, so this costs little.
-  const [offersLoading, setOffersLoading] = useState(true);
+  // requests start together, so this costs little. Events sit below the
+  // details, so they fill in whenever they arrive.
+  const [offersLoading, setOffersLoading] = useState(!hasInitial);
   const loading = placeLoading || offersLoading;
 
   useEffect(() => {
@@ -186,7 +200,7 @@ export function PlaceDetail({ id, presentation = "page" }: DetailProps) {
     let cancelled = false;
     fetchPlaceOffers(id)
       .then((data) => {
-        if (!cancelled) setOffers(data);
+        if (!cancelled && data) setOffers(data);
       })
       .catch((err) => console.error("Failed to load place offers", err))
       .finally(() => {
@@ -196,6 +210,18 @@ export function PlaceDetail({ id, presentation = "page" }: DetailProps) {
       cancelled = true;
     };
   }, [id]);
+
+  useEffect(() => {
+    let cancelled = false;
+    listUpcomingEventsForPlace(db, id)
+      .then((rows) => {
+        if (!cancelled) setEvents(rows);
+      })
+      .catch((err) => console.error("Failed to load place events", err));
+    return () => {
+      cancelled = true;
+    };
+  }, [db, id]);
 
   if (loading) {
     return (
@@ -346,6 +372,26 @@ export function PlaceDetail({ id, presentation = "page" }: DetailProps) {
             <div className="flex flex-col gap-3">
               {toOfferCards(offers).map((card) => (
                 <FeedListCard key={card.happening.id} card={card} />
+              ))}
+            </div>
+          </section>
+        ) : null}
+
+        {/* Upcoming events at this venue (events.place_id): what makes a
+            venue's page worth opening, and the links search engines follow
+            from the venue to each event. */}
+        {events.length > 0 ? (
+          <section className="flex flex-col gap-3">
+            <div className="flex items-center gap-2">
+              <Icon name="event" size={20} className="text-accent" />
+              <h2 className="text-headline-sm text-primary">What&rsquo;s on here</h2>
+              <span className="rounded-full bg-surface-container px-2.5 py-0.5 text-label-sm font-bold text-secondary">
+                {events.length}
+              </span>
+            </div>
+            <div className="flex flex-col gap-3">
+              {events.map((event) => (
+                <FeedListCard key={event.id} card={{ kind: "event", event }} />
               ))}
             </div>
           </section>
@@ -539,6 +585,8 @@ export function PlaceDetail({ id, presentation = "page" }: DetailProps) {
         ) : null}
 
         {mapCard("lg:hidden")}
+
+        <MoreInLink list={LIST_PAGES.explore} />
       </div>
 
       {/* Aside. Below lg this is `display: contents`: the actions bar is a

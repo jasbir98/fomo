@@ -1,8 +1,10 @@
 "use client";
 
 import type { ReactNode } from "react";
+import Link from "next/link";
 import { Icon, PageHeader } from "@/components/ui";
 import { closeDetail } from "@/lib/detail-overlay/store";
+import type { ListPage } from "@/lib/seo/breadcrumbs";
 
 /**
  * How a detail renders: `page` is the real route (phone UI below lg, two-column
@@ -102,5 +104,22 @@ export function DetailAside({ presentation, children }: { presentation: DetailPr
     >
       {children}
     </div>
+  );
+}
+
+/**
+ * "More in What's on": a plain link from a detail page up to the list it
+ * belongs under. The same list is the page's BreadcrumbList parent
+ * (lib/seo/breadcrumbs.ts), so crawlers and people see one hierarchy.
+ */
+export function MoreInLink({ list }: { list: ListPage }) {
+  return (
+    <Link
+      href={list.path}
+      className="inline-flex min-h-11 items-center gap-1 self-start text-label-md font-semibold text-secondary"
+    >
+      More in {list.name}
+      <Icon name="arrow_forward" size={16} />
+    </Link>
   );
 }
