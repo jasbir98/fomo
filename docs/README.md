@@ -7,6 +7,13 @@ Run `/plans` in Claude Code for a summary of this page.
 
 Things waiting on you, newest first. Tick them off here, or ask Claude to update this list.
 
+**Weekly email on time (15 Oct)**
+GitHub Actions ran the Thursday email 4–7 hours late. A Vercel cron now starts it instead (Thu 15:00–15:59 UTC, so 4–5pm in summer, 3–4pm in winter). Details in [content-loop.md](content-loop.md).
+- [ ] Make a fine-grained GitHub token: GitHub → Settings → Developer settings → Fine-grained tokens. Repository access: only `jasbir98/fomo`. Permissions: **Actions: Read and write**. Pick an expiry and note it.
+- [ ] In Vercel → Settings → Environment Variables, *Production* only, add `GITHUB_DISPATCH_TOKEN` (the token) and `CRON_SECRET` (any random string of 16+ characters, e.g. from `openssl rand -hex 32`). Then redeploy so the cron and the variables take effect.
+- [ ] Merge the weekly-email cron PR. Check Vercel → Settings → Cron Jobs lists `/api/cron/weekly-email`. "Run" there sends the real email, so only press it on a Thursday you want a send.
+- [ ] Next Thursday (22 Oct), check Vercel's cron log and the Actions run both happened before 5pm.
+
 **Shareable weekend plan (15 Oct)**
 - [x] Run `supabase/add_plans.sql` in the Supabase SQL editor (done 15 Oct).
 - [ ] Merge [PR #34](https://github.com/jasbir98/fomo/pull/34).
@@ -101,7 +108,7 @@ Things waiting on you, newest first. Tick them off here, or ask Claude to update
 - [ ] Check the PostHog and Resend environment variables are set in Vercel *production*.
 - [ ] Try the signed-in flows on production: Google photo, editing your name, and the name step for new email users.
 - [x] Home hero and first 3 cards: photo-led, free or under £10, on today or this weekend. A timetable, poster or default image never leads while a photo exists.
-- [x] Email offer: "This weekend in Edinburgh, under £10. In your inbox Thursday by 6pm." The send moved from Fri 07:07 to Thu 16:07 UTC, and picks are capped under £10 to match.
+- [x] Email offer: "This weekend in Edinburgh, under £10. In your inbox Thursday by 6pm." The send moved from Fri 07:07 to Thursday afternoon (now a Vercel cron, see above), and picks are capped under £10 to match.
 - [ ] After merge: check the first Thursday send (15 Oct) went out, and dry-run it on the day.
 
 **Security, last checked 29 Sep. Some of this may already be done.**

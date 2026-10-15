@@ -116,6 +116,8 @@ const PUBLIC_API_PREFIXES = [
   "/api/chat/quota",
   // The tip form's "Where?" suggestions (Google, GET only, capped per IP and site-wide in the route).
   "/api/tips/places",
+  // Vercel Cron jobs (GET only). No session to carry; each route checks the CRON_SECRET bearer itself.
+  "/api/cron",
 ];
 const PUBLIC_PLACE_OFFERS = /^\/api\/places\/[^/]+\/offers$/;
 // Only the .ics download off a single event is public — the bare
