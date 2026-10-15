@@ -7,6 +7,10 @@ Run `/plans` in Claude Code for a summary of this page.
 
 Things waiting on you, newest first. Tick them off here, or ask Claude to update this list.
 
+**Stale dates on long-running events (15 Oct)**
+- [ ] Merge the `fix-span-event-dates` PR. Imported events listed as one long run (a weekly quiz "1 Sep – 30 Dec") showed their first date, e.g. "Tue 1 Sep", in Today. They now read "On now".
+- Known, not fixed: some of those runs are really one night a week. "Victoria Bar's Wednesday Quiz Night" sits in Today on every day, Thursday included. Same for "Easy Sundays" and others.
+
 **Shareable weekend plan (15 Oct)**
 - [x] Run `supabase/add_plans.sql` in the Supabase SQL editor (done 15 Oct).
 - [ ] Merge [PR #34](https://github.com/jasbir98/fomo/pull/34).
@@ -32,7 +36,6 @@ Things waiting on you, newest first. Tick them off here, or ask Claude to update
   2. Run `scripts/finds.ts approve 1,3,4`. You can change a line first with `edit <n> --why "…" --level 4`.
   3. Then run the IG carousel and Fomo Friday as usual. They now lead with the live picks.
 - [ ] The first real `suggest` is the first live test of the candidate and DeepSeek steps, which were only tested against fixtures. Read its table before approving.
-- Known, not new: long-running imported events (a weekly quiz listed from 1 Sep to 30 Dec) show their first date, e.g. "Tue 1 Sep", on every card, Home included.
 
 **Weekly research: credit and this week's batch (12 Oct)**
 - [ ] Top up DeepSeek at platform.deepseek.com before next Monday's run. The balance ran out mid-run on 12 Oct.
