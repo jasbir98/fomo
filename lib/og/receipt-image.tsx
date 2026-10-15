@@ -127,12 +127,12 @@ export async function renderPlanReceiptImage(plan: Plan | null): Promise<Respons
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end" }}>
             <span style={{ fontSize: 40, fontWeight: 700, letterSpacing: 2 }}>TOTAL</span>
             <span style={{ fontSize: 44, fontWeight: 700 }}>
-              {`${total.from ? "from " : ""}${receiptMoney(total.amount)}`}
+              {total.unknown > 0 ? "TBC" : `${total.from ? "from " : ""}${receiptMoney(total.amount)}`}
             </span>
           </div>
           {total.unknown > 0 ? (
             <div style={{ display: "flex", justifyContent: "flex-end", fontSize: 18, color: MUTED }}>
-              {`+ ${total.unknown} price${total.unknown === 1 ? "" : "s"} to check`}
+              {`${receiptMoney(total.amount)} known + ${total.unknown} price${total.unknown === 1 ? "" : "s"} to check`}
             </div>
           ) : null}
           <Dashed />
@@ -153,7 +153,8 @@ export async function renderPlanReceiptImage(plan: Plan | null): Promise<Respons
             style={{
               display: "flex",
               fontFamily: "Plus Jakarta Sans",
-              fontSize: 42,
+              // Two lines at most: "A weekend in Edinburgh: 4 things, 2 free" is 40 characters.
+              fontSize: summary.headline.length > 30 ? 36 : 42,
               fontWeight: 800,
               lineHeight: 1.1,
               letterSpacing: -1,

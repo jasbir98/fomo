@@ -33,7 +33,7 @@ export function PlanReceipt({ items, summary }: { items: PlanItem[]; summary: Pl
               className="-mx-2 flex items-center gap-3 rounded-lg px-2 py-2 transition-colors hover:bg-black/[0.04]"
             >
               <div className="h-12 w-12 shrink-0 overflow-hidden rounded-md bg-[#e9e6dc]">
-                <SmartImage src={item.image} alt="" width={48} height={48} className="h-full w-full object-cover" />
+                <SmartImage src={item.image} alt="" width={48} height={48} priority className="h-full w-full object-cover" />
               </div>
               <div className="flex min-w-0 flex-1 flex-col">
                 <span className="text-label-sm font-bold uppercase tracking-wider text-[#51607a]">
@@ -52,13 +52,12 @@ export function PlanReceipt({ items, summary }: { items: PlanItem[]; summary: Pl
       <div className="flex items-baseline justify-between">
         <span className="text-[24px] font-bold tracking-wider">TOTAL</span>
         <span className="text-[28px] font-bold">
-          {total.from ? "from " : ""}
-          {receiptMoney(total.amount)}
+          {total.unknown > 0 ? "TBC" : `${total.from ? "from " : ""}${receiptMoney(total.amount)}`}
         </span>
       </div>
       {total.unknown > 0 ? (
         <p className="mt-1 text-right text-label-sm text-[#51607a]">
-          + {total.unknown} price{total.unknown === 1 ? "" : "s"} to check
+          {receiptMoney(total.amount)} known + {total.unknown} price{total.unknown === 1 ? "" : "s"} to check
         </p>
       ) : null}
       <hr className="my-4 border-0 border-t-2 border-dashed border-[#c9ccd3]" />
