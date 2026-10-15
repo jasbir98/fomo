@@ -1,15 +1,15 @@
 name: Weekly content (carousel + email)
 
-# Weekly IG carousel: Wednesday 16:07 UTC
-# Weekly email: Thursday 16:07 UTC (17:07 BST / 16:07 GMT), for the coming Fri-Sun.
-# The signup card promises "Thursday by 6pm", which leaves room for Actions' cron delay.
+# Weekly IG carousel: Wednesday 16:07 UTC (Actions schedule; a late run is fine).
+# Weekly email: no schedule here. Actions' cron ran 4-7 hours late, past the
+# signup card's "Thursday by 6pm". A Vercel cron (vercel.json, Thu 15:00-15:59
+# UTC) calls app/api/cron/weekly-email, which dispatches this workflow with
+# action=email-send. Keeping one trigger means it can't double-send.
 # Both can be triggered manually with `workflow_dispatch` (with input to pick carousel|email-dry-run|email-send)
 on:
   schedule:
     # Wednesday 16:07 UTC (carousel)
     - cron: "7 16 * * 3"
-    # Thursday 16:07 UTC (email)
-    - cron: "7 16 * * 4"
   workflow_dispatch:
     inputs:
       action:
@@ -59,10 +59,8 @@ jobs:
           retention-days: 14
 
   email:
-    # Run email job on Thursday cron (schedule[1]) or if manually triggered with action=email-*
-    if: |
-      (github.event_name == 'schedule' && github.event.schedule == '7 16 * * 4') ||
-      (github.event_name == 'workflow_dispatch' && (inputs.action == 'email-dry-run' || inputs.action == 'email-send'))
+    # Dispatched with action=email-send by the Vercel cron, or by hand with action=email-*
+    if: github.event_name == 'workflow_dispatch' && (inputs.action == 'email-dry-run' || inputs.action == 'email-send')
     runs-on: ubuntu-latest
     environment: Production
     timeout-minutes: 15
@@ -76,8 +74,8 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      # Sends on the Thursday schedule or a manual email-send, but only once
-      # RESEND_API_KEY is set; otherwise (and for email-dry-run) it dry-runs.
+      # Sends on email-send, but only once RESEND_API_KEY is set; otherwise
+      # (and for email-dry-run) it dry-runs.
       - name: Run weekend email
         env:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL || secrets.SUPABASE_URL }}
@@ -85,10 +83,9 @@ jobs:
           RESEND_API_KEY: ${{ secrets.RESEND_API_KEY || '' }}
           FOMO_FROM_EMAIL: ${{ vars.FOMO_FROM_EMAIL || secrets.FOMO_FROM_EMAIL || '' }}
           SENDER_ADDRESS: ${{ vars.SENDER_ADDRESS || secrets.SENDER_ADDRESS || '' }}
-          EVENT_NAME: ${{ github.event_name }}
           ACTION: ${{ inputs.action }}
         run: |
-          if [[ -n "$RESEND_API_KEY" && ( "$EVENT_NAME" == "schedule" || "$ACTION" == "email-send" ) ]]; then
+          if [[ -n "$RESEND_API_KEY" && "$ACTION" == "email-send" ]]; then
             node scripts/fomo-friday.mjs --send
           else
             node scripts/fomo-friday.mjs --dry-run

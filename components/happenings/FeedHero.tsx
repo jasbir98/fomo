@@ -3,7 +3,8 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Icon, NavCard, NavCardLink, SmartImage } from "@/components/ui";
-import { formatEventDate, formatEventPrice, formatEventTimeSpan, formatEventWhen } from "@/lib/events/format";
+import { eventIsInProgress, formatEventDate, formatEventPrice, formatEventTimeSpan, formatEventWhen } from "@/lib/events/format";
+import { eventOnNowLabel } from "@/lib/happenings/format";
 import { eventDefaultImage } from "@/lib/events/image";
 import { HappeningHero } from "./HappeningHero";
 import type { FeedHeroCard } from "@/lib/happenings/feed-types";
@@ -52,7 +53,9 @@ function EventHero({ event, reason, surface }: { event: EventItem; reason: strin
   const router = useRouter();
 
   const price = formatEventPrice(event);
-  const eventDate = formatEventDate(event.starts_at);
+  // Same rule as the feed's EventRow: a running span reads "On now · until …",
+  // never its long-gone start date.
+  const eventDate = eventIsInProgress(event) ? eventOnNowLabel(event.ends_at) : formatEventDate(event.starts_at);
   const eventTime = formatEventTimeSpan(event.starts_at, event.ends_at);
   const ownImage = event.image_url || event.place?.image_url || null;
   const heroImage = ownImage && !imgError ? ownImage : eventDefaultImage(event);

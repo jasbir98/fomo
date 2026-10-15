@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { PageHeader } from "@/components/ui";
 import { SubscribeCard } from "@/components/happenings";
+import { PlanPhotos } from "@/components/plans/PlanPhotos";
 import { PlanReceipt } from "@/components/plans/PlanReceipt";
 import { PlanShareActions } from "@/components/plans/PlanShareActions";
 import { getPlan } from "@/lib/plans/db";
@@ -20,6 +21,13 @@ export const revalidate = 3600;
 /** `null` = no such plan (404). A failed lookup throws, so the error page shows and nothing broken is cached. */
 const loadPlan = cache((id: string) => getPlan(id));
 
+/** "Holyrood parkrun, Farmers' Market and 2 more": short enough for a WhatsApp preview's two lines. */
+function pickedLine(titles: string[]): string {
+  const clip = (t: string) => (t.length > 40 ? `${t.slice(0, 39).trimEnd()}…` : t);
+  if (titles.length <= 2) return titles.map(clip).join(" and ");
+  return `${titles.slice(0, 2).map(clip).join(", ")} and ${titles.length - 2} more`;
+}
+
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
   const { id } = await params;
   const plan = await loadPlan(id).catch(() => null);
@@ -27,9 +35,7 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
   const summary = planSummary(plan.items);
   return pageMetadata({
     title: summary.headline,
-    description:
-      describe([plan.items.map((i) => i.title).join(", "), summary.range, "Free and cheap things to do, found on Fomo"]) ??
-      summary.headline,
+    description: describe([pickedLine(plan.items.map((i) => i.title)), summary.range, "picked on Fomo"]) ?? summary.headline,
     path: `/plan/${id}`,
     // This segment has its own opengraph-image.tsx (the receipt).
     images: false,
@@ -55,23 +61,32 @@ export default async function PlanPage({ params }: { params: Promise<{ id: strin
   return (
     <div className="flex flex-col pb-6">
       <PageHeader title="Weekend plan" />
-      <div className="mx-auto flex w-full max-w-[520px] flex-col gap-5 px-4 pt-1">
-        <div className="flex flex-col gap-1">
-          <h1 className="text-headline-lg font-extrabold leading-tight tracking-tight text-on-surface">{summary.headline}</h1>
+      {/* Phone: one column (headline, receipt, buttons). Desktop: the receipt
+          on the left, sticky; headline, photos and buttons on the right. */}
+      <div className="mx-auto flex w-full max-w-[520px] flex-col gap-5 px-4 pt-1 lg:grid lg:max-w-[1040px] lg:grid-cols-[440px_minmax(0,1fr)] lg:items-start lg:gap-x-12 lg:gap-y-6 lg:px-8 lg:pt-4">
+        <div className="flex flex-col gap-1 lg:col-start-2 lg:row-start-1">
+          <h1 className="text-headline-lg font-extrabold leading-tight tracking-tight text-on-surface lg:text-[2.5rem] lg:leading-[1.1]">
+            {summary.headline}
+          </h1>
           <p className="text-body-md text-on-surface-variant">
             {days.map(dayLabel).join(" & ")} · {plan.items.length} things, picked on Fomo
           </p>
         </div>
 
-        <PlanReceipt items={plan.items} summary={summary} />
+        <div className="lg:sticky lg:top-20 lg:col-start-1 lg:row-span-4 lg:row-start-1">
+          <PlanReceipt items={plan.items} summary={summary} />
+        </div>
 
-        <PlanShareActions id={plan.id} headline={summary.headline} />
+        <PlanPhotos items={plan.items} className="hidden lg:col-start-2 lg:grid" />
 
-        <p className="text-center text-body-sm text-on-surface-variant">
-          Prices are what each listing says. Check before you go.
-        </p>
+        <div className="flex flex-col gap-3 lg:col-start-2">
+          <PlanShareActions id={plan.id} headline={summary.headline} />
+          <p className="text-center text-body-sm text-on-surface-variant lg:text-left">
+            Prices are what each listing says. Check before you go.
+          </p>
+        </div>
 
-        <SubscribeCard source="plan" />
+        <SubscribeCard source="plan" className="lg:col-start-2" />
       </div>
     </div>
   );
