@@ -39,7 +39,6 @@ GitHub Actions ran the Thursday email 4–7 hours late. A Vercel cron now starts
   2. Run `scripts/finds.ts approve 1,3,4`. You can change a line first with `edit <n> --why "…" --level 4`.
   3. Then run the IG carousel and Fomo Friday as usual. They now lead with the live picks.
 - [ ] The first real `suggest` is the first live test of the candidate and DeepSeek steps, which were only tested against fixtures. Read its table before approving.
-- Known, not new: long-running imported events (a weekly quiz listed from 1 Sep to 30 Dec) show their first date, e.g. "Tue 1 Sep", on every card, Home included.
 
 **Weekly research: credit and this week's batch (12 Oct)**
 - [ ] Top up DeepSeek at platform.deepseek.com before next Monday's run. The balance ran out mid-run on 12 Oct.

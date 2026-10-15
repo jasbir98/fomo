@@ -77,10 +77,21 @@ export function eventIsLive(e: Pick<EventItem, "starts_at" | "ends_at">, at: Dat
  *  its effective end (see `eventEffectiveEndMs`). The strict "happening right
  *  now" check behind the feed's "On now" pill; `eventIsLive` alone is also
  *  true for a future event, so it can't be used for this. */
-export function eventIsInProgress(e: Pick<EventItem, "starts_at" | "ends_at">, at: Date = new Date()): boolean {
+export function eventIsInProgress(
+  e: Pick<EventItem, "starts_at" | "ends_at">,
+  at: Date = new Date(),
+  timeZone: string = CITY.timezone
+): boolean {
   const startMs = new Date(e.starts_at).getTime();
-  // A date-only row (00:00 UTC, no real clock time) is never claimed as "on now".
-  return !Number.isNaN(startMs) && !isDateOnlyStart(e.starts_at) && startMs <= at.getTime() && eventIsLive(e, at);
+  if (Number.isNaN(startMs) || startMs > at.getTime() || !eventIsLive(e, at)) return false;
+  // A date-only row (00:00 UTC, no real clock time) isn't claimed as "on now"
+  // on its own first day — but one whose start day is already behind today
+  // and is still live is a running span (a "1 Sep – 30 Dec" listing), on now
+  // for the whole day, like an all-day happening span (occurrence.ts's
+  // `occurrenceIsLive`). Without this the feed floors it into Today but its
+  // card still read "Tue 1 Sep", the long-gone start date.
+  if (!isDateOnlyStart(e.starts_at)) return true;
+  return localDayDate(new Date(startMs), timeZone) < localDayDate(at, timeZone);
 }
 
 /**
