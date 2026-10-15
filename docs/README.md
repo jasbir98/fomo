@@ -8,7 +8,7 @@ Run `/plans` in Claude Code for a summary of this page.
 Things waiting on you, newest first. Tick them off here, or ask Claude to update this list.
 
 **Shareable weekend plan (15 Oct)**
-- [ ] Run `supabase/add_plans.sql` in the Supabase SQL editor. Until you do, "Make link" says it couldn't make the link.
+- [x] Run `supabase/add_plans.sql` in the Supabase SQL editor (done 15 Oct).
 - [ ] Merge [PR #34](https://github.com/jasbir98/fomo/pull/34).
 - [ ] After it deploys, make a plan on askfomo.com/weekend and paste the link into a WhatsApp chat on your phone. The preview should be the receipt image. If WhatsApp shows no picture, tell Claude the link.
 - [ ] After a week, check PostHog: `weekend_plan_created`, `weekend_plan_shared` (by `method`) and `plan_make_own_clicked`. The last one is the loop working: a friend who got a link making their own.
@@ -132,7 +132,7 @@ Snapshots of the plans approved in Claude Code plan mode. Each one is a record o
 
 | Plan | Status |
 |---|---|
-| [2026-10-14 Shareable weekend plan](plans/2026-10-14-weekend-plan.md) | Built; in [PR #34](https://github.com/jasbir98/fomo/pull/34). Run `add_plans.sql` (listed above). |
+| [2026-10-14 Shareable weekend plan](plans/2026-10-14-weekend-plan.md) | Built and checked end to end; in [PR #34](https://github.com/jasbir98/fomo/pull/34). SQL run 15 Oct. |
 | [2026-10-14 Accurate visitor numbers in PostHog](plans/2026-10-14-posthog-accurate-metrics.md) | Live 14 Oct (PR #31). Dashboard 980079 rebuilt by `scripts/posthog-dashboards.mjs`. |
 | [2026-10-13 What sits behind sign-in](plans/2026-10-13-login-wall.md) | Built; in [PR #27](https://github.com/jasbir98/fomo/pull/27). Changes `add_finds.sql`, so run that after merging. |
 | [2026-10-12 For you: hand-picked steals and recommendations](plans/2026-10-12-fomo-finds.md) | Built on branch `fomo-finds`; PR pending. SQL listed above. |
