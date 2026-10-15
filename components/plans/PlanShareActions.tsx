@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { Icon, ShareButton } from "@/components/ui";
 import { track } from "@/lib/analytics/track";
@@ -23,12 +23,15 @@ export interface PlanShareActionsProps {
 export function PlanShareActions({ id, headline }: PlanShareActionsProps) {
   const [made, setMade] = useState(false);
   const [origin, setOrigin] = useState("https://askfomo.com");
+  const rootRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const url = new URL(window.location.href);
     queueMicrotask(() => setOrigin(url.origin));
     if (url.searchParams.get("made") === "1") {
       queueMicrotask(() => setMade(true));
+      // The creator came here to send it: bring the buttons into view under the receipt.
+      setTimeout(() => rootRef.current?.scrollIntoView({ behavior: "smooth", block: "center" }), 150);
       url.searchParams.delete("made");
       window.history.replaceState(window.history.state, "", url.pathname + url.search + url.hash);
     }
@@ -38,7 +41,7 @@ export function PlanShareActions({ id, headline }: PlanShareActionsProps) {
   const waText = `${headline}. Who's in?\n${link}?utm_source=share&utm_medium=whatsapp`;
 
   return (
-    <div className="flex flex-col gap-3">
+    <div ref={rootRef} className="flex scroll-mt-20 flex-col gap-3">
       {made ? (
         <p role="status" className="flex items-center gap-2 rounded-xl bg-secondary-container px-3.5 py-2.5 text-label-md font-semibold text-on-secondary-container">
           <Icon name="check_circle" filled size={18} />

@@ -129,15 +129,15 @@ export function PlanBar() {
               type="button"
               onClick={() => setOpen((o) => !o)}
               aria-expanded={open}
-              className="flex min-w-0 flex-1 items-center gap-2.5 text-left"
+              className="flex min-w-0 flex-1 items-center gap-2 text-left"
             >
-              <span className="flex shrink-0 -space-x-3">
+              <span className="flex shrink-0 -space-x-4">
                 {items.map((item) => (
                   <span
                     key={`${item.kind}-${item.id}`}
-                    className="h-9 w-9 overflow-hidden rounded-full border-2 border-inverse-surface bg-white/10"
+                    className="h-8 w-8 overflow-hidden rounded-full border-2 border-inverse-surface bg-white/10"
                   >
-                    <SmartImage src={item.image} alt="" width={36} height={36} className="h-full w-full object-cover" />
+                    <SmartImage src={item.image} alt="" width={32} height={32} className="h-full w-full object-cover" />
                   </span>
                 ))}
               </span>
@@ -146,16 +146,15 @@ export function PlanBar() {
                   {items.length} picked · {total.short}
                 </span>
                 <span className="truncate text-label-sm opacity-75">
-                  {error ?? (ready ? "Ready to send" : `Add ${need} more`)}
+                  {error ?? (ready ? "Tap to see or edit" : `Add ${need} more`)}
                 </span>
               </span>
-              <Icon name={open ? "expand_more" : "expand_less"} size={20} className="shrink-0 opacity-75" />
             </button>
             <button
               type="button"
               onClick={makeLink}
               disabled={!ready || busy}
-              className="flex h-10 shrink-0 items-center gap-1.5 rounded-full bg-accent px-4 text-label-md font-extrabold text-on-accent transition-opacity disabled:opacity-50"
+              className="flex h-10 shrink-0 items-center gap-1.5 rounded-full bg-accent px-3.5 text-label-md font-extrabold text-on-accent transition-opacity disabled:opacity-50"
             >
               <Icon name={busy ? "progress_activity" : "link"} size={18} className={busy ? "animate-spin" : ""} />
               {busy ? "Making…" : "Make link"}
