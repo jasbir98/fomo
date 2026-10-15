@@ -8,9 +8,22 @@ export const alt = "A weekend plan on Fomo: the picks, their prices and the tota
 export const size = OG_IMAGE_SIZE;
 export const contentType = "image/jpeg";
 
+/**
+ * Rendered once per plan on first request, then kept in Vercel's ISR cache
+ * (shared by every region) instead of re-rendering per edge: a cold render
+ * fetches up to four photos and can take seconds, longer than WhatsApp waits
+ * for a link preview. POST /api/plans also requests it right after making the
+ * plan, so it's ready before anyone pastes the link. A plan never changes.
+ */
+export function generateStaticParams() {
+  return [];
+}
+export const revalidate = false;
+
 /** The plan as a receipt (lib/og/receipt-image.tsx): what a WhatsApp group sees when the link is pasted. */
 export default async function Image({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const plan = await getPlan(id).catch(() => null);
+  // A failed lookup throws rather than caching the fallback card forever.
+  const plan = await getPlan(id);
   return renderPlanReceiptImage(plan);
 }

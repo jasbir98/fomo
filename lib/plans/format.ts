@@ -45,24 +45,39 @@ export function isWeekendPlan(days: string[]): boolean {
 
 export interface PlanSummary {
   total: PlanTotal;
-  /** "A £7 weekend in Edinburgh" */
+  /** "A £7 weekend in Edinburgh", "A free weekend in Edinburgh", "A weekend in Edinburgh: 4 things, 2 free" */
   headline: string;
   /** "17–18 Oct" */
   range: string;
   weekend: boolean;
 }
 
+/**
+ * The headline states a price only when it is the real one: every line free
+ * ("A free weekend"), or every line an exact price ("A £7 weekend"), or a
+ * floor ("…from £12.50"). With any price unknown (a "20% off" deal, an event
+ * with no listed price) a sum would read as "£0+", which says nothing, so it
+ * counts things and free things instead.
+ */
 export function planSummary(items: PlanItem[]): PlanSummary {
   const total = planTotal(items.map((i) => i.price));
   const days = items.map((i) => i.day);
   const weekend = isWeekendPlan(days);
   const span = weekend ? "weekend" : days.length > 0 && new Set(days).size === 1 ? "day out" : "plan";
   const money = poundsLabel(total.amount);
-  const headline =
-    total.unknown > 0
-      ? `A ${money}+ ${span} in Edinburgh`
-      : total.from
-        ? `A ${span} in Edinburgh from ${money}`
-        : `A ${money} ${span} in Edinburgh`;
+  const freeCount = items.filter((i) => i.price.amount === 0).length;
+  let headline: string;
+  if (total.unknown > 0) {
+    const lead = span === "plan" ? "An Edinburgh plan" : `A ${span} in Edinburgh`;
+    // Non-breaking spaces keep "4 things" and "2 free" on one line when the headline wraps.
+    const things = `${items.length}\u00a0thing${items.length === 1 ? "" : "s"}`;
+    headline = freeCount > 0 ? `${lead}: ${things}, ${freeCount}\u00a0free` : `${lead}: ${things}`;
+  } else if (total.amount === 0) {
+    headline = `A free ${span} in Edinburgh`;
+  } else if (total.from) {
+    headline = `A ${span} in Edinburgh from ${money}`;
+  } else {
+    headline = `A ${money} ${span} in Edinburgh`;
+  }
   return { total, headline, range: dayRange(days), weekend };
 }

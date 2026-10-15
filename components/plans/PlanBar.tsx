@@ -42,6 +42,9 @@ export function PlanBar() {
   if (!showsOn(pathname) || items.length === 0) return null;
 
   const total = planTotal(items.map((i) => i.price));
+  // With a price unknown, a sum ("£0+") says nothing: count the free ones instead.
+  const freeCount = items.filter((i) => i.price.amount === 0).length;
+  const priceLine = total.unknown === 0 ? total.short : freeCount > 0 ? `${freeCount} free` : "prices TBC";
   const ready = items.length >= PLAN_MIN_ITEMS;
   const need = PLAN_MIN_ITEMS - items.length;
 
@@ -143,7 +146,7 @@ export function PlanBar() {
               </span>
               <span className="flex min-w-0 flex-col">
                 <span className="truncate text-label-lg font-bold">
-                  {items.length} picked · {total.short}
+                  {items.length} picked · {priceLine}
                 </span>
                 <span className="truncate text-label-sm opacity-75">
                   {error ?? (ready ? "Tap to see or edit" : `Add ${need} more`)}

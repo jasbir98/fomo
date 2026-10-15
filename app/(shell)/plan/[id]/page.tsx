@@ -21,6 +21,13 @@ export const revalidate = 3600;
 /** `null` = no such plan (404). A failed lookup throws, so the error page shows and nothing broken is cached. */
 const loadPlan = cache((id: string) => getPlan(id));
 
+/** "Holyrood parkrun, Farmers' Market and 2 more": short enough for a WhatsApp preview's two lines. */
+function pickedLine(titles: string[]): string {
+  const clip = (t: string) => (t.length > 40 ? `${t.slice(0, 39).trimEnd()}…` : t);
+  if (titles.length <= 2) return titles.map(clip).join(" and ");
+  return `${titles.slice(0, 2).map(clip).join(", ")} and ${titles.length - 2} more`;
+}
+
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
   const { id } = await params;
   const plan = await loadPlan(id).catch(() => null);
@@ -28,9 +35,7 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
   const summary = planSummary(plan.items);
   return pageMetadata({
     title: summary.headline,
-    description:
-      describe([plan.items.map((i) => i.title).join(", "), summary.range, "Free and cheap things to do, found on Fomo"]) ??
-      summary.headline,
+    description: describe([pickedLine(plan.items.map((i) => i.title)), summary.range, "picked on Fomo"]) ?? summary.headline,
     path: `/plan/${id}`,
     // This segment has its own opengraph-image.tsx (the receipt).
     images: false,
