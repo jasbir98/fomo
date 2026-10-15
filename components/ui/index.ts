@@ -34,7 +34,7 @@ export { PhotoCarousel } from "./PhotoCarousel";
 export type { PhotoCarouselProps, CarouselPhoto } from "./PhotoCarousel";
 export { SmartImage } from "./SmartImage";
 export type { SmartImageProps } from "./SmartImage";
-export { NavCard } from "./NavCard";
+export { NavCard, NavCardLink } from "./NavCard";
 export type { NavCardProps } from "./NavCard";
 export { CityPicker } from "./CityPicker";
 export type { CityPickerProps } from "./CityPicker";

@@ -1,7 +1,7 @@
 "use client";
 
 import { createContext, useContext, useMemo } from "react";
-import { Icon, NavCard, SaveButton, SmartImage } from "@/components/ui";
+import { Icon, NavCard, NavCardLink, SaveButton, SmartImage } from "@/components/ui";
 import { eventIsInProgress, formatEventDate, formatEventPrice, formatEventTimeSpan, formatEventWhen } from "@/lib/events/format";
 import {
   ELIGIBILITY_ICON,
@@ -218,8 +218,9 @@ function NewPill({ className = "" }: { className?: string }) {
 
 /** Makes the whole card row navigate to `href` while keeping its own inner
  *  buttons/links working — see components/ui/NavCard.tsx's doc comment for
- *  why this is a div, not a wrapping `<a>`/`<Link>` (a bookmark button or
- *  the CTA anchor inside would be invalid HTML nested in a real `<a>`). */
+ *  why the real link is the row's title (`<NavCardLink>`), not a wrapping
+ *  `<a>`/`<Link>` (a bookmark button or the CTA anchor inside would be
+ *  invalid HTML nested in a real `<a>`). */
 /** No outer border — a soft shadow (--shadow-level-1, strengthening to
  *  -level-2 on hover) does the separating job instead, matching the mockup's
  *  glass-panel treatment (app/globals.css's elevation doc comment). */
@@ -323,7 +324,7 @@ function HappeningRow({
             when={occurrenceWhenLabel(occurrence)}
             trailing={venue}
           />
-          <h4 className="line-clamp-2 text-headline-sm font-bold leading-snug text-on-surface">{happening.title}</h4>
+          <h4 className="line-clamp-2 text-headline-sm font-bold leading-snug text-on-surface"><NavCardLink>{happening.title}</NavCardLink></h4>
         </div>
         <PriceTag label={priceLabel} />
       </div>
@@ -400,7 +401,7 @@ function SeriesRow({ card, surface, position }: { card: SeriesCardData; surface?
             trailing={`${card.locationCount} locations`}
             trailingClassName="font-semibold text-secondary"
           />
-          <h4 className="line-clamp-2 text-headline-sm font-bold leading-snug text-on-surface">{card.title}</h4>
+          <h4 className="line-clamp-2 text-headline-sm font-bold leading-snug text-on-surface"><NavCardLink>{card.title}</NavCardLink></h4>
         </div>
         <PriceTag label={priceLabel} />
       </div>
@@ -468,7 +469,7 @@ function RecurringRow({ card, surface, position }: { card: RecurringCardData; su
             tag={lead.kind === "event" ? <TypeTag tag="EVENT" kind="event" /> : scopeTag(happeningTypeTag(lead.happening, lead.occurrence.exact))}
             when={dateLabel}
           />
-          <h4 className="line-clamp-2 text-headline-sm font-bold leading-snug text-on-surface">{card.title}</h4>
+          <h4 className="line-clamp-2 text-headline-sm font-bold leading-snug text-on-surface"><NavCardLink>{card.title}</NavCardLink></h4>
           {venue ? <p className="truncate text-label-sm font-medium text-on-surface-variant">{venue}</p> : null}
         </div>
         <PriceTag label={priceLabel} />
@@ -514,7 +515,6 @@ function FestivalRow({ happening, surface, position }: { happening: Happening; s
   return (
     <NavCard
       href={`/happening/${happening.id}`}
-      ariaLabel={happening.title}
       onPointerDown={() => prefetchHappening(happening.id)}
       onNavigate={() => {
         setHappeningPreview(happening.id, happeningToPreview(happening, { priceLabel: savingBadgeLabel(happening) }));
@@ -546,7 +546,7 @@ function FestivalRow({ happening, surface, position }: { happening: Happening; s
               <span className="text-label-sm font-bold text-secondary">{happening.editorial_tag}</span>
             ) : null}
           </div>
-          <h4 className="pt-1 text-headline-md font-extrabold leading-tight text-on-surface">{happening.title}</h4>
+          <h4 className="pt-1 text-headline-md font-extrabold leading-tight text-on-surface"><NavCardLink>{happening.title}</NavCardLink></h4>
         </div>
         <PriceTag label={priceLabel} variant="banner" />
       </div>
@@ -621,7 +621,7 @@ function EventRow({ event, surface, position }: { event: EventItem; surface?: Fe
             when={eventLive ? eventOnNowLabel(event.ends_at) : eventDate}
             trailing={event.venue_name}
           />
-          <h4 className="line-clamp-2 text-headline-sm font-bold leading-snug text-on-surface">{event.name}</h4>
+          <h4 className="line-clamp-2 text-headline-sm font-bold leading-snug text-on-surface"><NavCardLink>{event.name}</NavCardLink></h4>
         </div>
         <PriceTag label={priceLabel} />
       </div>

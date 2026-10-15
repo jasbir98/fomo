@@ -1,7 +1,7 @@
 "use client";
 
 import { useSyncExternalStore } from "react";
-import { Icon, NavCard, SaveButton, SmartImage } from "@/components/ui";
+import { Icon, NavCard, NavCardLink, SaveButton, SmartImage } from "@/components/ui";
 import { PriceTag } from "@/components/happenings/PriceTag";
 import { FomoLevel } from "@/components/finds/FomoLevel";
 import { occurrenceWhenLabel } from "@/components/happenings/FeedListCard";
@@ -158,7 +158,6 @@ function Shell({
   return (
     <NavCard
       href={href}
-      ariaLabel={title}
       onPointerDown={onPointerDown}
       onNavigate={onNavigate}
       className="flex h-full cursor-pointer flex-col overflow-hidden rounded-2xl bg-surface-container-lowest shadow-level-1 transition-shadow hover:shadow-level-2"
@@ -184,7 +183,7 @@ function Shell({
           </span>
         ) : null}
         <div className="flex flex-col gap-0.5">
-          <h3 className="line-clamp-2 text-headline-sm font-bold leading-snug text-on-surface">{title}</h3>
+          <h3 className="line-clamp-2 text-headline-sm font-bold leading-snug text-on-surface"><NavCardLink>{title}</NavCardLink></h3>
           {meta ? <p className="truncate text-label-md font-medium text-on-surface-variant">{meta}</p> : null}
         </div>
         <p className="line-clamp-3 text-body-md font-semibold leading-snug text-on-surface">{item.why}</p>

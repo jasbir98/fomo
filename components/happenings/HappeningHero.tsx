@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, type MouseEvent } from "react";
-import { Icon, NavCard, SmartImage } from "@/components/ui";
+import { Icon, NavCard, NavCardLink, SmartImage } from "@/components/ui";
 import { districtFromAddress } from "@/lib/city";
 import { daysUntilLastChance } from "@/lib/happenings/occurrence";
 import {
@@ -139,7 +139,6 @@ export function HappeningHero({ happening, occurrence, variant = "fomo_pick", re
   return (
     <NavCard
       href={`/happening/${happening.id}`}
-      ariaLabel={happening.title}
       onPointerDown={() => prefetchHappening(happening.id)}
       onNavigate={() => {
         setHappeningPreview(happening.id, happeningToPreview(happening, { priceLabel: badge, whenLabel: occurrenceRangeLabel(occurrence) }));
@@ -203,7 +202,7 @@ export function HappeningHero({ happening, occurrence, variant = "fomo_pick", re
       <div className="flex flex-col gap-2.5 p-3.5 pt-2.5 lg:min-w-0 lg:flex-1 lg:justify-between lg:gap-4 lg:p-6">
         <div className="flex flex-col gap-1">
           <h2 className="line-clamp-2 text-headline-sm font-extrabold leading-snug text-on-surface lg:line-clamp-3 lg:text-headline-md">
-            {heroHeadline(happening, occurrence, now)}
+            <NavCardLink>{heroHeadline(happening, occurrence, now)}</NavCardLink>
           </h2>
           {oneLinerSummary(happening.summary) ? (
             <p className="line-clamp-1 text-body-sm text-on-surface-variant lg:line-clamp-3 lg:text-body-md">{oneLinerSummary(happening.summary)}</p>

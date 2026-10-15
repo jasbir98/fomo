@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Icon, NavCard, SaveButton, SmartImage } from "@/components/ui";
+import { Icon, NavCard, NavCardLink, SaveButton, SmartImage } from "@/components/ui";
 import { formatEventPrice } from "@/lib/events/format";
 import { savingBadgeLabel } from "@/lib/happenings/format";
 import { defaultImageFor } from "@/lib/happenings/category-style";
@@ -128,7 +128,6 @@ export function BookEarlyCard({ card, initialSubscribed = false, position }: Boo
     return (
       <NavCard
         href={`/event/${event.id}`}
-        ariaLabel={event.name}
         onPointerDown={() => prefetchEvent(event.id)}
         onNavigate={() => {
           setEventPreview(event.id, eventToPreview(event, { priceLabel: price, whenLabel: card.dateLabel }));
@@ -146,7 +145,7 @@ export function BookEarlyCard({ card, initialSubscribed = false, position }: Boo
               <SaveButton subjectType="event" subjectId={event.id} className="-my-2 -mr-2" />
             </div>
           </div>
-          <h4 className="line-clamp-2 text-headline-sm font-bold leading-snug text-on-surface">{event.name}</h4>
+          <h4 className="line-clamp-2 text-headline-sm font-bold leading-snug text-on-surface"><NavCardLink>{event.name}</NavCardLink></h4>
           <span className="text-label-sm font-medium text-on-surface-variant">
             {card.dateLabel}
             {event.venue_name ? ` · ${event.venue_name}` : ""}
@@ -183,7 +182,6 @@ export function BookEarlyCard({ card, initialSubscribed = false, position }: Boo
   return (
     <NavCard
       href={`/happening/${happening.id}`}
-      ariaLabel={happening.title}
       onPointerDown={() => prefetchHappening(happening.id)}
       onNavigate={() => {
         setHappeningPreview(happening.id, happeningToPreview(happening, { priceLabel: priceBadge, whenLabel: card.dateLabel }));
@@ -211,7 +209,7 @@ export function BookEarlyCard({ card, initialSubscribed = false, position }: Boo
             <SaveButton subjectType="happening" subjectId={happening.id} className="-my-2 -mr-2" />
           </div>
         </div>
-        <h4 className="line-clamp-2 text-headline-sm font-bold leading-snug text-on-surface">{happening.title}</h4>
+        <h4 className="line-clamp-2 text-headline-sm font-bold leading-snug text-on-surface"><NavCardLink>{happening.title}</NavCardLink></h4>
         <span className="text-label-sm font-medium text-on-surface-variant">
           {card.dateLabel}
           {happening.venue_name ? ` · ${happening.venue_name}` : ""}

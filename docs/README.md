@@ -14,6 +14,13 @@ GitHub Actions ran the Thursday email 4–7 hours late. A Vercel cron now starts
 - [ ] Merge the weekly-email cron PR. Check Vercel → Settings → Cron Jobs lists `/api/cron/weekly-email`. "Run" there sends the real email, so only press it on a Thursday you want a send.
 - [ ] Next Thursday (22 Oct), check Vercel's cron log and the Actions run both happened before 5pm.
 
+**Technical SEO (15 Oct)**
+- [ ] Merge [PR #35](https://github.com/jasbir98/fomo/pull/35) (place pages, What's on and Book early server-rendered, more structured data, places in the sitemap).
+- [ ] Then merge [PR #39](https://github.com/jasbir98/fomo/pull/39) (each feed card's title is a real link, so Google can follow list pages to detail pages). It's stacked on #35.
+- [ ] After it deploys, in Google Search Console: Sitemaps → resubmit `https://askfomo.com/sitemap.xml`. It now lists ~150 venue pages as well. Then use URL inspection → "Request indexing" on `/whats-on`, `/book-early` and one `/place/…` page.
+- [ ] A week later, check Search Console → Enhancements for Breadcrumbs and any new structured-data warnings. Paid events with no price in their label show "missing price" as a warning; that's expected.
+- [ ] Decide on slug URLs (`/happening/cheap-cinema-…-<id>`); the proposal is in the PR description.
+
 **Shareable weekend plan (15 Oct)**
 - [x] Run `supabase/add_plans.sql` in the Supabase SQL editor (done 15 Oct).
 - [ ] Merge [PR #34](https://github.com/jasbir98/fomo/pull/34).
