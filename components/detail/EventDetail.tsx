@@ -10,7 +10,9 @@ import { safeHttpUrl } from "@/lib/http/safe-url";
 import { getEvent } from "@/lib/db";
 import { useSaved } from "@/lib/useSaved";
 import { eventDefaultImage, eventImageFor } from "@/lib/events/image";
-import { formatEventPrice, formatEventWhen, isDateOnlyStart } from "@/lib/events/format";
+import { eventHasEnded, formatEventPrice, formatEventWhen, isDateOnlyStart } from "@/lib/events/format";
+import { AddToPlanButton } from "@/components/plans/AddToPlanButton";
+import { basketItemForEvent } from "@/lib/plans/basket";
 import { buildEventFallbackDescription } from "@/lib/events/description";
 import type { EventItem } from "@/lib/types";
 import { Button, ErrorState, FomoLoader, Icon, PhotoCarousel, ShareButton, StatusPill } from "@/components/ui";
@@ -324,7 +326,12 @@ export function EventDetail({ id, presentation = "page", initialEvent }: DetailP
       <DetailTopBar
         presentation={presentation}
         title={event.name}
-        action={<ShareButton title={event.name} text={shareText} url={shareUrl} kind="event" />}
+        action={
+          <div className="flex items-center gap-1">
+            {(event.status ?? "active") === "active" && !eventHasEnded(event) ? <AddToPlanButton item={basketItemForEvent(event)} surface="event_detail" variant="header" /> : null}
+            <ShareButton title={event.name} text={shareText} url={shareUrl} kind="event" />
+          </div>
+        }
       />
 
       <div className={detailGridClass(presentation)}>

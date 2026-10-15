@@ -85,6 +85,8 @@ export function WeekendClient({ initial = null }: WeekendClientProps) {
   const dealCount = later.data?.deals ? countDeals(later.data.deals) : (initial?.dealCount ?? null);
   const error = cards === null && ((now.error != null && !now.data) || (later.error != null && !later.data));
 
+  const planDays = useMemo(() => [saturday, sunday], [saturday, sunday]);
+
   const revealSentinelRef = useRef<HTMLDivElement>(null);
   const revealCount = useProgressiveReveal(cards?.length ?? 0, null, revealSentinelRef, { vertical: true, step: 20 });
 
@@ -100,6 +102,10 @@ export function WeekendClient({ initial = null }: WeekendClientProps) {
       <div className="flex flex-col gap-3 px-4 pt-1 lg:mx-auto lg:w-full lg:max-w-[1200px] lg:px-8 lg:pt-2">
         <p className="text-body-md text-on-surface-variant">
           Free, cheap and discounted things to do in Edinburgh on {dayLabel(saturday)} and {dayLabel(sunday)}.
+        </p>
+        <p className="flex items-center gap-2 text-label-md font-semibold text-primary">
+          <Icon name="receipt_long" size={18} />
+          Tap + Plan on 2 to 4 things to make a plan for the group chat.
         </p>
 
         {dealCount ? (
@@ -159,7 +165,7 @@ export function WeekendClient({ initial = null }: WeekendClientProps) {
         ) : (
           <div className="flex flex-col gap-3 lg:grid lg:grid-cols-2 lg:gap-4 xl:grid-cols-3">
             {cards.slice(0, revealCount).map((card, i) => (
-              <FeedListCard key={weekendCardKey(card)} card={card} surface="weekend" position={i} />
+              <FeedListCard key={weekendCardKey(card)} card={card} surface="weekend" position={i} planAdd planDays={planDays} />
             ))}
             {revealCount < cards.length ? <div ref={revealSentinelRef} className="h-1 lg:col-span-full" /> : null}
           </div>

@@ -7,6 +7,12 @@ Run `/plans` in Claude Code for a summary of this page.
 
 Things waiting on you, newest first. Tick them off here, or ask Claude to update this list.
 
+**Shareable weekend plan (15 Oct)**
+- [x] Run `supabase/add_plans.sql` in the Supabase SQL editor (done 15 Oct).
+- [ ] Merge [PR #34](https://github.com/jasbir98/fomo/pull/34).
+- [ ] After it deploys, make a plan on askfomo.com/weekend and paste the link into a WhatsApp chat on your phone. The preview should be the receipt image. If WhatsApp shows no picture, tell Claude the link.
+- [ ] After a week, check PostHog: `weekend_plan_created`, `weekend_plan_shared` (by `method`) and `plan_make_own_clicked`. The last one is the loop working: a friend who got a link making their own.
+
 **Accurate visitor numbers in PostHog (14 Oct)**
 - [x] In PostHog, turn on Project settings → Web analytics → **Cookieless server hash mode**. Do this *before* merging the `analytics-cookieless` PR.
 - [x] Create a PostHog personal API key (scopes `insight:write`, `dashboard:write`, `query:read`, `annotation:write`, `project:write`) and add it to `.env.local` as `POSTHOG_PERSONAL_API_KEY`. Then ask Claude to run `scripts/posthog-dashboards.mjs --dump` and fix dashboard 980079.
@@ -94,6 +100,9 @@ Things waiting on you, newest first. Tick them off here, or ask Claude to update
 - [ ] Check the Supabase auth email templates (see [auth-email-templates.md](auth-email-templates.md)) and that the Site URL is `https://askfomo.com`.
 - [ ] Check the PostHog and Resend environment variables are set in Vercel *production*.
 - [ ] Try the signed-in flows on production: Google photo, editing your name, and the name step for new email users.
+- [x] Home hero and first 3 cards: photo-led, free or under £10, on today or this weekend. A timetable, poster or default image never leads while a photo exists.
+- [x] Email offer: "This weekend in Edinburgh, under £10. In your inbox Thursday by 6pm." The send moved from Fri 07:07 to Thu 16:07 UTC, and picks are capped under £10 to match.
+- [ ] After merge: check the first Thursday send (15 Oct) went out, and dry-run it on the day.
 
 **Security, last checked 29 Sep. Some of this may already be done.**
 - [ ] SQL to run, in this order: `tighten_public_inserts.sql`, `harden_2026_09.sql`, then `verify_security.sql`.
@@ -105,7 +114,7 @@ Things waiting on you, newest first. Tick them off here, or ask Claude to update
 |---|---|
 | [launch/marketing-plan.md](launch/marketing-plan.md) | Positioning, success metrics, the Oct–Dec calendar, channels ranked, the launch sequence and the weekly rhythm. |
 | [launch/launch-kit.md](launch/launch-kit.md) | Copy to paste: Instagram bio and the first 9 posts, launch DMs, the Reddit post, society and venue DMs, posters, the £50 boost rule, user-call questions. |
-| [content-loop.md](content-loop.md) | The weekly Fomo Friday email and Instagram carousel, both generated from the database. |
+| [content-loop.md](content-loop.md) | The weekly Thursday weekend email and Instagram carousel, both generated from the database. |
 
 ## Data
 | Doc | What it is |
@@ -126,6 +135,7 @@ Snapshots of the plans approved in Claude Code plan mode. Each one is a record o
 
 | Plan | Status |
 |---|---|
+| [2026-10-14 Shareable weekend plan](plans/2026-10-14-weekend-plan.md) | Built and checked end to end; in [PR #34](https://github.com/jasbir98/fomo/pull/34). SQL run 15 Oct. |
 | [2026-10-14 Accurate visitor numbers in PostHog](plans/2026-10-14-posthog-accurate-metrics.md) | Live 14 Oct (PR #31). Dashboard 980079 rebuilt by `scripts/posthog-dashboards.mjs`. |
 | [2026-10-13 What sits behind sign-in](plans/2026-10-13-login-wall.md) | Built; in [PR #27](https://github.com/jasbir98/fomo/pull/27). Changes `add_finds.sql`, so run that after merging. |
 | [2026-10-12 For you: hand-picked steals and recommendations](plans/2026-10-12-fomo-finds.md) | Built on branch `fomo-finds`; PR pending. SQL listed above. |

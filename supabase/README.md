@@ -39,6 +39,12 @@
    or after the app deploy (the app shows no Finds until it exists). Safe to
    re-run.
 
+5. **`add_plans.sql`** — creates the `plans` table for shareable weekend
+   plans (askfomo.com/plan/<id>). RLS on with no policies: service-role
+   only (`POST /api/plans` writes, the /plan page reads). Until it runs,
+   "Make link" says it couldn't make the link; nothing else breaks. Safe to
+   re-run.
+
 Then run **`verify_security.sql`** (read-only, one result set) and check it
 shows no `no_rls`, `anon_write_policy`, `legacy_table` or
 `anon_exec_definer_fn` rows.
@@ -73,6 +79,7 @@ Tables as they exist after `archive/drop_legacy.sql` (applied 2026-09-28). "RLS 
 | `email_subscribers` | "Fomo Friday" weekly digest mailing list | Public, `POST /api/subscribe` (service-role insert; anon-insert policy still open until `tighten_public_inserts.sql` runs) | Service role only (`scripts/fomo-friday.mjs` send job, `/api/unsubscribe`, `/api/resend/webhook`) | write-only mailbox → service-role-only after `tighten_public_inserts.sql` |
 | `email_events` | Append-only Resend webhook delivery log (sends/opens/clicks/bounces) | `app/api/resend/webhook` (service role) | Service role only (ad hoc, e.g. "did this subscriber get the email") | service-role-only |
 | `tips` | User-submitted deal/event leads for review | Public, `POST /api/tips` (service-role insert; anon-insert policy still open until `tighten_public_inserts.sql` runs) | Service role only, ad hoc (no dedicated admin script yet) | write-only mailbox → service-role-only after `tighten_public_inserts.sql` |
+| `plans` | Shareable weekend plans: 1–4 frozen picks (title, day, price, image) per short id | `POST /api/plans` (service role), built from live happenings/events rows | `/plan/[id]` page and its OG image (service role) | service-role-only |
 | `api_rate_limits` | Per-user rate-limit counters (chat, translate) | `consume_rate_limit()` RPC only (security definer, `EXECUTE` granted to `authenticated`, revoked from `anon`) | Same RPC | RPC-only, no direct table policy |
 | `anon_rate_limits` | IP-hashed / global rate-limit counters (subscribe, tips, chat's global cap) | `consume_anon_rate_limit()` RPC only (security definer, `EXECUTE` granted to `service_role` only) | Same RPC | RPC-only, no direct table policy |
 

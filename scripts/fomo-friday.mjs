@@ -199,7 +199,7 @@ function renderHtml({ picks, deals, unsubscribeUrl }) {
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Fomo Friday</title>
+<title>Fomo · this weekend</title>
 </head>
 <body style="margin:0;padding:0;background:#f4f5f8;font-family:${FONT_STACK};">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#f4f5f8;">
@@ -225,7 +225,7 @@ function renderHtml({ picks, deals, unsubscribeUrl }) {
   </tr>
   <tr>
     <td style="padding:24px 24px 28px;text-align:center;color:#8b93a3;font-size:11px;line-height:1.6;">
-      You're getting this because you signed up for the Fomo Friday digest at askfomo.com.<br />
+      You're getting this because you signed up for Fomo's weekend email at askfomo.com.<br />
       {{SENDER_ADDRESS}}<br />
       <a href="${escapeHtml(withUtm(unsubscribeUrl))}" style="color:#8b93a3;text-decoration:underline;">Unsubscribe</a>
     </td>
@@ -239,7 +239,7 @@ function renderHtml({ picks, deals, unsubscribeUrl }) {
 
 function renderText({ picks, deals, unsubscribeUrl }) {
   const lines = [];
-  lines.push("Fomo Friday · Edinburgh, free & cheap");
+  lines.push("Fomo · Edinburgh, free & cheap");
   lines.push("");
   lines.push("THIS WEEKEND");
   for (const p of picks) {
@@ -257,7 +257,7 @@ function renderText({ picks, deals, unsubscribeUrl }) {
   lines.push("");
   lines.push(`Full list: ${withUtm("https://askfomo.com/weekend")}`);
   lines.push("");
-  lines.push("You're getting this because you signed up for the Fomo Friday digest at askfomo.com.");
+  lines.push("You're getting this because you signed up for Fomo's weekend email at askfomo.com.");
   lines.push("{{SENDER_ADDRESS}}");
   lines.push(`Unsubscribe: ${withUtm(unsubscribeUrl)}`);
   return lines.join("\n");

@@ -105,7 +105,7 @@ const VALUE_PROPS = [
   },
   {
     icon: "notifications_active",
-    title: "Fomo Friday alerts",
+    title: "Thursday email",
     body: "Save things and get a weekend round-up. Never miss the £4 cinema night again.",
   },
 ];

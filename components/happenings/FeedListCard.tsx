@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext } from "react";
+import { createContext, useContext, useMemo } from "react";
 import { Icon, NavCard, SaveButton, SmartImage } from "@/components/ui";
 import { eventIsInProgress, formatEventDate, formatEventPrice, formatEventTimeSpan, formatEventWhen } from "@/lib/events/format";
 import {
@@ -21,6 +21,8 @@ import { occurrenceIsLive } from "@/lib/happenings/occurrence";
 import { categoryStyle, defaultImageFor, kindStyle } from "@/lib/happenings/category-style";
 import { priceLabelForCard, priceLabelForEvent, priceLabelForHappening } from "@/lib/happenings/price-label";
 import { PriceTag } from "@/components/happenings/PriceTag";
+import { AddToPlanButton } from "@/components/plans/AddToPlanButton";
+import { basketItemForCard } from "@/lib/plans/basket";
 import type { FeedCardData, RecurringCardData, SeriesCardData } from "@/lib/happenings/feed-types";
 import type { Happening, HappeningKind, Occurrence } from "@/lib/happenings/types";
 import type { EventItem } from "@/lib/types";
@@ -40,6 +42,8 @@ import type { FindSubjectType } from "@/lib/finds/types";
 const CardIsNew = createContext(false);
 /** Set by FeedListCard when its caller passed `onOpen`; fired from the row's navigate handler, so a tap on the card (not on its bookmark or CTA) is the only thing that counts. */
 const CardOnOpen = createContext<(() => void) | undefined>(undefined);
+/** Set by FeedListCard when its caller passed `planAdd`: the card whose pick the footer's "Plan" button adds (lib/plans/basket.ts). */
+const CardPlan = createContext<{ card: FeedCardData; surface: string; days: string[] } | null>(null);
 
 /** Where this list is mounted — sent as `card_opened`'s `surface` so
  *  analytics can tell a Home "What's on" tap apart from the same card
@@ -54,6 +58,10 @@ export interface FeedListCardProps {
   position?: number;
   /** Extra hook for a surface with its own analytics (the "For you" tab's `for_you_rec_opened`); runs when the card is opened, alongside the normal `card_opened`. */
   onOpen?: () => void;
+  /** Show a "Plan" button in the footer that adds this card to the shareable weekend plan (/weekend only for now). Festival rows have no footer and never show it. */
+  planAdd?: boolean;
+  /** With `planAdd`: the days this list is about (/weekend's Saturday and Sunday), so a pick lands on the day it's shown for. */
+  planDays?: string[];
 }
 
 /** One `card_opened` call site for every happening-backed row variant below
@@ -180,12 +188,16 @@ function scopeTag(tag: string): React.ReactNode {
  * on a row of its own, which read as dead whitespace).
  */
 function CardFooter({ children, save }: { children?: React.ReactNode; save: React.ReactNode }) {
+  const plan = useContext(CardPlan);
   return (
     // mt-auto: in a desktop grid row the cards stretch to the tallest one,
     // so the footer sits on the same line in every card of the row.
     <div className="mt-auto flex min-w-0 items-center justify-between gap-2">
       <div className="flex min-w-0 items-center gap-2 text-label-md text-on-surface-variant">{children}</div>
-      <div className="ml-auto shrink-0">{save}</div>
+      <div className="ml-auto flex shrink-0 items-center gap-1">
+        {plan ? <AddToPlanButton item={basketItemForCard(plan.card, plan.days)} surface={plan.surface} /> : null}
+        {save}
+      </div>
     </div>
   );
 }
@@ -630,13 +642,16 @@ function EventRow({ event, surface, position }: { event: EventItem; surface?: Fe
  * instead renders the wider civic variant (source-link row + full-width
  * CTA), matching the mockup's Doors Open Days card.
  */
-export function FeedListCard({ card, surface, position, onOpen }: FeedListCardProps) {
+export function FeedListCard({ card, surface, position, onOpen, planAdd = false, planDays }: FeedListCardProps) {
   // "New since your last visit" (lib/personalise/freshness.ts): badges the
   // card without moving it, so the list keeps its time order.
   const isNew = isNewSince(card, useNewSinceCutoff());
+  const plan = useMemo(() => (planAdd ? { card, surface: surface ?? "feed", days: planDays ?? [] } : null), [planAdd, card, surface, planDays]);
   return (
     <CardOnOpen.Provider value={onOpen}>
-      <CardIsNew.Provider value={isNew}>{feedRow(card, surface, position)}</CardIsNew.Provider>
+      <CardPlan.Provider value={plan}>
+        <CardIsNew.Provider value={isNew}>{feedRow(card, surface, position)}</CardIsNew.Provider>
+      </CardPlan.Provider>
     </CardOnOpen.Provider>
   );
 }

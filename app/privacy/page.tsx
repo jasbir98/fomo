@@ -72,7 +72,7 @@ export default function PrivacyPage() {
               No message content is stored beyond what&rsquo;s needed to identify which alert to send.
             </li>
             <li>
-              <strong>Fomo Friday email signup.</strong>{" "}If you join our weekly digest, we store the
+              <strong>Weekend email signup.</strong>{" "}If you join our weekly digest, we store the
               email address you give us and where you signed up. This works without an account and is
               a separate opt-in from having one. You can unsubscribe any time via the link in every
               email.
@@ -114,10 +114,10 @@ export default function PrivacyPage() {
 
         <Section title="Why we process your data">
           <p>
-            To provide the app (your account, saved items, chat, alerts); to run the Fomo Friday
-            digest you opted into; to act on tips you send us; and to understand overall usage so we
+            To provide the app (your account, saved items, chat, alerts); to send the weekend
+            email you opted into; to act on tips you send us; and to understand overall usage so we
             can improve the app. Where processing isn&rsquo;t strictly necessary to run the service
-            (like the Fomo Friday digest), we rely on your consent, which you can withdraw at any
+            (like the weekend email), we rely on your consent, which you can withdraw at any
             time.
           </p>
         </Section>
@@ -135,7 +135,7 @@ export default function PrivacyPage() {
 
         <Section title="How long we keep it">
           <p>
-            We keep account data for as long as your account is active. Fomo Friday subscribers are
+            We keep account data for as long as your account is active. Weekend email subscribers are
             kept until you unsubscribe. Tips are kept for as long as useful for adding or verifying
             the deal/event. If you delete your account, we delete or anonymize the personal data tied
             to it within a reasonable period, except where we&rsquo;re required to keep something for

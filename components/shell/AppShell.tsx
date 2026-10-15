@@ -11,6 +11,7 @@ import { ConsentBar } from "@/components/analytics/ConsentBar";
 import { IdentifyUser } from "@/components/analytics/IdentifyUser";
 import { InstallHint } from "@/components/shell/InstallHint";
 import { DetailOverlayProvider } from "@/components/detail/DetailOverlayProvider";
+import { PlanBar } from "@/components/plans/PlanBar";
 import { track } from "@/lib/analytics/track";
 
 export type AppShellProps = {
@@ -62,7 +63,11 @@ export function AppShell({ children }: AppShellProps) {
       <IdentifyUser />
       <SideNav />
       <KeyboardShortcuts />
-      <div className="pb-[calc(88px+env(safe-area-inset-bottom))] lg:pb-0 lg:pl-[var(--sidenav-w)]">{children}</div>
+      <div className="pb-[calc(88px+env(safe-area-inset-bottom))] lg:pb-0 lg:pl-[var(--sidenav-w)]">
+        {children}
+        {/* The weekend plan being built (/weekend and detail pages only). */}
+        <PlanBar />
+      </div>
       <BottomNav />
       <MakeFomoYours open={makeFomoYoursOpen} onClose={closeMakeFomoYours} />
       <ConsentBar />
