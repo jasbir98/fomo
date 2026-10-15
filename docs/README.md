@@ -8,7 +8,7 @@ Run `/plans` in Claude Code for a summary of this page.
 Things waiting on you, newest first. Tick them off here, or ask Claude to update this list.
 
 **Technical SEO (15 Oct)**
-- [ ] Merge the technical SEO PR (place pages, What's on and Book early server-rendered, more structured data, places in the sitemap).
+- [ ] Merge [PR #35](https://github.com/jasbir98/fomo/pull/35) (place pages, What's on and Book early server-rendered, more structured data, places in the sitemap).
 - [ ] After it deploys, in Google Search Console: Sitemaps → resubmit `https://askfomo.com/sitemap.xml`. It now lists ~150 venue pages as well. Then use URL inspection → "Request indexing" on `/whats-on`, `/book-early` and one `/place/…` page.
 - [ ] A week later, check Search Console → Enhancements for Breadcrumbs and any new structured-data warnings. Paid events with no price in their label show "missing price" as a warning; that's expected.
 - [ ] Decide on slug URLs (`/happening/cheap-cinema-…-<id>`); the proposal is in the PR description.
@@ -141,7 +141,7 @@ Snapshots of the plans approved in Claude Code plan mode. Each one is a record o
 
 | Plan | Status |
 |---|---|
-| [2026-10-14 Technical SEO](plans/2026-10-14-technical-seo.md) | Built and checked against a production build; PR open. Slug URLs proposed, not built. |
+| [2026-10-14 Technical SEO](plans/2026-10-14-technical-seo.md) | Built and checked against a production build; in [PR #35](https://github.com/jasbir98/fomo/pull/35). Slug URLs proposed, not built. |
 | [2026-10-14 Shareable weekend plan](plans/2026-10-14-weekend-plan.md) | Built and checked end to end; in [PR #34](https://github.com/jasbir98/fomo/pull/34). SQL run 15 Oct. |
 | [2026-10-14 Accurate visitor numbers in PostHog](plans/2026-10-14-posthog-accurate-metrics.md) | Live 14 Oct (PR #31). Dashboard 980079 rebuilt by `scripts/posthog-dashboards.mjs`. |
 | [2026-10-13 What sits behind sign-in](plans/2026-10-13-login-wall.md) | Built; in [PR #27](https://github.com/jasbir98/fomo/pull/27). Changes `add_finds.sql`, so run that after merging. |
