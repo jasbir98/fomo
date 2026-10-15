@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Icon, NavCard } from "@/components/ui";
+import { Icon, NavCard, NavCardLink } from "@/components/ui";
 import { DealPhoto } from "@/components/happenings/DealPhoto";
 import { dealGroupSubtitle } from "@/lib/happenings/deal-label";
 import { savingBadgeLabel } from "@/lib/happenings/format";
@@ -90,7 +90,7 @@ function VenueDealSummary({
   return (
     <div className="flex min-w-0 flex-1 flex-col justify-center gap-0.5">
       <div className="flex items-center justify-between gap-1">
-        <h5 className="line-clamp-2 text-label-lg font-bold leading-snug text-on-surface">{placeName}</h5>
+        <h5 className="line-clamp-2 text-label-lg font-bold leading-snug text-on-surface"><NavCardLink>{placeName}</NavCardLink></h5>
         <PriceTag label={priceLabel} variant="compact" />
       </div>
       <span className="line-clamp-1 text-body-sm text-on-surface-variant">{subtitle}</span>
@@ -142,7 +142,6 @@ export function VenueDealCard({ placeId, placeName, placeImageUrl, offers, posit
     return (
       <NavCard
         href={`/place/${placeId}`}
-        ariaLabel={placeName}
         onNavigate={() =>
           track("card_opened", {
             kind: "place",

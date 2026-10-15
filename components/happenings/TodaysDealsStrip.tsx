@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Icon, NavCard } from "@/components/ui";
+import { Icon, NavCard, NavCardLink } from "@/components/ui";
 import { categoryStyle } from "@/lib/happenings/category-style";
 import { DealPhoto } from "@/components/happenings/DealPhoto";
 import { dealCardTitle, dealGroupSubtitle, dealSubtitle } from "@/lib/happenings/deal-label";
@@ -48,7 +48,6 @@ function TodaysDealCard({ card, surface, position }: { card: DealCardData; surfa
   return (
     <NavCard
       href={`/happening/${happening.id}`}
-      ariaLabel={happening.title}
       onPointerDown={() => prefetchHappening(happening.id)}
       onNavigate={() => {
         setHappeningPreview(happening.id, happeningToPreview(happening, { priceLabel: badge, whenLabel: time }));
@@ -75,7 +74,7 @@ function TodaysDealCard({ card, surface, position }: { card: DealCardData; surfa
           <Icon name={style.icon} size={11} className={style.textClass} />
           {time ? <span className="text-accent">{time}</span> : null}
         </div>
-        <h5 className="line-clamp-2 text-label-lg font-bold leading-snug text-on-surface">{title}</h5>
+        <h5 className="line-clamp-2 text-label-lg font-bold leading-snug text-on-surface"><NavCardLink>{title}</NavCardLink></h5>
         {subtitle ? <p className="line-clamp-1 text-body-sm font-medium text-on-surface-variant">{subtitle}</p> : null}
       </div>
     </NavCard>
@@ -116,7 +115,6 @@ function TodaysDealGroupCard({ group, surface, position }: { group: DealVenueGro
   return (
     <NavCard
       href={href}
-      ariaLabel={`${group.placeName} · ${group.offers.length} deals`}
       onNavigate={() => {
         if (group.placeId) {
           track("card_opened", { kind: "place", id: group.placeId, source: "venue_group", surface, position, price_band: priceBand(happening.is_free) });
@@ -141,7 +139,7 @@ function TodaysDealGroupCard({ group, surface, position }: { group: DealVenueGro
           <Icon name={style.icon} size={11} className={style.textClass} />
           {time ? <span className="text-accent">{time}</span> : null}
         </div>
-        <h5 className="line-clamp-2 text-label-lg font-bold leading-snug text-on-surface">{group.placeName}</h5>
+        <h5 className="line-clamp-2 text-label-lg font-bold leading-snug text-on-surface"><NavCardLink>{group.placeName}</NavCardLink></h5>
         {subtitle ? <p className="line-clamp-1 text-body-sm font-medium text-on-surface-variant">{subtitle}</p> : null}
       </div>
     </NavCard>

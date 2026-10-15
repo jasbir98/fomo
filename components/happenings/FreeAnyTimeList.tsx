@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Icon, NavCard, SeeAllButton, SmartImage } from "@/components/ui";
+import { Icon, NavCard, NavCardLink, SeeAllButton, SmartImage } from "@/components/ui";
 import { defaultImageFor } from "@/lib/happenings/category-style";
 import { PriceTag } from "@/components/happenings/PriceTag";
 import type { PriceLabel } from "@/lib/happenings/price-label";
@@ -38,7 +38,6 @@ export function FreeAnyTimeRow({ item }: { item: FreeAnyTimeItem }) {
   return (
     <NavCard
       href={href}
-      ariaLabel={item.name}
       className="flex cursor-pointer items-center gap-3.5 rounded-2xl bg-surface-container-lowest p-3.5 shadow-level-1 transition-shadow hover:shadow-level-2"
     >
       <div className="h-16 w-16 shrink-0 overflow-hidden rounded-lg border border-hairline bg-surface-container">
@@ -67,7 +66,7 @@ export function FreeAnyTimeRow({ item }: { item: FreeAnyTimeItem }) {
       </div>
       <div className="flex min-w-0 flex-1 flex-col justify-center">
         <div className="mb-0.5 flex items-center justify-between gap-1">
-          <h5 className="truncate text-label-lg font-bold text-on-surface">{item.name}</h5>
+          <h5 className="truncate text-label-lg font-bold text-on-surface"><NavCardLink>{item.name}</NavCardLink></h5>
           <PriceTag label={FREE_LABEL} variant="compact" />
         </div>
         {item.description ? (

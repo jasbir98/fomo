@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Icon, NavCard, SmartImage } from "@/components/ui";
+import { Icon, NavCard, NavCardLink, SmartImage } from "@/components/ui";
 import { formatEventDate, formatEventPrice, formatEventTimeSpan, formatEventWhen } from "@/lib/events/format";
 import { eventDefaultImage } from "@/lib/events/image";
 import { HappeningHero } from "./HappeningHero";
@@ -74,7 +74,6 @@ function EventHero({ event, reason, surface }: { event: EventItem; reason: strin
   return (
     <NavCard
       href={`/event/${event.id}`}
-      ariaLabel={event.name}
       onPointerDown={() => prefetchEvent(event.id)}
       onNavigate={() => {
         setEventPreview(event.id, eventToPreview(event, { priceLabel: price, whenLabel: formatEventWhen(event.starts_at, event.ends_at) }));
@@ -124,7 +123,7 @@ function EventHero({ event, reason, surface }: { event: EventItem; reason: strin
 
       <div className="flex flex-col gap-2.5 p-3.5 pt-2.5 lg:min-w-0 lg:flex-1 lg:justify-between lg:gap-4 lg:p-6">
         <div className="flex flex-col gap-1">
-          <h2 className="line-clamp-2 text-headline-sm font-extrabold leading-snug text-on-surface lg:line-clamp-3 lg:text-headline-md">{event.name}</h2>
+          <h2 className="line-clamp-2 text-headline-sm font-extrabold leading-snug text-on-surface lg:line-clamp-3 lg:text-headline-md"><NavCardLink>{event.name}</NavCardLink></h2>
           {event.description ? (
             <p className="line-clamp-1 text-body-sm text-on-surface-variant lg:line-clamp-3 lg:text-body-md">{event.description}</p>
           ) : null}
