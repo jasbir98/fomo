@@ -9,6 +9,7 @@ Things waiting on you, newest first. Tick them off here, or ask Claude to update
 
 **Technical SEO (15 Oct)**
 - [ ] Merge [PR #35](https://github.com/jasbir98/fomo/pull/35) (place pages, What's on and Book early server-rendered, more structured data, places in the sitemap).
+- [ ] Then merge [PR #39](https://github.com/jasbir98/fomo/pull/39) (each feed card's title is a real link, so Google can follow list pages to detail pages). It's stacked on #35.
 - [ ] After it deploys, in Google Search Console: Sitemaps → resubmit `https://askfomo.com/sitemap.xml`. It now lists ~150 venue pages as well. Then use URL inspection → "Request indexing" on `/whats-on`, `/book-early` and one `/place/…` page.
 - [ ] A week later, check Search Console → Enhancements for Breadcrumbs and any new structured-data warnings. Paid events with no price in their label show "missing price" as a warning; that's expected.
 - [ ] Decide on slug URLs (`/happening/cheap-cinema-…-<id>`); the proposal is in the PR description.
