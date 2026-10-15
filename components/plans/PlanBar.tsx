@@ -27,9 +27,9 @@ function sourceFor(pathname: string): string {
  * plan's own page (/plan/<id>), which has the share buttons. The picks are
  * kept, so the visitor can swap one and make a new link.
  *
- * On phones it sits just above the bottom nav, with an in-flow spacer so it
- * never covers the end of the page; on desktop it floats bottom-right, above
- * the detail modal (z-65).
+ * On phones it sits just above the bottom nav; on desktop it floats
+ * bottom-right, above the detail modal (z-65). Either way an in-flow spacer
+ * keeps it off the end of the page.
  */
 export function PlanBar() {
   const pathname = usePathname();
@@ -84,8 +84,8 @@ export function PlanBar() {
 
   return (
     <>
-      {/* Keeps the bar from covering the end of the page on phones. */}
-      <div aria-hidden="true" className="h-24 lg:hidden" />
+      {/* Keeps the bar from covering the end of the page (on desktop it floats over the last row of cards). */}
+      <div aria-hidden="true" className="h-24" />
       <section
         aria-label="Your weekend plan"
         className="fixed inset-x-0 bottom-[calc(88px+env(safe-area-inset-bottom))] z-30 mx-auto w-full max-w-[480px] px-3 pb-2 lg:inset-x-auto lg:bottom-6 lg:right-6 lg:z-[70] lg:w-96 lg:max-w-none lg:px-0 lg:pb-0"
