@@ -84,6 +84,12 @@ const SECURITY_HEADERS = [
 
 const nextConfig: NextConfig = {
   allowedDevOrigins: ['192.168.0.26', '192.168.129.61', '192.168.1.213'],
+  // The weekend plan's receipt image (lib/og/receipt-image.tsx) reads its
+  // fonts and the bundled /defaults photo tiles from disk at request time.
+  outputFileTracingIncludes: {
+    "/plan/[id]/opengraph-image": ["./lib/og/fonts/**", "./public/defaults/**"],
+    "/plan/[id]/twitter-image": ["./lib/og/fonts/**", "./public/defaults/**"],
+  },
   images: {
     formats: ["image/avif", "image/webp"],
     // 30 days — Vercel caches the transformed output at this TTL, and none

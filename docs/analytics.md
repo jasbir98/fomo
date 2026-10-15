@@ -62,13 +62,17 @@ new: `instrumentation-client.ts` (init), `next.config.ts` (reverse proxy),
 | `card_opened` | `kind` (happening/event/place), `id`, `source` (happening's own kind, or "series"/"recurring"/"event"/"venue_group"), `surface`, `position`, `price_band` (free/paid/unknown) | `FeedListCard`, `FeedHero`/`HappeningHero`, `TodaysDealsStrip`, `BookEarlyCard`, `VenueDealCard` — everywhere a card navigates to a detail page |
 | `outbound_clicked` | `kind`, `id`, `host`, `cta` | **The key metric.** Every ticket/"get deal"/source/directions link that leaves Fomo: happening/event/place detail pages' primary CTA, source link, directions; `HappeningHero`, `BookEarlyCard`, `FeedListCard`'s festival CTA |
 | `save_added` / `save_removed` | `kind`, `id` | `components/ui/SaveButton.tsx` — the one shared bookmark toggle everywhere |
-| `share_completed` | `method` (native/clipboard), `kind` | `components/ui/ShareButton.tsx` — the one shared share button |
+| `share_completed` | `method` (native/clipboard), `kind` (happening/event/place/weekend/plan) | `components/ui/ShareButton.tsx` — the one shared share button |
+| `plan_item_added` / `plan_item_removed` | `kind`, `id`, `surface` (weekend/happening_detail/event_detail), `count` (added only) | `components/plans/AddToPlanButton.tsx` — the "Plan" pill on /weekend cards and detail pages |
+| `weekend_plan_created` | `id`, `count`, `total`, `total_from`, `unknown_prices`, `reused`, `source` | `components/plans/PlanBar.tsx`, when "Make link" returns a plan id (`reused` = same picks as an existing plan) |
+| `weekend_plan_shared` | `id`, `method` (whatsapp/native/clipboard), `creator` | `/plan/<id>`'s "Send to the group" and Share buttons (`PlanShareActions`). WhatsApp counts on tap. |
+| `plan_make_own_clicked` | `id`, `creator` | `/plan/<id>`'s "Make your own plan" / "Change picks" — the loop: a friend who got the link starts their own |
 | `calendar_added` | `type` (ics/google), `kind` | Happening/event detail pages' "Add to calendar" links |
 | `tab_switched` | `from`, `to` | Home's Now/Coming up/Book early segmented control |
 | `filter_used` | `filter`, `value`, `page` | Free only / For you / category / date pills on `/whats-on`; Free only on `/weekend`; WHAT/WHO on `/deals`; type/district on `/free`; timing/category/month on `/book-early` |
 | `search_submitted` | `length` | Explore's search box, on picking a suggestion (On Fomo pin or a Google place) |
 | `chat_message_sent` | `length` | Ask Fomo, on send |
-| `subscribe_submitted` | `surface` (home/weekend/signup) | `SubscribeCard` ("Get Fomo Friday"), on success |
+| `subscribe_submitted` | `surface` (home/weekend/signup/finds/plan) | `SubscribeCard` ("Get Fomo Friday"), on success |
 | `tip_submitted` | `type` (tip/feedback) | `/tip` page, on success |
 | `prefs_completed` / `prefs_skipped` | — | `MakeFomoYours` — Save vs. Skip for now |
 | `signin_completed` | `method` (email/google/apple) | `/signin`, once per real sign-in (see below) |

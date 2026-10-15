@@ -21,6 +21,8 @@ export type ShareButtonProps = {
   interestHint?: InterestKey | null;
   /** `share_completed`'s `kind` — what's being shared (happening/event/place/weekend page, ...). Omit only where the caller has no natural subject type (nothing shares without one today, but the event stays no-op-safe). */
   kind?: string;
+  /** Runs after a completed share, alongside `share_completed` — for a surface with its own event (the weekend plan's `weekend_plan_shared`). */
+  onShared?: (method: "native" | "clipboard") => void;
 };
 
 /**
@@ -37,7 +39,7 @@ export type ShareButtonProps = {
  * rejection (e.g. no registered share targets) falls back to clipboard
  * rather than leaving the tap dead.
  */
-export function ShareButton({ title, text, url, variant = "icon", className = "", interestHint = null, kind }: ShareButtonProps) {
+export function ShareButton({ title, text, url, variant = "icon", className = "", interestHint = null, kind, onShared }: ShareButtonProps) {
   const [copied, setCopied] = useState(false);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   // Sharing stays open to everyone, but only a signed-in share teaches the
@@ -100,6 +102,7 @@ export function ShareButton({ title, text, url, variant = "icon", className = ""
         await navigator.share({ title, text, url: urlWithUtm });
         if (signedIn === true) recordAffinity(interestHint);
         track("share_completed", { method: "native", kind });
+        onShared?.("native");
         return;
       } catch (err) {
         if (err instanceof Error && err.name === "AbortError") return;
@@ -110,6 +113,7 @@ export function ShareButton({ title, text, url, variant = "icon", className = ""
     await copyToClipboard();
     if (signedIn === true) recordAffinity(interestHint);
     track("share_completed", { method: "clipboard", kind });
+    onShared?.("clipboard");
   }
 
   if (variant === "labelled") {

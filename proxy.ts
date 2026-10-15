@@ -143,7 +143,8 @@ const PUBLIC_EVENT_ICS = /^\/api\/events\/[^/]+\/ics$/;
  * checks the session itself and applies strict per-IP limits when there
  * isn't one (3 questions and 1 Google lookup a day, plus site-wide caps).
  */
-const PUBLIC_POST_PREFIXES = ["/api/subscribe", "/api/tips", "/api/unsubscribe", "/api/resend/webhook", "/api/chat"];
+// /api/plans: the shareable weekend plan link (account-free; rate limited per IP in the route).
+const PUBLIC_POST_PREFIXES = ["/api/subscribe", "/api/tips", "/api/unsubscribe", "/api/resend/webhook", "/api/chat", "/api/plans"];
 
 function isPublicApi(request: NextRequest): boolean {
   const { pathname } = request.nextUrl;
