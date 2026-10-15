@@ -33,6 +33,7 @@ import { priceSignalForEvent } from "@/lib/cards/price";
 import { eventDayLabel } from "@/lib/events/format";
 import type { Happening, HappeningEligibility, Occurrence } from "@/lib/happenings/types";
 import type { EventItem } from "@/lib/types";
+import type { FeedCardData } from "@/lib/happenings/feed-types";
 
 /** Value's own sub-score never contributes more than this — a big saving on
  *  a mediocre-otherwise item shouldn't outrank a merely-good, well-rounded
@@ -46,6 +47,40 @@ export const HERO_VALUE_CAP = 35;
  *  is the unrestricted default) is still eligible for the slot, just marked
  *  down rather than disqualified. */
 const NARROW_ELIGIBILITY = new Set<HappeningEligibility>(["student", "under_26", "over_60", "local_resident"]);
+
+/** Filename words that mean the "photo" is really a document or graphic —
+ *  a timetable, fixture list, poster, menu, logo or screenshot. Matched on
+ *  the URL's last path segment only, so a host or folder name can't trip
+ *  it. Seen live: Edinburgh Leisure's coaching offer led Home with
+ *  `EL-Coaching-Venues-Timetable.jpg`, a spreadsheet. */
+const DOCUMENT_IMAGE_NAME =
+  /timetable|schedule|fixtures?[-_.]|poster|flyer|leaflet|brochure|menu|price-?list|logo|banner|screen-?shot|untitled-design|infographic|\.(pdf|svg)$/i;
+
+/** Bonus for being free (or under £10) AND on today, tomorrow or this
+ *  weekend — the cheap-and-now pick the Home hero is for. */
+const CHEAP_AND_SOON_BONUS = 10;
+
+/** Event tickets below this count as "under £10" for the cheap-and-soon bonus. */
+const CHEAP_EVENT_MAX = 10;
+
+/**
+ * True when `url` is a real photo: set, not one of the bundled category
+ * defaults (`/defaults/...`), and not named like a document (see
+ * `DOCUMENT_IMAGE_NAME`). The hero and the cards that lead What's on only
+ * show photo-led items while any exist.
+ */
+export function isPhotoImage(url: string | null | undefined): boolean {
+  if (!url) return false;
+  if (url.startsWith("/defaults/")) return false;
+  const path = url.split(/[?#]/)[0];
+  let name = path.slice(path.lastIndexOf("/") + 1);
+  try {
+    name = decodeURIComponent(name);
+  } catch {
+    // Malformed escape — test the raw name.
+  }
+  return !DOCUMENT_IMAGE_NAME.test(name);
+}
 
 function clamp(value: number, lo: number, hi: number): number {
   return Math.min(Math.max(value, lo), hi);
@@ -139,6 +174,7 @@ export function happeningRecommendationScore(
   } else if (bucket === "this_weekend") {
     factors.push({ label: "this weekend", weight: 8 });
   }
+  if (h.is_free && bucket !== "coming_up") score += CHEAP_AND_SOON_BONUS;
 
   // --- Scarcity ----------------------------------------------------------
   if (h.sellout_risk === "high") {
@@ -151,8 +187,8 @@ export function happeningRecommendationScore(
   // --- Curation ------------------------------------------------------
   score += clamp((h.priority ?? 50) - 50, -15, 15);
 
-  // --- Presentation --------------------------------------------------
-  if (h.image_url) score += 8;
+  // --- Presentation: a document image counts as no image. ------------
+  if (isPhotoImage(h.image_url)) score += 8;
   else score -= 20;
 
   // --- Trust -----------------------------------------------------------
@@ -221,11 +257,13 @@ export function eventRecommendationScore(
   } else if (bucket === "this_weekend") {
     factors.push({ label: "this weekend", weight: 8 });
   }
+  const cheap = e.is_free || (e.price_from != null && e.price_from < CHEAP_EVENT_MAX);
+  if (cheap && bucket !== "coming_up") score += CHEAP_AND_SOON_BONUS;
 
   // --- Scarcity / Curation / Audience: no data on EventItem, skipped. ---
 
   // --- Presentation --------------------------------------------------
-  if (e.image_url) score += 8;
+  if (isPhotoImage(eventImageUrl(e))) score += 8;
   else score -= 20;
 
   // --- Trust: an unpriced, non-free provider row is unverified value —
@@ -234,4 +272,55 @@ export function eventRecommendationScore(
   if (!e.is_free && e.price_from == null) score -= 10;
 
   return { score, reason: buildReason(factors) };
+}
+
+/** An event's own photo, else its venue's — the same image EventHero shows. */
+export function eventImageUrl(e: EventItem): string | null {
+  return e.image_url || e.place?.image_url || null;
+}
+
+/** The image a What's on card leads with (a recurring card shows its lead's). */
+export function cardImageUrl(card: FeedCardData): string | null {
+  if (card.kind === "recurring") return cardImageUrl(card.lead);
+  if (card.kind === "event") return eventImageUrl(card.event);
+  return (card.kind === "series" ? card.lead : card.happening).image_url;
+}
+
+/** The hero score of a What's on card — the same scorers the hero uses. */
+export function cardRecommendationScore(
+  card: FeedCardData,
+  now: Date = new Date(),
+  timeZone: string = CITY.timezone,
+  who: readonly DealWhoGroup[] = []
+): number {
+  if (card.kind === "recurring") return cardRecommendationScore(card.lead, now, timeZone, who);
+  if (card.kind === "event") return eventRecommendationScore(card.event, now, timeZone).score;
+  const h = card.kind === "series" ? card.lead : card.happening;
+  return happeningRecommendationScore(h, card.occurrence, now, timeZone, who).score;
+}
+
+/** How many cards under the hero `leadWithPhotos` picks. */
+export const LEAD_CARD_COUNT = 3;
+
+/**
+ * Moves the `count` best-scoring photo-led cards to the front of a What's on
+ * list, the rest keeping their order. Unchanged when no card has a photo, so
+ * a thin day still shows its first cards, not none.
+ */
+export function leadWithPhotos(
+  cards: readonly FeedCardData[],
+  now: Date = new Date(),
+  timeZone: string = CITY.timezone,
+  who: readonly DealWhoGroup[] = [],
+  count: number = LEAD_CARD_COUNT
+): FeedCardData[] {
+  const lead = cards
+    .map((card, index) => ({ card, index }))
+    .filter(({ card }) => isPhotoImage(cardImageUrl(card)))
+    .map((c) => ({ ...c, score: cardRecommendationScore(c.card, now, timeZone, who) }))
+    .sort((a, b) => b.score - a.score || a.index - b.index)
+    .slice(0, count);
+  if (lead.length === 0) return [...cards];
+  const leadIndexes = new Set(lead.map((c) => c.index));
+  return [...lead.map((c) => c.card), ...cards.filter((_, i) => !leadIndexes.has(i))];
 }

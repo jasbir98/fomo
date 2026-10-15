@@ -1,14 +1,15 @@
 name: Weekly content (carousel + email)
 
 # Weekly IG carousel: Wednesday 16:07 UTC
-# Weekly email: Friday 07:07 UTC
+# Weekly email: Thursday 16:07 UTC (17:07 BST / 16:07 GMT), for the coming Fri-Sun.
+# The signup card promises "Thursday by 6pm", which leaves room for Actions' cron delay.
 # Both can be triggered manually with `workflow_dispatch` (with input to pick carousel|email-dry-run|email-send)
 on:
   schedule:
     # Wednesday 16:07 UTC (carousel)
     - cron: "7 16 * * 3"
-    # Friday 07:07 UTC (email)
-    - cron: "7 7 * * 5"
+    # Thursday 16:07 UTC (email)
+    - cron: "7 16 * * 4"
   workflow_dispatch:
     inputs:
       action:
@@ -58,9 +59,9 @@ jobs:
           retention-days: 14
 
   email:
-    # Run email job on Friday cron (schedule[1]) or if manually triggered with action=email-*
+    # Run email job on Thursday cron (schedule[1]) or if manually triggered with action=email-*
     if: |
-      (github.event_name == 'schedule' && github.event.schedule == '7 7 * * 5') ||
+      (github.event_name == 'schedule' && github.event.schedule == '7 16 * * 4') ||
       (github.event_name == 'workflow_dispatch' && (inputs.action == 'email-dry-run' || inputs.action == 'email-send'))
     runs-on: ubuntu-latest
     environment: Production
@@ -75,9 +76,9 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      # Sends on the Friday schedule or a manual email-send, but only once
+      # Sends on the Thursday schedule or a manual email-send, but only once
       # RESEND_API_KEY is set; otherwise (and for email-dry-run) it dry-runs.
-      - name: Run Fomo Friday email
+      - name: Run weekend email
         env:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL || secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}

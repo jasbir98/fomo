@@ -29,7 +29,7 @@ function UnsubscribeContent() {
       } catch {
         // Network failure only — the route itself never errors on a bad
         // token (see its own no-enumeration note). Same neutral copy.
-        if (!cancelled) setMessage("You're unsubscribed. You won't get any more Fomo Friday emails.");
+        if (!cancelled) setMessage("You're unsubscribed. You won't get any more weekend emails from Fomo.");
       }
     }
     run();

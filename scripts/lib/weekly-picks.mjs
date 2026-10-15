@@ -12,7 +12,7 @@
  *   "Things this weekend" (`picks`) is DATED-FIRST:
  *     (a) dated one-offs — happenings with recurrence once/dates/annual
  *         landing in the window, plus `events` rows — ranked free → cheap
- *         (≤£15) → excluded unless sports (a real price signal only exists
+ *         (under £10, the signup promise) → excluded unless sports (a real price signal only exists
  *         for `events.price_from`; a dated happening with no price data of
  *         its own is kept at the "cheap" tier rather than guessed at, see
  *         DATED_HAPPENING_UNKNOWN_PRICE_TIER below).
@@ -74,7 +74,8 @@
 
 const TIMEZONE = "Europe/London";
 const CURRENCY_SYMBOL = { GBP: "£", USD: "$", EUR: "€" };
-const CHEAP_THRESHOLD_GBP = 15;
+/** "Under £10" is what the signup card promises (components/happenings/SubscribeCard.tsx). */
+const CHEAP_THRESHOLD_GBP = 10;
 const EXCLUDED_ELIGIBILITY = new Set(["over_60"]);
 const EXCLUDED_CATEGORY = new Set(["family"]);
 const EVENT_PROVIDER_ALLOWLIST = new Set(["luma", "eventbrite", "songkick", "allevents", "skiddle", "ticketmaster"]);
@@ -432,7 +433,7 @@ function priceLabelForEvent(e) {
 
 /**
  * Price/sports tier for a dated pick — lower sorts first. `happening`
- * (unknown-price) rows land at the same tier as a verified ≤£15 price: a
+ * (unknown-price) rows land at the same tier as a verified under-£10 price: a
  * dated happening has no `price_from`-equivalent column of its own (that
  * signal only exists on `events`), so treating "no price data" as
  * automatically excluded would gut the list of legitimately free/cheap
@@ -450,20 +451,20 @@ const FESTIVAL_PENALTY = 10;
 function tierForHappening(h) {
   let tier;
   if (h.is_free) tier = TIER_FREE;
-  else if (typeof h.saving_amount === "number" && h.saving_amount <= CHEAP_THRESHOLD_GBP) tier = TIER_CHEAP;
+  else if (typeof h.saving_amount === "number" && h.saving_amount < CHEAP_THRESHOLD_GBP) tier = TIER_CHEAP;
   else if (h.category === "sports") tier = TIER_SPORTS;
   else tier = DATED_HAPPENING_UNKNOWN_PRICE_TIER;
   if (h.kind === "festival") tier += FESTIVAL_PENALTY;
   return tier;
 }
 
-/** Returns `null` (excluded) for a priced, non-sports event over £15 — the
+/** Returns `null` (excluded) for a priced, non-sports event of £10 or more — the
  *  one case with real, comparable price data where "others excluded unless
  *  sports" actually bites. */
 function tierForEvent(e) {
   if (e.is_free) return TIER_FREE;
   if (typeof e.price_from === "number") {
-    if (e.price_from <= CHEAP_THRESHOLD_GBP) return TIER_CHEAP;
+    if (e.price_from < CHEAP_THRESHOLD_GBP) return TIER_CHEAP;
     if (e.category === "sports") return TIER_SPORTS;
     return null;
   }
@@ -577,8 +578,8 @@ function mergeFindsFirst(findItems, selection, cap) {
  * The coming Fri 17:00 -> Sun 23:59:59 Europe/London window, as local day
  * strings plus their UTC instants (the latter needed for the `events`
  * REST query, which filters on real timestamps, not calendar days). "Coming
- * Friday" includes TODAY when `now` already falls on a Friday — the Friday
- * 8am send targets that same-day evening's start.
+ * Friday" includes TODAY when `now` already falls on a Friday (a manual
+ * run); the scheduled Thursday-evening send gets the next day.
  */
 export function weekendWindow(now = new Date()) {
   const todayDayDate = localDayDate(now);
@@ -681,7 +682,7 @@ export async function getWeeklyPicks({ supabaseUrl, serviceRoleKey, now = new Da
     if (e.provider && !EVENT_PROVIDER_ALLOWLIST.has(e.provider)) continue;
     if (e.category && EXCLUDED_CATEGORY.has(e.category)) continue;
     const tier = tierForEvent(e);
-    if (tier === null) continue; // priced >£15, not sports — excluded per spec
+    if (tier === null) continue; // priced £10+, not sports — excluded per spec
     const dayDate = localDayDate(new Date(e.starts_at));
     const key = normalizedTitleKey(e.name, dayDate);
     if (seenKeys.has(key)) continue; // de-dup vs a happening already picked for the same day

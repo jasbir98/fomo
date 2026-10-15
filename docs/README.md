@@ -100,6 +100,9 @@ Things waiting on you, newest first. Tick them off here, or ask Claude to update
 - [ ] Check the Supabase auth email templates (see [auth-email-templates.md](auth-email-templates.md)) and that the Site URL is `https://askfomo.com`.
 - [ ] Check the PostHog and Resend environment variables are set in Vercel *production*.
 - [ ] Try the signed-in flows on production: Google photo, editing your name, and the name step for new email users.
+- [x] Home hero and first 3 cards: photo-led, free or under £10, on today or this weekend. A timetable, poster or default image never leads while a photo exists.
+- [x] Email offer: "This weekend in Edinburgh, under £10. In your inbox Thursday by 6pm." The send moved from Fri 07:07 to Thu 16:07 UTC, and picks are capped under £10 to match.
+- [ ] After merge: check the first Thursday send (15 Oct) went out, and dry-run it on the day.
 
 **Security, last checked 29 Sep. Some of this may already be done.**
 - [ ] SQL to run, in this order: `tighten_public_inserts.sql`, `harden_2026_09.sql`, then `verify_security.sql`.
@@ -111,7 +114,7 @@ Things waiting on you, newest first. Tick them off here, or ask Claude to update
 |---|---|
 | [launch/marketing-plan.md](launch/marketing-plan.md) | Positioning, success metrics, the Oct–Dec calendar, channels ranked, the launch sequence and the weekly rhythm. |
 | [launch/launch-kit.md](launch/launch-kit.md) | Copy to paste: Instagram bio and the first 9 posts, launch DMs, the Reddit post, society and venue DMs, posters, the £50 boost rule, user-call questions. |
-| [content-loop.md](content-loop.md) | The weekly Fomo Friday email and Instagram carousel, both generated from the database. |
+| [content-loop.md](content-loop.md) | The weekly Thursday weekend email and Instagram carousel, both generated from the database. |
 
 ## Data
 | Doc | What it is |

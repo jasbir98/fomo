@@ -15,6 +15,7 @@ import { AnyDaySection, FeedHero, FeedListCard, FreeAnyTimeList, BookEarlyCard, 
 import { TodaysDealsStrip } from "@/components/happenings/TodaysDealsStrip";
 import { todaysDeals } from "@/lib/happenings/today-deals";
 import { occurrenceIsPastLocalHours } from "@/lib/happenings/local-hours";
+import { leadWithPhotos } from "@/lib/happenings/hero";
 import { AmbientWeather } from "@/components/weather/AmbientWeather";
 import { usePrefs } from "@/lib/personalise/usePrefs";
 import { openMakeFomoYours } from "@/lib/personalise/trigger";
@@ -428,7 +429,13 @@ export function HomeClient({ initialFeed = null }: HomeClientProps) {
   // (the render below slices its first SECTION_CAP); no per-day/category
   // filtering left on Home at all — that lives on /whats-on now (reached via
   // the "See all N" link below), which fetches this same window itself.
-  const whatsOnCards = useMemo(() => whatsOnBucket?.cards ?? [], [whatsOnBucket]);
+  // The best photo-led, free-or-cheap, soonest cards lead (hero.ts
+  // `leadWithPhotos`), so the first screen under the hero is never a
+  // timetable or a default tile.
+  const whatsOnCards = useMemo(
+    () => leadWithPhotos(whatsOnBucket?.cards ?? [], new Date(), CITY.timezone, dealWho),
+    [whatsOnBucket, dealWho]
+  );
 
   // Personalisation ranking boost (lib/personalise/score.ts) — nudges, never
   // filters: every card above still renders, `reorderWithBoost` just moves a

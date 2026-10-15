@@ -44,7 +44,7 @@ import { supabaseAdmin } from "@/lib/supabase/admin";
 
 export const runtime = "nodejs";
 
-const NEUTRAL_MESSAGE = "You're unsubscribed. You won't get any more Fomo Friday emails.";
+const NEUTRAL_MESSAGE = "You're unsubscribed. You won't get any more weekend emails from Fomo.";
 
 // Matches any RFC 4122 UUID (all versions/variants) — the exact shape
 // `unsubscribe_token` is generated as (`gen_random_uuid()`,
