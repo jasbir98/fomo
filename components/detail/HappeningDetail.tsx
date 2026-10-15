@@ -6,6 +6,8 @@ import { districtFromAddress } from "@/lib/city";
 import { directionsUrlFor } from "@/lib/maps/links";
 import { safeHttpUrl } from "@/lib/http/safe-url";
 import { happeningHasEnded, nextOccurrences, normalizeRecurrence } from "@/lib/happenings/occurrence";
+import { AddToPlanButton } from "@/components/plans/AddToPlanButton";
+import { basketItemForHappening } from "@/lib/plans/basket";
 import {
   ELIGIBILITY_FALLBACK,
   ELIGIBILITY_ICON,
@@ -625,6 +627,9 @@ export function HappeningDetail({ id, presentation = "page", initialData }: Deta
         title={happening.title}
         action={
           <div className="flex items-center gap-1">
+            {happening.kind !== "festival" && !ended ? (
+              <AddToPlanButton item={basketItemForHappening(happening)} surface="happening_detail" variant="header" />
+            ) : null}
             <SaveButton
               subjectType="happening"
               subjectId={happening.id}
