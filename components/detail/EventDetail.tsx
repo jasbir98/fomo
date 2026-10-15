@@ -28,9 +28,11 @@ import {
   DETAIL_HERO_CLASS,
   DetailAside,
   DetailTopBar,
+  MoreInLink,
   detailGridClass,
   type DetailProps,
 } from "./shared";
+import { LIST_PAGES } from "@/lib/seo/breadcrumbs";
 
 /** The preview cache never changes under a mounted page; nothing to subscribe to. */
 const noopSubscribe = () => () => {};
@@ -378,7 +380,14 @@ export function EventDetail({ id, presentation = "page", initialEvent }: DetailP
             )}
             {price ? <span className="text-label-md font-semibold text-primary">{price}</span> : null}
           </div>
-          {event.venue_name || event.city ? (
+          {event.venue_name && event.place_id ? (
+            <p className="mb-1 text-label-md font-medium text-secondary">
+              <Link href={`/place/${event.place_id}`} className="underline underline-offset-2">
+                {event.venue_name}
+              </Link>
+              {event.city ? `, ${event.city}` : null}
+            </p>
+          ) : event.venue_name || event.city ? (
             <p className="mb-1 text-label-md font-medium text-secondary">
               {[event.venue_name, event.city].filter(Boolean).join(", ")}
             </p>
@@ -493,6 +502,8 @@ export function EventDetail({ id, presentation = "page", initialEvent }: DetailP
         </section>
 
         {mapCard("lg:hidden")}
+
+        <MoreInLink list={LIST_PAGES.whatsOn} />
       </div>
 
       {/* Aside. Below lg this is `display: contents`: the actions bar is a

@@ -141,6 +141,8 @@ const nextConfig: NextConfig = {
   // PostHog's /ingest/* reverse proxy lives in proxy.ts (it strips cookies
   // before forwarding). This stops Next's trailing-slash redirect from
   // touching those paths first — PostHog's endpoints are picky about it.
+  // It is site-wide, so proxy.ts re-adds the redirect for every other path
+  // (`trailingSlashRedirect`); keep the two together.
   skipTrailingSlashRedirect: true,
 };
 

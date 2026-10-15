@@ -213,9 +213,28 @@ function posthogRewrite(request: NextRequest): NextResponse | null {
   return null;
 }
 
+/**
+ * Next's own trailing-slash redirect, scoped. next.config.ts turns it off
+ * site-wide (`skipTrailingSlashRedirect`, the only switch Next has) so the
+ * /ingest/* paths above reach PostHog exactly as sent; every other path gets
+ * the same permanent redirect Next would have issued ("/weekend/" ->
+ * "/weekend"), so a page never answers on two URLs.
+ */
+function trailingSlashRedirect(request: NextRequest): NextResponse | null {
+  const { pathname } = request.nextUrl;
+  if (pathname === "/" || !pathname.endsWith("/")) return null;
+  // A plain URL, not `nextUrl.clone()`: NextURL re-adds the trailing slash it was parsed with.
+  const url = new URL(request.url);
+  url.pathname = pathname.replace(/\/+$/, "") || "/";
+  return NextResponse.redirect(url, 308);
+}
+
 export async function proxy(request: NextRequest) {
   const ingest = posthogRewrite(request);
   if (ingest) return ingest;
+
+  const slashed = trailingSlashRedirect(request);
+  if (slashed) return slashed;
 
   let response = NextResponse.next({ request });
 

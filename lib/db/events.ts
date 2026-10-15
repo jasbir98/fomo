@@ -191,6 +191,30 @@ export async function listUpcomingEvents(
   return limit ? live.slice(0, limit) : live;
 }
 
+/** Most a place page lists: a venue with a nightly show would otherwise list a month of rows. */
+const PLACE_EVENTS_LIMIT = 30;
+
+/**
+ * Upcoming and still-running events at one venue (`events.place_id`), soonest
+ * first, for the place page's "What's on here". Same liveness rules as
+ * `listUpcomingEvents`.
+ */
+export async function listUpcomingEventsForPlace(db: Db, placeId: string, at: Date = new Date()): Promise<EventItem[]> {
+  const { data, error } = await withEventFallbacks(({ activeOnly, embed }) => {
+    let query = db
+      .from("events")
+      .select(embed ? LIST_SELECT : "*")
+      .eq("place_id", placeId)
+      .or(stillRunningFilter(at))
+      .order("starts_at", { ascending: true })
+      .limit(PLACE_EVENTS_LIMIT);
+    if (activeOnly) query = query.eq("status", "active");
+    return query;
+  });
+  if (error) throw error;
+  return ((data ?? []) as unknown as RawEvent[]).map(withCleanDescription).filter((row) => eventIsLive(row, at));
+}
+
 /** Fetch a single event by id, whatever its status (expired/gone/cancelled rows still resolve). Returns null if not found. */
 export async function getEvent(db: Db, id: string): Promise<EventItem | null> {
   const { data, error } = await withEventFallbacks(({ embed }) =>
