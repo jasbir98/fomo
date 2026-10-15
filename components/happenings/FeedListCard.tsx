@@ -159,6 +159,11 @@ function MetaRow({
   trailing?: string | null;
   trailingClassName?: string;
 }) {
+  // "On now · until 30 Dec" is split so its tail is its own item: next to an
+  // EVENT tag on a 375px card the whole label is wider than the row, and as
+  // one item it wrapped onto the hidden line, leaving no date at all. Split,
+  // only the tail drops and "On now" stays.
+  const [whenLead, ...whenTail] = when.split(" · ");
   return (
     // One visible line: flex-wrap + a fixed height hides anything that wraps.
     // The venue group needs ~5rem, so when a long date leaves less than that
@@ -166,7 +171,8 @@ function MetaRow({
     <div className="mb-1 flex h-5 min-w-0 flex-wrap items-center gap-x-1.5 overflow-hidden whitespace-nowrap text-label-sm font-medium text-on-surface-variant">
       {icon}
       {tag}
-      <span className="shrink-0 font-bold text-accent">{when}</span>
+      <span className="shrink-0 font-bold text-accent">{whenLead}</span>
+      {whenTail.length > 0 ? <span className="shrink-0 font-bold text-accent">· {whenTail.join(" · ")}</span> : null}
       {trailing ? (
         <span className="flex min-w-[5rem] flex-1 basis-0 items-center gap-1.5">
           <span aria-hidden className="shrink-0">•</span>
