@@ -221,7 +221,8 @@ function posthogRewrite(request: NextRequest): NextResponse | null {
 function trailingSlashRedirect(request: NextRequest): NextResponse | null {
   const { pathname } = request.nextUrl;
   if (pathname === "/" || !pathname.endsWith("/")) return null;
-  const url = request.nextUrl.clone();
+  // A plain URL, not `nextUrl.clone()`: NextURL re-adds the trailing slash it was parsed with.
+  const url = new URL(request.url);
   url.pathname = pathname.replace(/\/+$/, "") || "/";
   return NextResponse.redirect(url, 308);
 }

@@ -19,22 +19,15 @@ export const revalidate = 120;
 /** What's on. A server component so the HTML lists the real events; see WhatsOnClient for the interactive page. */
 export default async function WhatsOnPage() {
   const [now, later] = await Promise.all([loadFeedForPage("now"), loadFeedForPage("coming_up")]);
-  // Only the slices the page reads, so the page payload doesn't carry the whole feed twice.
-  const initial: WhatsOnInitial | null =
-    now && later
-      ? {
-          now: { whatsOn: now.whatsOn, anyDay: now.anyDay ?? null },
-          coming_up: { whatsOn: later.whatsOn, anyDay: later.anyDay ?? null },
-        }
-      : null;
-  // Today's list then what's coming up: the order a visitor scrolls through the two tabs.
-  const itemList = initial
-    ? itemListJsonLd(
-        TITLE,
-        "/whats-on",
-        [...(initial.now.whatsOn[0]?.cards ?? []), ...(initial.coming_up.whatsOn[0]?.cards ?? [])].map(feedCardEntry)
-      )
-    : null;
+  // Only the slice the page reads, and only Today (see WhatsOnInitial).
+  const initial: WhatsOnInitial | null = now ? { now: { whatsOn: now.whatsOn, anyDay: now.anyDay ?? null } } : null;
+  // Today's list then what's coming up: the order a visitor scrolls through
+  // the two tabs. Coming up feeds only this capped list, not the page data.
+  const itemList = itemListJsonLd(
+    TITLE,
+    "/whats-on",
+    [...(now?.whatsOn[0]?.cards ?? []), ...(later?.whatsOn[0]?.cards ?? [])].map(feedCardEntry)
+  );
   return (
     <>
       {itemList ? <JsonLd data={itemList} /> : null}

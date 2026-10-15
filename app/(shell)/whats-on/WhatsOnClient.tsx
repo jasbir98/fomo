@@ -77,8 +77,15 @@ async function fetchFeed(window: Exclude<FeedWindow, "book_early">, signal?: Abo
 /** One window's slice of GET /api/feed: all this page reads from it. */
 export type WhatsOnWindowData = Pick<FeedResponse, "whatsOn" | "anyDay">;
 
-/** Both windows as the server rendered them (./page.tsx): the page's content until the client's own fetches land. */
-export type WhatsOnInitial = Record<Exclude<FeedWindow, "book_early">, WhatsOnWindowData>;
+/**
+ * What the server rendered (./page.tsx): the page's content until the
+ * client's own fetches land. Only Today: Coming up runs to 1,000+ cards
+ * (~1.7 MB), too much to inline in every page, so it loads in the browser as
+ * before.
+ */
+export interface WhatsOnInitial {
+  now: WhatsOnWindowData;
+}
 
 interface WhatsOnViewProps {
   initial: WhatsOnInitial | null;
@@ -157,7 +164,7 @@ function WhatsOnView({ initial, windowParam, freeParam }: WhatsOnViewProps) {
   });
   // The server-rendered windows stand in until each fetch lands.
   const nowData: WhatsOnWindowData | undefined = nowFeed.data ?? initial?.now;
-  const comingUpData: WhatsOnWindowData | undefined = comingUpFeed.data ?? initial?.coming_up;
+  const comingUpData: WhatsOnWindowData | undefined = comingUpFeed.data;
   // `error` only means "nothing cached for this window and the last attempt
   // failed", never a background revalidation hiccup with a cached window
   // still showing.

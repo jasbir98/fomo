@@ -13,6 +13,7 @@ From the product review, §3.4 "Technical fixes" (`docs/strategy/2026-10-14-prod
 ## 2. /whats-on and /book-early server-rendered
 - `page.tsx` becomes a server component (`revalidate = 120`) that calls `loadFeedForPage`; the client UI moves to `WhatsOnClient.tsx` / `BookEarlyClient.tsx` and takes the server data as its starting content (Deals/Free pattern).
 - /whats-on reads `?window=` and `?free=` with `useSearchParams`, which makes a static page bail out to client rendering up to the nearest `<Suspense>`. To keep the page static and still put content in the HTML, the Suspense fallback renders the same view with the default params (Today, not free-only), filled from the server data. The browser swaps in the real-params tree on hydration.
+- Only Today is inlined. Coming up is 1,000+ cards (~1.7 MB), which made the gzipped page 350 KB, so it still loads in the browser. The ItemList still covers both windows.
 - The layouts' metadata moves into the pages.
 
 ## 3. JSON-LD
