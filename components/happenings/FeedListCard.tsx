@@ -2,7 +2,7 @@
 
 import { createContext, useContext, useMemo } from "react";
 import { Icon, NavCard, SaveButton, SmartImage } from "@/components/ui";
-import { eventIsInProgress, formatEventDate, formatEventPrice, formatEventTimeSpan, formatEventWhen } from "@/lib/events/format";
+import { eventIsInProgress, eventDateLabel, formatEventPrice, formatEventTimeSpan, formatEventWhen } from "@/lib/events/format";
 import {
   ELIGIBILITY_ICON,
   checkedLabel,
@@ -591,7 +591,7 @@ function FestivalRow({ happening, surface, position }: { happening: Happening; s
 }
 
 function EventRow({ event, surface, position }: { event: EventItem; surface?: FeedCardSurface; position?: number }) {
-  const eventDate = formatEventDate(event.starts_at);
+  const eventDate = eventDateLabel(event);
   // Client-render only (see occurrenceWhenLabel) — safe to read the clock here.
   const eventLive = eventIsInProgress(event);
   const eventTime = formatEventTimeSpan(event.starts_at, event.ends_at);

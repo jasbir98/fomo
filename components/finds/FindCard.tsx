@@ -5,7 +5,7 @@ import { Icon, NavCard, SaveButton, SmartImage } from "@/components/ui";
 import { PriceTag } from "@/components/happenings/PriceTag";
 import { FomoLevel } from "@/components/finds/FomoLevel";
 import { occurrenceWhenLabel } from "@/components/happenings/FeedListCard";
-import { eventIsInProgress, formatEventDate, formatEventPrice, formatEventTimeSpan, formatEventWhen } from "@/lib/events/format";
+import { eventIsInProgress, eventDateLabel, formatEventPrice, formatEventTimeSpan, formatEventWhen } from "@/lib/events/format";
 import { eventImageFor } from "@/lib/events/image";
 import { eventToPreview, prefetchEvent, setEventPreview } from "@/lib/events/preview-cache";
 import { defaultImageFor } from "@/lib/happenings/category-style";
@@ -65,7 +65,7 @@ export function FindCard({ item, reason = null, position, surface = "for_you" }:
     const when = now
       ? eventIsInProgress(event, now)
         ? eventOnNowLabel(event.ends_at, now)
-        : [formatEventDate(event.starts_at), formatEventTimeSpan(event.starts_at, event.ends_at)].filter(Boolean).join(" · ")
+        : [eventDateLabel(event, now), formatEventTimeSpan(event.starts_at, event.ends_at)].filter(Boolean).join(" · ")
       : null;
     return (
       <Shell

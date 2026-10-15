@@ -97,7 +97,7 @@ import {
   normalizeRecurrence,
   happeningHasEnded,
 } from "@/lib/happenings/occurrence";
-import { eventHasEnded } from "@/lib/events/format";
+import { eventHasEnded, eventNextDay } from "@/lib/events/format";
 import {
   formatPlaceCategoryLabel,
   oneLinerSummary,
@@ -1007,14 +1007,14 @@ export async function buildFeed(db: Db, opts: BuildFeedOptions): Promise<FeedRes
     // event — recurring grouping runs later, over their sorted output, see
     // `groupedCards` below), but are typed against the broader
     // `FeedCardData` union; the `recurring` branch is dead code today,
-    // kept only so this stays exhaustive if that ever changes.
-    const dayDateOf = (c: FeedCardData): string => {
-      const raw =
-        c.kind === "event"
-          ? localDayDate(new Date(c.event.starts_at), timeZone)
-          : c.kind === "recurring"
-            ? c.dates[0]
-            : c.occurrence.dayDate;
+    // kept only so this stays exhaustive if that ever changes. An event
+    // goes through `eventNextDay`, which floors the same way except for a
+    // weekly span ("Victoria Bar's Wednesday Quiz Night", 1 Sep – 30 Dec):
+    // that's on its next matching weekday, not today, and null (dropped)
+    // once its run has no such day left.
+    const dayDateOf = (c: FeedCardData): string | null => {
+      if (c.kind === "event") return eventNextDay(c.event, todayStr, timeZone);
+      const raw = c.kind === "recurring" ? c.dates[0] : c.occurrence.dayDate;
       return raw < todayStr ? todayStr : raw;
     };
     const startAtOf = (c: FeedCardData): string =>
@@ -1038,10 +1038,11 @@ export async function buildFeed(db: Db, opts: BuildFeedOptions): Promise<FeedRes
         // today + tomorrow for hero scoring): Today = today's day, Coming
         // up = tomorrow onwards.
         const day = dayDateOf(card);
+        if (day === null) return false;
         return window === "now" ? day === todayStr : day > todayStr;
       })
       .sort((a, b) => {
-        const dayCmp = dayDateOf(a).localeCompare(dayDateOf(b));
+        const dayCmp = (dayDateOf(a) ?? "").localeCompare(dayDateOf(b) ?? "");
         if (dayCmp !== 0) return dayCmp;
         return startAtOf(a).localeCompare(startAtOf(b));
       });
