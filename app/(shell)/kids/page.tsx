@@ -8,7 +8,6 @@ import { weekendDates } from "@/lib/happenings/format";
 import { localDayDate } from "@/lib/happenings/occurrence";
 import { loadFeedForPage } from "@/lib/happenings/server-feed";
 import { weekendCardKey } from "@/lib/happenings/weekend";
-import { faqJsonLd, kidsFaq } from "@/lib/kids/faq";
 import { selectKidsSections, type KidsSections } from "@/lib/kids/sections";
 import { feedCardEntry, freeAnyTimeEntry, itemListJsonLd, type ListEntry } from "@/lib/seo/list";
 import { pageMetadata } from "@/lib/seo/metadata";
@@ -70,7 +69,7 @@ function listEntries(s: KidsSections): ListEntry[] {
 /**
  * Free and cheap things to do with kids — an SEO landing page built from the
  * same feed as /weekend, /free and /deals, narrowed through lib/happenings/
- * family.ts. A server component so the HTML lists real things and the FAQ;
+ * family.ts. A server component so the HTML lists real things;
  * sections with nothing in them are left out.
  */
 export default async function KidsPage() {
@@ -78,7 +77,6 @@ export default async function KidsPage() {
   const today = localDayDate(new Date());
   const { saturday, sunday } = weekendDates();
   const sections = now && later ? selectKidsSections(now, later, today, saturday, sunday) : null;
-  const faq = kidsFaq(today);
   const itemList = sections ? itemListJsonLd(TITLE, "/kids", listEntries(sections)) : null;
   const empty =
     !sections || (!sections.weekend.length && !sections.deals.length && !sections.freeAnyTime.length && !sections.comingUp.length);
@@ -86,25 +84,12 @@ export default async function KidsPage() {
   return (
     <>
       {itemList ? <JsonLd data={itemList} /> : null}
-      <JsonLd data={faqJsonLd(faq)} />
       <div className="flex flex-col pb-6">
         <div className="flex flex-col gap-6 px-4 pt-safe lg:mx-auto lg:w-full lg:max-w-[1200px] lg:px-8">
           <header className="flex flex-col gap-3 pt-5 lg:pt-8">
             <h1 className="text-headline-md font-extrabold tracking-tight text-primary lg:max-w-3xl lg:text-[2.25rem] lg:leading-tight">
               {TITLE}
             </h1>
-            <div className="flex max-w-3xl flex-col gap-2 text-body-md text-on-surface-variant">
-              <p>
-                Edinburgh is good for families on a budget if you know where to look. This page gathers the free and
-                cheap things to do with children: the free national museums, playparks, Bookbug rhyme sessions at local
-                libraries, kids-eat-free and kids-go-free deals, and what&rsquo;s on in the school holidays.
-              </p>
-              <p>
-                Some listings are made for children. Others are for everyone but work well with them, like a free
-                museum or the Botanics. Fomo checks the prices on every listing and updates the list daily. If an offer
-                has ended or a price has changed, tell us and we&rsquo;ll fix it.
-              </p>
-            </div>
           </header>
 
           {sections?.weekend.length ? (
@@ -184,20 +169,6 @@ export default async function KidsPage() {
               .
             </p>
           ) : null}
-
-          <section id="faq" aria-labelledby="faq-title" className="flex max-w-3xl flex-col gap-4">
-            <h2 id="faq-title" className="px-1 text-headline-sm font-extrabold tracking-tight text-on-surface">
-              Questions parents ask
-            </h2>
-            <div className="flex flex-col gap-4">
-              {faq.map((item) => (
-                <div key={item.question} className="flex flex-col gap-1 rounded-2xl bg-surface-container-lowest p-4 shadow-level-1">
-                  <h3 className="text-label-lg font-bold text-on-surface">{item.question}</h3>
-                  <p className="text-body-md text-on-surface-variant">{item.answer}</p>
-                </div>
-              ))}
-            </div>
-          </section>
 
           <SubscribeCard source="kids" />
         </div>

@@ -21,7 +21,7 @@ Kid-friendly tagging (`family_fit`), a `family` deal eligibility, "With kids" fi
 - [ ] Search Console: request indexing of `/kids`.
 - [ ] Share /kids in 3–5 Edinburgh parent Facebook groups and on Mumsnet's Edinburgh board. Send it to the person who gave the feedback and ask them to pass it to their school or nursery WhatsApp. One IG receipt post: "A £0 Saturday with the kids".
 - [ ] 30 Nov: check PostHog against the bar. /kids ≥15% of non-internal sessions, ≥20 `kids_pref_set` opt-ins, kid-friendly outbound rate ≥ site average. Then decide on a family weekly email and seasonal pages.
-- [ ] Each summer: extend `scraper/school_holidays.py` and the FAQ dates in `lib/kids/faq.ts` from the council's term-dates page (listed to Easter 2028).
+- [ ] Each summer: extend `scraper/school_holidays.py` from the council's term-dates page (listed to Easter 2028).
 - Not done: Jazz Bar's "Family and Kids shows" collection needs a separate page fetch (TODO in `scripts/sources/adapters/jazzbar.mjs`). Ticketmaster's family flag and Skiddle's `minage` weren't in our payloads, so they aren't used.
 
 **Place photos (20 Oct)**
