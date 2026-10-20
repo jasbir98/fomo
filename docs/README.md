@@ -9,7 +9,7 @@ Things waiting on you, newest first. Tick them off here, or ask Claude to update
 
 **Chat picks on the map, solid pins, pub quiz (19 Oct, Kylle's feedback)**
 Ask Fomo's map showed "Fomo's picks · 1" for a reply with four cards: 239 of 353 live deals had no coordinates. 151 now have them (`scripts/geocode-happenings.mjs --apply`, run 19 Oct). Some dimmed pins looked solid: several deals at one venue stacked their transparency, and free deals came back twice. Pub quizzes now have their own chip on What's On.
-- [ ] Merge the `map-picks-fixes` PR.
+- [ ] Merge [PR #41](https://github.com/jasbir98/fomo/pull/41).
 - [ ] Add a `NEXT_PUBLIC_MAPBOX_TOKEN` repo secret on GitHub, so `promote-happenings.mjs` geocodes new deals as they're promoted. Without it they arrive with no map location again.
 - [ ] 67 live deals still have no location: Mapbox couldn't match them with confidence (e.g. Blackfriars Arts Centre, The Court, McGonagall's, Height Club). Run `node --env-file=.env.local scripts/geocode-happenings.mjs` to list them; adding an address with a postcode to a row lets the script place it.
 
