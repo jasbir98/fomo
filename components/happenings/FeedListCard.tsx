@@ -521,20 +521,23 @@ function FestivalRow({ happening, surface, position }: { happening: Happening; s
         trackCardOpened("festival", happening.id, surface, position, happening.is_free);
         onOpen?.();
       }}
-      className="flex cursor-pointer flex-col overflow-hidden rounded-3xl bg-surface-container-lowest shadow-level-2"
+      className="flex h-full cursor-pointer flex-col overflow-hidden rounded-3xl bg-surface-container-lowest shadow-level-2 lg:flex-row lg:rounded-2xl lg:shadow-level-1"
     >
-      {/* Full-width banner — the feed's max container is 480px (see e.g.
-          app/(shell)/happening/[id]/page.tsx's own max-w-[480px]), so that's
-          the realistic upper bound for the CDN/next-image transform width. */}
+      {/* Full-width banner on phones — the feed's max container is 480px (see
+          e.g. app/(shell)/happening/[id]/page.tsx's own max-w-[480px]), so
+          that's the realistic upper bound for the CDN/next-image transform
+          width. In the desktop grids the photo sits on the left instead: a
+          banner on top made this card twice as tall as the compact cards,
+          and every card in its row stretched to match. */}
       <SmartImage
         src={bannerImage}
         alt=""
         width={480}
         height={112}
-        sizes="(min-width: 1024px) 560px, (max-width: 480px) 100vw, 480px"
-        className="h-28 w-full object-cover"
+        sizes="(min-width: 1024px) 260px, (max-width: 480px) 100vw, 480px"
+        className="h-28 w-full object-cover lg:h-auto lg:w-[38%] lg:shrink-0 lg:self-stretch"
       />
-      <div className="flex flex-col gap-3 p-3.5">
+      <div className="flex flex-col gap-3 p-3.5 lg:min-w-0 lg:flex-1 lg:gap-2">
       <div className="flex items-start justify-between gap-2">
         <div className="flex flex-col gap-1">
           <div className="flex items-center gap-2">
@@ -546,7 +549,7 @@ function FestivalRow({ happening, surface, position }: { happening: Happening; s
               <span className="text-label-sm font-bold text-secondary">{happening.editorial_tag}</span>
             ) : null}
           </div>
-          <h4 className="pt-1 text-headline-md font-extrabold leading-tight text-on-surface">{happening.title}</h4>
+          <h4 className="pt-1 text-headline-md font-extrabold leading-tight text-on-surface lg:line-clamp-2 lg:text-headline-sm">{happening.title}</h4>
         </div>
         <PriceTag label={priceLabel} variant="banner" />
       </div>
@@ -561,14 +564,14 @@ function FestivalRow({ happening, surface, position }: { happening: Happening; s
           badge) restored a subtle "Checked Nd ago" alongside the icon,
           which used to be icon-only with the full text left to the detail
           page's Provenance section. */}
-      <div className="flex items-center justify-between rounded-lg bg-surface-container p-2.5">
+      <div className="flex items-center justify-between rounded-lg bg-surface-container p-2.5 lg:mt-auto lg:p-2">
         <div className="flex min-w-0 items-center gap-2">
           <Icon name="public" size={17} className="text-accent" />
-          <span className="truncate text-label-md font-bold text-on-surface">{sourceHost}</span>
+          <span className="truncate text-label-md font-bold text-on-surface lg:shrink-0">{sourceHost}</span>
         </div>
-        <div className="flex shrink-0 items-center gap-1 text-label-sm font-medium text-on-surface-variant/70">
-          <Icon name="verified" size={16} className="text-secondary" />
-          {checkedLabel(happening.verified_at)}
+        <div className="flex shrink-0 items-center gap-1 text-label-sm font-medium text-on-surface-variant/70 lg:min-w-0 lg:shrink">
+          <Icon name="verified" size={16} className="shrink-0 text-secondary" />
+          <span className="truncate">{checkedLabel(happening.verified_at)}</span>
         </div>
       </div>
 
@@ -580,7 +583,7 @@ function FestivalRow({ happening, surface, position }: { happening: Happening; s
           e.stopPropagation();
           trackOutboundClicked("happening", happening.id, ctaHref, "festival_cta");
         }}
-        className="flex w-full items-center justify-center gap-1.5 rounded-lg bg-primary py-2.5 text-label-md font-bold text-on-primary shadow-sm transition-opacity hover:opacity-90 active:scale-[0.98]"
+        className="flex w-full items-center justify-center gap-1.5 rounded-lg bg-primary py-2.5 text-label-md font-bold lg:py-2 text-on-primary shadow-sm transition-opacity hover:opacity-90 active:scale-[0.98]"
       >
         {ctaLabel}
         <Icon name="north_east" size={16} />
