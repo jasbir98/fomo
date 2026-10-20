@@ -16,6 +16,12 @@ export function hasMappableResults(results: { items: ChatItem[]; places: ChatPla
   );
 }
 
+/** How many distinct results (cards) a reply showed, mappable or not — the picks chip's "3 of 4". */
+export function countResults(results: { items: ChatItem[]; places: ChatPlace[] } | null): number {
+  if (!results) return 0;
+  return new Set([...results.items.map(itemResultKey), ...results.places.map(placeResultKey)]).size;
+}
+
 /**
  * The numbered map markers for one assistant reply: its catalogue items first,
  * then its Google places, in the order the reply showed them, each numbered

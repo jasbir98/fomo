@@ -80,7 +80,11 @@ export interface MapCanvasProps {
   flush?: boolean;
 }
 
-const DIMMED_PIN_FILTER = "opacity(0.35)";
+// Dimmed pins get a pale but OPAQUE fill. Opacity would compound where pins
+// stack (several deals at one venue), so a stack read as a solid, undimmed pin.
+function dimmedPinColor(color: string): string {
+  return `color-mix(in srgb, ${color} 30%, white)`;
+}
 
 /**
  * The Mapbox GL canvas. Renders a clear placeholder when
@@ -230,6 +234,7 @@ export const MapCanvas = forwardRef<MapCanvasHandle, MapCanvasProps>(function Ma
       el.style.height = isSelected ? "30px" : "22px";
       el.style.borderRadius = "50%";
       el.style.background = PIN_TYPE_STYLE[pin.type].color;
+      el.dataset.color = PIN_TYPE_STYLE[pin.type].color;
       el.style.border = isSelected ? "3px solid white" : "2px solid white";
       el.style.boxShadow = isSelected
         ? "0 2px 10px rgba(3,22,50,0.45)"
@@ -254,8 +259,10 @@ export const MapCanvas = forwardRef<MapCanvasHandle, MapCanvasProps>(function Ma
     pinElsRef.current.forEach((el, id) => {
       const highlighted = id === highlightedPinId;
       const selected = id === selectedPinId;
+      const dimmed = dimPins && !highlighted && !selected;
+      const color = el.dataset.color ?? "";
       el.style.visibility = hidePins ? "hidden" : "";
-      el.style.filter = dimPins && !highlighted && !selected ? DIMMED_PIN_FILTER : "";
+      el.style.background = dimmed ? dimmedPinColor(color) : color;
       el.style.zIndex = highlighted ? "5" : "";
       if (highlighted && !selected) {
         el.style.width = "28px";
@@ -264,7 +271,8 @@ export const MapCanvas = forwardRef<MapCanvasHandle, MapCanvasProps>(function Ma
       } else if (!selected) {
         el.style.width = "22px";
         el.style.height = "22px";
-        el.style.boxShadow = "0 1px 4px rgba(3,22,50,0.35)";
+        // No shadow while dimmed: stacked shadows would darken a stack too.
+        el.style.boxShadow = dimmed ? "none" : "0 1px 4px rgba(3,22,50,0.35)";
       }
     });
   }, [pins, selectedPinId, highlightedPinId, dimPins, hidePins]);
