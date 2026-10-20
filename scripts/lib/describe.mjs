@@ -299,7 +299,8 @@ export function fallbackDescription(row) {
   if (row.is_free === true) {
     extras.push("free");
   } else if (typeof row.price_from === "number" && row.price_from > 0) {
-    const currency = row.currency === "GBP" || !row.currency ? "£" : `${row.currency} `;
+    const code = typeof row.currency === "string" ? row.currency.trim().toUpperCase() : "";
+    const currency = { "": "£", GBP: "£", USD: "$", EUR: "€" }[code] ?? `${code} `;
     extras.push(`from ${currency}${row.price_from}`);
   }
 

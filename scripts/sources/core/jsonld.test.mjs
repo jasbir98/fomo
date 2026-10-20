@@ -37,6 +37,7 @@ test("parsePrice: free flag, offers array, lowPrice, zero, junk", () => {
   assert.deepEqual(parsePrice({ isAccessibleForFree: true }), { isFree: true, priceFrom: 0, currency: null });
   assert.deepEqual(parsePrice({ offers: { price: "12.50", priceCurrency: "GBP" } }), { isFree: false, priceFrom: 12.5, currency: "GBP" });
   assert.deepEqual(parsePrice({ offers: [{ lowPrice: 8, priceCurrency: "GBP" }] }), { isFree: false, priceFrom: 8, currency: "GBP" });
+  assert.deepEqual(parsePrice({ offers: { price: 5, priceCurrency: "gbp" } }), { isFree: false, priceFrom: 5, currency: "GBP" });
   assert.deepEqual(parsePrice({ offers: { price: 0, priceCurrency: "GBP" } }), { isFree: true, priceFrom: 0, currency: null });
   assert.deepEqual(parsePrice({ offers: { price: "tbc", priceCurrency: "GBP" } }), { isFree: null, priceFrom: null, currency: "GBP" });
   assert.deepEqual(parsePrice({}), { isFree: null, priceFrom: null, currency: null });

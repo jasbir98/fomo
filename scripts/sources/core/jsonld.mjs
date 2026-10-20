@@ -114,7 +114,8 @@ export function parsePrice(obj) {
   if (!offers || typeof offers !== "object") return { isFree: null, priceFrom: null, currency: null };
 
   const rawPrice = offers.price ?? offers.lowPrice;
-  const currency = typeof offers.priceCurrency === "string" ? offers.priceCurrency : null;
+  // Some sites (Luma) send "gbp"; the app maps only upper-case codes to a symbol.
+  const currency = typeof offers.priceCurrency === "string" && offers.priceCurrency.trim() ? offers.priceCurrency.trim().toUpperCase() : null;
   if (rawPrice == null) return { isFree: null, priceFrom: null, currency };
   const value = Number(rawPrice);
   if (!Number.isFinite(value)) return { isFree: null, priceFrom: null, currency };
