@@ -38,7 +38,14 @@ export type HappeningEligibility =
   | "under_26"
   | "over_60"
   | "member"
-  | "cardholder";
+  | "cardholder"
+  | "family";
+
+/** Who a thing is for, family-wise (supabase/add_family_fit.sql). `kids` = aimed
+ *  at children (rhyme time, soft play, a kids' workshop); `all_ages` = good with
+ *  kids but for anyone (a free museum, the Botanics). Null/absent = not for kids
+ *  or unknown. Read it through lib/happenings/family.ts, never directly. */
+export type FamilyFit = "kids" | "all_ages";
 
 /** Lifecycle only. Staleness is DERIVED from `verified_at` at read time and
  *  never stored — there is no cron in this app, so a stored staleness flag
@@ -96,6 +103,8 @@ export interface Happening {
 
   kind: HappeningKind;
   category: HappeningCategory | null;
+  /** add_family_fit.sql. Optional: absent on rows read before that SQL ran. */
+  family_fit?: FamilyFit | null;
   scope: HappeningScope;
   editorial_tag: string | null;
 

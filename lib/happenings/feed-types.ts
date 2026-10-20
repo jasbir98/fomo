@@ -21,7 +21,7 @@
  * URL value stays `now`), `coming_up` starts at the top of tomorrow. Nothing can ever render under both.
  */
 import type { EventItem } from "@/lib/types";
-import type { Happening, Occurrence, HappeningCategory } from "@/lib/happenings/types";
+import type { FamilyFit, Happening, Occurrence, HappeningCategory } from "@/lib/happenings/types";
 import type { FeedBucketKey } from "@/lib/happenings/format";
 import type { DealWhatGroup, DealWhoGroup } from "@/lib/happenings/groups";
 import type { BookEarlyCardData } from "@/lib/happenings/book-early";
@@ -156,6 +156,8 @@ export interface FreeAnyTimeItem {
   district: string | null;
   /** Human type/category label for the /free page's type filter chips — the styled category label (lib/happenings/category-style.ts) for a happening row, or a title-cased `places.category` free-text value for a place row. Null when neither resolved. */
   typeLabel: string | null;
+  /** Family fit (lib/happenings/family.ts), for the /free page's "With kids" filter. Optional so a client-cached response from before this field existed still type-checks — read it as `familyFit ?? null`. */
+  familyFit?: FamilyFit | null;
 }
 
 /**
@@ -172,6 +174,8 @@ export interface DealCardData {
   occurrence: Occurrence;
   what: DealWhatGroup;
   who: DealWhoGroup | null;
+  /** Kid-oriented (see `DealFacets.kidFriendly`); the "Families" WHO chip matches on it as well as `who`. */
+  kidFriendly?: boolean;
 }
 
 /**

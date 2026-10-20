@@ -7,7 +7,9 @@
 #
 # Left out on purpose:
 #   Museums at Night (Culture24): the festival stopped in 2019; the page is an archive.
-#   Kids eat free: no stable official list; the offers are commercial and per venue.
+#   Kids eat free: no stable official list; the offers are commercial and per venue. The weekly
+#   research topics ("Kids eat free in Edinburgh" and the school-holiday topics in
+#   weekly_edinburgh.py) and fort-kinnaird-offers cover it instead.
 
 - id: national-cinema-weekend
   name: National Cinema Weekend (UK Cinema Association announcement)

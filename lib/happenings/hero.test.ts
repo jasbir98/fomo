@@ -3,7 +3,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import type { Happening, Occurrence } from "./types";
 import type { FeedCardData } from "./feed-types";
-import { happeningRecommendationScore, isPhotoImage, leadWithPhotos } from "./hero";
+import { happeningRecommendationScore, heroEligibleEvent, heroEligibleHappening, isPhotoImage, leadWithPhotos } from "./hero";
 
 // Wed 14 Oct 2026, midday London.
 const now = new Date("2026-10-14T11:00:00Z");
@@ -79,4 +79,18 @@ test("leadWithPhotos: photo-led cards lead, the rest keep their order", () => {
 test("leadWithPhotos: no photos leaves the list as it was", () => {
   const cards = [card(hap("a", null)), card(hap("b", "https://x.com/logo.png"))];
   assert.deepEqual(leadWithPhotos(cards, now), cards);
+});
+
+test("hero eligibility: kids-aimed happenings and events are out, all_ages and ordinary stay in", () => {
+  const h = hap("x", "https://example.com/p.jpg");
+  assert.equal(heroEligibleHappening(h), true);
+  assert.equal(heroEligibleHappening({ ...h, family_fit: "kids" }), false);
+  assert.equal(heroEligibleHappening({ ...h, family_fit: "all_ages" }), true);
+  // fallbacks for rows pre-dating the family_fit column
+  assert.equal(heroEligibleHappening({ ...h, category: "family" }), false);
+  assert.equal(heroEligibleHappening({ ...h, eligibility: "family" }), false);
+  assert.equal(heroEligibleEvent({ category: "music" }), true);
+  assert.equal(heroEligibleEvent({ category: "family" }), false);
+  assert.equal(heroEligibleEvent({ category: "family", family_fit: "all_ages" }), true);
+  assert.equal(heroEligibleEvent({ category: "music", family_fit: "kids" }), false);
 });

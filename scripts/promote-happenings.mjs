@@ -34,7 +34,7 @@
 import { httpUrlOrNull } from "./lib/http-url.mjs";
 import { EDINBURGH_PLACES_QUERY, buildPlaceIndex, matchHappening } from "./lib/place-match.mjs";
 import { geocodeHappening } from "./lib/geocode-venue.mjs";
-import { protectExistingFields, chunk, inList } from "./lib/promote-rules.mjs";
+import { protectExistingFields, chunk, inList, isMissingColumnError, withoutColumn } from "./lib/promote-rules.mjs";
 
 function parseArg(name) {
   const flag = `--${name}`;
@@ -112,6 +112,7 @@ const HAPPENINGS_COLUMNS = [
   "promo_code",
   "redemption_note",
   "eligibility",
+  "family_fit",
   "eligibility_note",
   "allowance_note",
   "price_text",
@@ -160,6 +161,13 @@ function buildHappeningRow(staging) {
   // A promoted row is, by definition, freshly verified right now.
   row.status = row.status ?? "live";
   return row;
+}
+
+// happenings.family_fit may not exist yet. On the first missing-column error the column is dropped from every
+// payload for the rest of the run, with one warning; promotion carries on without it.
+let familyFitColumnMissing = false;
+function stripFamilyFitIfMissing(row) {
+  return familyFitColumnMissing ? withoutColumn(row, "family_fit") : row;
 }
 
 // Edinburgh places a promoted row can be linked to, fetched once and only if a
@@ -302,12 +310,25 @@ async function main() {
     await linkPlace(happeningRow);
     await geocodeRow(happeningRow, existingBySlug.get(staging.slug) ?? null);
     let promoted;
-    try {
-      const rows = await rest("happenings?on_conflict=slug", {
+    const upsertHappening = (payload) =>
+      rest("happenings?on_conflict=slug", {
         method: "POST",
         headers: { Prefer: "return=representation,resolution=merge-duplicates" },
-        body: JSON.stringify(happeningRow),
+        body: JSON.stringify(payload),
       });
+    try {
+      let rows;
+      try {
+        rows = await upsertHappening(stripFamilyFitIfMissing(happeningRow));
+      } catch (err) {
+        if (familyFitColumnMissing || !("family_fit" in happeningRow) || !isMissingColumnError(err.message, "family_fit")) throw err;
+        familyFitColumnMissing = true;
+        console.warn(
+          "[promote-happenings] WARN: happenings.family_fit column not found - run the family_fit migration. " +
+            "Promoting without family_fit for now."
+        );
+        rows = await upsertHappening(withoutColumn(happeningRow, "family_fit"));
+      }
       promoted = rows?.[0];
     } catch (err) {
       console.error(`[promote-happenings] FAILED upserting "${staging.title}" (${staging.slug}): ${err.message}`);

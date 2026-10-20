@@ -12,9 +12,12 @@
  * (below) is the real thing — lib/happenings/hero.ts — and what
  * scripts/finds.ts uses.
  *
- * Same wedge rules as scripts/lib/weekly-picks.mjs: students + young
- * professionals, so family-only (`category: 'family'`) and over-60-only
- * (`eligibility: 'over_60'`) rows are never suggested.
+ * Same audience rules as scripts/lib/weekly-picks.mjs: kid-friendly items
+ * (`category: 'family'`, `eligibility: 'family'`) compete like any other
+ * candidate — family content is mixed in for everyone — but over-60-only
+ * (`eligibility: 'over_60'`) rows are never suggested. A `family` eligibility
+ * counts as a narrow-audience offer (-10 like student/under_26), not an
+ * exclusion.
  */
 import { CITY } from "@/lib/city";
 import { eventRecommendationScore, happeningRecommendationScore } from "@/lib/happenings/hero";
@@ -39,7 +42,6 @@ export const CHEAP_EVENT_MAX_GBP = 15;
 export const WHY_MAX_CHARS = 90;
 
 const EXCLUDED_ELIGIBILITY = new Set(["over_60"]);
-const EXCLUDED_CATEGORY = new Set(["family"]);
 
 /** Value sub-score ceiling for evergreen deals; mirrors hero.ts's HERO_VALUE_CAP (35) so the two scales stay comparable. */
 const EVERGREEN_VALUE_CAP = 35;
@@ -84,10 +86,9 @@ export interface FindCandidate {
 
 // --- gates -------------------------------------------------------------
 
-/** Wedge rules shared by happenings and events (events carry no `eligibility`). */
+/** Audience rule shared by happenings and events (events carry no `eligibility`): only over-60-only offers are dropped. */
 export function passesAudienceGate(item: { eligibility?: string | null; category?: string | null }): boolean {
   if (item.eligibility && EXCLUDED_ELIGIBILITY.has(item.eligibility)) return false;
-  if (item.category && EXCLUDED_CATEGORY.has(item.category)) return false;
   return true;
 }
 

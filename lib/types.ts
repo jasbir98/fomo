@@ -4,6 +4,8 @@
 // plan-v1.2-accounts.md §A.5. Nullable Postgres columns are typed `T | null`.
 // See lib/db/*.ts for typed CRUD built on these.
 
+import type { FamilyFit } from "@/lib/happenings/types";
+
 // ============================================================================
 // PROFILES
 // ============================================================================
@@ -121,6 +123,8 @@ export interface Place {
   google_summary: string | null;
   google_summary_disclosure: string | null;
   google_fetched_at: string | null;
+  /** add_family_fit.sql — "kids" | "all_ages" | null. Optional: absent before that SQL ran. Read via lib/happenings/family.ts. */
+  family_fit?: FamilyFit | null;
 }
 
 export interface OpeningHoursPeriod {
@@ -186,6 +190,8 @@ export interface EventItem {
    * The feed lists only 'active'; detail pages and saved items resolve any status.
    */
   status?: EventStatus;
+  /** add_family_fit.sql — "kids" | "all_ages" | null. Optional: absent before that SQL ran. Read via lib/happenings/family.ts. */
+  family_fit?: FamilyFit | null;
   /**
    * The linked venue (`place_id` -> places), joined by lib/db/events.ts. List
    * reads carry only `image_url` (all a card needs); single reads (detail page)

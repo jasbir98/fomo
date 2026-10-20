@@ -35,6 +35,8 @@ import { getHappeningPreview, takePrefetchedHappening, type HappeningPreview } f
 import { interestForHappeningCategory } from "@/lib/personalise/interests";
 import { track, trackOutboundClicked } from "@/lib/analytics/track";
 import { FindBadge } from "@/components/finds/FindBadge";
+import { GoodWithKidsTag, showGoodWithKids } from "@/components/happenings/GoodWithKidsTag";
+import { familyFitForHappening } from "@/lib/happenings/family";
 import { useFind } from "@/lib/finds/useFinds";
 import {
   ASIDE_CARD_CLASS,
@@ -703,6 +705,9 @@ export function HappeningDetail({ id, presentation = "page", initialData }: Deta
             </span>
             {happening.editorial_tag ? (
               <span className="text-label-sm font-bold text-secondary">{happening.editorial_tag}</span>
+            ) : null}
+            {showGoodWithKids(familyFitForHappening(happening), { priceText: badge, familyOffer: happening.eligibility === "family" }) ? (
+              <GoodWithKidsTag />
             ) : null}
           </div>
           <h1 className="text-headline-lg font-extrabold leading-snug text-on-surface">{happening.title}</h1>

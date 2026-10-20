@@ -21,6 +21,8 @@ import { occurrenceIsLive } from "@/lib/happenings/occurrence";
 import { categoryStyle, defaultImageFor, kindStyle } from "@/lib/happenings/category-style";
 import { priceLabelForCard, priceLabelForEvent, priceLabelForHappening } from "@/lib/happenings/price-label";
 import { PriceTag } from "@/components/happenings/PriceTag";
+import { GoodWithKidsTag, showGoodWithKids } from "@/components/happenings/GoodWithKidsTag";
+import { familyFitForCard, familyFitForEvent, familyFitForHappening } from "@/lib/happenings/family";
 import { AddToPlanButton } from "@/components/plans/AddToPlanButton";
 import { basketItemForCard } from "@/lib/plans/basket";
 import type { FeedCardData, RecurringCardData, SeriesCardData } from "@/lib/happenings/feed-types";
@@ -48,7 +50,7 @@ const CardPlan = createContext<{ card: FeedCardData; surface: string; days: stri
 /** Where this list is mounted — sent as `card_opened`'s `surface` so
  *  analytics can tell a Home "What's on" tap apart from the same card
  *  rendered on /whats-on, /weekend, /deals, /free or /book-early. */
-export type FeedCardSurface = "home_whats_on" | "whats_on" | "weekend" | "free" | "deals" | "book_early" | "home_any_day" | "whats_on_any_day" | "for_you";
+export type FeedCardSurface = "home_whats_on" | "whats_on" | "weekend" | "free" | "deals" | "book_early" | "home_any_day" | "whats_on_any_day" | "for_you" | "home_kids_rail";
 
 export interface FeedListCardProps {
   card: FeedCardData;
@@ -352,6 +354,8 @@ function HappeningRow({
             <Icon name={ELIGIBILITY_ICON[happening.eligibility]} size={12} className="shrink-0" />
             <span className="truncate">{eligibility}</span>
           </span>
+        ) : showGoodWithKids(familyFitForHappening(happening), { priceText: priceLabel?.text }) ? (
+          <GoodWithKidsTag />
         ) : null}
       </CardFooter>
     </CardShell>
@@ -419,6 +423,9 @@ function SeriesRow({ card, surface, position }: { card: SeriesCardData; surface?
         }
       >
         <span className="shrink-0">{checkedLabel(lead.verified_at)}</span>
+        {showGoodWithKids(familyFitForHappening(lead), { priceText: priceLabel?.text, familyOffer: lead.eligibility === "family" }) ? (
+          <GoodWithKidsTag />
+        ) : null}
       </CardFooter>
     </CardShell>
   );
@@ -492,6 +499,12 @@ function RecurringRow({ card, surface, position }: { card: RecurringCardData; su
         }
       >
         {lead.kind === "happening" ? <span className="shrink-0">{checkedLabel(lead.happening.verified_at)}</span> : null}
+        {showGoodWithKids(familyFitForCard(lead), {
+          priceText: priceLabel?.text,
+          familyOffer: lead.kind === "happening" && lead.happening.eligibility === "family",
+        }) ? (
+          <GoodWithKidsTag />
+        ) : null}
       </CardFooter>
     </CardShell>
   );
@@ -636,6 +649,7 @@ function EventRow({ event, surface, position }: { event: EventItem; surface?: Fe
       <CardFooter save={<SaveButton subjectType="event" subjectId={event.id} compact className="-my-1 -mr-2" />}>
         <Icon name="schedule" size={14} className="shrink-0 text-secondary" />
         <span className="truncate">{eventTime}</span>
+        {showGoodWithKids(familyFitForEvent(event), { priceText: priceLabel?.text }) ? <GoodWithKidsTag /> : null}
       </CardFooter>
     </CardShell>
   );

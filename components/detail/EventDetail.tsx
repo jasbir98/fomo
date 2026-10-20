@@ -20,6 +20,8 @@ import type { CarouselPhoto } from "@/components/ui";
 import { getEventPreview, takePrefetchedEvent, type EventPreview } from "@/lib/events/preview-cache";
 import { track, trackOutboundClicked } from "@/lib/analytics/track";
 import { FindBadge } from "@/components/finds/FindBadge";
+import { GoodWithKidsTag, showGoodWithKids } from "@/components/happenings/GoodWithKidsTag";
+import { familyFitForEvent } from "@/lib/happenings/family";
 import { useFind } from "@/lib/finds/useFinds";
 import {
   ASIDE_CARD_CLASS,
@@ -371,13 +373,14 @@ export function EventDetail({ id, presentation = "page", initialEvent }: DetailP
         <section className="rounded-xl border border-outline-variant/40 bg-surface-container-lowest p-5 shadow-sm">
           {find ? <FindBadge why={find.why} className="mb-3" /> : null}
           <div className="mb-3 flex items-center justify-between gap-3">
-            {event.category ? (
-              <span className="rounded-full bg-surface-container-low px-3 py-1 text-label-sm capitalize text-on-surface-variant">
-                {event.category}
-              </span>
-            ) : (
-              <span />
-            )}
+            <div className="flex flex-wrap items-center gap-2">
+              {event.category ? (
+                <span className="rounded-full bg-surface-container-low px-3 py-1 text-label-sm capitalize text-on-surface-variant">
+                  {event.category}
+                </span>
+              ) : null}
+              {showGoodWithKids(familyFitForEvent(event), { priceText: price }) ? <GoodWithKidsTag /> : null}
+            </div>
             {price ? <span className="text-label-md font-semibold text-primary">{price}</span> : null}
           </div>
           {event.venue_name && event.place_id ? (

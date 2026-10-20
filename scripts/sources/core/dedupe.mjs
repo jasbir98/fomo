@@ -125,6 +125,12 @@ export function isBetterRow(candidate, existing) {
   return false; // keep whichever was seen first
 }
 
+/** A structured kids signal on either copy of the same event survives the collapse. */
+function keepFamilyFit(kept, dropped) {
+  if (kept.family_fit == null && dropped.family_fit === "kids") return { ...kept, family_fit: "kids" };
+  return kept;
+}
+
 /** Cross-source dedupe. Returns the deduped rows plus a log of every collapse (kept vs dropped) for reporting. */
 export function dedupeAcrossSources(rows) {
   const best = new Map();
@@ -138,9 +144,10 @@ export function dedupeAcrossSources(rows) {
     }
     if (isBetterRow(row, existing)) {
       collapses.push({ key, kept: row, dropped: existing });
-      best.set(key, row);
+      best.set(key, keepFamilyFit(row, existing));
     } else {
       collapses.push({ key, kept: existing, dropped: row });
+      best.set(key, keepFamilyFit(existing, row));
     }
   }
   return { rows: Array.from(best.values()), collapses };

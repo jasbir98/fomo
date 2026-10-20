@@ -14,6 +14,7 @@ import type { DealCardData, FeedCardData } from "@/lib/happenings/feed-types";
 import type { Happening } from "@/lib/happenings/types";
 import type { EventItem } from "@/lib/types";
 import { isFreeCard } from "@/lib/happenings/price-label";
+import { familyFitForCard } from "@/lib/happenings/family";
 import { whoGroupForEligibility, type DealWhoGroup } from "@/lib/happenings/groups";
 import { interestForEventCategory, interestForHappeningCategory, type InterestKey } from "./interests";
 import { affinityBonus, type AffinityMap } from "./affinity";
@@ -26,11 +27,16 @@ export interface BoostPrefs {
   interests: readonly InterestKey[];
   budget: FomoBudget;
   who: readonly DealWhoGroup[];
+  /** "I've got kids" (usePrefs.ts) — optional so older callers and tests needn't set it. */
+  kids?: boolean;
 }
 
 const INTEREST_MATCH_BOOST = 4;
 const BUDGET_FIT_BOOST = 3;
 const ELIGIBILITY_MATCH_BOOST = 3;
+/** "I've got kids": aimed-at-children beats good-with-kids-but-for-anyone, both in the interest boost's range. */
+const KIDS_FIT_BOOST = 4;
+const KIDS_ALL_AGES_BOOST = 3;
 
 /** The one happening a card is "about", for category/eligibility matching — `null` for a bare `EventItem` card (an event has its own, separate category vocabulary, see `cardEvent`). */
 function cardHappening(card: Card): Happening | null {
@@ -58,6 +64,14 @@ export function cardWho(card: Card): DealWhoGroup | null {
   if ("who" in card) return card.who;
   const happening = cardHappening(card);
   return happening ? whoGroupForEligibility(happening.eligibility) : null;
+}
+
+/** The "I've got kids" boost for one card — 0 unless it has a family fit (lib/happenings/family.ts). */
+export function kidsBoost(card: Card): number {
+  const fit = familyFitForCard(card as FeedCardData);
+  if (fit === "kids") return KIDS_FIT_BOOST;
+  if (fit === "all_ages") return KIDS_ALL_AGES_BOOST;
+  return 0;
 }
 
 /** Cheap/free fit for the visitor's budget pref — `"any"` never boosts (it's
@@ -90,6 +104,7 @@ export function personalBoost(card: Card, prefs: BoostPrefs, affinity: AffinityM
   if (fitsBudget(card, prefs.budget)) score += BUDGET_FIT_BOOST;
   const who = cardWho(card);
   if (who && prefs.who.includes(who)) score += ELIGIBILITY_MATCH_BOOST;
+  if (prefs.kids) score += kidsBoost(card);
   score += affinityBonus(interest, affinity);
   return score;
 }

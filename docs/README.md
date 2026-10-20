@@ -7,6 +7,20 @@ Run `/plans` in Claude Code for a summary of this page.
 
 Things waiting on you, newest first. Tick them off here, or ask Claude to update this list.
 
+**Families: "With kids" lens (20 Oct)** ([plan](plans/2026-10-20-families-lens.md), branch `families-lens`)
+Kid-friendly tagging (`family_fit`), a `family` deal eligibility, "With kids" filters, an "I've got kids" pref, the /kids page and family sources. The app works before the SQL runs; tags only fill in after it.
+- [ ] Merge the families PR.
+- [x] Run `supabase/add_family_fit.sql` in the Supabase SQL editor (done 20 Oct). The last result should show `true` twice for all 5 tables.
+- [x] Backfill done 20 Oct: 8 events, 16 happenings and 50 places tagged. The `--ai` pass also ran (9 more happenings: 2 kids, 7 all ages, $0.007). Original step: `node --env-file=.env.local scripts/tag-family.mjs` (dry run). Read the table, then run it again with `--apply`. Add `--ai` outside DeepSeek peak hours to tag ~8 more happenings (about $0.02).
+- [ ] Stage the 56 family places (playgrounds, soft play, libraries, pools), with no new Google calls: `node --env-file=.env.local scripts/family-places.mjs --from-file scripts/out/family-places-2026-10-20.json --stage`. Stage within ~a week, because Google data can only be kept 30 days. When approving, leave out: Children's Library Edinburgh (duplicate of Central Library), Juvenate Health & Leisure (private gym), St Leonard's Land (university pool), and the three cafés (Lady and The Bear, Milk, Two Children Coffee: Google's "good for children" only). Then run `scripts/promote-places.mjs` (the command is printed) and `scripts/enrich-places-google.mjs`.
+- [ ] The three new deal sources (`scotrail-kids-for-a-quid`, `cineworld-family-films`, `picturehouse-kids-club`) start in shadow. Check their rows in Monday's weekly report, then set them to `live` in `scraper/deal_sources/registry.py`.
+- [ ] Monday 26 Oct weekly run: review the family rows in the staging batch (7 new family topics). From 30 Nov the run adds Christmas-holiday "kids eat free" topics on its own.
+- [ ] Search Console: request indexing of `/kids`.
+- [ ] Share /kids in 3–5 Edinburgh parent Facebook groups and on Mumsnet's Edinburgh board. Send it to the person who gave the feedback and ask them to pass it to their school or nursery WhatsApp. One IG receipt post: "A £0 Saturday with the kids".
+- [ ] 30 Nov: check PostHog against the bar. /kids ≥15% of non-internal sessions, ≥20 `kids_pref_set` opt-ins, kid-friendly outbound rate ≥ site average. Then decide on a family weekly email and seasonal pages.
+- [ ] Each summer: extend `scraper/school_holidays.py` and the FAQ dates in `lib/kids/faq.ts` from the council's term-dates page (listed to Easter 2028).
+- Not done: Jazz Bar's "Family and Kids shows" collection needs a separate page fetch (TODO in `scripts/sources/adapters/jazzbar.mjs`). Ticketmaster's family flag and Skiddle's `minage` weren't in our payloads, so they aren't used.
+
 **Place photos (20 Oct)**
 440 of 517 Edinburgh places had no photo, so Explore showed grey tiles. Places now fall back to a category photo (café → food, bookshop → shopping, park → outdoors), and 38 got their own website's share image (`scripts/place-og-images.mjs`, reviewed by a Haiku subagent, applied 20 Oct). Undo the 38 with `delete from place_photos where provider = 'og-image'`.
 - [ ] Merge [PR #42](https://github.com/jasbir98/fomo/pull/42).
@@ -157,6 +171,7 @@ Snapshots of the plans approved in Claude Code plan mode. Each one is a record o
 
 | Plan | Status |
 |---|---|
+| [2026-10-20 Families: "With kids" lens and family supply](plans/2026-10-20-families-lens.md) | Built on branch `families-lens`; PR pending. SQL, backfill and places staging are listed above. |
 | [2026-10-14 Technical SEO](plans/2026-10-14-technical-seo.md) | Built and checked against a production build; in [PR #35](https://github.com/jasbir98/fomo/pull/35). Slug URLs proposed, not built. |
 | [2026-10-14 Shareable weekend plan](plans/2026-10-14-weekend-plan.md) | Built and checked end to end; in [PR #34](https://github.com/jasbir98/fomo/pull/34). SQL run 15 Oct. |
 | [2026-10-14 Accurate visitor numbers in PostHog](plans/2026-10-14-posthog-accurate-metrics.md) | Live 14 Oct (PR #31). Dashboard 980079 rebuilt by `scripts/posthog-dashboards.mjs`. |

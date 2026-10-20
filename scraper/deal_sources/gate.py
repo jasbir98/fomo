@@ -64,7 +64,21 @@ CRITICAL_FIELDS = {
     "starts_at", "ends_at", "season_valid_until", "recurrence",
 }
 DATE_FIELDS = ("starts_at", "ends_at", "season_valid_until")
-ELIGIBILITY_ENUM = ("anyone", "local_resident", "student", "under_26", "over_60", "member", "cardholder")
+ELIGIBILITY_ENUM = ("anyone", "local_resident", "student", "under_26", "over_60", "member", "cardholder", "family")
+
+# Wording that supports eligibility 'family': the offer is for someone bringing children.
+# Kept in step with the audience words the app and the prompts use (kids, children, child,
+# under-5s, toddler, family). Matched on the quote text, not the normalised copy, so
+# "Kid\u2019s Menu" and "Under-5s" both count.
+CHILD_WORDING_RE = re.compile(
+    r"\b(?:kids?|child(?:ren)?|toddlers?|babies|baby|infants?|famil(?:y|ies)|youngsters?|juniors?|"
+    r"under[- ]?(?:\d{1,2}|five|twelve|sixteen|eighteen)(?:'?s)?)\b",
+    re.I,
+)
+
+
+def has_child_wording(text: str) -> bool:
+    return bool(CHILD_WORDING_RE.search(text or ""))
 
 REASONS = (
     "no_quote", "quote_not_found", "quote_too_long", "figure_not_in_quote", "promo_code_not_verbatim",
@@ -536,12 +550,17 @@ def gate_deal(item: dict[str, Any], page: PageContext, *, today: date, edinburgh
             if exc.reason in ("no_quote", "quote_not_found", "quote_too_long") and proposal.get("value") == default_eligibility:
                 # A scheme-wide rule (all Resident Rewards offers are for residents) is stated once
                 # on the page, not on every offer card: use that statement as the evidence.
-                passage = page_passage(page.text, "resident" if default_eligibility == "local_resident" else default_eligibility)
+                needle = {"local_resident": "resident", "family": "child"}.get(default_eligibility, default_eligibility)
+                passage = page_passage(page.text, needle)
                 if passage:
                     checked = (default_eligibility, passage)
             if checked is None:
                 reason = "eligibility_unsupported" if exc.reason in ("no_quote", "quote_not_found", "quote_too_long") else exc.reason
                 return result.reject(reason, exc.detail)
+        if checked and checked[0] == "family" and not has_child_wording(f"{checked[1]} {deal_quote}"):
+            # 'family' is a claim about who can use the offer: the evidence has to talk about
+            # children, otherwise a bare "£5 off" would become an offer only parents can claim.
+            return result.reject("eligibility_unsupported", "eligibility family: no child wording in its quote or the deal's quote")
         if checked:
             eligibility = checked[0]
             result.evidence["eligibility"] = {"value": eligibility, "quote": checked[1]}
@@ -620,6 +639,9 @@ def to_raw_happening(item: dict[str, Any], gate: GateResult, *, source_name: str
         "summary": f.get("summary"),
         "kind": item["kind"],
         "category": item.get("category") or "food",
+        # Unchecked here: happenings_research.build_full_record coerces anything outside
+        # the enum to null and applies the eligibility/category post-rules.
+        "family_fit": item.get("family_fit"),
         "scope": "national" if gate.national else ("venue" if venue else "city"),
         "saving_label": f.get("saving_label"),
         "saving_amount": f.get("saving_amount"),

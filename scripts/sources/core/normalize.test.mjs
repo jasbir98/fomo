@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { classifyCategory, dedupeWithinSource, haversineKm, isEdinburghRow, isOffWedge } from "./normalize.mjs";
+import { classifyCategory, classifyFamilyFit, dedupeWithinSource, haversineKm, isEdinburghRow, isOffWedge } from "./normalize.mjs";
 
 test("isEdinburghRow: within 15km of the centre by coordinates", () => {
   assert.equal(isEdinburghRow({ lat: 55.9486, lng: -3.1999 }), true); // the castle
@@ -49,4 +49,83 @@ test("dedupeWithinSource: first occurrence of a provider_event_id wins", () => {
     { provider_event_id: "a", name: "second" },
   ]);
   assert.deepEqual(out.map((r) => r.name), ["first", "b"]);
+});
+
+test("classifyFamilyFit: true positives from real listings", () => {
+  for (const name of [
+    "Kids Halloween Party",
+    "Kids Blues LIVE with Jed Potts and Nicole Smit",
+    "Kids Christmas Party",
+    "Witches and Wizards - Lauriston Castle Family Workshops",
+    "Family Halloween Party with The Shiverin' Sheiks Band (Rock 'n' Roll)",
+    "Home Alone | Family Films",
+    "Bookbug at Central Library",
+    "Toddler Tuesdays",
+    "Half Term Bricks",
+    "Family Workshop: Festive Felt",
+    "Baby Sensory Class",
+    "Messy Play for Under 5s",
+    "Storytime for children aged 3-7",
+    "Clay Club Ages 6-10",
+  ]) {
+    assert.equal(classifyFamilyFit({ name }), "kids", name);
+  }
+});
+
+test("classifyFamilyFit: proper-noun and topic false positives stay null", () => {
+  for (const name of [
+    "Junkie Kid @ Liquid Room",
+    "PRTY: JUNKIE KID, Edinburgh 23.10.26",
+    "Kid Bookie at Sneaky Pete's, Edinburgh",
+    "Bushbaby @ Liquid Room",
+    "RARE Club // Bushbaby",
+    "FeedbackOh RomanceSo BoringTomorrow KidVexations",
+    "Sam Fern on Writing: How to Scare Children",
+    "Supporting Children and Families Impacted by Poverty",
+    "CONFERENCE - The Big Family Event - Being Well, Doing Well",
+    "Dr Bell's Family Centre - Preparing for Baby",
+    "Kids in Glass Houses live",
+  ]) {
+    assert.equal(classifyFamilyFit({ name }), null, name);
+  }
+});
+
+test("classifyFamilyFit: signal and category", () => {
+  assert.equal(classifyFamilyFit({ name: "Mystery show", signal: "kids" }), "kids");
+  // A bare keyword-fallback "family" category is not enough (e.g. "Jill Andrews",
+  // whose description mentions the band Hush Kids).
+  assert.equal(classifyFamilyFit({ name: "Mystery show", category: "family" }), null);
+  assert.equal(classifyFamilyFit({ name: "Jill Andrews", description: "Former singer of Hush Kids", category: "family" }), null);
+  assert.equal(classifyFamilyFit({ name: "Mystery show", category: "music" }), null);
+  // A family gig keeps its category; family_fit is separate.
+  assert.equal(classifyFamilyFit({ name: "Kids Blues LIVE", category: "music" }), "kids");
+});
+
+test("classifyFamilyFit: adult guards beat keywords", () => {
+  assert.equal(classifyFamilyFit({ name: "Kids Halloween Party", description: "Strictly 18+ only" }), null);
+  assert.equal(classifyFamilyFit({ name: "Family Fun Club Night", category: "nightlife" }), null);
+  assert.equal(classifyFamilyFit({ name: "Toddler Tuesdays", description: "Adults only after 9pm" }), null);
+  assert.equal(classifyFamilyFit({ name: "Burlesque Family Show" }), null);
+  assert.equal(classifyFamilyFit({ name: "Drag Brunch", category: "family" }), null);
+  // "an adult over 18" in a kids listing is not an adult-only flag.
+  assert.equal(classifyFamilyFit({ name: "Kids Craft Day", description: "Under 8s must be accompanied by an adult over 18." }), "kids");
+});
+
+test("classifyFamilyFit: description needs a specific phrase", () => {
+  assert.equal(classifyFamilyFit({ name: "Sunday Session", description: "A family-friendly show with puppets." }), "kids");
+  assert.equal(classifyFamilyFit({ name: "Sunday Session", description: "Suitable for children aged 4-8." }), "kids");
+  assert.equal(classifyFamilyFit({ name: "Gig night", description: "Our family-friendly pub serves food all day." }), null);
+  assert.equal(classifyFamilyFit({ name: "Panel", description: "Discussing poverty facing children and families." }), null);
+  assert.equal(classifyFamilyFit({ name: "Gig", description: "Toddlers welcome", venueName: "Liquid Room" }), null);
+});
+
+test("classifyFamilyFit: age policies and youth schemes are not kids events", () => {
+  const f = (name, description, category) => classifyFamilyFit({ name, description, category });
+  assert.equal(f("The Shamrocks", "Under 8s not allowed."), null);
+  assert.equal(f("League Two admission prices", "Under 12s admitted only with a paying adult."), null);
+  assert.equal(f("Young Musician's Pass", "For young musicians aged 8-18 living in Scotland."), null);
+  assert.equal(f("Castle entry", "Young Scot cardholders aged 11-25 get £1 entry."), null);
+  assert.equal(f("Bus pass", "Anyone aged 5-21 can travel free."), null);
+  assert.equal(f("Craft morning", "Great for children aged 3-8."), "kids");
+  assert.equal(f("Soft play", "Sessions for under 5s on weekdays."), "kids");
 });

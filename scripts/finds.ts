@@ -36,7 +36,7 @@
  *      from the app), and delete suggested drafts whose subject has ended.
  *   2. Candidates: lib/finds/candidates.ts — live happenings with an
  *      occurrence in the next N days, evergreen genuine deals, and free/<=£15
- *      events in the next N days; family-only and over-60-only dropped;
+ *      events in the next N days; family-friendly items kept, over-60-only dropped;
  *      subjects already live or retired are never re-suggested.
  *   3. Score with hero.ts, take the top `--limit` with at most about half
  *      events.
@@ -211,7 +211,7 @@ const DRAFT_TOOL = {
   },
 };
 
-const DRAFT_SYSTEM = `You write the one-line "why it's a steal" for Fomo, an Edinburgh app for free and cheap things to do and student/local deals. Audience: students and young professionals.
+const DRAFT_SYSTEM = `You write the one-line "why it's a steal" for Fomo, an Edinburgh app for free and cheap things to do and student/local deals. Audience: students, young professionals and Edinburgh families on a budget.
 
 For each numbered candidate return:
 - why: at most ${WHY_MAX_CHARS} characters. Punchy and concrete, built on the numbers and facts given. Example: "£8 wristband gets you £5 cocktails all week". Do not repeat the title. No hype words, no emoji, no exclamation marks, UK English.

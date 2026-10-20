@@ -1,9 +1,10 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import type { FeedResponse, FreeAnyTimeItem } from "@/lib/happenings/feed-types";
-import { distinctTypeBuckets, distinctDistricts, matchesFreeAnyTimeFilters } from "@/lib/happenings/free-any-time-filters";
+import { distinctTypeBuckets, distinctDistricts, hasKidFriendly, matchesFreeAnyTimeFilters } from "@/lib/happenings/free-any-time-filters";
 import { useCachedJson } from "@/lib/http/clientCache";
 import { useProgressiveReveal } from "@/lib/useProgressiveReveal";
 import { ErrorState, Icon, PageHeader, StickyFilterBar } from "@/components/ui";
@@ -54,6 +55,7 @@ export interface FreeClientProps {
  * identical full list.
  */
 export function FreeClient({ initialItems = null }: FreeClientProps) {
+  const router = useRouter();
   // A return visit paints instantly from whatever's already there; `error`
   // only means "nothing cached and the last attempt failed".
   // The FULL feed under Home's own `feed:now` key (same URL) — shared with
@@ -65,6 +67,12 @@ export function FreeClient({ initialItems = null }: FreeClientProps) {
   const error = itemsResult.error != null && items === null;
   const [typeBucket, setTypeBucket] = useState<string | null>(null);
   const [district, setDistrict] = useState<string | null>(null);
+  // "With kids" (families lens), kept in the URL as `?kids=1`. The page is
+  // statically rendered, so the URL is read once after mount, not during render.
+  const [withKids, setWithKids] = useState(false);
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).get("kids") === "1") queueMicrotask(() => setWithKids(true));
+  }, []);
 
   function handleTypeChange(value: string | null) {
     setTypeBucket(value);
@@ -76,13 +84,26 @@ export function FreeClient({ initialItems = null }: FreeClientProps) {
     track("filter_used", { filter: "district", value, page: "free" });
   }
 
+  function handleWithKidsChange(on: boolean) {
+    setWithKids(on);
+    track("kids_filter_toggled", { surface: "free", on });
+    const params = new URLSearchParams(window.location.search);
+    if (on) params.set("kids", "1");
+    else params.delete("kids");
+    router.replace(`/free${params.toString() ? `?${params.toString()}` : ""}`, { scroll: false });
+  }
+
   const typeOptions = useMemo(() => (items ? distinctTypeBuckets(items) : []), [items]);
   const districtOptions = useMemo(() => (items ? distinctDistricts(items) : []), [items]);
 
+  // Only offered when something in the list is kid-friendly; a `?kids=1` link on a list with none is ignored rather than emptying it.
+  const kidsOffered = useMemo(() => (items ? hasKidFriendly(items) : false), [items]);
+  const kidsActive = withKids && kidsOffered;
+
   const filteredItems = useMemo(() => {
     if (!items) return [];
-    return items.filter((i) => matchesFreeAnyTimeFilters(i, typeBucket, district));
-  }, [items, typeBucket, district]);
+    return items.filter((i) => matchesFreeAnyTimeFilters(i, typeBucket, district, kidsActive));
+  }, [items, typeBucket, district, kidsActive]);
 
   // Renders in chunks of 20 rather than mounting the whole (potentially
   // 100+ row) list at once — no pagination on this endpoint (see the
@@ -118,6 +139,8 @@ export function FreeClient({ initialItems = null }: FreeClientProps) {
                 districtOptions={districtOptions}
                 onTypeChange={handleTypeChange}
                 onDistrictChange={handleDistrictChange}
+                withKids={kidsOffered ? kidsActive : null}
+                onWithKidsChange={handleWithKidsChange}
                 resultCount={items === null ? null : filteredItems.length}
               />
                 <Link
@@ -140,6 +163,8 @@ export function FreeClient({ initialItems = null }: FreeClientProps) {
                 districtOptions={districtOptions}
                 onTypeChange={handleTypeChange}
                 onDistrictChange={handleDistrictChange}
+                withKids={kidsOffered ? kidsActive : null}
+                onWithKidsChange={handleWithKidsChange}
                 resultCount={items === null ? null : filteredItems.length}
               />
           </div>

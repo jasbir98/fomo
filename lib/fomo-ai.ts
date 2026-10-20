@@ -75,6 +75,6 @@ export type AiReplyBlock =
 export const ASK_FOMO_PROMPTS = [
   "Free things to do tonight",
   "Student deals this week",
-  "Rainy day ideas under £10",
+  "Rainy day with the kids under £10?",
   "What's worth booking early?",
 ];

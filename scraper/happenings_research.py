@@ -157,8 +157,20 @@ CATEGORY_ENUM = (
     "family", "museum", "cinema", "other", "wellness", "outdoors", "tours",
 )
 SCOPE_ENUM = ("venue", "city", "region", "national")
+# "family" = only someone bringing children can use the offer (kids eat free, a
+# child free with a paying adult). Must be kept in step with lib/ (types.ts) and
+# deal_sources/gate.py's copy by hand.
 ELIGIBILITY_ENUM = (
-    "anyone", "local_resident", "student", "under_26", "over_60", "member", "cardholder",
+    "anyone", "local_resident", "student", "under_26", "over_60", "member", "cardholder", "family",
+)
+# Who a happening suits, separate from category: 'kids' = aimed at children,
+# 'all_ages' = fine with young children but for anyone, null = not for kids /
+# unknown. Mirrors the happenings.family_fit column and lib/ types.
+FAMILY_FIT_ENUM = ("kids", "all_ages")
+FAMILY_FIT_DESCRIPTION = (
+    "Who it suits: 'kids' when aimed at children (a kids' workshop, Bookbug, soft play, kids eat free); "
+    "'all_ages' when the page shows it's suitable for young children as well as adults (free museum, garden, "
+    "family-friendly attraction); null otherwise or when unsure."
 )
 CONFIDENCE_ENUM = ("low", "medium", "high")
 RECURRENCE_TYPES = ("once", "always", "weekly", "annual", "dates")
@@ -184,7 +196,7 @@ def slugify(value: str) -> str:
 
 # --- prompts ---------------------------------------------------------------
 
-COMMON_RULES = """Ten rules. All ten are equally load-bearing — breaking any one of them
+COMMON_RULES = """Ten rules (plus family_fit, below). All ten are equally load-bearing — breaking any one of them
 produces a row that actively misleads a user, which is worse than no row at all.
 
 1. NEVER INVENT A DATE. If the source does not state an exact date, starts_at and
@@ -204,7 +216,9 @@ produces a row that actively misleads a user, which is worse than no row at all.
    on the page means promo_code is null — not your best guess at what it "probably" is.
 3. ELIGIBILITY MUST BE EXPLICIT. eligibility is anything other than "anyone" only
    when the source itself states who qualifies. Never infer "probably residents only"
-   just because a place or offer sounds local.
+   just because a place or offer sounds local. eligibility "family" means the offer is
+   only usable by someone bringing children (kids eat free, a child goes free with a
+   paying adult, under-5s free); a plain family ticket price with no saving is not a deal.
 4. PREFER NULL OVER GUESSING, on every field, no exceptions. An empty field is
    honest; a guessed one is a bug that looks like data.
 5. SAVINGS ARE THE SOURCE'S OWN FIGURE, verbatim. Never round a number the source
@@ -221,6 +235,11 @@ produces a row that actively misleads a user, which is worse than no row at all.
    free entry is itself the notable fact worth surfacing.
 10. NEVER CITE AN AGGREGATOR that merely links elsewhere without itself stating the
     terms — find and cite the actual page that states them.
+
+Also set family_fit: "kids" when the happening is aimed at children (a kids' workshop,
+Bookbug, soft play, kids eat free), "all_ages" when the page shows it suits young children
+as well as adults (a free museum, a garden, a family-friendly attraction), otherwise null.
+Prefer null over guessing — family_fit is separate from category.
 """
 
 CALENDAR_SYSTEM_TEMPLATE = """You are researching time-limited "happenings" — money and access
@@ -564,6 +583,7 @@ HAPPENING_SCHEMA = {
         },
         "redemption_note": {"type": ["string", "null"]},
         "eligibility": {"type": "string", "enum": list(ELIGIBILITY_ENUM)},
+        "family_fit": {"type": ["string", "null"], "enum": list(FAMILY_FIT_ENUM) + [None], "description": FAMILY_FIT_DESCRIPTION},
         "eligibility_note": {"type": ["string", "null"]},
         "allowance_note": {"type": ["string", "null"], "description": "e.g. 'max 2 tickets per household'."},
         "starts_at": {
@@ -878,6 +898,20 @@ def _clean_date(value: Any) -> str | None:
     return None
 
 
+def coerce_family_fit(raw: Any, eligibility: str, category: str, label: str = "") -> str | None:
+    """family_fit is a soft hint: a value outside the enum becomes null (the row is kept).
+    Post-rules: eligibility 'family' forces 'kids'; category 'family' with no usable
+    family_fit becomes 'kids'."""
+    value = raw if raw in FAMILY_FIT_ENUM else None
+    if raw not in (None, "") and value is None:
+        print(f"[happenings-research] {label!r}: invalid family_fit {raw!r} - nulling it, keeping the row", file=sys.stderr)
+    if eligibility == "family":
+        return "kids"
+    if value is None and category == "family":
+        return "kids"
+    return value
+
+
 def build_full_record(
     happening: dict[str, Any],
     batch_id: str,
@@ -917,6 +951,8 @@ def build_full_record(
     if category not in CATEGORY_ENUM:
         print(f"[happenings-research] dropping {label!r}: invalid category {category!r}", file=sys.stderr)
         return None
+
+    family_fit = coerce_family_fit(happening.get("family_fit"), eligibility, category, label)
 
     # happenings.source_name is NOT NULL in supabase/archive/add_happenings.sql (it's
     # rendered on every card) even though submit_happenings' own schema
@@ -1021,6 +1057,7 @@ def build_full_record(
         "promo_code": promo_code,
         "redemption_note": happening.get("redemption_note"),
         "eligibility": eligibility,
+        "family_fit": family_fit,
         "eligibility_note": happening.get("eligibility_note"),
         "allowance_note": happening.get("allowance_note"),
         # Not part of HAPPENING_SCHEMA (the topic prompts never ask for them):

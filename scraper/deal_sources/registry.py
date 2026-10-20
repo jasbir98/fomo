@@ -18,7 +18,9 @@ A source is {id, name, trust, status, discover, extract_hints}.
    'modified_within_days': N}
         sitemap(s) (or sitemap indexes) filtered by a regex on the <loc> URL. With
         `modified_within_days`, only URLs whose <lastmod> is that recent are kept
-        (a URL with no <lastmod> is dropped).
+        (a URL with no <lastmod> is dropped). `always_pattern` (regex) exempts evergreen
+        pages from that window: a matching URL is kept whatever its <lastmod>. It still
+        has to match `pattern` (put the same fragments in both).
   {'kind': 'urls', 'urls': [...]}
         a fixed list of pages.
   {'kind': 'link_list', 'url': ..., 'href_pattern': regex, 'limit': N}
@@ -93,6 +95,12 @@ class DealSource:
             raise ValueError(f"{self.id}: national_ok needs national_venue")
 
 
+# Edinburgh Leisure's children's pages (slugs confirmed in the live sitemap, 20 Oct 2026).
+_LEISURE_KIDS_PAGES = (
+    r"/(?:clambers|tumbles|scrambles)-soft-play/|/holiday-activities/|/holiday-camps/|"
+    r"/family-days-out-in-edinburgh/|/tiny-tasters-big-adventures-[^/]*under-5s/"
+)
+
 _FOREVER_PAGES_URL = "https://edinburgh.org/wp-json/wp/v2/pages?parent=5095&per_page=100&orderby=modified&_embed"
 
 SOURCES: tuple[DealSource, ...] = (
@@ -115,7 +123,8 @@ SOURCES: tuple[DealSource, ...] = (
             "dates, days and times, booking rules and who can claim it. Return at most one deal per page "
             "unless the page clearly lists several separate offers. Offers that are only a full-price "
             "package, a hotel stay, or a ticket at a normal price with no saving, discount, free item or "
-            "special reduced price are not deals: leave them out."
+            "special reduced price are not deals: leave them out. Kids-eat-free and child-goes-free offers are "
+            "eligibility 'family', family_fit 'kids'."
         ),
     ),
     DealSource(
@@ -161,7 +170,9 @@ SOURCES: tuple[DealSource, ...] = (
             "'local_resident' when the page says the offer is for residents (usually with proof of address "
             "or an Edinburgh postcode). Pages list partner offers, reward days and exclusive deals; return "
             "one deal per distinct offer that states a saving, a free entry or a discounted price. Generic "
-            "programme description with no concrete offer is not a deal: leave it out."
+            "programme description with no concrete offer is not a deal: leave it out. An offer such as World "
+            "Children's Day (one free child ticket with each full-paying adult) keeps eligibility 'local_resident', "
+            "because residency is the binding restriction, with family_fit 'kids'."
         ),
     ),
     DealSource(
@@ -210,7 +221,8 @@ SOURCES: tuple[DealSource, ...] = (
             "'Frankie & Benny's | Student offer', then the offer. The venue is that business. Keep an offer that "
             "states a saving: a percentage off, a free item, a 2-for-1, a 'Kids Eat Free' or a stated price below "
             "the normal one such as 'a main and drink for just £12'. A plain menu item with no saving is not a deal. "
-            "Eligibility is 'student' for a student offer, 'anyone' otherwise; the 'Blue Light' and 'Birthday' "
+            "Eligibility is 'student' for a student offer, 'family' for a kids offer that needs a paying adult or is "
+            "for children (Kids Eat Free, kids' menu deals; family_fit 'kids'), 'anyone' otherwise; the 'Blue Light' and 'Birthday' "
             "filters are not on this source. Skip the news items, shop lists and navigation. Leave booking_url out."
         ),
     ),
@@ -250,8 +262,11 @@ SOURCES: tuple[DealSource, ...] = (
             ],
             # Offer, free-session and joining-fee pages. "free" and "try" need word
             # boundaries so that "freedom-of-information" and "country" do not match.
-            "pattern": r"offer|(?:^|[/-])free(?:[-/]|$)|(?:^|[/-])try(?:[-/]|$)|joining-fee",
+            "pattern": r"offer|(?:^|[/-])free(?:[-/]|$)|(?:^|[/-])try(?:[-/]|$)|joining-fee|" + _LEISURE_KIDS_PAGES,
             "modified_within_days": 90,
+            # Soft play, holiday activities and the family-days-out guide are evergreen: they
+            # may go more than 90 days without an edit, so they skip the lastmod window.
+            "always_pattern": _LEISURE_KIDS_PAGES,
         },
         extract_hints=(
             "Edinburgh Leisure runs the council's leisure centres, pools and gyms in Edinburgh. Each page is one "
@@ -259,7 +274,10 @@ SOURCES: tuple[DealSource, ...] = (
             "when the page states what is free or reduced and until when (the dates or 'until' wording). A news "
             "story about an offer that has ended, or a page about membership terms with no offer, is not a deal. "
             "Eligibility is 'anyone' unless the page says who qualifies. An offer for a group that is not in the "
-            "eligibility list (for example under-5s, or a disability group) is left out. Leave booking_url out "
+            "eligibility list (for example a disability group) is left out. Offers for children (under-5s, kids, "
+            "juniors, soft play, holiday camps) are deals with eligibility 'family' when only someone bringing "
+            "a child can use them, and family_fit 'kids'; a camp or course at its normal price with no saving, "
+            "free place or reduced price is not a deal. Leave booking_url out "
             "unless the page links the booking page itself."
         ),
     ),
@@ -282,6 +300,59 @@ SOURCES: tuple[DealSource, ...] = (
             "or a free item. A plain set price (a menu or a feast priced at a normal amount) is not a deal. Leave "
             "address out: the 'Brought to you by' line in the terms is the company's head office, not a restaurant. "
             "Leave booking_url out: the offer links go to claim pages that robots.txt disallows."
+        ),
+    ),
+    # Family and kids' deals. Odeon (bot-blocked: 302 loop), Vue (JS-rendered) and
+    # Asda/Morrisons (JS-rendered, no offer text in the HTML) are not deal sources; the
+    # weekly research topics "Kids' cinema clubs in Edinburgh" and "Kids eat free in
+    # Edinburgh" cover them instead.
+    DealSource(
+        id="scotrail-kids-for-a-quid",
+        name="ScotRail Kids for a Quid",
+        trust="official",
+        status="shadow",
+        multi_deal_pages=True,  # up to two deals on the page
+        national_ok=True,
+        national_venue="Edinburgh Waverley station",
+        discover={"kind": "urls", "urls": ["https://www.scotrail.co.uk/kids-for-a-quid"]},
+        extract_hints=(
+            "ScotRail's Kids for a Quid fare: up to four children aged 5 to 15 travel for £1 return each "
+            "when accompanied by a paying adult. That fare is one deal: eligibility 'family', family_fit 'kids', "
+            "saving_label '£1 return per child'. Under-5s travelling free is part of that deal's note, not "
+            "a separate deal. The 'Kids Visit Free' section (one free child entry to top Scottish attractions "
+            "with a Kids for a Quid ticket) is a second deal only if the page names the attractions or the "
+            "terms; otherwise leave it out. Leave booking_url out."
+        ),
+    ),
+    DealSource(
+        id="cineworld-family-films",
+        name="Cineworld family films",
+        trust="commercial",
+        status="shadow",
+        multi_deal_pages=True,  # up to two deals on the page
+        national_ok=True,
+        national_venue="Cineworld Edinburgh (Fountain Park)",
+        discover={"kind": "urls", "urls": ["https://www.cineworld.co.uk/movies-for-juniors"]},
+        extract_hints=(
+            "Cineworld's family films page. The '£2 Family films' offer (a selection of family films for "
+            "£2 per ticket, for kids and adults alike, with adults accompanied by children) is the deal: "
+            "eligibility 'family', family_fit 'kids'. The '£5.99 Family films' line is a second, weaker "
+            "deal: keep it only if the page states a saving against the normal price. Leave booking_url out."
+        ),
+    ),
+    DealSource(
+        id="picturehouse-kids-club",
+        name="Picturehouse Kids' Club",
+        trust="commercial",
+        status="shadow",
+        national_ok=True,
+        national_venue="Cameo Picturehouse",
+        discover={"kind": "urls", "urls": ["https://www.picturehouses.com/kids-club"]},
+        extract_hints=(
+            "Picturehouse Kids' Club: all tickets £3, exclusively for children and their parents or carers. "
+            "One deal: eligibility 'family', family_fit 'kids'. Kids' Club runs at selected Picturehouse "
+            "cinemas; Cameo Picturehouse (Edinburgh) is the Edinburgh one, so the venue is Cameo. Leave "
+            "booking_url out."
         ),
     ),
 )

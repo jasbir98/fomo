@@ -26,6 +26,8 @@
  * substrings.
  */
 import type { HappeningCategory } from "@/lib/happenings/types";
+import { familyFitForEvent, familyFitForHappening, familyFitForPlace } from "@/lib/happenings/family";
+import type { EventItem, Place } from "@/lib/types";
 
 export interface ExploreCategory {
   slug: ExploreCategorySlug;
@@ -42,6 +44,7 @@ export const EXPLORE_CATEGORIES: ExploreCategory[] = [
   { slug: "shopping", label: "Shopping", icon: "shopping_bag" },
   { slug: "nightlife", label: "Nightlife", icon: "nightlife" },
   { slug: "culture", label: "Culture", icon: "theater_comedy" },
+  { slug: "kids", label: "Kids", icon: "family_restroom" },
 ];
 
 export type ExploreCategorySlug =
@@ -52,7 +55,8 @@ export type ExploreCategorySlug =
   | "parks_views"
   | "shopping"
   | "nightlife"
-  | "culture";
+  | "culture"
+  | "kids";
 
 export const EXPLORE_CATEGORY_SLUGS: ExploreCategorySlug[] = EXPLORE_CATEGORIES.map((c) => c.slug);
 
@@ -87,6 +91,8 @@ const PLACE_CATEGORY_GROUPS: Record<ExploreCategorySlug, string[]> = {
     "monument", "landmark", "heritage", "cathedral", "abbey", "palace", "distillery",
     "visitor centre", "archaeological", "prehistoric", "chambered cairn", "broch",
   ],
+  // No needles: "Kids" is matched on `family_fit`, never on the free-text category — see `matchesPlace`.
+  kids: [],
 };
 
 /** True if a `places.category` free-text value belongs to `slug`'s group. Null/empty category never matches (no guessing a place into a chip it didn't declare). */
@@ -115,6 +121,7 @@ const HAPPENING_CATEGORY_TO_EXPLORE: Partial<Record<HappeningCategory, ExploreCa
   festival: ["culture"],
   outdoors: ["parks_views"],
   tours: ["culture"],
+  family: ["kids"],
 };
 
 export function matchesHappeningCategory(
@@ -123,4 +130,30 @@ export function matchesHappeningCategory(
 ): boolean {
   if (!category) return false;
   return (HAPPENING_CATEGORY_TO_EXPLORE[category] ?? []).includes(slug);
+}
+
+/**
+ * The "Kids" chip is not a category: it matches anything with a family fit
+ * (lib/happenings/family.ts — the one place that decides "kid-friendly"), so
+ * the three `matches*` below route it there and leave every other slug on the
+ * lookups above. Use these, not `matchesPlaceCategory`/`matchesHappeningCategory`
+ * directly, wherever a whole row is to hand.
+ */
+export function matchesPlace(place: Pick<Place, "category" | "family_fit">, slug: ExploreCategorySlug): boolean {
+  if (slug === "kids") return familyFitForPlace(place) !== null;
+  return matchesPlaceCategory(place.category, slug);
+}
+
+export function matchesHappening(
+  h: Parameters<typeof familyFitForHappening>[0] & { category: HappeningCategory | null },
+  slug: ExploreCategorySlug
+): boolean {
+  if (slug === "kids") return familyFitForHappening(h) !== null;
+  return matchesHappeningCategory(h.category, slug);
+}
+
+/** Provider events aren't narrowed by the other chips (their category vocabulary differs), only by "Kids". */
+export function matchesEvent(e: Pick<EventItem, "category" | "family_fit">, slug: ExploreCategorySlug): boolean {
+  if (slug === "kids") return familyFitForEvent(e) !== null;
+  return true;
 }

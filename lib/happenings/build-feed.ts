@@ -104,7 +104,14 @@ import {
   shortLocationLine,
   type FeedBucketKey,
 } from "@/lib/happenings/format";
-import { happeningRecommendationScore, eventRecommendationScore, eventImageUrl, isPhotoImage } from "@/lib/happenings/hero";
+import {
+  happeningRecommendationScore,
+  eventRecommendationScore,
+  eventImageUrl,
+  isPhotoImage,
+  heroEligibleHappening,
+  heroEligibleEvent,
+} from "@/lib/happenings/hero";
 import { occurrenceIsPastLocalHours } from "@/lib/happenings/local-hours";
 import { categoryStyle } from "@/lib/happenings/category-style";
 import { dealFacets, isGenuineDeal } from "@/lib/happenings/groups";
@@ -137,6 +144,7 @@ import type { Db } from "@/lib/supabase/types";
 import type { EventItem, Place } from "@/lib/types";
 
 import type { DealWhoGroup } from "@/lib/happenings/groups";
+import { familyFitForHappening, familyFitForPlace } from "@/lib/happenings/family";
 import { placeImageCategory } from "@/lib/places/default-image";
 
 const HERO_LOOKAHEAD_DAYS = 30;
@@ -364,6 +372,7 @@ function pickHero(
 
   for (const h of happenings) {
     if (!isDated(h)) continue;
+    if (!heroEligibleHappening(h)) continue; // kids-aimed items never take the hero slot
     const occurrence = nextOccurrence(h, happeningFrom, happeningTo, timeZone);
     if (!occurrence) continue;
     if (occurrenceIsPastLocalHours(h.time_note, occurrence.dayDate, now, timeZone)) continue;
@@ -388,6 +397,7 @@ function pickHero(
   for (const e of events) {
     const startMs = new Date(e.starts_at).getTime();
     if (Number.isNaN(startMs) || startMs < eventFrom || startMs > eventCutoff) continue;
+    if (!heroEligibleEvent(e)) continue; // kids-aimed items never take the hero slot
     if (priceSignalForEvent(e) !== "cheap") continue; // free-or-cheap only, never a guessed-cheap sports exemption
     const { score, reason } = eventRecommendationScore(e, now, timeZone);
     candidates.push({ card: { kind: "event", event: e, reason }, score, startMs, everyday: false, photo: isPhotoImage(eventImageUrl(e)) });
@@ -500,6 +510,7 @@ async function buildFreeAnyTime(
         category: lead.category,
         district: lead.district ?? null,
         typeLabel: categoryStyle(lead.category).label,
+        familyFit: familyFitForHappening(lead),
       });
       continue;
     }
@@ -516,6 +527,7 @@ async function buildFreeAnyTime(
       category: h.category,
       district: h.district ?? null,
       typeLabel: categoryStyle(h.category).label,
+      familyFit: familyFitForHappening(h),
     });
   }
 
@@ -548,6 +560,7 @@ async function buildFreeAnyTime(
         category: placeImageCategory(p.category),
         district: districtFromAddress(p.address) ?? null,
         typeLabel: formatPlaceCategoryLabel(p.category),
+        familyFit: familyFitForPlace(p),
       }));
   } catch (err) {
     console.error("[api/feed] free places lookup failed", err);
@@ -579,8 +592,8 @@ function buildDealCards(happenings: Happening[], now: Date, timeZone: string): D
     if (!isGenuineDeal(h)) continue; // ticket price / on-sale notice, not an actual discount
     const occurrence = isDated(h) ? nextOccurrence(h, now, to, timeZone) : nextOccurrence(h, now, now, timeZone);
     if (!occurrence) continue;
-    const { what, who } = dealFacets(h);
-    cards.push({ kind: "happening", happening: h, occurrence, what, who });
+    const { what, who, kidFriendly } = dealFacets(h);
+    cards.push({ kind: "happening", happening: h, occurrence, what, who, kidFriendly });
   }
   return cards;
 }
@@ -1097,8 +1110,14 @@ export async function buildFeed(db: Db, opts: BuildFeedOptions): Promise<FeedRes
   let heroKind: FeedResponse["heroKind"];
   if (window === "book_early") {
     // Top-ranked happening with a real photo, else the top-ranked happening.
-    const photoIndex = bookEarlyAll.findIndex((c) => c.kind === "happening" && isPhotoImage(c.happening.image_url));
-    const topIndex = photoIndex >= 0 ? photoIndex : bookEarlyAll.findIndex((c) => c.kind === "happening");
+    // Kids-aimed happenings never take the hero slot (hero.ts `heroEligibleHappening`).
+    const photoIndex = bookEarlyAll.findIndex(
+      (c) => c.kind === "happening" && heroEligibleHappening(c.happening) && isPhotoImage(c.happening.image_url)
+    );
+    const topIndex =
+      photoIndex >= 0
+        ? photoIndex
+        : bookEarlyAll.findIndex((c) => c.kind === "happening" && heroEligibleHappening(c.happening));
     const top: BookEarlyHappeningCard | undefined =
       topIndex >= 0 && bookEarlyAll[topIndex].kind === "happening"
         ? (bookEarlyAll[topIndex] as BookEarlyHappeningCard)

@@ -255,6 +255,8 @@ export function mapJsonLdEvent(obj, { provider, pageUrl, destination, now }) {
   // Transient flag for core/validate.mjs (`online_only`); validateRow strips it
   // before the row can reach the DB. Only set when true.
   if (jsonLdIsOnlineOnly(obj)) row._online = true;
+  // Structured family signal: schema.org ChildrensEvent.
+  if (types.includes("ChildrensEvent")) row.family_fit = "kids";
   return { row, reason: null };
 }
 

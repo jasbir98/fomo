@@ -36,6 +36,7 @@ export const OVERRIDABLE_COLUMNS = [
   "price_from",
   "currency",
   "place_id",
+  "family_fit",
 ];
 
 export const EVENT_OVERRIDES = [

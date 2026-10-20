@@ -11,11 +11,13 @@ import type { WeatherCondition } from "@/lib/weather";
 import { CityPicker, ErrorState, FeedbackLink, Icon, SeeAllButton, SegmentedControl } from "@/components/ui";
 import { AppHeader } from "@/components/shell/AppHeader";
 import { FomoSpot } from "@/components/fomo/FomoSpot";
-import { AnyDaySection, FeedHero, FeedListCard, FreeAnyTimeList, BookEarlyCard, SubscribeCard } from "@/components/happenings";
+import { AnyDaySection, FeedHero, FeedListCard, FreeAnyTimeList, BookEarlyCard, KidsRail, SubscribeCard } from "@/components/happenings";
 import { TodaysDealsStrip } from "@/components/happenings/TodaysDealsStrip";
 import { todaysDeals } from "@/lib/happenings/today-deals";
 import { occurrenceIsPastLocalHours } from "@/lib/happenings/local-hours";
 import { leadWithPhotos } from "@/lib/happenings/hero";
+import { KIDS_RAIL_MIN, kidsRailCards } from "@/lib/happenings/kids-rail";
+import { weekendDates } from "@/lib/happenings/format";
 import { AmbientWeather } from "@/components/weather/AmbientWeather";
 import { usePrefs } from "@/lib/personalise/usePrefs";
 import { openMakeFomoYours } from "@/lib/personalise/trigger";
@@ -313,6 +315,26 @@ export function HomeClient({ initialFeed = null }: HomeClientProps) {
   const feed = feedResult.data ?? (feedWindow === "now" ? initialFeed : null);
   const feedError = feedResult.error != null && feed === null;
 
+  // "Out with the kids" rail — only for a visitor who said "I've got kids"
+  // (`prefs.kids` is false on the server and through hydration, and while
+  // signed out, so there's no mismatch). `key: null` skips both fetches
+  // otherwise; the keys are the ones Today/Coming up already use, so they are
+  // usually warm. Today's window stands in for itself when it's the active tab.
+  const kidsNowResult = useCachedJson<FeedResponse>(prefs.kids ? "feed:now" : null, (signal) => fetchFeed("now", signal), {
+    staleMs: FEED_STALE_MS,
+  });
+  const kidsLaterResult = useCachedJson<FeedResponse>(prefs.kids ? "feed:coming_up" : null, (signal) => fetchFeed("coming_up", signal), {
+    staleMs: FEED_STALE_MS,
+  });
+  const kidsNowFeed = kidsNowResult.data ?? (feedWindow === "now" ? feed : null);
+  const kidsRail = useMemo(
+    () =>
+      prefs.kids && kidsNowFeed
+        ? kidsRailCards(kidsNowFeed, kidsLaterResult.data, weekendDates(), dealWho)
+        : [],
+    [prefs.kids, kidsNowFeed, kidsLaterResult.data, dealWho]
+  );
+
   // Weather — keyed on the resolved city so switching city (or geolocation
   // resolving after the picker hasn't been touched) fetches its own cache
   // slot rather than clobbering another city's reading.
@@ -446,8 +468,8 @@ export function HomeClient({ initialFeed = null }: HomeClientProps) {
   // what every "You qualify" badge already reads too, so the boost and the
   // badge can never disagree about who qualifies.
   const boostPrefs: BoostPrefs = useMemo(
-    () => ({ interests: prefs.interests, budget: prefs.budget, who: dealWho }),
-    [prefs.interests, prefs.budget, dealWho]
+    () => ({ interests: prefs.interests, budget: prefs.budget, who: dealWho, kids: prefs.kids }),
+    [prefs.interests, prefs.budget, dealWho, prefs.kids]
   );
   const boostedWhatsOnCards = useMemo(
     () => reorderWithBoost(whatsOnCards, (card) => personalBoost(card, boostPrefs, affinity)),
@@ -696,13 +718,23 @@ export function HomeClient({ initialFeed = null }: HomeClientProps) {
               a text line plus a full-width link bar stacked under it. */}
           <div className="flex items-center justify-between gap-3 px-1">
             <p className="min-w-0 text-label-md text-on-surface-variant">{windowSummary()}</p>
-            <Link
-              href="/weekend"
-              className="flex h-9 shrink-0 items-center gap-1 rounded-full border border-hairline bg-surface-container-low px-3 text-label-md font-semibold text-primary transition-opacity hover:opacity-80"
-            >
-              This weekend
-              <Icon name="chevron_right" size={18} />
-            </Link>
+            <div className="flex shrink-0 items-center gap-2">
+              {/* The only phone entry to /kids for visitors who haven't said
+                  "I've got kids" (the side nav is desktop-only). */}
+              <Link
+                href="/kids"
+                className="flex h-9 shrink-0 items-center gap-1 rounded-full border border-hairline bg-surface-container-low px-3 text-label-md font-semibold text-primary transition-opacity hover:opacity-80"
+              >
+                With kids
+              </Link>
+              <Link
+                href="/weekend"
+                className="flex h-9 shrink-0 items-center gap-1 rounded-full border border-hairline bg-surface-container-low px-3 text-label-md font-semibold text-primary transition-opacity hover:opacity-80"
+              >
+                This weekend
+                <Icon name="chevron_right" size={18} />
+              </Link>
+            </div>
           </div>
           {switchToast ? (
             <button
@@ -791,6 +823,11 @@ export function HomeClient({ initialFeed = null }: HomeClientProps) {
             whether that's from this banner, the first-save trigger
             (components/ui/SaveButton.tsx), or Profile's own Edit. */}
         {!prefs.done ? <MakeFomoYoursBanner onDismiss={() => void prefs.dismiss()} className="lg:hidden" /> : null}
+
+        {/* "Out with the kids" — kid-friendly cards from today and this
+            weekend, for a visitor who said "I've got kids" (Make Fomo yours).
+            Hidden when fewer than KIDS_RAIL_MIN cards qualify. */}
+        {kidsRail.length >= KIDS_RAIL_MIN ? <KidsRail cards={kidsRail} /> : null}
 
         {/* What's on — window-driven, one chronological list (see
             app/api/feed/route.ts's doc comment on `whatsOn`). Hidden entirely

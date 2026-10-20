@@ -5,7 +5,7 @@ import type { Happening } from "@/lib/happenings/types";
 import type { EventItem } from "@/lib/types";
 import type { FeedCardData } from "@/lib/happenings/feed-types";
 import type { FindItem } from "@/lib/finds/types";
-import { MAX_PER_INTEREST, buildForYou, hasTaste } from "./for-you";
+import { MAX_PER_INTEREST, buildForYou, hasTaste, personalReason } from "./for-you";
 import type { BoostPrefs } from "./score";
 
 const NOW = new Date("2026-10-12T10:00:00Z");
@@ -156,4 +156,19 @@ test("splits into Deals & offers then Events, and drops an empty group", () => {
 
   const eventsOnly = buildForYou({ finds: [], cards: [gig], prefs: NO_PREFS, affinity: {}, now: NOW });
   assert.deepEqual(eventsOnly.groups.map((g) => g.key), ["events"]);
+});
+
+test("I've got kids: kid-friendly cards get a reason and a boost, others none", () => {
+  const kidsPrefs: BoostPrefs = { interests: [], budget: "any", who: ["families"], kids: true };
+  const kid = hapCard(happening("k", { category: "family" }));
+  const allAges = hapCard(happening("aa", { category: "museum", family_fit: "all_ages" }));
+  const plain = hapCard(happening("p", { category: "comedy" }));
+  assert.equal(hasTaste(kidsPrefs, {}), true);
+  assert.equal(hasTaste({ ...kidsPrefs, who: [] }, {}), true);
+  assert.equal(personalReason(kid, kidsPrefs, {}), "Good with kids");
+  assert.equal(personalReason(allAges, kidsPrefs, {}), "Good with kids");
+  assert.equal(personalReason(plain, kidsPrefs, {}), null);
+  const r = buildForYou({ finds: [], cards: [plain, allAges, kid], prefs: kidsPrefs, affinity: {}, now: NOW });
+  assert.deepEqual(r.more.map((e) => e.key), ["happening:k", "happening:aa", "happening:p"]);
+  assert.equal(r.more.find((e) => e.key === "happening:k")?.reason, "Good with kids");
 });

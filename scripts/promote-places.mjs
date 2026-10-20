@@ -139,6 +139,9 @@ const PLACES_COLUMNS = [
   "prefecture",
   "country",
   "last_verified_at",
+  // supabase/add_family_fit.sql — 'kids' | 'all_ages'. Null values are skipped by buildPlaceRow,
+  // so batches that never set it do not need the column.
+  "family_fit",
 ];
 
 function buildPlaceRow(staging) {

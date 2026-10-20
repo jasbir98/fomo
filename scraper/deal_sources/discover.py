@@ -172,7 +172,14 @@ def discover(source: DealSource, fetcher: PoliteFetcher, now: datetime) -> tuple
             # A URL with no <lastmod> cannot be shown to be recent, so it is dropped.
             aware_now = now if now.tzinfo else now.replace(tzinfo=timezone.utc)
             cutoff = aware_now - timedelta(days=window)
-            entries = [(u, lm) for u, lm in entries if (_sitemap_date(lm) or datetime.min.replace(tzinfo=timezone.utc)) >= cutoff]
+            always = re.compile(cfg["always_pattern"], re.I) if cfg.get("always_pattern") else None
+            # `always_pattern` URLs are evergreen pages (soft play, holiday camps) that may
+            # not have been edited inside the window; they skip the <lastmod> test.
+            entries = [
+                (u, lm) for u, lm in entries
+                if (always and always.search(u))
+                or (_sitemap_date(lm) or datetime.min.replace(tzinfo=timezone.utc)) >= cutoff
+            ]
         refs = [PageRef(url=u) for u in filter_urls([u for u, _lm in entries], cfg.get("pattern"), cfg.get("limit"))]
     elif kind == "link_list":
         resp = fetcher.get(cfg["url"])

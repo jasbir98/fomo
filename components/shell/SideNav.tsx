@@ -16,6 +16,7 @@ const BROWSE: NavItem[] = [
   { href: "/book-early", icon: "confirmation_number", label: "Book early", text: "text-primary", pill: "bg-primary/10" },
   { href: "/free", icon: "redeem", label: "Free any time", text: "text-primary", pill: "bg-primary/10" },
   { href: "/weekend", icon: "weekend", label: "This weekend", text: "text-primary", pill: "bg-primary/10" },
+  { href: "/kids", icon: "family_restroom", label: "With kids", text: "text-primary", pill: "bg-primary/10" },
 ];
 const TIP: NavItem = { href: "/tip", icon: "lightbulb", label: "Suggest a tip", text: "text-primary", pill: "bg-primary/10" };
 const PROFILE: NavItem = { href: "/profile", icon: "person", label: "Profile", text: "text-primary", pill: "bg-primary/10" };

@@ -17,9 +17,10 @@
  * eligibility and re-deriving them in the browser.
  */
 import type { HappeningCategory, HappeningEligibility } from "@/lib/happenings/types";
+import { familyFitForHappening } from "@/lib/happenings/family";
 
 export type DealWhatGroup = "food_drink" | "culture" | "activities" | "sports" | "wellness";
-export type DealWhoGroup = "students" | "residents" | "under_26" | "over_60";
+export type DealWhoGroup = "students" | "residents" | "under_26" | "over_60" | "families";
 
 export const WHAT_GROUP_LABEL: Record<DealWhatGroup, string> = {
   food_drink: "Food & drink",
@@ -34,13 +35,14 @@ export const WHO_GROUP_LABEL: Record<DealWhoGroup, string> = {
   residents: "EH residents",
   under_26: "Under 26",
   over_60: "Over 60",
+  families: "Families",
 };
 
 /** Chip order for the WHAT row, "All" first (represented client-side as `null`, not a member of the union — see DealFilters). Sports sits next to Activities, the bucket it used to fall into before it got its own group. */
 export const WHAT_GROUP_ORDER: DealWhatGroup[] = ["food_drink", "culture", "activities", "sports", "wellness"];
 
 /** Chip order for the WHO row. No "All" chip in the union itself — the default, unfiltered state is "no chip selected" (`null`), per the task's own note that member/cardholder (and, since `anyone` maps to `null` too — see ELIGIBILITY_TO_WHO — unrestricted) rows should only show then. There's deliberately no "Everyone" chip: every deal already shows in that unfiltered default, so a chip that means the same thing as "no chip selected" would be redundant. */
-export const WHO_GROUP_ORDER: DealWhoGroup[] = ["students", "residents", "under_26", "over_60"];
+export const WHO_GROUP_ORDER: DealWhoGroup[] = ["students", "residents", "under_26", "over_60", "families"];
 
 /**
  * The visitor's own deals profile — the WHO groups they said they belong to
@@ -85,6 +87,7 @@ const ELIGIBILITY_TO_WHO: Partial<Record<HappeningEligibility, DealWhoGroup>> = 
   local_resident: "residents",
   under_26: "under_26",
   over_60: "over_60",
+  family: "families",
   // anyone / member / cardholder deliberately absent: those rows should
   // surface only in the unfiltered ("no WHO chip selected") state, never
   // under a specific WHO chip. Returning `null` for them means they never
@@ -101,13 +104,20 @@ export function whoGroupForEligibility(eligibility: HappeningEligibility): DealW
 export interface DealFacets {
   what: DealWhatGroup;
   who: DealWhoGroup | null;
+  /** Aimed at children (`family_fit` kids, category "family" or a family-only offer — lib/happenings/family.ts), whatever its `eligibility`: a "kids go free" deal open to anyone still belongs under the Families chip. Optional so a client-cached feed from before this field existed still type-checks. */
+  kidFriendly?: boolean;
 }
 
 export function dealFacets(h: {
   category: HappeningCategory | null;
   eligibility: HappeningEligibility;
+  family_fit?: "kids" | "all_ages" | null;
 }): DealFacets {
-  return { what: whatGroupForCategory(h.category), who: whoGroupForEligibility(h.eligibility) };
+  return {
+    what: whatGroupForCategory(h.category),
+    who: whoGroupForEligibility(h.eligibility),
+    kidFriendly: familyFitForHappening(h) === "kids",
+  };
 }
 
 /**
@@ -122,6 +132,7 @@ export function matchesDealFilters(
   whoFilter: DealWhoGroup | null
 ): boolean {
   if (whatFilter != null && facets.what !== whatFilter) return false;
+  if (whoFilter === "families") return facets.who === "families" || facets.kidFriendly === true;
   if (whoFilter != null && facets.who !== whoFilter) return false;
   return true;
 }

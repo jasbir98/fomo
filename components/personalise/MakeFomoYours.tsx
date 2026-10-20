@@ -28,7 +28,7 @@ const BUDGET_OPTIONS: { value: FomoBudget; label: string }[] = [
 /**
  * "Make Fomo yours" — the one card that replaces Profile's old 4-chip "Deals
  * for you" selector (task brief). One scrollable sheet, not a wizard: status
- * → two yes/no toggles (+ Over 60 under "More") → up to 5 interest chips →
+ * → two yes/no toggles (+ Over 60 under "More") → "I've got kids" → up to 5 interest chips →
  * budget → Save / Skip for now. Reused for all three triggers (first save,
  * Home's dismissible banner, and Profile's own "Edit") — same component,
  * same state shape (lib/personalise/usePrefs.ts), so there's exactly one
@@ -60,6 +60,7 @@ export function MakeFomoYours({ open, onClose }: MakeFomoYoursProps) {
   const [residents, setResidents] = useState(draft.residents);
   const [over60, setOver60] = useState(draft.over60);
   const [showMore, setShowMore] = useState(draft.over60);
+  const [kids, setKids] = useState(draft.kids);
   const [interests, setInterests] = useState<InterestKey[]>(draft.interests);
   const [budget, setBudget] = useState<FomoBudget>(draft.budget);
   const [saving, setSaving] = useState(false);
@@ -80,6 +81,7 @@ export function MakeFomoYours({ open, onClose }: MakeFomoYoursProps) {
       setResidents(draft.residents);
       setOver60(draft.over60);
       setShowMore(draft.over60);
+      setKids(draft.kids);
       setInterests(draft.interests);
       setBudget(draft.budget);
       setError(null);
@@ -98,8 +100,9 @@ export function MakeFomoYours({ open, onClose }: MakeFomoYoursProps) {
     setSaving(true);
     setError(null);
     try {
-      await prefs.save({ status, under26, residents, over60, interests, budget, done: true });
+      await prefs.save({ status, under26, residents, over60, kids, interests, budget, done: true });
       track("prefs_completed");
+      if (kids !== draft.kids) track("kids_pref_set", { on: kids });
       onClose();
       // Saved locally above; the picks only take effect once they have an
       // account, so hand off to sign-in and bring them to their picks.
@@ -170,6 +173,18 @@ export function MakeFomoYours({ open, onClose }: MakeFomoYoursProps) {
             className="min-h-[44px]"
             onClick={() => setResidents((v) => !v)}
           />
+        </div>
+
+        <div className="flex flex-col gap-1">
+          <Chip
+            label="I've got kids"
+            leadingIcon={kids ? "check" : "family_restroom"}
+            selected={kids}
+            aria-pressed={kids}
+            className="min-h-[44px] w-fit"
+            onClick={() => setKids((v) => !v)}
+          />
+          <p className="px-1 text-label-sm text-on-surface-variant">Show kid-friendly stuff and family deals</p>
         </div>
 
         {showMore ? (

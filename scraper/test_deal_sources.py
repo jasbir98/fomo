@@ -401,6 +401,7 @@ class DiscoverTests(unittest.TestCase):
             "forever-edinburgh-offers", "more-by-the-shore", "resident-rewards",
             "itison-edinburgh", "fort-kinnaird-offers", "omni-centre-offers",
             "edinburgh-leisure-offers", "pizzaexpress-offers",
+            "scotrail-kids-for-a-quid", "cineworld-family-films", "picturehouse-kids-club",
         })
         self.assertTrue(all(s.status in ("shadow", "live") for s in SOURCES))
         by_id = {s.id: s for s in SOURCES}

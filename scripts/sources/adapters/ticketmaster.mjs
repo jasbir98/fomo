@@ -99,6 +99,7 @@ export function mapTicketmasterEvent(event, { destination, now }) {
   const lat = venue?.location?.latitude != null ? Number(venue.location.latitude) : null;
   const lng = venue?.location?.longitude != null ? Number(venue.location.longitude) : null;
   const segmentName = event.classifications?.[0]?.segment?.name;
+  // TODO family signal: TM's classifications[].family flag is unverified (no fixture / typed field here), so family_fit falls back to the keyword classifier.
   const price = event.priceRanges?.[0];
 
   const row = {

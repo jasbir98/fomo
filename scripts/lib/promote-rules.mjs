@@ -57,3 +57,22 @@ export function chunk(list, size) {
 export function inList(values) {
   return `(${values.map((v) => `"${String(v).replace(/"/g, '\\"')}"`).join(",")})`;
 }
+
+/**
+ * True when a PostgREST/Postgres error says `column` does not exist: PGRST204
+ * ("Could not find the 'x' column of 't' in the schema cache"), 42703
+ * ("column ... does not exist") or the bare text of either. `message` is the
+ * Error message or the raw response body. Used to keep promotion working before
+ * a migration (e.g. happenings.family_fit) has been run.
+ */
+export function isMissingColumnError(message, column) {
+  const text = String(message ?? "");
+  if (!text.includes(column)) return false;
+  return /PGRST204|42703|could not find the .* column|column .* does not exist/i.test(text);
+}
+
+/** A copy of `row` without `column` (the retry payload for a missing column). */
+export function withoutColumn(row, column) {
+  const { [column]: _dropped, ...rest } = row;
+  return rest;
+}

@@ -41,7 +41,7 @@ test("happenings: needs an occurrence inside the window", () => {
   assert.deepEqual(ids(got).sort(), ["in", "weekly"]);
 });
 
-test("happenings: not live, wrong city, family-only and over-60-only are dropped", () => {
+test("happenings: not live, wrong city, past season and over-60-only are dropped; family is kept", () => {
   const got = scoreCandidates({
     ...base,
     events: [],
@@ -57,7 +57,20 @@ test("happenings: not live, wrong city, family-only and over-60-only are dropped
       happening({ id: "pastseason", starts_at: SOON, season_valid_until: "2026-10-01" }),
     ],
   });
-  assert.deepEqual(ids(got).sort(), ["national", "ok", "region"]);
+  assert.deepEqual(ids(got).sort(), ["family", "national", "ok", "region"]);
+});
+
+test("family category and family eligibility are kept; over-60-only is still dropped", () => {
+  const got = scoreCandidates({
+    ...base,
+    events: [],
+    happenings: [
+      happening({ id: "famcat", starts_at: SOON, category: "family" }),
+      happening({ id: "fameligible", starts_at: SOON, eligibility: "family" }),
+      happening({ id: "over60", starts_at: SOON, eligibility: "over_60" }),
+    ],
+  });
+  assert.deepEqual(ids(got).sort(), ["famcat", "fameligible"]);
 });
 
 test("evergreen (`always`) rows only when a genuine deal, scored by evergreenDealScore", () => {
@@ -83,7 +96,7 @@ test("evergreen score: free + image beats unverified image-less; stale and narro
   assert.ok(strong > weak + 40, `${strong} vs ${weak}`);
 });
 
-test("events: free or <= £15, active, starting in the window; priced/unpriced/ended/off/family dropped", () => {
+test("events: free or <= £15, active, starting in the window; priced/unpriced/ended/off dropped; family kept", () => {
   const got = scoreCandidates({
     ...base,
     happenings: [],
@@ -98,7 +111,7 @@ test("events: free or <= £15, active, starting in the window; priced/unpriced/e
       event({ id: "family", is_free: true, category: "family" }),
     ],
   });
-  assert.deepEqual(ids(got).sort(), ["cheap", "free"]);
+  assert.deepEqual(ids(got).sort(), ["cheap", "family", "free"]);
 });
 
 test("events collapse by title (a daily tour is one candidate, its best-scoring row) and yield to a same-day happening", () => {

@@ -6,6 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import type { FeedCardData, FeedResponse, FeedWindow } from "@/lib/happenings/feed-types";
 import { weekendDates } from "@/lib/happenings/format";
 import { isFreeCard } from "@/lib/happenings/price-label";
+import { isKidFriendly } from "@/lib/happenings/family";
 import { distinctCategoryFacets, matchesCategoryFilter, type CategoryFacetKey } from "@/lib/happenings/whats-on-filters";
 import { useCachedJson } from "@/lib/http/clientCache";
 import { useProgressiveReveal } from "@/lib/useProgressiveReveal";
@@ -89,12 +90,13 @@ export interface WhatsOnInitial {
 
 interface WhatsOnViewProps {
   initial: WhatsOnInitial | null;
-  /** `?window=` and `?free=` at mount; see `WhatsOnClient` for why they arrive as props. */
+  /** `?window=`, `?free=` and `?kids=` at mount; see `WhatsOnClient` for why they arrive as props. */
   windowParam: string | null;
   freeParam: boolean;
+  kidsParam: boolean;
 }
 
-function WhatsOnView({ initial, windowParam, freeParam }: WhatsOnViewProps) {
+function WhatsOnView({ initial, windowParam, freeParam, kidsParam }: WhatsOnViewProps) {
   const router = useRouter();
   const initialWindow: Exclude<FeedWindow, "book_early"> = isWhatsOnWindow(windowParam) ? windowParam : "now";
   const [feedWindow, setFeedWindowState] = useState<Exclude<FeedWindow, "book_early">>(initialWindow);
@@ -105,6 +107,8 @@ function WhatsOnView({ initial, windowParam, freeParam }: WhatsOnViewProps) {
   // `?window=`) so an IG link like askfomo.com/whats-on?free=1 lands
   // pre-filtered — same URL-as-state principle as `feedWindow` above.
   const [freeOnly, setFreeOnlyState] = useState(freeParam);
+  // "With kids" (families lens): same URL-as-state treatment, `?kids=1`.
+  const [withKids, setWithKidsState] = useState(kidsParam);
   // "For you" (task brief §3) — unlike every other filter on this page, this
   // is purely a display sort, never applied to `/whats-on`'s own date
   // ordering by default (the brief: "Not on /whats-on full list date
@@ -135,8 +139,8 @@ function WhatsOnView({ initial, windowParam, freeParam }: WhatsOnViewProps) {
   const affinity = useAffinity();
   const signedIn = useSignedIn();
   const boostPrefs: BoostPrefs = useMemo(
-    () => ({ interests: prefs.interests, budget: prefs.budget, who }),
-    [prefs.interests, prefs.budget, who]
+    () => ({ interests: prefs.interests, budget: prefs.budget, who, kids: prefs.kids }),
+    [prefs.interests, prefs.budget, who, prefs.kids]
   );
 
   function setFreeOnly(next: boolean) {
@@ -145,6 +149,15 @@ function WhatsOnView({ initial, windowParam, freeParam }: WhatsOnViewProps) {
     const params = new URLSearchParams(window.location.search);
     if (next) params.set("free", "1");
     else params.delete("free");
+    router.replace(`/whats-on?${params.toString()}`, { scroll: false });
+  }
+
+  function setWithKids(next: boolean) {
+    setWithKidsState(next);
+    track("kids_filter_toggled", { surface: "whats_on", on: next });
+    const params = new URLSearchParams(window.location.search);
+    if (next) params.set("kids", "1");
+    else params.delete("kids");
     router.replace(`/whats-on?${params.toString()}`, { scroll: false });
   }
 
@@ -190,6 +203,7 @@ function WhatsOnView({ initial, windowParam, freeParam }: WhatsOnViewProps) {
     setCategoryFilter(null);
     const params = new URLSearchParams({ window: next });
     if (freeOnly) params.set("free", "1");
+    if (withKids) params.set("kids", "1");
     router.replace(`/whats-on?${params.toString()}`, { scroll: false });
   }
 
@@ -246,14 +260,17 @@ function WhatsOnView({ initial, windowParam, freeParam }: WhatsOnViewProps) {
   const filteredCards = useMemo(
     () =>
       dateFilteredCards.filter(
-        (c) => matchesCategoryFilter(c, categoryFilter) && (!freeOnly || isFreeCard(c))
+        (c) => matchesCategoryFilter(c, categoryFilter) && (!freeOnly || isFreeCard(c)) && (!withKids || isKidFriendly(c))
       ),
-    [dateFilteredCards, categoryFilter, freeOnly]
+    [dateFilteredCards, categoryFilter, freeOnly, withKids]
   );
 
   const filteredAnyDay = useMemo(
-    () => anyDayAll.filter((c) => matchesCategoryFilter(c, categoryFilter) && (!freeOnly || isFreeCard(c))),
-    [anyDayAll, categoryFilter, freeOnly]
+    () =>
+      anyDayAll.filter(
+        (c) => matchesCategoryFilter(c, categoryFilter) && (!freeOnly || isFreeCard(c)) && (!withKids || isKidFriendly(c))
+      ),
+    [anyDayAll, categoryFilter, freeOnly, withKids]
   );
 
   // "For you" (task brief §3) — a genuine re-sort by `personalBoost`, not
@@ -298,6 +315,7 @@ function WhatsOnView({ initial, windowParam, freeParam }: WhatsOnViewProps) {
         return dateFilter === "weekend" ? "Nothing this weekend. Try another date." : "Nothing on that day. Try another date.";
       }
       if (freeOnly) return "Nothing free matches. Turn off Free only.";
+      if (withKids) return "Nothing kid-friendly matches. Turn off With kids.";
       return "Nothing matches. Try a different filter.";
     }
     if (dateFilter === "weekend") return "Nothing lined up for this weekend yet. Check back soon.";
@@ -322,6 +340,13 @@ function WhatsOnView({ initial, windowParam, freeParam }: WhatsOnViewProps) {
   const categoryChips = (
     <>
       <Chip label="Free only" leadingIcon="check_circle" selected={freeOnly} onClick={() => setFreeOnly(!freeOnly)} />
+      <Chip
+        label="With kids"
+        leadingIcon="family_restroom"
+        selected={withKids}
+        aria-pressed={withKids}
+        onClick={() => setWithKids(!withKids)}
+      />
       <Chip
         label="For you"
         leadingIcon="auto_awesome"
@@ -457,7 +482,14 @@ function WhatsOnView({ initial, windowParam, freeParam }: WhatsOnViewProps) {
 
 function WhatsOnWithParams({ initial }: { initial: WhatsOnInitial | null }) {
   const searchParams = useSearchParams();
-  return <WhatsOnView initial={initial} windowParam={searchParams.get("window")} freeParam={searchParams.get("free") === "1"} />;
+  return (
+    <WhatsOnView
+      initial={initial}
+      windowParam={searchParams.get("window")}
+      freeParam={searchParams.get("free") === "1"}
+      kidsParam={searchParams.get("kids") === "1"}
+    />
+  );
 }
 
 /**
@@ -466,11 +498,11 @@ function WhatsOnWithParams({ initial }: { initial: WhatsOnInitial | null }) {
  * in the browser: the HTML holds just the fallback. So the fallback is the
  * page itself with the default params (Today, every price), filled from the
  * server's feed. That is what crawlers and the first paint see; on load the
- * browser swaps in the same view with the real `?window=`/`?free=`.
+ * browser swaps in the same view with the real `?window=`/`?free=`/`?kids=`.
  */
 export function WhatsOnClient({ initial }: { initial: WhatsOnInitial | null }) {
   return (
-    <Suspense fallback={<WhatsOnView initial={initial} windowParam={null} freeParam={false} />}>
+    <Suspense fallback={<WhatsOnView initial={initial} windowParam={null} freeParam={false} kidsParam={false} />}>
       <WhatsOnWithParams initial={initial} />
     </Suspense>
   );
