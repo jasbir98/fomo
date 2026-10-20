@@ -38,7 +38,7 @@ import type { DealWhoGroup } from "@/lib/happenings/groups";
 import type { FindItem } from "@/lib/finds/types";
 import type { AffinityMap } from "./affinity";
 import { INTEREST_LABEL } from "./interests";
-import { cardInterest, cardWho, fitsBudget, personalBoost, type BoostPrefs } from "./score";
+import { cardInterest, cardWho, fitsBudget, kidsBoost, personalBoost, type BoostPrefs } from "./score";
 
 type Card = FeedCardData | DealCardData;
 
@@ -66,6 +66,7 @@ const WHO_REASON: Record<DealWhoGroup, string> = {
   residents: "For EH residents",
   under_26: "Under-26 offer",
   over_60: "Over-60 offer",
+  families: "Family offer",
 };
 
 export interface ForYouEntry {
@@ -120,6 +121,7 @@ export function hasTaste(prefs: BoostPrefs, affinity: AffinityMap): boolean {
     prefs.interests.length > 0 ||
     prefs.budget !== "any" ||
     prefs.who.length > 0 ||
+    prefs.kids === true ||
     Object.values(affinity).some((n) => (n ?? 0) > 0)
   );
 }
@@ -159,6 +161,7 @@ export function personalReason(card: Card, prefs: BoostPrefs, affinity: Affinity
   if (interest && prefs.interests.includes(interest)) return `You're into ${INTEREST_LABEL[interest]}`;
   const who = cardWho(card);
   if (who && prefs.who.includes(who)) return WHO_REASON[who];
+  if (prefs.kids && kidsBoost(card) > 0) return "Good with kids";
   if (fitsBudget(card, prefs.budget)) return prefs.budget === "free" ? "Free" : "Under £10";
   if (interest && (affinity[interest] ?? 0) > 0) return "Like things you've saved";
   return null;

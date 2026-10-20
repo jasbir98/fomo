@@ -187,6 +187,7 @@ export const ELIGIBILITY_FALLBACK: Record<HappeningEligibility, string | null> =
   over_60: "Over 60s",
   member: "Members",
   cardholder: "Cardholders",
+  family: "With kids",
 };
 
 /** Material Symbols icon for the eligibility line — "badge" default, a couple of more specific glyphs where they read better. */
@@ -198,6 +199,7 @@ export const ELIGIBILITY_ICON: Record<HappeningEligibility, string> = {
   over_60: "cake",
   member: "card_membership",
   cardholder: "card_membership",
+  family: "family_restroom",
 };
 
 /**

@@ -75,6 +75,8 @@ new: `instrumentation-client.ts` (init), `next.config.ts` (reverse proxy),
 | `subscribe_submitted` | `surface` (home/weekend/signup/finds/plan) | `SubscribeCard` ("Get Fomo Friday"), on success |
 | `tip_submitted` | `type` (tip/feedback) | `/tip` page, on success |
 | `prefs_completed` / `prefs_skipped` | — | `MakeFomoYours` — Save vs. Skip for now |
+| `kids_pref_set` | `on` | `MakeFomoYours` — on Save, when the "I've got kids" toggle changed |
+| `kids_filter_toggled` | `surface` (whats_on/weekend/free/deals/explore), `on` | The "With kids" chip on `/whats-on`, `/weekend` and `/free`; the "Families" WHO chip on `/deals`; the "Kids" category chip on Explore |
 | `signin_completed` | `method` (email/google/apple) | `/signin`, once per real sign-in (see below) |
 | `pwa_installed` | — | `AppShell`'s `appinstalled` listener |
 | `consent_choice` | `choice` (accepted/declined) | `ConsentBar`, on OK / No thanks |

@@ -34,6 +34,7 @@ import { eventDayLabel } from "@/lib/events/format";
 import type { Happening, HappeningEligibility, Occurrence } from "@/lib/happenings/types";
 import type { EventItem } from "@/lib/types";
 import type { FeedCardData } from "@/lib/happenings/feed-types";
+import { familyFitForEvent, familyFitForHappening } from "@/lib/happenings/family";
 
 /** Value's own sub-score never contributes more than this — a big saving on
  *  a mediocre-otherwise item shouldn't outrank a merely-good, well-rounded
@@ -46,7 +47,7 @@ export const HERO_VALUE_CAP = 35;
  *  `cardholder` describes HOW you redeem, not who's excluded, and `anyone`
  *  is the unrestricted default) is still eligible for the slot, just marked
  *  down rather than disqualified. */
-const NARROW_ELIGIBILITY = new Set<HappeningEligibility>(["student", "under_26", "over_60", "local_resident"]);
+const NARROW_ELIGIBILITY = new Set<HappeningEligibility>(["student", "under_26", "over_60", "local_resident", "family"]);
 
 /** Filename words that mean the "photo" is really a document or graphic —
  *  a timetable, fixture list, poster, menu, logo or screenshot. Matched on
@@ -80,6 +81,22 @@ export function isPhotoImage(url: string | null | undefined): boolean {
     // Malformed escape — test the raw name.
   }
   return !DOCUMENT_IMAGE_NAME.test(name);
+}
+
+/**
+ * Whether a happening may take the Home hero slot. Family content is mixed in
+ * for everyone, but the hero is the first thing a visitor sees, so an item aimed
+ * at children (`family_fit: 'kids'`, incl. the category / eligibility 'family'
+ * fallbacks in family.ts) never takes it. `all_ages` stays eligible. A hard
+ * filter on the candidate set, not a score tweak.
+ */
+export function heroEligibleHappening(h: Parameters<typeof familyFitForHappening>[0]): boolean {
+  return familyFitForHappening(h) !== "kids";
+}
+
+/** Event counterpart of `heroEligibleHappening`. */
+export function heroEligibleEvent(e: Parameters<typeof familyFitForEvent>[0]): boolean {
+  return familyFitForEvent(e) !== "kids";
 }
 
 function clamp(value: number, lo: number, hi: number): number {

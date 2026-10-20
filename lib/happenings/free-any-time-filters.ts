@@ -140,12 +140,20 @@ export function distinctValues(items: FreeAnyTimeItem[], pick: (item: FreeAnyTim
   return values.sort((a, b) => a.localeCompare(b));
 }
 
+/** `withKids` is the "With kids" toggle — keeps only items whose `familyFit` (lib/happenings/family.ts) is set, `kids` or `all_ages`. */
 export function matchesFreeAnyTimeFilters(
   item: FreeAnyTimeItem,
   typeBucket: string | null,
-  district: string | null
+  district: string | null,
+  withKids = false
 ): boolean {
   if (typeBucket != null && typeToTypeBucket(item.typeLabel) !== typeBucket) return false;
   if (district != null && item.district !== district) return false;
+  if (withKids && !item.familyFit) return false;
   return true;
+}
+
+/** True when at least one item is kid-friendly — the "With kids" option only shows then, so it never leads to an empty list. */
+export function hasKidFriendly(items: FreeAnyTimeItem[]): boolean {
+  return items.some((i) => Boolean(i.familyFit));
 }

@@ -57,7 +57,8 @@ import { eligibilityLine, happeningTimeLabel, recurrencePatternLabel, savingBadg
 import { parseWhoGroups, WHO_GROUP_LABEL, type DealWhoGroup } from "@/lib/happenings/groups";
 import { formatEventPrice, formatEventWhen, eventHasEnded } from "@/lib/events/format";
 import type { AiReplyBlock, ChatItem, ChatPlace } from "@/lib/fomo-ai";
-import type { Happening } from "@/lib/happenings/types";
+import { familyFitForEvent, familyFitForHappening } from "@/lib/happenings/family";
+import type { FamilyFit, Happening } from "@/lib/happenings/types";
 import { defaultImageFor } from "@/lib/happenings/category-style";
 import { eventImageFor } from "@/lib/events/image";
 import { resolveHappeningCoords, loadPlacesForHappenings } from "@/lib/explore/coords";
@@ -226,6 +227,15 @@ function venueFacts(place: Place | undefined, now: Date): string | null {
   return parts.length > 0 ? parts.join(", ") : null;
 }
 
+/**
+ * The "who it's for · category · family" column. The family marker
+ * (`family:kids` aimed at children, `family:all_ages` good with kids but for
+ * anyone) is only written when set, so most lines stay as short as before.
+ */
+function whoColumn(who: string | null, category: string | null | undefined, fit: FamilyFit | null): string {
+  return [who, category, fit ? `family:${fit}` : null].filter((x): x is string => !!x).join(" · ");
+}
+
 async function buildCatalogue(db: Db, now: Date): Promise<Catalogue> {
   const to = new Date(now.getTime() + CATALOGUE_DAYS * 86_400_000);
   const [happenings, events] = await Promise.all([
@@ -290,7 +300,7 @@ async function buildCatalogue(db: Db, now: Date): Promise<Catalogue> {
         // an "always" voucher reads as good for any evening.
         field(h.time_note?.replace(/\s+/g, " ").slice(0, TIME_NOTE_CHARS), "not stated"),
         field(where, CITY.name),
-        field(eligibilityLine(h), "anyone"),
+        field(whoColumn(eligibilityLine(h) ?? "anyone", h.category, familyFitForHappening(h)), "anyone"),
         field(h.summary?.slice(0, 100), ""),
         field(h.includes?.slice(0, INCLUDES_CHARS), ""),
         field(venueFacts(h.place_id ? placesById.get(h.place_id) : undefined, now), ""),
@@ -329,7 +339,7 @@ async function buildCatalogue(db: Db, now: Date): Promise<Catalogue> {
         daysOnLabel(on, window),
         "as listed",
         field(e.venue_name, CITY.name),
-        field(e.category, ""),
+        field(whoColumn(null, e.category, familyFitForEvent(e)), ""),
       ].join(" | ")
     );
     items.set(key, {
@@ -370,6 +380,7 @@ function buildSystemPrompt(
     `Ground every recommendation in the CATALOGUE below, Fomo's verified list of live deals, free things, festivals and this week's events. When you recommend something concrete, call show_items with its catalogue ids (up to ${MAX_ITEMS_PER_REPLY}, best first) and keep your text short. The app shows each card with its price, time and place. Never state a price, date, time, venue or discount that isn't in the catalogue, and never invent places or events. General ${CITY.name} knowledge (neighbourhoods, getting around, what an area is like) is fine without ids.`,
     `Timing matters. Each catalogue line says which days it's on this week and, for offers, the hours it's valid. Only recommend something for a day and time it actually covers: a Mon-Thu lunch deal is not a weekend answer, and an offer valid 1-4pm on Fridays is not a Friday night plan. When the user names a day or time (tonight, tomorrow, Friday, this weekend), pass those dates to show_items as \`dates\` (and for a time of day like tonight or Friday evening, \`time_from\`/\`time_to\` too, e.g. "17:00" to "24:00"), using this key: ${dateKeyLine(catalogue.window)}. If an offer has limited hours, say them in your text. If nothing fits the time they asked about, say so plainly.`,
     `Don't write any text before calling show_items. Every show_items call needs top_pick_id and top_pick: one line, shown as your message, on why that card is the best choice for what they asked. Say what they actually get, the price or saving, and why it fits their day, budget or group, e.g. "X is your best bet: <what you get> for <price>, and it's on Friday night." Only use facts from that item's catalogue line, and don't also write the same thing as text. Prices are per person unless the title says it's for two. If an item's price is "price varies" or unknown, don't call it cheap or say it fits their budget; say the price isn't listed. A percentage off is not a price: never turn it into a total or claim it's under their budget. A deal's "venue facts" (Google rating, price range, today's opening hours) are facts you may use in top_pick, e.g. "rated 4.6 on Google" or "open till 22:00 today".`,
+    `With kids. When the user mentions kids, children, a baby, toddler, family or "the wee ones", only suggest catalogue items marked family:kids or family:all_ages, or deals whose who-it's-for says family. Never suggest nightlife, bars, clubs or 18+ items in that case. If little fits, say so plainly and show what does. When you call find_places for them, steer the query to kid-friendly places (soft play, playpark, family cafe) and never to bars or pubs.`,
     "If nothing in the catalogue fits, say so plainly and offer the closest match. If a request is too vague to act on, call suggest_quick_replies with 2-4 concrete options instead of guessing.",
     `Catalogue first. Use find_places (a Google Maps search) ONLY when the catalogue has nothing fitting, or the user asks for a type of venue or food (a cheap biryani, a cosy pub, somewhere open now). Don't write any text before calling it. Pass a short query (e.g. "biryani"), plus area, open_now or max_price only if the user gave them. You get results as "P:<id> | name | rating | price | open now? | type | address | summary" lines; then call show_places with the ids of the best ${MAX_PLACES_PER_REPLY} at most, best first, and add a short lead-in. For Google results only state what the results say. Never invent venue facts, and mention prices only if the results give one. If the search is unavailable, answer from the catalogue or general knowledge and don't name specific prices.`,
   ];
@@ -402,7 +413,7 @@ function buildSystemPrompt(
   }
 
   parts.push(
-    `CATALOGUE (id | title | kind | price or saving | when | on (this week) | valid hours | where | who it's for or category | summary | what the price includes | venue facts; the last two only on deals):\n${
+    `CATALOGUE (id | title | kind | price or saving | when | on (this week) | valid hours | where | who it's for · category · family:kids (aimed at children) or family:all_ages (good with kids) | summary | what the price includes | venue facts; the last two only on deals):\n${
       catalogue.lines.length > 0 ? catalogue.lines.join("\n") : "(nothing live right now)"
     }`
   );

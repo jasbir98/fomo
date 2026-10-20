@@ -20,6 +20,8 @@ import type { Happening, Occurrence } from "@/lib/happenings/types";
 import { happeningToPreview, prefetchHappening, setHappeningPreview } from "@/lib/happenings/preview-cache";
 import { track, priceBand, trackOutboundClicked } from "@/lib/analytics/track";
 import { safeHttpUrl } from "@/lib/http/safe-url";
+import { familyFitForHappening } from "@/lib/happenings/family";
+import { GoodWithKidsTag, showGoodWithKids } from "./GoodWithKidsTag";
 import type { FeedCardSurface } from "./FeedListCard";
 import { happeningCtaLabel } from "@/lib/happenings/cta";
 
@@ -177,6 +179,9 @@ export function HappeningHero({ happening, occurrence, variant = "fomo_pick", re
               <span className="block max-w-full truncate rounded-full bg-surface-container-lowest/85 px-2.5 py-0.5 text-label-sm font-semibold text-on-surface backdrop-blur-md">
                 {visibleReason}
               </span>
+            ) : null}
+            {showGoodWithKids(familyFitForHappening(happening), { priceText: badge, familyOffer: happening.eligibility === "family" }) ? (
+              <GoodWithKidsTag className="bg-surface-container-lowest/85 backdrop-blur-md" />
             ) : null}
           </div>
           {badge ? (

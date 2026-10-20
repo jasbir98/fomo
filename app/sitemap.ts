@@ -16,6 +16,7 @@ import { SITE_URL } from "@/lib/seo/site";
 const STATIC_PAGES: { path: string; changesWithCatalogue?: true; lastModified?: string }[] = [
   { path: "/", changesWithCatalogue: true },
   { path: "/weekend", changesWithCatalogue: true },
+  { path: "/kids", changesWithCatalogue: true },
   { path: "/for-you", changesWithCatalogue: true },
   { path: "/deals", changesWithCatalogue: true },
   { path: "/whats-on", changesWithCatalogue: true },

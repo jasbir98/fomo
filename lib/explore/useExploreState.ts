@@ -191,6 +191,7 @@ export function useExploreState() {
   }
 
   function toggleCategory(slug: ExploreCategorySlug) {
+    if (slug === "kids") track("kids_filter_toggled", { surface: "explore", on: !categories.includes(slug) });
     setCategories((prev) => (prev.includes(slug) ? prev.filter((s) => s !== slug) : [...prev, slug]));
     clearCollectionPreset();
   }

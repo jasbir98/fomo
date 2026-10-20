@@ -22,7 +22,7 @@ import { INTEREST_ORDER, type InterestKey } from "./interests";
  * `fomo_who` (lib/useSaved.ts's `setWhoGroups`/`who`) stays the single
  * source every "You qualify" badge and `personalBoost` eligibility check
  * reads — this module DERIVES it from `status`/`under26`/`residents`/
- * `over60` rather than storing its own copy, and writes it back through
+ * `over60`/`kids` rather than storing its own copy, and writes it back through
  * `setWhoGroups` so lib/useSaved.ts's shared store (and everything that
  * already reads `useDealProfile()`/`useSaved().who`) stays in sync for free.
  */
@@ -34,6 +34,8 @@ export interface FomoPrefs {
   under26: boolean;
   residents: boolean;
   over60: boolean;
+  /** "I've got kids" — kid-friendly cards rank higher and family offers read "You qualify". Also puts `families` in `fomo_who`; stored on its own as `fomo_kids` so the toggle round-trips. */
+  kids: boolean;
   interests: InterestKey[];
   budget: FomoBudget;
   /** True once the card has been completed or dismissed (task brief) — gates the first-save trigger and the Home banner. */
@@ -45,6 +47,7 @@ const DEFAULT_PREFS: FomoPrefs = {
   under26: false,
   residents: false,
   over60: false,
+  kids: false,
   interests: [],
   budget: "any",
   done: false,
@@ -57,6 +60,7 @@ interface StoredShape {
   under26?: unknown;
   residents?: unknown;
   over60?: unknown;
+  kids?: unknown;
   interests?: unknown;
   budget?: unknown;
   done?: unknown;
@@ -78,6 +82,7 @@ function normalisePrefs(raw: StoredShape | null | undefined): FomoPrefs {
     under26: raw?.under26 === true,
     residents: raw?.residents === true,
     over60: raw?.over60 === true,
+    kids: raw?.kids === true,
     interests,
     budget: isFomoBudget(raw?.budget) ? raw.budget : "any",
     done: raw?.done === true,
@@ -106,21 +111,25 @@ function writeLocalPrefs(prefs: FomoPrefs): void {
 }
 
 /** Derives the persisted `fomo_who` array from status + toggles. Exported for the score/test modules, which need the same mapping to build a `who` set out of a `FomoPrefs`-shaped object. */
-export function whoFromPrefs(prefs: Pick<FomoPrefs, "status" | "under26" | "residents" | "over60">): DealWhoGroup[] {
+export function whoFromPrefs(
+  prefs: Pick<FomoPrefs, "status" | "under26" | "residents" | "over60"> & { kids?: boolean }
+): DealWhoGroup[] {
   const out: DealWhoGroup[] = [];
   if (prefs.status === "student") out.push("students");
   if (prefs.under26) out.push("under_26");
   if (prefs.residents) out.push("residents");
   if (prefs.over60) out.push("over_60");
+  if (prefs.kids) out.push("families");
   return out;
 }
 
 /** Reverse of `whoFromPrefs`, for reading a signed-in visitor's existing `fomo_who` (set before this feature existed, or edited elsewhere) back into the toggle shape the sheet edits. */
-function togglesFromWho(who: readonly DealWhoGroup[]) {
+export function togglesFromWho(who: readonly DealWhoGroup[]) {
   return {
     under26: who.includes("under_26"),
     residents: who.includes("residents"),
     over60: who.includes("over_60"),
+    kids: who.includes("families"),
   };
 }
 
@@ -152,13 +161,14 @@ const SERVER_SNAPSHOT: PrefsState = { prefs: DEFAULT_PREFS, signedIn: null };
 const getServerSnapshot = (): PrefsState => SERVER_SNAPSHOT;
 
 /** `null` when the account's `user_metadata` carries none of this feature's fields yet — the caller then merges in whatever was gathered locally pre-sign-in instead of starting the account blank. */
-function parseAccountPrefs(userMetadata: unknown): FomoPrefs | null {
+export function parseAccountPrefs(userMetadata: unknown): FomoPrefs | null {
   const meta = userMetadata as Record<string, unknown> | null | undefined;
   if (!meta) return null;
   const hasAny =
     meta.fomo_status !== undefined ||
     meta.fomo_interests !== undefined ||
     meta.fomo_budget !== undefined ||
+    meta.fomo_kids !== undefined ||
     meta.fomo_prefs_done !== undefined;
   if (!hasAny) return null;
   const who = WHO_GROUP_ORDER.filter((g) => Array.isArray(meta.fomo_who) && (meta.fomo_who as unknown[]).includes(g));
@@ -167,6 +177,8 @@ function parseAccountPrefs(userMetadata: unknown): FomoPrefs | null {
   return normalisePrefs({
     status,
     ...toggles,
+    // `fomo_kids` wins when present; `fomo_who` carrying `families` alone (an account that predates the key) still reads as kids.
+    kids: typeof meta.fomo_kids === "boolean" ? meta.fomo_kids : toggles.kids,
     interests: meta.fomo_interests,
     budget: meta.fomo_budget,
     done: meta.fomo_prefs_done,
@@ -184,6 +196,7 @@ async function persistToAccount(prefs: FomoPrefs): Promise<void> {
       fomo_status: prefs.status,
       fomo_interests: prefs.interests,
       fomo_budget: prefs.budget,
+      fomo_kids: prefs.kids,
       fomo_prefs_done: prefs.done,
     },
   });
@@ -210,7 +223,7 @@ async function load(): Promise<void> {
   // the account blank.
   const local = readLocalPrefs();
   setState({ prefs: local, signedIn: true });
-  if (local.status || local.interests.length > 0 || local.done) {
+  if (local.status || local.interests.length > 0 || local.kids || local.done) {
     try {
       await persistToAccount(local);
     } catch (err) {

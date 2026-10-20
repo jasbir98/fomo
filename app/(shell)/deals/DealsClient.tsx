@@ -1,8 +1,9 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import type { DealCardData, FeedResponse, VenueDealGroup } from "@/lib/happenings/feed-types";
-import { matchesDealFilters, type DealWhatGroup, type DealWhoGroup } from "@/lib/happenings/groups";
+import { matchesDealFilters, parseWhoGroups, type DealWhatGroup, type DealWhoGroup } from "@/lib/happenings/groups";
 import { useCachedJson } from "@/lib/http/clientCache";
 import { useProgressiveReveal } from "@/lib/useProgressiveReveal";
 import { ErrorState, StickyFilterBar } from "@/components/ui";
@@ -59,6 +60,7 @@ export interface DealsClientProps {
  * just with room to breathe and no competing sections above/below it.
  */
 export function DealsClient({ initialDeals = null }: DealsClientProps) {
+  const router = useRouter();
   // A return visit paints instantly from what's already there instead of the
   // skeleton below; a real fetch failure with nothing cached still surfaces
   // as `error` (see fetchFeedNow's throw contract).
@@ -70,6 +72,16 @@ export function DealsClient({ initialDeals = null }: DealsClientProps) {
   const error = dealsResult.error != null && deals === null;
   const [dealWhat, setDealWhat] = useState<DealWhatGroup | null>(null);
   const [dealWho, setDealWho] = useState<DealWhoGroup | null>(null);
+  // `?who=families` (the /kids page links here) preselects the WHO chip. The
+  // page is statically rendered, so the URL is read once after mount rather
+  // than during render. The WHO row is single-select, so of a comma-separated
+  // list the first known group wins.
+  useEffect(() => {
+    const raw = new URLSearchParams(window.location.search).get("who");
+    if (!raw) return;
+    const [first] = parseWhoGroups({ fomo_who: raw.split(",").map((v) => v.trim()) });
+    if (first) queueMicrotask(() => setDealWho(first));
+  }, []);
 
   function handleWhatChange(value: DealWhatGroup | null) {
     setDealWhat(value);
@@ -79,13 +91,18 @@ export function DealsClient({ initialDeals = null }: DealsClientProps) {
   function handleWhoChange(value: DealWhoGroup | null) {
     setDealWho(value);
     track("filter_used", { filter: "who", value, page: "deals" });
+    const params = new URLSearchParams(window.location.search);
+    if (value) params.set("who", value);
+    else params.delete("who");
+    router.replace(`/deals${params.toString() ? `?${params.toString()}` : ""}`, { scroll: false });
+    if (value === "families" || dealWho === "families") track("kids_filter_toggled", { surface: "deals", on: value === "families" });
   }
   const who = useEffectiveWho();
   const prefs = usePrefs();
   const affinity = useAffinity();
   const boostPrefs: BoostPrefs = useMemo(
-    () => ({ interests: prefs.interests, budget: prefs.budget, who }),
-    [prefs.interests, prefs.budget, who]
+    () => ({ interests: prefs.interests, budget: prefs.budget, who, kids: prefs.kids }),
+    [prefs.interests, prefs.budget, who, prefs.kids]
   );
 
   const filteredVenueGroups = useMemo(() => {

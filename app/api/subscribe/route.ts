@@ -245,6 +245,8 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "A valid email is required" }, { status: 400 });
   }
   const source = isNonEmptyString(body.source) ? body.source.slice(0, 32) : null;
+  // Signups from the /kids page also record the family audience in `who`
+  // (email_subscribers.who, previously unused) for a future family send.
 
   // Admin (service-role) client, not `supabaseServer()` — needed so the
   // `.select()` below actually returns the inserted row's unsubscribe_token
@@ -255,7 +257,7 @@ export async function POST(request: Request) {
   const db: Db = supabaseAdmin();
   const { data: inserted, error } = await db
     .from("email_subscribers")
-    .insert({ email, source })
+    .insert({ email, source, ...(source === "kids" ? { who: ["families"] } : {}) })
     .select("unsubscribe_token")
     .single();
 

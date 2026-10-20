@@ -172,8 +172,8 @@ function ForYouFull({ initialFinds, initialCards }: { initialFinds: FindItem[]; 
   const prefs = usePrefs();
   const who = useEffectiveWho();
   const boostPrefs: BoostPrefs = useMemo(
-    () => ({ interests: prefs.interests, budget: prefs.budget, who }),
-    [prefs.interests, prefs.budget, who]
+    () => ({ interests: prefs.interests, budget: prefs.budget, who, kids: prefs.kids }),
+    [prefs.interests, prefs.budget, who, prefs.kids]
   );
 
   // Answering "I'm a…" makes an empty `who` mean "none of these groups", so

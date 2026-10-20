@@ -13,6 +13,9 @@
  *             provider free text with no reliable mapping onto the Explore
  *             chip set, so a category filter simply passes every provider
  *             event through untouched rather than guessing wrong.
+ *             The one exception is the "kids" slug, which matches on
+ *             `family_fit` (lib/happenings/family.ts) across places,
+ *             happenings and provider events alike.
  *   q:        free-text title/name search, case-insensitive substring.
  *   bbox:     the map's current visible bounds ("Search this area") — when
  *             present, only pins inside it are returned; omitted, the whole
@@ -56,8 +59,9 @@ import { categoryStyle } from "@/lib/happenings/category-style";
 import { savingBadgeLabel, happeningTimeLabel, formatPlaceCategoryLabel } from "@/lib/happenings/format";
 import { formatEventPrice, eventHasEnded } from "@/lib/events/format";
 import {
-  matchesPlaceCategory,
-  matchesHappeningCategory,
+  matchesPlace,
+  matchesHappening,
+  matchesEvent,
   parseExploreCategories,
   type ExploreCategorySlug,
 } from "@/lib/explore/categories";
@@ -214,7 +218,7 @@ export async function GET(request: Request) {
         .filter((p) => p.lat != null && p.lng != null)
         .filter((p) => withinBbox(p.lat as number, p.lng as number, bbox))
         .filter((p) => matchesQuery(p.name ?? "", q))
-        .filter((p) => matchesAnyCategory(categories, (c) => matchesPlaceCategory(p.category, c)))
+        .filter((p) => matchesAnyCategory(categories, (c) => matchesPlace(p, c)))
         .filter((p) => maxPriceLevel == null || (p.price_level != null && p.price_level <= maxPriceLevel))
         // Best-of-city ordering when nothing else narrows it down — same
         // signal buildFreeAnyTime (app/api/feed/route.ts) ranks free places
@@ -239,7 +243,7 @@ export async function GET(request: Request) {
         if (!coords) continue;
         if (!withinBbox(coords.lat, coords.lng, bbox)) continue;
         if (!matchesQuery(h.title, q)) continue;
-        if (!matchesAnyCategory(categories, (c) => matchesHappeningCategory(h.category, c))) continue;
+        if (!matchesAnyCategory(categories, (c) => matchesHappening(h, c))) continue;
         candidates.push({ h, coords, startsAt: occurrence.startsAt });
       }
       candidates.sort((a, b) => (b.h.priority ?? 50) - (a.h.priority ?? 50));
@@ -274,14 +278,14 @@ export async function GET(request: Request) {
         if (!coords) continue;
         if (!withinBbox(coords.lat, coords.lng, bbox)) continue;
         if (!matchesQuery(h.title, q)) continue;
-        if (!matchesAnyCategory(categories, (c) => matchesHappeningCategory(h.category, c))) continue;
+        if (!matchesAnyCategory(categories, (c) => matchesHappening(h, c))) continue;
         happeningCandidates.push({ h, coords });
       }
       const placeCandidates = places
         .filter((p) => p.price_level === 0 && p.lat != null && p.lng != null)
         .filter((p) => withinBbox(p.lat as number, p.lng as number, bbox))
         .filter((p) => matchesQuery(p.name ?? "", q))
-        .filter((p) => matchesAnyCategory(categories, (c) => matchesPlaceCategory(p.category, c)))
+        .filter((p) => matchesAnyCategory(categories, (c) => matchesPlace(p, c)))
         .sort((a, b) => (b.mention_count ?? 0) - (a.mention_count ?? 0) || (b.rating ?? 0) - (a.rating ?? 0));
 
       // Curated happenings first (trusted editorial free-any-time rows),
@@ -329,7 +333,7 @@ export async function GET(request: Request) {
         if (!coords) continue;
         if (!withinBbox(coords.lat, coords.lng, bbox)) continue;
         if (!matchesQuery(h.title, q)) continue;
-        if (!matchesAnyCategory(categories, (c) => matchesHappeningCategory(h.category, c))) continue;
+        if (!matchesAnyCategory(categories, (c) => matchesHappening(h, c))) continue;
         happeningCandidates.push({
           h,
           coords,
@@ -354,8 +358,9 @@ export async function GET(request: Request) {
         .filter((e) => e.lat != null && e.lng != null)
         .filter((e) => withinBbox(e.lat as number, e.lng as number, bbox))
         .filter((e) => matchesQuery(e.name, q))
-        .filter((e) => !eventHasEnded(e, now)); // final "no ended items" guard
-      // Category chips don't narrow provider events — see this file's header.
+        .filter((e) => !eventHasEnded(e, now)) // final "no ended items" guard
+        // Category chips don't narrow provider events (see this file's header) except "Kids".
+        .filter((e) => !categories.includes("kids") || matchesEvent(e, "kids"));
 
       type EventCandidate =
         | { kind: "happening"; startsAt: string; build: () => ExplorePin }

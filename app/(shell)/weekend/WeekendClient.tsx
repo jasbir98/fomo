@@ -7,6 +7,7 @@ import type { FeedResponse, FeedWindow } from "@/lib/happenings/feed-types";
 import { weekendDates } from "@/lib/happenings/format";
 import { countDeals, weekendCardKey, weekendCards, type WeekendInitial } from "@/lib/happenings/weekend";
 import { isFreeCard } from "@/lib/happenings/price-label";
+import { isKidFriendly } from "@/lib/happenings/family";
 import { useCachedJson } from "@/lib/http/clientCache";
 import { useProgressiveReveal } from "@/lib/useProgressiveReveal";
 import { Chip, ErrorState, FeedbackLink, Icon, PageHeader, ShareButton, StickyFilterBar } from "@/components/ui";
@@ -59,8 +60,12 @@ export function WeekendClient({ initial = null }: WeekendClientProps) {
   // rendered (no per-request search params), so the URL is read once after
   // mount rather than during render.
   const [freeOnly, setFreeOnlyState] = useState(false);
+  // "With kids" (families lens): same shape, `?kids=1`.
+  const [withKids, setWithKidsState] = useState(false);
   useEffect(() => {
-    if (new URLSearchParams(window.location.search).get("free") === "1") queueMicrotask(() => setFreeOnlyState(true));
+    const search = new URLSearchParams(window.location.search);
+    if (search.get("free") === "1") queueMicrotask(() => setFreeOnlyState(true));
+    if (search.get("kids") === "1") queueMicrotask(() => setWithKidsState(true));
   }, []);
 
   function setFreeOnly(next: boolean) {
@@ -72,6 +77,15 @@ export function WeekendClient({ initial = null }: WeekendClientProps) {
     router.replace(`/weekend${params.toString() ? `?${params.toString()}` : ""}`, { scroll: false });
   }
 
+  function setWithKids(next: boolean) {
+    setWithKidsState(next);
+    track("kids_filter_toggled", { surface: "weekend", on: next });
+    const params = new URLSearchParams(window.location.search);
+    if (next) params.set("kids", "1");
+    else params.delete("kids");
+    router.replace(`/weekend${params.toString() ? `?${params.toString()}` : ""}`, { scroll: false });
+  }
+
   const allCards = useMemo(() => {
     if (now.data && later.data) return weekendCards(now.data, later.data, saturday, sunday);
     return initial?.cards ?? null;
@@ -79,8 +93,8 @@ export function WeekendClient({ initial = null }: WeekendClientProps) {
 
   const cards = useMemo(() => {
     if (!allCards) return null;
-    return freeOnly ? allCards.filter(isFreeCard) : allCards;
-  }, [allCards, freeOnly]);
+    return allCards.filter((c) => (!freeOnly || isFreeCard(c)) && (!withKids || isKidFriendly(c)));
+  }, [allCards, freeOnly, withKids]);
 
   const dealCount = later.data?.deals ? countDeals(later.data.deals) : (initial?.dealCount ?? null);
   const error = cards === null && ((now.error != null && !now.data) || (later.error != null && !later.data));
@@ -108,6 +122,10 @@ export function WeekendClient({ initial = null }: WeekendClientProps) {
           Tap + Plan on 2 to 4 things to make a plan for the group chat.
         </p>
 
+        <Link href="/kids" className="w-fit text-label-md font-semibold text-primary underline underline-offset-2">
+          Going with kids? See our kids&rsquo; guide &rarr;
+        </Link>
+
         {dealCount ? (
           <Link
             href="/deals"
@@ -120,8 +138,8 @@ export function WeekendClient({ initial = null }: WeekendClientProps) {
         ) : null}
 
         <StickyFilterBar className="-mx-4 px-4 lg:-mx-8 lg:px-8">
-          <div className="flex items-center justify-between gap-2">
-            <div className="flex items-center gap-2 px-1">
+          <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1.5">
+            <div className="flex shrink-0 items-center gap-2 px-1">
               <h2 className="text-headline-sm font-extrabold tracking-tight text-on-surface">What&rsquo;s on</h2>
               {cards ? (
                 <span className="rounded-full border border-hairline-strong bg-surface-container px-2.5 py-0.5 text-label-sm font-extrabold text-primary">
@@ -129,12 +147,21 @@ export function WeekendClient({ initial = null }: WeekendClientProps) {
                 </span>
               ) : null}
             </div>
-            <Chip
-              label="Free only"
-              leadingIcon="check_circle"
-              selected={freeOnly}
-              onClick={() => setFreeOnly(!freeOnly)}
-            />
+            <div className="flex min-w-0 gap-2">
+              <Chip
+                label="Free only"
+                leadingIcon="check_circle"
+                selected={freeOnly}
+                onClick={() => setFreeOnly(!freeOnly)}
+              />
+              <Chip
+                label="With kids"
+                leadingIcon="family_restroom"
+                selected={withKids}
+                aria-pressed={withKids}
+                onClick={() => setWithKids(!withKids)}
+              />
+            </div>
           </div>
         </StickyFilterBar>
 
@@ -159,7 +186,9 @@ export function WeekendClient({ initial = null }: WeekendClientProps) {
             <p className="text-body-md text-on-surface-variant">
               {freeOnly
                 ? "Nothing free matches. Turn off Free only."
-                : "Nothing lined up for this weekend yet. Check back soon."}
+                : withKids
+                  ? "Nothing kid-friendly matches. Turn off With kids."
+                  : "Nothing lined up for this weekend yet. Check back soon."}
             </p>
           </div>
         ) : (

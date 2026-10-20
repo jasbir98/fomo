@@ -11,6 +11,9 @@ export interface FreeAnyTimeFiltersProps {
   districtOptions: string[];
   onTypeChange: (value: string | null) => void;
   onDistrictChange: (value: string | null) => void;
+  /** "With kids" toggle (lib/happenings/family.ts): `null` = not offered (no kid-friendly item in the list), otherwise whether it is on. */
+  withKids?: boolean | null;
+  onWithKidsChange?: (on: boolean) => void;
   /** Live count of items matching the current selection — shown on the sheet's "Show N results" button. */
   /** `null` while the page's data is loading — see FilterSheet. */
   resultCount: number | null;
@@ -31,6 +34,8 @@ export function FreeAnyTimeFilters({
   districtOptions,
   onTypeChange,
   onDistrictChange,
+  withKids = null,
+  onWithKidsChange,
   resultCount,
 }: FreeAnyTimeFiltersProps) {
   const groups = useMemo<FilterGroupSpec[]>(() => {
@@ -53,8 +58,18 @@ export function FreeAnyTimeFilters({
         onChange: onDistrictChange,
       });
     }
+    if (withKids !== null && onWithKidsChange) {
+      list.push({
+        key: "kids",
+        title: "Who for",
+        options: [{ value: "kids", label: "With kids" }],
+        selected: withKids ? "kids" : null,
+        onChange: (value) => onWithKidsChange(value !== null),
+        noAllOption: true,
+      });
+    }
     return list;
-  }, [typeLabel, district, typeOptions, districtOptions, onTypeChange, onDistrictChange]);
+  }, [typeLabel, district, typeOptions, districtOptions, onTypeChange, onDistrictChange, withKids, onWithKidsChange]);
 
   return <FilterSheet groups={groups} resultCount={resultCount} />;
 }
