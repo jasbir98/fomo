@@ -59,8 +59,8 @@
  *      (exact), `category` (exact — no null-wildcarding: every real match
  *      found here already has identical categories, so requiring exact
  *      equality costs nothing and is strictly safer), and organiser
- *      (`booking_url` hostname when both sides have one, else exact
- *      `source_name`) before two happenings are allowed into the same
+ *      (`booking_url` hostname, or a `source_name` that is a bare domain,
+ *      else exact `source_name`) before two happenings are allowed into the same
  *      group.
  *
  * ## Grouping mechanics
@@ -184,12 +184,23 @@ function bookingHost(url: string | null): string | null {
   }
 }
 
-/** `booking_url` hostname when both sides have one (the stronger signal —
- *  two different rows both booking through the same third-party platform
- *  domain), else the raw `source_name` string. See the module doc's
- *  COMPATIBILITY defence for why this must agree, not just the anchor word. */
+/** A `source_name` that is itself a bare domain ("parkrun.org.uk"), as a
+ *  host — so it matches a row that books through that same domain. Anything
+ *  with a space ("parkrun UK — Holyrood parkrun") is a label, not a domain. */
+function sourceDomain(sourceName: string | null): string | null {
+  const s = sourceName?.trim().toLowerCase().replace(/^www\./, "");
+  return s && /^[a-z0-9-]+(?:\.[a-z0-9-]+)+$/.test(s) ? s : null;
+}
+
+/** `booking_url` hostname (the stronger signal — two different rows both
+ *  booking through the same third-party platform domain), else a
+ *  `source_name` that is a bare domain, else the raw `source_name` string.
+ *  The domain step is why Holyrood parkrun (booking on parkrun.org.uk)
+ *  groups with Cramond and Portobello (no booking_url, source
+ *  "parkrun.org.uk"). See the module doc's COMPATIBILITY defence for why
+ *  this must agree, not just the anchor word. */
 function organiserKey(h: Happening): string {
-  const host = bookingHost(h.booking_url);
+  const host = bookingHost(h.booking_url) ?? sourceDomain(h.source_name);
   return host ? `host:${host}` : `src:${h.source_name}`;
 }
 
