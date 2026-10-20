@@ -66,6 +66,7 @@ import type { ExploreLayer, ExplorePin, ExploreResponse } from "@/lib/explore/ty
 import type { Place, EventItem } from "@/lib/types";
 import type { Happening } from "@/lib/happenings/types";
 import { cachedJson, CACHE_MEDIUM, CACHE_PRIVATE_NO_STORE } from "@/lib/http/cache";
+import { placeDefaultImage } from "@/lib/places/default-image";
 
 export const runtime = "nodejs";
 
@@ -126,7 +127,7 @@ function placePin(p: Place): ExplorePin {
     title: p.name ?? "Unnamed place",
     lat: p.lat as number,
     lng: p.lng as number,
-    image: p.image_url,
+    image: p.image_url ?? placeDefaultImage(p),
     category: formatPlaceCategoryLabel(p.category) ?? "Place",
     badge: placeBadge(p),
     href: `/place/${p.id}`,
@@ -140,7 +141,7 @@ function freePlacePin(p: Place): ExplorePin {
     title: p.name ?? "Free in Edinburgh",
     lat: p.lat as number,
     lng: p.lng as number,
-    image: p.image_url,
+    image: p.image_url ?? placeDefaultImage(p),
     category: formatPlaceCategoryLabel(p.category) ?? "Free",
     badge: "Free",
     href: `/place/${p.id}`,
