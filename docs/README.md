@@ -9,7 +9,7 @@ Things waiting on you, newest first. Tick them off here, or ask Claude to update
 
 **Families: "With kids" lens (20 Oct)** ([plan](plans/2026-10-20-families-lens.md), branch `families-lens`)
 Kid-friendly tagging (`family_fit`), a `family` deal eligibility, "With kids" filters, an "I've got kids" pref, the /kids page and family sources. The app works before the SQL runs; tags only fill in after it.
-- [ ] Merge the families PR.
+- [x] Merged as [PR #45](https://github.com/jasbir98/fomo/pull/45) (20 Oct). Follow-ups (Home and /kids trims, parkrun grouping) in [PR #46](https://github.com/jasbir98/fomo/pull/46).
 - [x] Run `supabase/add_family_fit.sql` in the Supabase SQL editor (done 20 Oct). The last result should show `true` twice for all 5 tables.
 - [x] Backfill done 20 Oct: 8 events, 16 happenings and 50 places tagged. The `--ai` pass also ran (9 more happenings: 2 kids, 7 all ages, $0.007). Original step: `node --env-file=.env.local scripts/tag-family.mjs` (dry run). Read the table, then run it again with `--apply`. Add `--ai` outside DeepSeek peak hours to tag ~8 more happenings (about $0.02).
 - [x] 50 family places staged 20 Oct (batch `family-places-2026-10-20`; the 6 weak rows left out, see `scripts/out/family-places-2026-10-20-reviewed.json`).
@@ -174,7 +174,7 @@ Snapshots of the plans approved in Claude Code plan mode. Each one is a record o
 
 | Plan | Status |
 |---|---|
-| [2026-10-20 Families: "With kids" lens and family supply](plans/2026-10-20-families-lens.md) | Built on branch `families-lens`; PR pending. SQL, backfill and places staging are listed above. |
+| [2026-10-20 Families: "With kids" lens and family supply](plans/2026-10-20-families-lens.md) | Merged in [PR #45](https://github.com/jasbir98/fomo/pull/45); follow-ups in [PR #46](https://github.com/jasbir98/fomo/pull/46). SQL and backfill done 20 Oct; places approval and promotion listed above. |
 | [2026-10-14 Technical SEO](plans/2026-10-14-technical-seo.md) | Built and checked against a production build; in [PR #35](https://github.com/jasbir98/fomo/pull/35). Slug URLs proposed, not built. |
 | [2026-10-14 Shareable weekend plan](plans/2026-10-14-weekend-plan.md) | Built and checked end to end; in [PR #34](https://github.com/jasbir98/fomo/pull/34). SQL run 15 Oct. |
 | [2026-10-14 Accurate visitor numbers in PostHog](plans/2026-10-14-posthog-accurate-metrics.md) | Live 14 Oct (PR #31). Dashboard 980079 rebuilt by `scripts/posthog-dashboards.mjs`. |
