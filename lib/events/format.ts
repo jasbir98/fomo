@@ -311,7 +311,8 @@ export function formatEventPrice(
 ): string {
   if (row.is_free) return "Free";
   if (row.price_from == null) return "";
-  const currency = row.currency ?? "GBP";
+  // Upper-cased: some sources store "gbp", which printed as "From gbp 5".
+  const currency = (row.currency ?? "GBP").trim().toUpperCase() || "GBP";
   const symbol =
     currency === "GBP" ? "£" : currency === "USD" ? "$" : currency === "EUR" ? "€" : `${currency} `;
   const amount = Number.isInteger(row.price_from)

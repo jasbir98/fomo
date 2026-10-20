@@ -1,7 +1,7 @@
 // Run: npx tsx --test lib/events/format.test.ts
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { eventIsInProgress } from "./format";
+import { eventIsInProgress, formatEventPrice } from "./format";
 import { eventOnNowLabel } from "@/lib/happenings/format";
 
 const TZ = "Europe/London";
@@ -34,4 +34,11 @@ test("eventIsInProgress: timed events unchanged", () => {
   assert.equal(eventIsInProgress({ starts_at: "2026-10-14T10:30:00Z", ends_at: null }, NOW, TZ), true);
   assert.equal(eventIsInProgress({ starts_at: "2026-10-14T18:30:00Z", ends_at: null }, NOW, TZ), false);
   assert.equal(eventIsInProgress({ starts_at: "2026-10-14T07:00:00Z", ends_at: null }, NOW, TZ), false);
+});
+
+test("formatEventPrice: currency code case doesn't matter", () => {
+  assert.equal(formatEventPrice({ is_free: false, price_from: 5, currency: "gbp" }), "From £5");
+  assert.equal(formatEventPrice({ is_free: false, price_from: 12.5, currency: "GBP" }), "From £12.50");
+  assert.equal(formatEventPrice({ is_free: false, price_from: 10, currency: null }), "From £10");
+  assert.equal(formatEventPrice({ is_free: false, price_from: 8, currency: "usd" }), "From $8");
 });
