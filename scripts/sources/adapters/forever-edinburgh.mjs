@@ -44,6 +44,7 @@ export const MAX_PAGE_FETCHES = 200;
 export const MAX_MODIFIED_AGE_DAYS = 365;
 export const MAX_RANGE_DAYS = 120;
 export const FREE_CATEGORY_ID = 880;
+export const FAMILY_CATEGORY_ID = 876;
 
 // event_category term id -> Fomo category slug (first match in this priority order wins).
 const CATEGORY_PRIORITY = [
@@ -258,6 +259,9 @@ export function buildRow(item, parsed, { now }) {
     source: "api",
     fetched_at: now.toISOString(),
   };
+  // Structured family signal: event_category term 876 ("family"), even when a
+  // higher-priority category (music, comedy...) won the `category` slot.
+  if (termIds.includes(FAMILY_CATEGORY_ID)) row.family_fit = "kids";
   return { row, reason: null };
 }
 

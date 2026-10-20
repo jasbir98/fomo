@@ -139,6 +139,15 @@ const GENRE_RULES = [
   [/theatre|drama|dance|cabaret|circus|physical|musical|spoken word|poetry|storytelling|exhibition|visual art|film|book|talk|discussion|lecture|workshop|literature|writing|art\b/i, "arts"],
 ];
 
+const FAMILY_GENRE_RE = /children|family|kids|babies|toddler|puppet/i;
+
+/** Structured family signal: the Imaginate children's festival, or a children/family genre tag (any festival). */
+export function isFestivalKidsEvent(event) {
+  if (event?.festival_id === "imaginate") return true;
+  const genres = [event?.genre, ...(Array.isArray(event?.genre_tags) ? event.genre_tags : [])].filter((g) => typeof g === "string").join(" ");
+  return Boolean(genres) && FAMILY_GENRE_RE.test(genres);
+}
+
 export function categoryFromFestivalEvent(event) {
   const genres = [event.genre, ...(Array.isArray(event.genre_tags) ? event.genre_tags : [])].filter((g) => typeof g === "string").join(" ");
   for (const [re, cat] of GENRE_RULES) if (genres && re.test(genres)) return cat;
@@ -195,6 +204,7 @@ export function mapFestivalEvent(event, { destination = DESTINATION, now, window
   const ticket_url = httpUrlOrNull(event.website ?? null);
   const baseDescription = event.description || event.description_teaser || "";
   const category = categoryFromFestivalEvent(event);
+  const kidsSignal = isFestivalKidsEvent(event);
 
   for (const perf of Array.isArray(event.performances) ? event.performances : []) {
     const starts_at = parseFestivalsDate(perf.start);
@@ -213,7 +223,7 @@ export function mapFestivalEvent(event, { destination = DESTINATION, now, window
     const { isFree, priceFrom, payWhatYouCan } = festivalPrice(perf);
     let description = cleanDescription(baseDescription, { title: event.title, venueName: venue.name }) || "";
     if (payWhatYouCan) description = description ? `Pay what you can. ${description}` : "Pay what you can.";
-    rows.push({
+    const row = {
       provider: "edfestivals",
       provider_event_id: `${event.id}:${starts_at}`,
       name: event.title,
@@ -235,7 +245,9 @@ export function mapFestivalEvent(event, { destination = DESTINATION, now, window
       destination,
       source: "api",
       fetched_at: now.toISOString(),
-    });
+    };
+    if (kidsSignal) row.family_fit = "kids";
+    rows.push(row);
   }
   return { rows, reasons };
 }

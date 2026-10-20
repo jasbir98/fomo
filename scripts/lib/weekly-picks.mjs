@@ -24,9 +24,15 @@
  *   `deals` requires the row to have a real occurrence inside the SAME
  *   weekend window (not just "not yet fully ended") — see `occursInWindow`
  *   — and prefers student/under_26 eligibility, then anyone, capped at 5.
- *   Both pools exclude family-only (`category: 'family'`) and over-60-only
- *   (`eligibility: 'over_60'`) rows — the wedge is students + young
- *   professionals — and down-rank `kind: 'festival'` programme rows.
+ *   Both pools exclude over-60-only (`eligibility: 'over_60'`) rows and
+ *   down-rank `kind: 'festival'` programme rows. Kid-friendly rows
+ *   (`category: 'family'`, `family_fit`, `eligibility: 'family'`) are NOT
+ *   excluded: family content is mixed in for everyone (owner decision,
+ *   20 Oct). An `eligibility: 'family'` deal (kids eat free etc.)
+ *   ranks with `anyone`, after the student/under_26 tier.
+ *   ONE GUARD: the lead of the weekly email (`picks[0]`) is never aimed at
+ *   children — see `isKidsAimed` / `leadWithoutKidsAimed` below. Items
+ *   good-with-kids-but-for-anyone (`family_fit: 'all_ages'`) can lead.
  *
  * LIVE FINDS FIRST. Approved Fomo Finds (the `finds` table, curated with
  * scripts/finds.ts; "For you" in the app) whose subject occurs in the send
@@ -77,7 +83,6 @@ const CURRENCY_SYMBOL = { GBP: "£", USD: "$", EUR: "€" };
 /** "Under £10" is what the signup card promises (components/happenings/SubscribeCard.tsx). */
 const CHEAP_THRESHOLD_GBP = 10;
 const EXCLUDED_ELIGIBILITY = new Set(["over_60"]);
-const EXCLUDED_CATEGORY = new Set(["family"]);
 const EVENT_PROVIDER_ALLOWLIST = new Set(["luma", "eventbrite", "songkick", "allevents", "skiddle", "ticketmaster"]);
 
 // --- Supabase REST (house pattern: scripts/sweep-happenings.mjs) -----------
@@ -340,15 +345,45 @@ function isGenuineDeal(h) {
 
 function passesAudienceGate(item) {
   if (item.eligibility && EXCLUDED_ELIGIBILITY.has(item.eligibility)) return false;
-  if (item.category && EXCLUDED_CATEGORY.has(item.category)) return false;
   return true;
 }
 
-/** student/under_26 first, then anyone, then everything else (local_resident,
- *  member, cardholder) — over_60 is already dropped by passesAudienceGate. */
+/**
+ * Whether an item is aimed at children (not merely fine with them).
+ * Hand-kept in sync with `familyFitForHappening` / `familyFitForEvent` in
+ * lib/happenings/family.ts (a .mjs script can't import that TS): a stored
+ * `family_fit` wins ('kids' -> true, 'all_ages' -> false); otherwise
+ * `category: 'family'` or `eligibility: 'family'` fall back to kids-aimed.
+ * Works on a raw happening/event row or on a pick item carrying the same
+ * three fields.
+ */
+export function isKidsAimed(item) {
+  // Absent (undefined) only before supabase/add_family_fit.sql has run; after
+  // that a null is a decision, as in family.ts.
+  if (item.family_fit !== undefined) return item.family_fit === "kids";
+  return item.category === "family" || item.eligibility === "family";
+}
+
+/**
+ * The email's lead is `picks[0]`, and it must not be aimed at children. If it
+ * is, the first non-kids-aimed item moves to the front; the order is
+ * otherwise unchanged. Unchanged too when every item is kids-aimed (a thin
+ * week still sends) and for an empty list. Returns a new array.
+ */
+export function leadWithoutKidsAimed(items) {
+  if (items.length === 0 || !isKidsAimed(items[0])) return [...items];
+  const i = items.findIndex((x) => !isKidsAimed(x));
+  if (i === -1) return [...items];
+  return [items[i], ...items.slice(0, i), ...items.slice(i + 1)];
+}
+
+/** student/under_26 first (the wedge), then anyone and family, then
+ *  everything else (local_resident, member, cardholder) — over_60 is already
+ *  dropped by passesAudienceGate. `family` ranks with `anyone`: family
+ *  content is mixed in for everyone, not promoted over it. */
 function dealEligibilityTier(eligibility) {
   if (eligibility === "student" || eligibility === "under_26") return 0;
-  if (eligibility === "anyone") return 1;
+  if (eligibility === "anyone" || eligibility === "family") return 1;
   return 2;
 }
 
@@ -537,6 +572,8 @@ async function liveFindItems(rest, happenings, window) {
         url: `https://askfomo.com/happening/${h.id}`,
         image_url: h.image_url,
         category: h.category ?? "other",
+        family_fit: h.family_fit,
+        eligibility: h.eligibility ?? null,
         source: "happening",
       });
     } else {
@@ -554,6 +591,8 @@ async function liveFindItems(rest, happenings, window) {
         url: `https://askfomo.com/event/${e.id}`,
         image_url: e.image_url,
         category: e.category ?? "other",
+        family_fit: e.family_fit,
+        eligibility: null,
         source: "event",
       });
     }
@@ -644,6 +683,8 @@ export async function getWeeklyPicks({ supabaseUrl, serviceRoleKey, now = new Da
       url: `https://askfomo.com/happening/${h.id}`,
       image_url: h.image_url,
       category: h.category ?? "other",
+      family_fit: h.family_fit,
+      eligibility: h.eligibility ?? null,
       eligibilityTier: dealEligibilityTier(h.eligibility),
       sortPrice: h.is_free ? 0 : typeof h.saving_amount === "number" ? h.saving_amount : Infinity,
     });
@@ -672,6 +713,8 @@ export async function getWeeklyPicks({ supabaseUrl, serviceRoleKey, now = new Da
       url: `https://askfomo.com/happening/${h.id}`,
       image_url: h.image_url,
       category: h.category ?? "other",
+      family_fit: h.family_fit,
+      eligibility: h.eligibility ?? null,
       source: "happening",
       tier: tierForHappening(h),
       sortPrice: h.is_free ? 0 : typeof h.saving_amount === "number" ? h.saving_amount : Infinity,
@@ -680,7 +723,6 @@ export async function getWeeklyPicks({ supabaseUrl, serviceRoleKey, now = new Da
   for (const e of events) {
     if (!e.name || !e.starts_at) continue;
     if (e.provider && !EVENT_PROVIDER_ALLOWLIST.has(e.provider)) continue;
-    if (e.category && EXCLUDED_CATEGORY.has(e.category)) continue;
     const tier = tierForEvent(e);
     if (tier === null) continue; // priced £10+, not sports — excluded per spec
     const dayDate = localDayDate(new Date(e.starts_at));
@@ -695,6 +737,8 @@ export async function getWeeklyPicks({ supabaseUrl, serviceRoleKey, now = new Da
       url: `https://askfomo.com/event/${e.id}`,
       image_url: e.image_url,
       category: e.category ?? "other",
+      family_fit: e.family_fit,
+      eligibility: null,
       source: "event",
       tier,
       sortPrice: e.is_free ? 0 : typeof e.price_from === "number" ? e.price_from : Infinity,
@@ -720,6 +764,8 @@ export async function getWeeklyPicks({ supabaseUrl, serviceRoleKey, now = new Da
       url: `https://askfomo.com/happening/${h.id}`,
       image_url: h.image_url,
       category: h.category ?? "other",
+      family_fit: h.family_fit,
+      eligibility: h.eligibility ?? null,
       source: "happening",
       key,
       tier: tierForHappening(h),
@@ -756,10 +802,12 @@ export async function getWeeklyPicks({ supabaseUrl, serviceRoleKey, now = new Da
   // Approved Finds lead (see "LIVE FINDS FIRST" in the module doc). The
   // counts below keep describing the automatic selection only.
   const findItems = await liveFindItems(rest, happenings, window);
-  const picks = mergeFindsFirst(
-    findItems.filter((i) => !i.deal),
-    [...datedPicks, ...evergreenPicks],
-    maxPicks
+  const picks = leadWithoutKidsAimed(
+    mergeFindsFirst(
+      findItems.filter((i) => !i.deal),
+      [...datedPicks, ...evergreenPicks],
+      maxPicks
+    )
   );
   const dealsWithFinds = mergeFindsFirst(
     findItems.filter((i) => i.deal),

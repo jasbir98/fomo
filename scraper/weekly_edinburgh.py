@@ -25,7 +25,7 @@ import threading
 import urllib.parse
 import urllib.robotparser
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from pathlib import Path
 from typing import Any, Iterable
 
@@ -57,6 +57,7 @@ from identity import Catalogue, reconcile  # noqa: E402
 from deal_sources.registry import get_sources as get_deal_sources  # noqa: E402
 from deal_sources.runner import DealRunResult, markdown_section as deal_sources_markdown, run_deal_sources, summary_json as deal_sources_summary  # noqa: E402
 from web_fetch import USER_AGENT, TextParser, _looks_like_challenge_page, robot_allows  # noqa: E402,F401
+from school_holidays import upcoming_holiday, warn_if_stale  # noqa: E402
 from record_checks import record_is_fully_expired, stated_on_page, weekly_days_stated_on_page  # noqa: E402
 
 WEEKLY_CAP_USD = 3.00
@@ -131,6 +132,8 @@ class Topic:
     mode: str
     seeds: tuple[str, ...]
     priority: int
+    # Aimed at children and families: topic_system_prompt adds the family rules.
+    family: bool = False
 
 
 # Each topic has a small, explicit seed list.  Priority order protects the
@@ -174,7 +177,16 @@ TOPICS: tuple[Topic, ...] = (
     Topic("Holyrood parkrun", "whats-on", ("parkrun.org.uk/holyrood",), 78),
     Topic("Edinburgh markets", "whats-on", ("edinburghfarmersmarket.co.uk", "stockbridgemarket.com"), 77),
     Topic("free walking tours", "whats-on", ("sandemansnew.com", "freewalkingtoursedinburgh.com"), 76),
-    Topic("family activities", "whats-on", ("rbge.org.uk", "nms.ac.uk"), 75),
+    # Families lens (2026-10-20): seven narrow topics, priorities 84 to 78, replacing the one
+    # broad "family activities" topic (75). They sit above the sports/seasonal topics and
+    # interleave with the comedy/parkrun topics, so a normal weekly run always reaches them.
+    Topic("Edinburgh museum and gallery family activities", "whats-on", ("nms.ac.uk", "nationalgalleries.org", "edinburghmuseums.org.uk"), 84, family=True),
+    Topic("Edinburgh school-holiday activities for kids", "calendar", ("edinburgh.gov.uk/familyholidayactivities", "edinburghleisure.co.uk/holiday-activities"), 83, family=True),
+    Topic("Bookbug and library children's sessions", "whats-on", ("edinburgh.gov.uk/libraries/libraries-fives", "nls.uk"), 82, family=True),
+    Topic("Kids eat free in Edinburgh", "offers", ("edinburgh.org/planning/offers-deals/", "fortkinnaird.com"), 81, family=True),
+    Topic("Children's theatre and family shows", "whats-on", ("capitaltheatres.com", "lyceum.org.uk", "scottishstorytellingcentre.com"), 80, family=True),
+    Topic("Family days out and kids-go-free at Edinburgh attractions", "offers", ("edinburghzoo.org.uk", "dynamicearth.co.uk", "rbge.org.uk", "historicenvironment.scot"), 79, family=True),
+    Topic("Kids' cinema clubs in Edinburgh", "offers", ("odeon.co.uk", "myvue.com", "cineworld.co.uk", "picturehouses.com"), 78, family=True),
     Topic("museum lates", "whats-on", ("nms.ac.uk", "nationalgalleries.org"), 74),
     Topic("seasonal autumn events", "calendar", ("edinburgh.org/whats-on/",), 73),
     Topic("seasonal winter events", "calendar", ("edinburghchristmas.com", "edinburgh.org"), 72),
@@ -195,6 +207,32 @@ TOPICS: tuple[Topic, ...] = (
     Topic("Edinburgh Capitals ice hockey fixtures", "calendar", ("edcapitals.com",), 64),
     Topic("Spartans and Edinburgh City FC fixtures", "calendar", ("spartansfc.com", "edinburghcityfc.com"), 63),
 )
+
+
+def holiday_topics(today: date) -> tuple[Topic, ...]:
+    """Dated extra topics while an Edinburgh school holiday is within three weeks (or under way).
+
+    The holiday list lives in school_holidays.py and must be extended every year from
+    https://www.edinburgh.gov.uk/schools/term-dates; a warning is logged once it runs out.
+    """
+    if warn_if_stale(today):
+        print("[weekly-edinburgh] WARNING: school_holidays.HOLIDAYS has run out; extend it from "
+              "https://www.edinburgh.gov.uk/schools/term-dates", file=sys.stderr)
+    holiday = upcoming_holiday(today)
+    if holiday is None:
+        return ()
+    when = f"over {holiday.name} ({holiday.date_range})"
+    return (
+        Topic(f"Kids eat free and kids go free in Edinburgh {when}", "offers",
+              ("edinburgh.org", "fortkinnaird.com", "edinburghleisure.co.uk"), 90, family=True),
+        Topic(f"Edinburgh children's activities {when}", "calendar",
+              ("edinburgh.org", "edinburgh.gov.uk/familyholidayactivities", "edinburghleisure.co.uk/holiday-activities"), 89, family=True),
+    )
+
+
+def topics_for(today: date) -> tuple[Topic, ...]:
+    """The static TOPICS plus any dated school-holiday topics for `today`."""
+    return TOPICS + holiday_topics(today)
 
 
 def canonical_url(url: str) -> str:
@@ -414,6 +452,13 @@ class CostLedger:
         return cost
 
 
+FAMILY_TOPIC_RULES = (
+    "This is a family topic: tag eligibility \"family\" for offers only usable by someone bringing children, and "
+    "family_fit \"kids\" or \"all_ages\" per the rules above. Leave out paid children's classes and term courses "
+    "with no saving, and private parties.\n"
+)
+
+
 def topic_system_prompt(topic: Topic, known_lines: list[str] | None = None) -> str:
     # The existing submit schema and strict record validation remain the single
     # source of truth.  This narrower instruction is what avoids one category
@@ -423,7 +468,9 @@ def topic_system_prompt(topic: Topic, known_lines: list[str] | None = None) -> s
 Use web search only to inspect current, primary publisher pages. Start with these seed domains: {seeds}.
 Do not research adjacent categories. Return only genuine, currently valid happenings for this topic.
 Every date, price, eligibility rule and promo code must be stated word-for-word on its cited page. Do not guess.
-For every populated factual field, set field_sources to the page that supports it. Prefer null to inference.
+Eligibility "family" means the offer is only usable by someone bringing children (kids eat free, a child goes free with a paying adult, under-5s free); a plain family ticket price with no saving is not a deal.
+Set family_fit to "kids" when the happening is aimed at children (a kids' workshop, Bookbug, soft play, kids eat free), "all_ages" when the page shows it suits young children as well as adults (free museum, garden, family-friendly attraction), otherwise null. Prefer null over guessing.
+{FAMILY_TOPIC_RULES if topic.family else ""}For every populated factual field, set field_sources to the page that supports it. Prefer null to inference.
 Never emit an expired one-off. Source URL must state the terms; booking URL may be different.
 An offer or night valid only on certain weekdays is recurrence type "weekly" with those days; put its hours in time_note.
 If the page limits an offer to a month, season or end date, set that last valid date as recurrence.until (weekly) or ends_at (any other type).
@@ -521,19 +568,60 @@ def merge_records(records: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], 
     return list(kept.values()), rejected
 
 
+@dataclass(frozen=True)
+class CollectionFamily:
+    """One truly identical activity that is run at many places (see group_same_activity_collections)."""
+    word: str  # lower-case word that marks an instance in its normalised title
+    slug: str
+    title: str
+    summary_prefix: str
+    category: str
+    family_fit: str
+    time_note: str
+    cta_label: str
+    source_name: str
+
+
+COLLECTION_FAMILIES: tuple[CollectionFamily, ...] = (
+    CollectionFamily(
+        word="parkrun", slug="edinburgh-parkruns", title="Edinburgh parkruns",
+        summary_prefix="Free weekly parkruns across Edinburgh: ", category="wellness",
+        # A parkrun suits everyone, children included (junior parkruns are separate events),
+        # so the card is all_ages whatever the first instance said.
+        family_fit="all_ages",
+        time_note="Check the individual parkrun pages for each location's current start time and details.",
+        cta_label="Find a parkrun", source_name="parkrun",
+    ),
+    CollectionFamily(
+        word="bookbug", slug="bookbug-at-edinburgh-libraries", title="Bookbug at Edinburgh libraries",
+        summary_prefix="Free weekly Bookbug singing and story sessions for babies and young children (ages 0 to 4) at Edinburgh libraries: ",
+        category="family", family_fit="kids",
+        time_note="Check each library's page for its Bookbug day and time.",
+        cta_label="Find a Bookbug session", source_name="Edinburgh Libraries",
+    ),
+)
+
+
 def group_same_activity_collections(records: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """Turn multiple location instances of one activity into one city card.
 
     A shared category is not sufficient evidence that two rows are the same
     thing: museum lates and comedy listings, for example, remain separate.
-    This starts with the unambiguous parkrun family and keeps every individual
-    event page as a verification target.  Add another family here only when
-    its instances have equally clear, stable identity.
+    Only the families in COLLECTION_FAMILIES (parkruns, Bookbug) are grouped,
+    and every individual event page is kept as a verification target. Add
+    another family only when its instances have equally clear, stable identity.
     """
+    out = records
+    for family in COLLECTION_FAMILIES:
+        out = _group_family(out, family)
+    return out
+
+
+def _group_family(records: list[dict[str, Any]], family: CollectionFamily) -> list[dict[str, Any]]:
     instances = [
         record for record in records
-        if "parkrun" in normalized_title(str(record.get("title") or ""))
-        and normalized_title(str(record.get("title") or "")) != "edinburgh parkruns"
+        if family.word in normalized_title(str(record.get("title") or ""))
+        and normalized_title(str(record.get("title") or "")) != normalized_title(family.title)
     ]
     if len(instances) < 2:
         return records
@@ -542,18 +630,19 @@ def group_same_activity_collections(records: list[dict[str, Any]]) -> list[dict[
     source_urls = list(dict.fromkeys(
         url for record in instances for url in (record.get("source_urls") or [record.get("source_url")]) if url
     ))
-    # Never infer that all parkruns use the same day/time.  The group has a
+    # Never infer that all instances use the same day/time.  The group has a
     # weekly recurrence only when all individual source-backed rows agree;
     # otherwise its timing explicitly points readers to the member pages.
     recurrences = [record.get("recurrence") for record in instances]
     recurrence = recurrences[0] if recurrences and all(item == recurrences[0] for item in recurrences) else {"type": "always"}
     collection = copy.deepcopy(instances[0])
     collection.update({
-        "slug": "edinburgh-parkruns",
-        "title": "Edinburgh parkruns",
-        "summary": "Free weekly parkruns across Edinburgh: " + ", ".join(member_titles) + ".",
+        "slug": family.slug,
+        "title": family.title,
+        "summary": family.summary_prefix + ", ".join(member_titles) + ".",
         "kind": "activity",
-        "category": "wellness",
+        "category": family.category,
+        "family_fit": family.family_fit,
         "scope": "city",
         "saving_label": "Free",
         "is_free": True,
@@ -561,7 +650,7 @@ def group_same_activity_collections(records: list[dict[str, Any]]) -> list[dict[
         "starts_at": None,
         "ends_at": None,
         "recurrence": recurrence,
-        "time_note": "Check the individual parkrun pages for each location's current start time and details.",
+        "time_note": family.time_note,
         "venue_name": None,
         "address": None,
         "district": None,
@@ -569,8 +658,8 @@ def group_same_activity_collections(records: list[dict[str, Any]]) -> list[dict[
         "lng": None,
         "place_id": None,
         "booking_url": None,
-        "cta_label": "Find a parkrun",
-        "source_name": "parkrun",
+        "cta_label": family.cta_label,
+        "source_name": family.source_name,
         "source_url": source_urls[0],
         "source_urls": source_urls,
         "field_sources": {"title": source_urls[0], "saving_label": source_urls[0], "recurrence": source_urls[0]},
@@ -1018,19 +1107,23 @@ def main() -> None:
     except ValueError as exc:
         parser.error(str(exc))
 
-    selected_topics = TOPICS
+    all_topics = topics_for(datetime.now(timezone.utc).date())
+    selected_topics = all_topics
     if args.only:
         needles = [s.lower() for s in args.only]
-        selected_topics = tuple(t for t in TOPICS if any(n in t.name.lower() for n in needles))
+        selected_topics = tuple(t for t in all_topics if any(n in t.name.lower() for n in needles))
         if not selected_topics:
-            parser.error(f"--only matched no topic names out of: {', '.join(t.name for t in TOPICS)}")
+            parser.error(f"--only matched no topic names out of: {', '.join(t.name for t in all_topics)}")
 
     if args.dry_run:
         print(
             f"[weekly-edinburgh] dry run: {len(DIRECT_SOURCES)} direct sources and "
             f"{len(selected_topics)} independent topics configured"
-            + (f" (filtered from {len(TOPICS)} by --only)" if args.only else "") + "."
+            + (f" (filtered from {len(all_topics)} by --only)" if args.only else "") + "."
         )
+        print("[weekly-edinburgh] topic order (priority, mode, name):")
+        for topic in sorted(selected_topics, key=lambda t: -t.priority):
+            print(f"  {topic.priority:>3}  {topic.mode:<10} {topic.name}")
         print(
             "[weekly-edinburgh] deal sources: "
             + (", ".join(f"{s.id} ({s.status}, {s.trust})" for s in chosen_deal_sources) or "none")

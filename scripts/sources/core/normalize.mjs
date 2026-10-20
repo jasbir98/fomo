@@ -118,6 +118,114 @@ export function classifyCategory(row) {
   return "other";
 }
 
+// --- family fit ---------------------------------------------------------------
+//
+// `family_fit` is separate from the single-valued `category`: a family gig
+// keeps category "music" but gets family_fit "kids". This classifier only ever
+// returns 'kids' | null — 'all_ages' (free museums, parks) is a place/happening
+// concept, not something a dated event listing can claim from keywords.
+//
+// Order: structured signal -> adult guards -> name cues
+// (strong) -> description cues (weaker, narrower phrases). Bare "kid" never
+// matches (Junkie Kid, Kid Bookie), "children" only in child-audience phrases
+// (not "How to Scare Children" / "Children and Families Impacted by Poverty"),
+// and "family" only in audience phrases (not "The Big Family Event" or
+// "Family Centre - Preparing for Baby", an antenatal class for adults).
+
+// Adult-only guards. "over 18s" (plural) / "over 18 only", not plain "over 18"
+// (kids' listings say "under 18s must be accompanied by an adult over 18").
+const FAMILY_ADULT_RE =
+  /\b(?:18|21)\s*\+|\bover[- ](?:18|21)s\b|\bover[- ](?:18|21) only\b|\b(?:18|21) and (?:over|above)\b|\badults?[- ]only\b|\bstrictly adults\b|\bunder[- ]?\d{1,2}s? (?:are |will )?(?:not|n['\u2019]t) (?:be )?(?:allowed|admitted|permitted|welcome)|\bno (?:children|kids|under[- ]?\d{1,2}s?)\b|\bclub ?night\b|\bburlesque\b|\bdrag (?:brunch|bingo|night|show)\b|\bnightclub\b/i;
+
+// Real artist / title proper nouns that contain a family-sounding word.
+const FAMILY_PROPER_NOUN_RE = /\bkids in glass houses\b|\bkids see ghosts\b|\bnew kids on the block\b|\bkids of 88\b|\bthe kids are alright\b|\bkids at the bar\b/i;
+
+const NUM_WORDS = "two|three|four|five|six|seven|eight|ten|twelve";
+const FAMILY_NAME_RES = [
+  /\bkids\b|\bkid['’]s\b/i,
+  /\bchildren['’]s\b|\bfor (?:young |small )?children\b|\bkids and children\b|\bchildren aged\b|\bchildren (?:and|&) (?:their )?(?:parents|carers|grown-?ups)\b/i,
+  /\bfamily[- ](?:[a-z]+ )?(?:show|shows|fun|friendly|day|workshops?|ceilidh|films?|party|session|sessions|concert|gig|performance|matinee|trail|crafts?|disco|yoga|club|theatre|activities|activity|storytelling|storytime|screening|screenings)\b/i,
+  /\b(?:for|with) (?:the )?(?:whole|all the) family\b|\ball the family\b/i,
+  /\btoddlers?\b/i,
+  new RegExp(`\\bunder[- ]?(?:[1-9]|1[0-2]|${NUM_WORDS})['\\u2019]?s\\b|\\bunder[- ]fives?\\b`, "i"),
+  /\bbookbug\b/i,
+  /\bbaby (?:rhymes?|sensory|massage|class(?:es)?|yoga|sing(?:ing|along)?|signing)\b/i,
+  /\bhalf[- ]term\b/i,
+];
+
+// Description is noisier prose, so only specific audience phrases count.
+const FAMILY_DESC_RES = [
+  /\b(?:suitable|perfect|ideal|great) for (?:young )?(?:children|kids|toddlers|families with)\b/i,
+  /\b(?:for )?(?:children|kids) aged\b/i,
+  /\bchildren['’]s (?:show|workshop|theatre|event|party|storytelling|activities)\b/i,
+  /\bkids['’] (?:show|workshop|party|club|activities)\b|\bkid['’]s (?:show|workshop|party|club)\b/i,
+  /\bfamily[- ](?:friendly )?(?:show|workshop|fun|day|ceilidh|session|event for)\b|\bfamily[- ]friendly (?:event|show|workshop|fun|session|performance|activity|ceilidh)\b/i,
+  /\btoddlers?\b/i,
+  // Description only counts "for under 5s"; a bare "under 12s admitted with an adult" is an age policy, not an audience.
+  new RegExp(`\\bfor (?:the )?under[- ]?(?:[1-9]|1[0-2]|${NUM_WORDS})['\\u2019]?s\\b|\\bunder[- ]fives?\\b`, "i"),
+  /\bbookbug\b/i,
+  /\bbaby (?:rhymes?|sensory|massage)\b/i,
+  /\bhalf[- ]term (?:activities|workshops?|fun|holiday)\b/i,
+];
+
+// "ages 3-8", "ages 5+", "6-10 years": youth cues only when the age is a child's.
+function hasChildAgeRange(text) {
+  // "ages 5+", "aged 3-8", "ages 3 to 7": a child range tops out at 14 ("aged 8-18", "aged 11-25" are youth schemes).
+  for (const m of text.matchAll(/\bages?(?:d)?\s*(\d{1,2})\s*(?:[-\u2013]\s*(\d{1,2})|to\s*(\d{1,2})|(\+))/gi)) {
+    const lo = Number(m[1]);
+    const hi = m[2] ?? m[3];
+    if (hi != null ? Number(hi) <= 14 : lo <= 12) return true;
+  }
+  for (const m of text.matchAll(/\b(\d{1,2})\s*[-\u2013]\s*(\d{1,2})\s*(?:yrs|years|year olds|yr olds)\b/gi)) {
+    if (Number(m[2]) <= 14) return true;
+  }
+  return false;
+}
+
+// Venues where a keyword in the description alone is not enough.
+const ADULT_VENUE_RE = /\bliquid room\b|\bsneaky pete|\bcabaret voltaire\b|\bthe caves\b|\bnightclub\b|\bbehind the wall\b|\bvoodoo rooms\b/i;
+
+/**
+ * 'kids' when an event is aimed at children, else null.
+ * `signal === 'kids'` is a structured source signal (Skiddle KIDS, JSON-LD
+ * ChildrensEvent, ...) and wins over everything.
+ */
+export function classifyFamilyFit({ name, description, category, venueName, signal } = {}) {
+  if (signal === "kids") return "kids";
+  const title = String(name ?? "");
+  const desc = String(description ?? "");
+  if (category === "nightlife") return null;
+  if (FAMILY_ADULT_RE.test(title) || FAMILY_ADULT_RE.test(desc)) return null;
+  if (FAMILY_PROPER_NOUN_RE.test(title)) return null;
+  // category "family" alone is not enough: every structured family source
+  // (Skiddle KIDS, ChildrensEvent, Festivals, Forever Edinburgh) already passes
+  // a signal, so a bare "family" here came from classifyCategory's keyword
+  // fallback, which also fires on band names ("Hush Kids"). Name/description
+  // cues below decide.
+  if (FAMILY_NAME_RES.some((re) => re.test(title)) || hasChildAgeRange(title)) return "kids";
+  if (ADULT_VENUE_RE.test(String(venueName ?? ""))) return null;
+  if (FAMILY_DESC_RES.some((re) => re.test(desc)) || hasChildAgeRange(desc)) return "kids";
+  return null;
+}
+
+/**
+ * Central pass: stamp `family_fit` on every event row (all adapters). A row an
+ * adapter already marked 'kids' from a structured source signal keeps it.
+ * Idempotent. Mutates and returns the rows' copies.
+ */
+export function applyFamilyFit(rows) {
+  return rows.map((r) => ({
+    ...r,
+    family_fit: classifyFamilyFit({
+      name: r.name,
+      description: r.description,
+      category: r.category,
+      venueName: r.venue_name,
+      signal: r.family_fit === "kids" ? "kids" : null,
+    }),
+  }));
+}
+
 // --- off-wedge filter ----------------------------------------------------------
 //
 // The wedge is Edinburgh students/young professionals looking for something

@@ -137,6 +137,9 @@ export function mapSkiddleEvent(event, { destination, now }) {
     source: "api",
     fetched_at: now.toISOString(),
   };
+  // Structured family signal: Skiddle's own KIDS eventcode. (event.minage is
+  // unverified against a real payload here, so no minage>=18 guard yet.)
+  if (String(event.eventcode ?? "").toUpperCase().trim() === "KIDS") row.family_fit = "kids";
   return { row, reason: null };
 }
 

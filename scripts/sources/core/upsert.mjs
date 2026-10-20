@@ -20,6 +20,7 @@
 import { SUPABASE_URL, SERVICE_ROLE_KEY } from "./config.mjs";
 import { isMissingSchemaError } from "./rest.mjs";
 import { applyEventOverrides } from "./overrides.mjs";
+import { applyFamilyFit } from "./normalize.mjs";
 
 // enriched_at ships in the same SQL file as last_seen_at/status.
 const LIFECYCLE_COLUMNS = ["last_seen_at", "status", "enriched_at"];
@@ -27,8 +28,12 @@ const LIFECYCLE_COLUMNS = ["last_seen_at", "status", "enriched_at"];
 // re-discovered event's existing value survives an upsert untouched: a later
 // run that finds no photo / fails to match a venue / skips the page backfill
 // must never clear what an earlier run stored.
-const CLOBBER_GUARDED = ["image_url", "place_id", "enriched_at"];
+// family_fit is guarded too: the daily run only ever derives 'kids' from
+// rules/signals, so a null must not wipe a manual or backfilled value
+// ('all_ages', or a hand-set 'kids').
+const CLOBBER_GUARDED = ["image_url", "place_id", "enriched_at", "family_fit"];
 let lifecycleColumnsMissing = false;
+let familyFitColumnMissing = false;
 
 /**
  * Group rows by which clobber-guarded columns they carry a value for, dropping
@@ -55,6 +60,12 @@ export function partitionByGuardedColumns(rows) {
 function stripTransient(row) {
   const out = {};
   for (const [k, v] of Object.entries(row)) if (!k.startsWith("_")) out[k] = v;
+  return out;
+}
+
+function withoutFamilyFit(row) {
+  const out = { ...row };
+  delete out.family_fit;
   return out;
 }
 
@@ -91,7 +102,7 @@ async function postBatch(batch) {
  * hide's status 'gone' isn't replaced by the 'active' default.
  */
 export function prepareRows(rows, seenAt, overrides) {
-  const stamped = rows.map((r) => ({ ...stripTransient(r), last_seen_at: seenAt, status: r.status ?? "active" }));
+  const stamped = applyFamilyFit(rows).map((r) => ({ ...stripTransient(r), last_seen_at: seenAt, status: r.status ?? "active" }));
   return applyEventOverrides(stamped, overrides);
 }
 
@@ -115,13 +126,23 @@ export async function upsertEvents(rows, { runStart = new Date(), overrides } = 
     if (batch.length === 0) continue;
     try {
       let payload = lifecycleColumnsMissing ? batch.map(withoutLifecycle) : batch;
+      if (familyFitColumnMissing) payload = payload.map(withoutFamilyFit);
       let result = await postBatch(payload);
+      if (!result.ok && !familyFitColumnMissing && isMissingSchemaError(result.error) && /family_fit/.test(result.text)) {
+        familyFitColumnMissing = true;
+        console.warn(
+          "[daily-sources] events.family_fit column not found — run supabase/add_family_fit.sql. Upserting without it for now."
+        );
+        payload = payload.map(withoutFamilyFit);
+        result = await postBatch(payload);
+      }
       if (!result.ok && !lifecycleColumnsMissing && isMissingSchemaError(result.error) && /last_seen_at|status|enriched_at/.test(result.text)) {
         lifecycleColumnsMissing = true;
         console.warn(
           "[daily-sources] events.last_seen_at/status/enriched_at columns not found — run supabase/add_event_lifecycle.sql. Upserting without lifecycle fields for now."
         );
         payload = batch.map(withoutLifecycle);
+        if (familyFitColumnMissing) payload = payload.map(withoutFamilyFit);
         result = await postBatch(payload);
       }
       if (!result.ok) throw new Error(`${result.status}: ${result.text}`);
@@ -132,5 +153,5 @@ export async function upsertEvents(rows, { runStart = new Date(), overrides } = 
       console.error(`[daily-sources] upsert FAILED (${label}, ${batch.length} row(s)): ${err.message}`);
     }
   }
-  return { ok, failed, lifecycleColumnsMissing };
+  return { ok, failed, lifecycleColumnsMissing, familyFitColumnMissing };
 }

@@ -18,7 +18,7 @@ from dataclasses import dataclass
 from datetime import date
 from typing import Any
 
-from happenings_research import CATEGORY_ENUM, SUBMIT_MAX_TOKENS
+from happenings_research import CATEGORY_ENUM, FAMILY_FIT_ENUM, SUBMIT_MAX_TOKENS
 from llm_client import SUBMIT_CALL_KWARGS
 
 from deal_sources.gate import ELIGIBILITY_ENUM, MAX_LEN, MAX_QUOTE_LEN
@@ -40,6 +40,12 @@ def _fq(value_schema: dict[str, Any], description: str) -> dict[str, Any]:
 
 _STR = {"type": "string"}
 
+FAMILY_FIT_DESCRIPTION = (
+    "Who it suits: 'kids' when aimed at children (a kids' workshop, Bookbug, soft play, kids eat free); "
+    "'all_ages' when the page shows it's suitable for young children as well as adults (free museum, garden, "
+    "family-friendly attraction); null otherwise or when unsure."
+)
+
 FIELDS_SCHEMA: dict[str, Any] = {
     "type": "object",
     "description": "Only include a field when the page states it. Leave it out otherwise.",
@@ -51,7 +57,7 @@ FIELDS_SCHEMA: dict[str, Any] = {
         "includes": _fq(_STR, f"What the price or offer covers, e.g. '1 large brunch dish and 5 drinks' (max {MAX_LEN['includes']} chars)."),
         "summary": _fq(_STR, f"One sentence describing the offer in your own words (max {MAX_LEN['summary']} chars). Every number must be in the quote."),
         "is_free": _fq({"type": "boolean"}, "true only when the page says the thing is free (the quote must say so)."),
-        "eligibility": _fq({"type": "string", "enum": list(ELIGIBILITY_ENUM)}, "Who can claim it. 'anyone' unless the page says otherwise; any other value needs a quote saying who qualifies."),
+        "eligibility": _fq({"type": "string", "enum": list(ELIGIBILITY_ENUM)}, "Who can claim it. 'anyone' unless the page says otherwise; any other value needs a quote saying who qualifies. 'family' = only someone bringing children can use it (kids eat free, child free with a paying adult, under-5s free)."),
         "eligibility_note": _fq(_STR, f"Any condition on who can claim it (max {MAX_LEN['eligibility_note']} chars)."),
         "redemption_note": _fq(_STR, f"How to claim it: booking rules, proof needed, minimum spend (max {MAX_LEN['redemption_note']} chars)."),
         "time_note": _fq(_STR, f"Hours or days it applies, e.g. '11am to 5pm', 'Monday to Thursday' (max {MAX_LEN['time_note']} chars)."),
@@ -84,6 +90,11 @@ DEAL_SCHEMA: dict[str, Any] = {
         "title": {"type": "string", "description": "At most 8 words, e.g. 'Irish boozy brunch for £35 at Malones Leith'."},
         "kind": {"type": "string", "enum": ["deal", "free_access"], "description": "deal = a saving or special price. free_access = free entry."},
         "category": {"type": "string", "enum": list(CATEGORY_ENUM)},
+        "family_fit": {
+            "type": ["string", "null"],
+            "enum": list(FAMILY_FIT_ENUM) + [None],
+            "description": FAMILY_FIT_DESCRIPTION,
+        },
         "quote": {"type": "string", "description": f"The page passage (max {MAX_QUOTE_LEN} characters) that states this offer and its saving, copied word for word."},
         "fields": FIELDS_SCHEMA,
     },
@@ -109,11 +120,12 @@ Rules. Breaking any of them makes a row that misleads people, which is worse tha
 2. Every number in a value (a price, a percentage, a saving) must appear in its quote.
 3. Dates: only use a date the page states. Write it as YYYY-MM-DD. If the page gives a day and month without a year, use the year that makes it the next occurrence from today. If you cannot tell, leave the date out.
 4. Promo codes are copied exactly, with the same capital letters. If a discount has no printed code, leave promo_code out.
-5. Eligibility is 'anyone' unless the page states who qualifies (for example Edinburgh residents, students, over 60s). Do not guess.
+5. Eligibility is 'anyone' unless the page states who qualifies (for example Edinburgh residents, students, over 60s). Do not guess. 'family' means the offer is only usable by someone bringing children (kids eat free, a child goes free with a paying adult, under-5s free); a plain family ticket price with no saving is not a deal.
 6. Prefer leaving a field out to guessing it. A field with no quote on the page must be left out.
 7. Offers that run only on certain weekdays are recurrence type 'weekly' with those days. A fixed list of dates is type 'dates'. A single date range is type 'once' with starts_at and ends_at. A standing offer is 'always'.
 8. One entry per distinct offer. Do not repeat an offer.
 9. Titles are short and plain: the venue and the offer. No hype.
+10. family_fit: 'kids' when the offer is aimed at children (kids eat free, a kids' workshop), 'all_ages' when the page shows it suits young children as well as adults, otherwise null. Prefer null over guessing.
 """
 
 

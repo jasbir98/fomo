@@ -333,6 +333,9 @@ export function buildGigRow(gig, { postLink, now }) {
     name,
     description: cleanDescription(gig.description, { title: name, venueName: VENUE.venue_name }),
     category: "music",
+    // TODO family signal: the Jazz Bar has a "Family and Kids shows" collection (thejazzbar.co.uk/family-and-kids-shows/),
+    // but the schedule post only links to it; telling which gigs belong needs a separate fetch of that page. Until then
+    // family_fit comes from the keyword classifier on the title/description.
     image_url: null,
     ticket_url: gig.tickets ?? postLink,
     starts_at: startsAt,

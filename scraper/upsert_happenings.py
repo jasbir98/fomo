@@ -64,6 +64,7 @@ ALLOWED_COLUMNS = {
     "promo_code",
     "redemption_note",
     "eligibility",
+    "family_fit",
     "eligibility_note",
     "allowance_note",
     "price_text",
@@ -107,7 +108,21 @@ ALLOWED_COLUMNS = {
 # Columns added by supabase/add_deal_source_columns.sql. They are only sent when
 # a row actually has a value, so a batch with none (every topic-only run) still
 # upserts cleanly on a database where that migration has not been run yet.
-SPARSE_COLUMNS = {"price_text", "includes", "season_valid_until"}
+SPARSE_COLUMNS = {"price_text", "includes", "season_valid_until", "family_fit"}
+
+# family_fit (happenings_staging.family_fit) may not exist in the database yet. If PostgREST
+# says so, the column is dropped from the batch and the upsert retried, with one warning.
+_MISSING_COLUMN_CODES = ("PGRST204", "42703")
+_family_fit_warned = False
+
+
+def _is_missing_column(resp: Any, column: str) -> bool:
+    """True when a failed response says `column` does not exist (PGRST204 / 42703 / message text)."""
+    text = getattr(resp, "text", "") or ""
+    if column not in text:
+        return False
+    lowered = text.lower()
+    return any(code in text for code in _MISSING_COLUMN_CODES) or "could not find the" in lowered or "does not exist" in lowered
 
 
 def _clean_row(record: dict[str, Any]) -> dict[str, Any] | None:
@@ -173,6 +188,15 @@ def upsert_happenings(records: list[dict[str, Any]], table: str = "happenings_st
     params = {"on_conflict": "batch_id,slug"}
 
     resp = requests.post(endpoint, headers=headers, params=params, json=rows, timeout=30)
+
+    global _family_fit_warned
+    if resp.status_code >= 300 and "family_fit" in batch_columns and _is_missing_column(resp, "family_fit"):
+        if not _family_fit_warned:
+            _family_fit_warned = True
+            print(f"[upsert-happenings] WARN: {table}.family_fit column not found - run the family_fit migration. "
+                  "Upserting without family_fit for now.", file=sys.stderr)
+        rows = [{k: v for k, v in row.items() if k != "family_fit"} for row in rows]
+        resp = requests.post(endpoint, headers=headers, params=params, json=rows, timeout=30)
 
     if resp.status_code >= 300:
         print(f"[upsert-happenings] FAILED ({resp.status_code}): {resp.text}", file=sys.stderr)

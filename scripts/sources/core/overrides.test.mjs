@@ -75,3 +75,20 @@ test("prepareRows: set values survive stamping; a source-cancelled row stays can
   assert.equal(rows[0].currency, "GBP");
   assert.equal(rows[0].status, "cancelled");
 });
+
+test("prepareRows: stamps family_fit centrally, keeps adapter signals, and an override can set it", () => {
+  const seenAt = "2026-10-09T06:00:00.000Z";
+  const { rows } = prepareRows(
+    [
+      row({ name: "Toddler Tuesdays" }),
+      row({ name: "Mystery show", family_fit: "kids", provider_event_id: "e2" }),
+      row({ name: "Junkie Kid @ Liquid Room", provider_event_id: "e3" }),
+    ],
+    seenAt,
+    [entry({ set: { family_fit: "all_ages" } })]
+  );
+  assert.equal(rows[1].family_fit, "kids");
+  assert.equal(rows[2].family_fit, null);
+  assert.ok(OVERRIDABLE_COLUMNS.includes("family_fit"));
+  assert.equal(rows[0].family_fit, "all_ages"); // override matched row 0 (same provider id) and wins
+});

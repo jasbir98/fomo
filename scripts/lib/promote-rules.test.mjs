@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { protectExistingFields, chunk, inList, ENRICHABLE_FIELDS } from "./promote-rules.mjs";
+import { protectExistingFields, chunk, inList, ENRICHABLE_FIELDS, isMissingColumnError, withoutColumn } from "./promote-rules.mjs";
 
 const evidence = (quote) => ({ url: "https://example.com/x", quote });
 
@@ -54,4 +54,20 @@ test("enrichable list matches the enrichment gate fields", () => {
 test("chunk and inList", () => {
   assert.deepEqual(chunk([1, 2, 3, 4, 5], 2), [[1, 2], [3, 4], [5]]);
   assert.equal(inList(["a-b", 'c"d']), '("a-b","c\\"d")');
+});
+
+test("isMissingColumnError recognises PostgREST and Postgres missing-column errors for the named column only", () => {
+  const rest = `POST happenings?on_conflict=slug → 400: {"code":"PGRST204","message":"Could not find the 'family_fit' column of 'happenings' in the schema cache"}`;
+  const pg = `POST happenings → 400: {"code":"42703","message":"column \\"family_fit\\" of relation \\"happenings\\" does not exist"}`;
+  assert.equal(isMissingColumnError(rest, "family_fit"), true);
+  assert.equal(isMissingColumnError(pg, "family_fit"), true);
+  assert.equal(isMissingColumnError(rest, "enrich_sources"), false);
+  assert.equal(isMissingColumnError('{"code":"23502","message":"null value in column \\"title\\" violates not-null constraint family_fit"}', "family_fit"), false);
+  assert.equal(isMissingColumnError(undefined, "family_fit"), false);
+});
+
+test("withoutColumn returns a copy without the column and leaves the original alone", () => {
+  const row = { slug: "a", family_fit: "kids", eligibility: "family" };
+  assert.deepEqual(withoutColumn(row, "family_fit"), { slug: "a", eligibility: "family" });
+  assert.equal(row.family_fit, "kids");
 });
