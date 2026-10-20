@@ -27,10 +27,13 @@
  *
  * Requires NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY
  * (server-only, see lib/supabase/admin.ts — never NEXT_PUBLIC_).
+ * NEXT_PUBLIC_MAPBOX_TOKEN is optional: with it, rows with no coordinates
+ * are geocoded (see geocodeRow).
  */
 
 import { httpUrlOrNull } from "./lib/http-url.mjs";
 import { EDINBURGH_PLACES_QUERY, buildPlaceIndex, matchHappening } from "./lib/place-match.mjs";
+import { geocodeHappening } from "./lib/geocode-venue.mjs";
 import { protectExistingFields, chunk, inList } from "./lib/promote-rules.mjs";
 
 function parseArg(name) {
@@ -199,6 +202,28 @@ async function linkPlace(row) {
   if (match.status === "linked") row.place_id = match.place.id;
 }
 
+// A row the map can't place can't be a pin or one of Ask Fomo's "Fomo's
+// picks", so one with no coordinates of its own, none stored from an earlier
+// promotion and no linked place that has some gets Mapbox's (same rules as
+// geocode-happenings.mjs). Without NEXT_PUBLIC_MAPBOX_TOKEN this is a no-op;
+// a miss or a Mapbox error just leaves lat/lng out of the upsert.
+async function geocodeRow(row, existing) {
+  if (row.lat != null || existing?.lat != null) return;
+  if (row.place_id) {
+    const index = await getPlaceIndex();
+    const place = index?.places.find((p) => p.id === row.place_id);
+    if (place?.lat != null && place?.lng != null) return;
+  }
+  try {
+    const result = await geocodeHappening(row, process.env.NEXT_PUBLIC_MAPBOX_TOKEN ?? "");
+    if (result.status !== "found") return;
+    row.lat = result.lat;
+    row.lng = result.lng;
+  } catch (err) {
+    console.error(`[promote-happenings] WARN: geocode failed for ${row.slug}: ${err.message}`);
+  }
+}
+
 // What the happenings table already holds for these slugs, so promotion can
 // keep evidence-backed text and an existing image (see lib/promote-rules.mjs).
 // enrich_sources only exists once supabase/add_enrichment_columns.sql has run;
@@ -210,10 +235,10 @@ async function fetchExistingRows(slugs) {
     const filter = `slug=in.${encodeURIComponent(inList(part))}`;
     let rows;
     try {
-      rows = await rest(`happenings?${filter}&select=slug,image_url,enrich_sources`);
+      rows = await rest(`happenings?${filter}&select=slug,image_url,lat,enrich_sources`);
     } catch (err) {
       if (!/enrich_sources/.test(err.message)) throw err;
-      rows = await rest(`happenings?${filter}&select=slug,image_url`);
+      rows = await rest(`happenings?${filter}&select=slug,image_url,lat`);
     }
     for (const row of rows ?? []) byslug.set(row.slug, row);
   }
@@ -275,6 +300,7 @@ async function main() {
     const { kept } = protectExistingFields(happeningRow, existingBySlug.get(staging.slug) ?? null);
     if (kept.length > 0) console.log(`[promote-happenings] keeping stored ${kept.join(", ")} for ${staging.slug}`);
     await linkPlace(happeningRow);
+    await geocodeRow(happeningRow, existingBySlug.get(staging.slug) ?? null);
     let promoted;
     try {
       const rows = await rest("happenings?on_conflict=slug", {

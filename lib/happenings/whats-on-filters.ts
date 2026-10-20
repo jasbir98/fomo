@@ -22,8 +22,10 @@ import type { HappeningCategory } from "@/lib/happenings/types";
 import type { FeedCardData } from "@/lib/happenings/feed-types";
 
 /** "events" is a synthetic key — never a real HappeningCategory slug — for
- *  an event card whose provider category didn't resolve to one. */
-export type CategoryFacetKey = HappeningCategory | "events";
+ *  an event card whose provider category didn't resolve to one. "quiz" is
+ *  synthetic too: pub quizzes are filed under nightlife, food or other, but
+ *  people look for them as their own thing, so a quiz gets its own chip. */
+export type CategoryFacetKey = HappeningCategory | "events" | "quiz";
 
 export interface CategoryFacet {
   key: CategoryFacetKey;
@@ -32,6 +34,16 @@ export interface CategoryFacet {
 }
 
 const EVENTS_FACET: CategoryFacet = { key: "events", label: "Events", icon: "confirmation_number" };
+const QUIZ_FACET: CategoryFacet = { key: "quiz", label: "Pub quiz", icon: "quiz" };
+
+const QUIZ_RE = /\bquiz(?:zes)?\b/i;
+
+function cardTitle(card: FeedCardData): string {
+  if (card.kind === "happening") return card.happening.title;
+  if (card.kind === "series") return card.lead.title;
+  if (card.kind === "recurring") return cardTitle(card.lead);
+  return card.event.name;
+}
 
 function isHappeningCategory(value: string): value is HappeningCategory {
   return Object.prototype.hasOwnProperty.call(CATEGORY_STYLE, value);
@@ -43,6 +55,7 @@ function facetFromStyle(key: HappeningCategory, style: CategoryStyle): CategoryF
 
 /** The category chip a given card belongs under. */
 export function categoryFacetForCard(card: FeedCardData): CategoryFacet {
+  if (QUIZ_RE.test(cardTitle(card))) return QUIZ_FACET;
   if (card.kind === "happening") return facetFromStyle(card.happening.category ?? "other", CATEGORY_STYLE[card.happening.category ?? "other"]);
   if (card.kind === "series") return facetFromStyle(card.lead.category ?? "other", CATEGORY_STYLE[card.lead.category ?? "other"]);
   if (card.kind === "recurring") return categoryFacetForCard(card.lead);
@@ -52,9 +65,9 @@ export function categoryFacetForCard(card: FeedCardData): CategoryFacet {
 }
 
 /** Distinct category facets actually present in a list, in CATEGORY_ORDER's
- *  order with the "Events" catch-all always last (it's not part of that
- *  vocabulary). Only ever offers a chip for a facet that has at least one
- *  matching card. */
+ *  order with "Pub quiz" first and the "Events" catch-all always last (neither
+ *  is part of that vocabulary). Only ever offers a chip for a facet that has
+ *  at least one matching card. */
 export function distinctCategoryFacets(cards: FeedCardData[]): CategoryFacet[] {
   const present = new Map<CategoryFacetKey, CategoryFacet>();
   for (const card of cards) {
@@ -62,6 +75,7 @@ export function distinctCategoryFacets(cards: FeedCardData[]): CategoryFacet[] {
     if (!present.has(facet.key)) present.set(facet.key, facet);
   }
   const ordered = CATEGORY_ORDER.filter((key) => present.has(key)).map((key) => present.get(key)!);
+  if (present.has("quiz")) ordered.unshift(present.get("quiz")!);
   if (present.has("events")) ordered.push(present.get("events")!);
   return ordered;
 }

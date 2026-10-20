@@ -15,7 +15,7 @@ import { CITY } from "@/lib/city";
 import type { ExplorePin, MapPick } from "@/lib/explore/types";
 import type { MapCanvasHandle } from "@/components/explore/MapCanvas";
 import { useExploreState } from "@/lib/explore/useExploreState";
-import { buildPicks, hasMappableResults } from "@/lib/explore/picks";
+import { buildPicks, countResults, hasMappableResults } from "@/lib/explore/picks";
 import {
   latestReplyResults,
   replyResults,
@@ -144,6 +144,9 @@ export function ExploreWorkspace({ initialTab, chatOptions }: ExploreWorkspacePr
   const picksHidden = active !== null && dismissedReplyId === active.replyId;
   const picks = engaged && !picksHidden ? allPicks : NO_PICKS;
   const showPicksNote = engaged && active !== null && allPicks.length === 0;
+  // Cards in the reply with no map location: the chip says "3 of 4" rather
+  // than leave the visitor counting cards against pins.
+  const resultCount = countResults(active);
   const highlightKey = hoverKey ?? focusKey;
 
   // Fit the map to the picks whenever the set changes (or the map first exists).
@@ -473,7 +476,12 @@ export function ExploreWorkspace({ initialTab, chatOptions }: ExploreWorkspacePr
                 >
                   {picks.length}
                 </span>
-                <span>Fomo&apos;s picks · {picks.length}</span>
+                <span>
+                  Fomo&apos;s picks
+                  {resultCount > picks.length ? (
+                    <span className="font-normal text-on-surface-variant"> · {picks.length} of {resultCount} on map</span>
+                  ) : null}
+                </span>
                 <button
                   type="button"
                   aria-label="Hide Fomo's picks"

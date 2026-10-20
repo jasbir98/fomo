@@ -437,11 +437,18 @@ export async function GET(request: Request) {
     }
 
     // A free place is in both the places and the free sections on
-    // `layer=everything` — same id, two pins stacked on one spot. Keep the
-    // free pin (the more specific badge) and drop its plain-place twin, so
-    // every pin id is unique (the desktop results list keys rows by id).
+    // `layer=everything` — same id, two pins stacked on one spot — and so is
+    // a free standing deal (deals and free). Keep the free pin (the more
+    // specific badge) and drop its twin, so every pin id is unique (the
+    // desktop results list keys rows by id, and MapCanvas restyles markers by
+    // id: a twin was never dimmed and showed as a solid pin).
     const freeIds = new Set(freePins.map((p) => p.id));
-    const pins = [...placePins.filter((p) => !freeIds.has(p.id)), ...dealPins, ...eventPins, ...freePins].slice(
+    const pins = [
+      ...placePins.filter((p) => !freeIds.has(p.id)),
+      ...dealPins.filter((p) => !freeIds.has(p.id)),
+      ...eventPins,
+      ...freePins,
+    ].slice(
       0,
       MAX_PINS
     );
