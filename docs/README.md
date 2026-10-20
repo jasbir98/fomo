@@ -7,6 +7,11 @@ Run `/plans` in Claude Code for a summary of this page.
 
 Things waiting on you, newest first. Tick them off here, or ask Claude to update this list.
 
+**Place photos (20 Oct)**
+440 of 517 Edinburgh places had no photo, so Explore showed grey tiles. Places now fall back to a category photo (café → food, bookshop → shopping, park → outdoors), and 38 got their own website's share image (`scripts/place-og-images.mjs`, reviewed by a Haiku subagent, applied 20 Oct). Undo the 38 with `delete from place_photos where provider = 'og-image'`.
+- [ ] Merge [PR #42](https://github.com/jasbir98/fomo/pull/42).
+- [ ] About 400 places still use a category photo: their sites have no share image, block bots, or only have a logo. Wikimedia (`scraper/photos_wikimedia.py`) could cover the landmarks among them.
+
 **Chat picks on the map, solid pins, pub quiz (19 Oct, Kylle's feedback)**
 Ask Fomo's map showed "Fomo's picks · 1" for a reply with four cards: 239 of 353 live deals had no coordinates. 151 now have them (`scripts/geocode-happenings.mjs --apply`, run 19 Oct). Some dimmed pins looked solid: several deals at one venue stacked their transparency, and free deals came back twice. Pub quizzes now have their own chip on What's On.
 - [ ] Merge [PR #41](https://github.com/jasbir98/fomo/pull/41).

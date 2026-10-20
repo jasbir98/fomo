@@ -32,6 +32,7 @@ import {
   detailGridClass,
   type DetailProps,
 } from "./shared";
+import { placeDefaultImage } from "@/lib/places/default-image";
 
 const ONE_YEAR_MS = 366 * 86_400_000;
 
@@ -257,14 +258,18 @@ export function PlaceDetail({ id, presentation = "page", initialData }: DetailPr
   const directionsUrl = buildDirectionsUrl(place);
   const websiteLabel = place.website ? websiteHost(place.website) : null;
   // place_photos when the pipeline found more than one citable image;
-  // otherwise fall back to the single Place.image_url; otherwise none
-  // (PhotoCarousel renders the existing placeholder icon itself).
+  // otherwise fall back to the single Place.image_url; otherwise a bundled
+  // photo for its category; otherwise none (PhotoCarousel renders the
+  // existing placeholder icon itself).
+  const fallbackImage = placeDefaultImage(place);
   const heroPhotos: CarouselPhoto[] =
     photos.length > 0
       ? photos.map((p) => ({ url: p.url, alt: place.name ?? "", credit: p.credit || undefined }))
       : place.image_url
         ? [{ url: place.image_url, alt: place.name ?? "" }]
-        : [];
+        : fallbackImage
+          ? [{ url: fallbackImage, alt: "" }]
+          : [];
   const placeName = place.name ?? "Place";
   // App isn't deployed yet — window.location.origin is the correct base for
   // a shareable link until there's a real production host.
