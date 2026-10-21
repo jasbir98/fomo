@@ -225,12 +225,13 @@ export function formatEventTime(starts_at: string, timeZone: string = CITY.timez
 export function formatEventWhen(
   starts_at: string,
   ends_at?: string | null,
-  timeZone: string = CITY.timezone
+  timeZone: string = CITY.timezone,
+  now: Date = new Date()
 ): string {
   void ends_at;
   const d = new Date(starts_at);
   if (Number.isNaN(d.getTime())) return "";
-  const date = formatEventDate(starts_at, timeZone);
+  const date = formatEventDate(starts_at, timeZone, now);
   const time = formatEventTime(starts_at, timeZone);
   return time ? `${date} · ${time}` : date;
 }
@@ -243,11 +244,11 @@ export function formatEventWhen(
  * tomorrow comparisons are calendar days in `timeZone`, never the device's
  * own date.
  */
-export function formatEventDate(starts_at: string, timeZone: string = CITY.timezone): string {
+export function formatEventDate(starts_at: string, timeZone: string = CITY.timezone, now: Date = new Date()): string {
   const d = new Date(starts_at);
   if (Number.isNaN(d.getTime())) return "";
 
-  const label = eventDayLabel(starts_at, new Date(), timeZone);
+  const label = eventDayLabel(starts_at, now, timeZone);
   if (label) return label;
 
   const eventDay = localDayDate(d, timeZone);
@@ -268,7 +269,7 @@ export function eventDateLabel(
   const span = weeklySpanOf(e);
   const today = localDayDate(now, timeZone);
   const day = span ? nextWeeklySpanDay(span, today) : null;
-  if (!day) return formatEventDate(e.starts_at, timeZone);
+  if (!day) return formatEventDate(e.starts_at, timeZone, now);
   if (day === today) return "Today";
   if (day === addDays(today, 1)) return "Tomorrow";
   return shortDayLabel(day);

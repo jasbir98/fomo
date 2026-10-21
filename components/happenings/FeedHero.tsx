@@ -11,6 +11,7 @@ import type { FeedHeroCard } from "@/lib/happenings/feed-types";
 import type { EventItem } from "@/lib/types";
 import { eventToPreview, prefetchEvent, setEventPreview } from "@/lib/events/preview-cache";
 import { track, priceBand } from "@/lib/analytics/track";
+import { useNow } from "@/lib/useNow";
 import { tryOpenDetail } from "@/lib/detail-overlay/store";
 import type { FeedCardSurface } from "./FeedListCard";
 
@@ -51,11 +52,12 @@ export function FeedHero({ card, variant = "fomo_pick", surface }: FeedHeroProps
 function EventHero({ event, reason, surface }: { event: EventItem; reason: string | null; surface?: FeedCardSurface }) {
   const [imgError, setImgError] = useState(false);
   const router = useRouter();
+  const now = useNow();
 
   const price = formatEventPrice(event);
   // Same rule as the feed's EventRow: a running span reads "On now · until …",
   // never its long-gone start date.
-  const eventDate = eventIsInProgress(event) ? eventOnNowLabel(event.ends_at) : eventDateLabel(event);
+  const eventDate = eventIsInProgress(event, now) ? eventOnNowLabel(event.ends_at, now) : eventDateLabel(event, now);
   const eventTime = formatEventTimeSpan(event.starts_at, event.ends_at);
   const ownImage = event.image_url || event.place?.image_url || null;
   const heroImage = ownImage && !imgError ? ownImage : eventDefaultImage(event);

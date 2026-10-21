@@ -5,7 +5,7 @@ import Link from "next/link";
 import { districtFromAddress } from "@/lib/city";
 import { directionsUrlFor } from "@/lib/maps/links";
 import { safeHttpUrl } from "@/lib/http/safe-url";
-import { happeningHasEnded, nextOccurrences, normalizeRecurrence } from "@/lib/happenings/occurrence";
+import { happeningHasEnded, localDayDate, nextOccurrences, normalizeRecurrence } from "@/lib/happenings/occurrence";
 import { AddToPlanButton } from "@/components/plans/AddToPlanButton";
 import { basketItemForHappening } from "@/lib/plans/basket";
 import {
@@ -38,6 +38,7 @@ import { FindBadge } from "@/components/finds/FindBadge";
 import { GoodWithKidsTag, showGoodWithKids } from "@/components/happenings/GoodWithKidsTag";
 import { familyFitForHappening } from "@/lib/happenings/family";
 import { useFind } from "@/lib/finds/useFinds";
+import { useNow } from "@/lib/useNow";
 import {
   ASIDE_CARD_CLASS,
   DETAIL_CONTENT_CLASS,
@@ -118,6 +119,10 @@ async function fetchHappening(id: string): Promise<{ happening: Happening | null
 export function HappeningDetail({ id, presentation = "page", initialData }: DetailProps & { initialData?: HappeningResponse }) {
   // On this week's hand-picked "For you" list? Drives the badge + "why" line under the tag row. Called up here, before the early returns below, like every hook.
   const find = useFind("happening", id);
+  // The route is cached HTML (revalidate 300), so "ended", the next dates and
+  // "Checked N days ago" must come from the server's build time while
+  // hydrating, not a bare `new Date()` (lib/useNow.tsx).
+  const now = useNow();
 
   // `initialData` is what the server rendered for this route (app/(shell)/
   // happening/[id]/page.tsx), so a shared link's first HTML already holds the
@@ -342,7 +347,6 @@ export function HappeningDetail({ id, presentation = "page", initialData }: Deta
     );
   }
 
-  const now = new Date();
   const upcoming: Occurrence[] = nextOccurrences(
     happening,
     now,
@@ -354,7 +358,7 @@ export function HappeningDetail({ id, presentation = "page", initialData }: Deta
   const pattern = recurrencePatternLabel(rec);
   const isSeries = siblings.length > 0;
   // Date chips drop the year when it's the current one ("Thu 1 Oct").
-  const thisYear = String(now.getFullYear());
+  const thisYear = localDayDate(now).slice(0, 4);
   const chipLabel = (occ: Occurrence) => occurrenceRangeLabel(occ).replace(new RegExp(` ${thisYear}$`), "");
 
   const tag = happeningTypeTag(happening, primaryOccurrence?.exact ?? false);
@@ -396,7 +400,7 @@ export function HappeningDetail({ id, presentation = "page", initialData }: Deta
   const ctaLabel = happeningCtaLabel(happening);
   // Date-aware, not just status: a row still marked "live" whose window has
   // passed (e.g. a one-off weekend that's over) must show the ended banner too.
-  const ended = happening.status !== "live" || happeningHasEnded(happening, new Date());
+  const ended = happening.status !== "live" || happeningHasEnded(happening, now);
   // Only for things that happen on a day or a few — a months-long exhibition
   // as one calendar block helps nobody.
   const spanDays = primaryOccurrence
@@ -946,7 +950,7 @@ export function HappeningDetail({ id, presentation = "page", initialData }: Deta
               <span className="truncate text-body-sm font-bold text-on-surface">Source: {happening.source_name}</span>
             </div>
             <span className="shrink-0 rounded-full bg-surface-container px-2.5 py-0.5 text-label-sm font-bold text-secondary">
-              {checkedLabel(happening.verified_at)}
+              {checkedLabel(happening.verified_at, now)}
             </span>
           </div>
           {safeSourceUrl ? (

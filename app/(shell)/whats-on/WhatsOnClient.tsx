@@ -21,7 +21,9 @@ import { useAffinity } from "@/lib/personalise/useAffinity";
 import { useSignedIn } from "@/lib/useSaved";
 import { sendToSignIn } from "@/lib/auth/send-to-signin";
 import { londonDayKey, rotateDaily } from "@/lib/personalise/freshness";
+import { localDayDate } from "@/lib/happenings/occurrence";
 import { track } from "@/lib/analytics/track";
+import { useNow } from "@/lib/useNow";
 
 /** Only these two windows are date windows at all — `book_early` is a
  *  separate tab with its own dedicated page (/book-early), never reachable
@@ -161,6 +163,9 @@ function WhatsOnView({ initial, windowParam, freeParam, kidsParam }: WhatsOnView
     router.replace(`/whats-on?${params.toString()}`, { scroll: false });
   }
 
+  // Server build time while hydrating, real time after (lib/useNow.tsx).
+  const now = useNow();
+
   // Both windows, always — not just the active tab's. `now`/`coming_up` are
   // disjoint by construction (occurrenceWindowRange in app/api/feed/route.ts
   // starts `coming_up` the day after `now` ends (today vs tomorrow onwards)), so "This weekend" straddles
@@ -189,7 +194,7 @@ function WhatsOnView({ initial, windowParam, freeParam, kidsParam }: WhatsOnView
   // the date filter (a specific day chip still shows them — they're on every
   // day), but subject to the category / Free only / For you controls. Rotated
   // daily, same order as Home's (lib/personalise/freshness.ts).
-  const anyDayAll = useMemo(() => rotateDaily(feedData?.anyDay?.cards ?? [], londonDayKey()), [feedData]);
+  const anyDayAll = useMemo(() => rotateDaily(feedData?.anyDay?.cards ?? [], londonDayKey(now)), [feedData, now]);
   const error = feedResult.error != null && feedData === undefined;
   // Same "nothing cached and the last attempt failed" contract as `error`
   // above, but over both windows — what "This weekend" actually needs.
@@ -211,13 +216,13 @@ function WhatsOnView({ initial, windowParam, freeParam, kidsParam }: WhatsOnView
     if (!cards) return [];
     const set = new Set<string>();
     for (const card of cards) {
-      const day = cardPillDate(card);
+      const day = cardPillDate(card, localDayDate(now));
       if (day) set.add(day);
     }
     return Array.from(set).sort();
-  }, [cards]);
+  }, [cards, now]);
 
-  const { saturday: weekendSaturday, sunday: weekendSunday } = weekendDates();
+  const { saturday: weekendSaturday, sunday: weekendSunday } = weekendDates(now);
 
   // "This weekend" merges BOTH windows (see the `nowFeed`/`comingUpFeed`
   // doc comment above) — unlike "All dates" and the specific-date pills,

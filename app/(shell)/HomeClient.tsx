@@ -28,6 +28,7 @@ import { useSignedIn } from "@/lib/useSaved";
 import { londonDayKey, rotateDaily } from "@/lib/personalise/freshness";
 import type { RankedDealItem } from "@/lib/happenings/venue-deals";
 import { track } from "@/lib/analytics/track";
+import { useNow } from "@/lib/useNow";
 
 interface HomeWeather {
   condition: WeatherCondition;
@@ -292,6 +293,9 @@ export function HomeClient({ initialFeed = null }: HomeClientProps) {
   // actually ready to show.
   const pendingScrollRef = useRef(false);
   const prevFeedWindowRef = useRef<FeedWindow>(feedWindow);
+  // The page clock: the server's build time while hydrating (the first HTML
+  // was ranked and labelled with it), the real time after. See lib/useNow.tsx.
+  const now = useNow();
   const prefs = usePrefs();
   // The visitor's eligibility set. Empty while signed out: personalisation
   // (ranking, "You qualify") needs an account. See useEffectiveWho's doc
@@ -443,8 +447,8 @@ export function HomeClient({ initialFeed = null }: HomeClientProps) {
   // Book early/Free any time's own data; recomputed only when `feed` or the
   // visitor's deal profile actually changes, not on every render.
   const todaysDealsList = useMemo(
-    () => (feed ? todaysDeals(feed.deals, new Date(), { who: dealWho }) : []),
-    [feed, dealWho]
+    () => (feed ? todaysDeals(feed.deals, now, { who: dealWho }) : []),
+    [feed, now, dealWho]
   );
 
   // What's on's currently-relevant list — the window's one bucket, uncapped
@@ -455,8 +459,8 @@ export function HomeClient({ initialFeed = null }: HomeClientProps) {
   // `leadWithPhotos`), so the first screen under the hero is never a
   // timetable or a default tile.
   const whatsOnCards = useMemo(
-    () => leadWithPhotos(whatsOnBucket?.cards ?? [], new Date(), CITY.timezone, dealWho),
-    [whatsOnBucket, dealWho]
+    () => leadWithPhotos(whatsOnBucket?.cards ?? [], now, CITY.timezone, dealWho),
+    [whatsOnBucket, now, dealWho]
   );
 
   // Personalisation ranking boost (lib/personalise/score.ts) — nudges, never
@@ -479,7 +483,7 @@ export function HomeClient({ initialFeed = null }: HomeClientProps) {
   // never merged into the dated list above. Rotated daily first
   // (lib/personalise/freshness.ts): these have no natural order, so without it
   // the same three led the section on every visit.
-  const anyDayCards = useMemo(() => rotateDaily(anyDayBucket?.cards ?? [], londonDayKey()), [anyDayBucket]);
+  const anyDayCards = useMemo(() => rotateDaily(anyDayBucket?.cards ?? [], londonDayKey(now)), [anyDayBucket, now]);
   const boostedAnyDayCards = useMemo(
     () => reorderWithBoost(anyDayCards, (card) => personalBoost(card, boostPrefs, affinity)),
     [anyDayCards, boostPrefs, affinity]

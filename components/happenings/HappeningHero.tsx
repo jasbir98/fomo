@@ -24,6 +24,7 @@ import { familyFitForHappening } from "@/lib/happenings/family";
 import { GoodWithKidsTag, showGoodWithKids } from "./GoodWithKidsTag";
 import type { FeedCardSurface } from "./FeedListCard";
 import { happeningCtaLabel } from "@/lib/happenings/cta";
+import { useNow } from "@/lib/useNow";
 
 export interface HappeningHeroProps {
   happening: Happening;
@@ -63,7 +64,7 @@ export interface HappeningHeroProps {
 export function HappeningHero({ happening, occurrence, variant = "fomo_pick", reason, surface }: HappeningHeroProps) {
   const [copied, setCopied] = useState(false);
   const [imgError, setImgError] = useState(false);
-  const now = new Date();
+  const now = useNow();
 
   const badge = savingBadgeLabel(happening);
   const district = happening.district ?? districtFromAddress(happening.address);
