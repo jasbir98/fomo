@@ -19,12 +19,13 @@
 import "server-only";
 import { NextResponse } from "next/server";
 import { supabaseServer } from "@/lib/supabase/server";
+import { captureServerException } from "@/lib/analytics/server-exception";
 import { getEvent } from "@/lib/db";
 import { buildEventIcs, ICS_CONTENT_TYPE } from "@/lib/happenings/ics";
 
 export const runtime = "nodejs";
 
-export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
+export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const db = await supabaseServer();
 
@@ -45,6 +46,13 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
     });
   } catch (err) {
     console.error("[api/events/:id/ics] failed", err);
+    await captureServerException(err, {
+      path: new URL(request.url).pathname,
+      method: request.method,
+      headers: request.headers,
+      route: "/api/events/[id]/ics",
+      handled: true,
+    });
     return NextResponse.json({ error: "Failed to build calendar event" }, { status: 500 });
   }
 }

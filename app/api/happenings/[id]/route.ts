@@ -14,6 +14,7 @@
  */
 import "server-only";
 import { supabaseServer } from "@/lib/supabase/server";
+import { captureServerException } from "@/lib/analytics/server-exception";
 import { loadHappeningDetail, type HappeningDetailData } from "@/lib/happenings/detail";
 import { cachedJson, CACHE_MEDIUM, CACHE_PRIVATE_NO_STORE } from "@/lib/http/cache";
 
@@ -22,7 +23,7 @@ export const runtime = "nodejs";
 /** `siblings` is every other member of the happening's series, `[]` when it isn't part of one — see HappeningDetailData. */
 export type HappeningResponse = HappeningDetailData;
 
-export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
+export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const db = await supabaseServer();
   // Public: shared deal links open signed out (user decision 2026-09-15);
@@ -46,6 +47,13 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
     return cachedJson<HappeningResponse>({ happening, siblings }, CACHE_MEDIUM);
   } catch (err) {
     console.error("[api/happenings/:id] failed", err);
+    await captureServerException(err, {
+      path: new URL(request.url).pathname,
+      method: request.method,
+      headers: request.headers,
+      route: "/api/happenings/[id]",
+      handled: true,
+    });
     // The 500 branch stays CACHE_PRIVATE_NO_STORE (never CACHE_MEDIUM) — a
     // transient failure must not get cached, even browser-side, or a retry
     // a moment later would just replay the same empty response.

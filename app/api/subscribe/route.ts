@@ -45,6 +45,7 @@
 import "server-only";
 import { after, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
+import { captureServerException } from "@/lib/analytics/server-exception";
 import type { Db } from "@/lib/supabase/types";
 import { consumeAnonRateLimit, anonRateLimitedResponse } from "@/lib/rate-limit";
 
@@ -271,6 +272,13 @@ export async function POST(request: Request) {
       );
     }
     console.error("[api/subscribe] insert failed", error);
+    await captureServerException(error, {
+      path: new URL(request.url).pathname,
+      method: request.method,
+      headers: request.headers,
+      route: "/api/subscribe",
+      handled: true,
+    });
     return NextResponse.json({ error: "Couldn't save that. Try again." }, { status: 500 });
   }
 

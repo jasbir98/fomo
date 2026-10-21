@@ -18,7 +18,9 @@ import { reportError } from "@/lib/analytics/report-error";
  */
 export default function GlobalError({ error, reset }: { error: Error & { digest?: string }; reset: () => void }) {
   useEffect(() => {
-    reportError(error);
+    // `digest` matches the server-side `$exception` for errors thrown in server
+    // components (the browser only gets a generic message for those).
+    reportError(error, { boundary: "app/global-error", digest: error.digest ?? null });
   }, [error]);
 
   return (

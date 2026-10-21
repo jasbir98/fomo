@@ -83,6 +83,11 @@ export const viewport: Viewport = {
   themeColor: "#1b365d",
 };
 
+/** Server render time, read once per render of the document (see the `fomo-rendered-at` meta below). */
+function renderedAt(): string {
+  return String(Date.now());
+}
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -91,6 +96,9 @@ export default function RootLayout({
   return (
     <html lang="en" className={`${jakarta.variable} antialiased`} suppressHydrationWarning>
       <head>
+        {/* When this HTML was rendered, so PostHog exceptions can say how stale
+            the page was at hydration (instrumentation-client.ts's `html_age_s`). */}
+        <meta name="fomo-rendered-at" content={renderedAt()} />
         <JsonLd data={SITE_JSON_LD} />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />
