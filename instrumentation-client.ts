@@ -34,6 +34,7 @@
  * Same no-op when NEXT_PUBLIC_POSTHOG_KEY is unset.
  */
 import posthog from "posthog-js";
+import { enrichExceptionProperties } from "@/lib/analytics/exceptions";
 
 const POSTHOG_KEY = process.env.NEXT_PUBLIC_POSTHOG_KEY;
 const isDev = process.env.NODE_ENV === "development";
@@ -59,6 +60,17 @@ function migrateLegacyConsent(key: string) {
   }
 }
 
+/**
+ * Seconds between the server rendering this document's HTML (app/layout.tsx's
+ * `fomo-rendered-at` meta) and now. A hydration error (React #418) on HTML
+ * that is minutes or days old points at time-dependent text ("On now",
+ * "Tonight") rendered from a cached page. Null if the meta is missing.
+ */
+function htmlAgeSeconds(): number | null {
+  const renderedAt = Number(document.querySelector('meta[name="fomo-rendered-at"]')?.getAttribute("content"));
+  return renderedAt > 0 ? Math.round((Date.now() - renderedAt) / 1000) : null;
+}
+
 if (POSTHOG_KEY && (!isDev || debugInDev)) {
   migrateLegacyConsent(POSTHOG_KEY);
 
@@ -76,8 +88,16 @@ if (POSTHOG_KEY && (!isDev || debugInDev)) {
     // React code could register a super property). The dashboards split on
     // it: "granted" visitors have a persistent ID, the rest are counted by
     // the daily hash. See scripts/posthog-dashboards.mjs.
+    // `$exception` events also get readable React messages, the release and
+    // the HTML's age, and known third-party noise is dropped — see
+    // lib/analytics/exceptions.ts.
     before_send: (event) => {
-      if (event) event.properties.consent_status = posthog.get_explicit_consent_status();
+      if (!event) return event;
+      event.properties.consent_status = posthog.get_explicit_consent_status();
+      if (event.event === "$exception") {
+        if (!enrichExceptionProperties(event.properties)) return null;
+        event.properties.html_age_s = htmlAgeSeconds();
+      }
       return event;
     },
     // Append lazy-loaded scripts (config, surveys, recorder) to <head>. The
@@ -87,7 +107,15 @@ if (POSTHOG_KEY && (!isDev || debugInDev)) {
     capture_pageview: "history_change",
     capture_pageleave: true,
     autocapture: true,
-    capture_exceptions: true,
+    // Uncaught errors and unhandled promise rejections. Errors React catches
+    // in app/error.tsx / global-error.tsx never reach these handlers; those
+    // report themselves (lib/analytics/report-error.ts). console.error is
+    // left out: React and Next log recoverable noise through it.
+    capture_exceptions: {
+      capture_unhandled_errors: true,
+      capture_unhandled_rejections: true,
+      capture_console_errors: false,
+    },
     session_recording: {
       // Masks every input's value in replay (form fields — Tip us
       // off/feedback, Fomo Friday email capture) by default; `true` here is

@@ -84,6 +84,23 @@ const SECURITY_HEADERS = [
 
 const nextConfig: NextConfig = {
   allowedDevOrigins: ['192.168.0.26', '192.168.129.61', '192.168.1.213'],
+  // Readable stacks on PostHog `$exception` events (docs/analytics.md,
+  // "Exceptions"). Browser: .map files are served next to the chunks, and
+  // PostHog fetches them through each chunk's sourceMappingURL to resolve
+  // frames. That makes the client source readable to anyone who asks (it
+  // ships minified to every visitor anyway; nothing server-side is in it).
+  // Server: maps for the server chunks, which lib/analytics/server-source-map.ts
+  // applies to captured stacks (scripts/trace-server-maps.mjs ships them).
+  productionBrowserSourceMaps: true,
+  experimental: {
+    serverSourceMaps: true,
+  },
+  // Tags every exception with the build it came from (lib/analytics/exceptions.ts).
+  // Vercel sets both at build time; `env` inlines them into the client bundle too.
+  env: {
+    APP_RELEASE: process.env.VERCEL_GIT_COMMIT_SHA ?? "",
+    APP_ENV: process.env.VERCEL_ENV ?? "",
+  },
   // The weekend plan's receipt image (lib/og/receipt-image.tsx) reads its
   // fonts and the bundled /defaults photo tiles from disk at request time.
   outputFileTracingIncludes: {

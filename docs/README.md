@@ -60,6 +60,12 @@ GitHub Actions ran the Thursday email 4–7 hours late. A Vercel cron now starts
 - [ ] A day after deploy, check cookieless visitors are spread over many daily IDs, not one. One giant "person" means `proxy.ts` is sending Vercel's IP instead of the visitor's.
 - [ ] After 2–3 days, compare PostHog's "Daily visitors" with Vercel Analytics visitors. They should be close.
 
+**Readable PostHog exceptions (21 Oct)**
+- [ ] After the exceptions PR deploys, open `/debug/errors` on a preview deployment and press each button, then check PostHog → Error tracking: new issues show plain-English titles, `app_release` and, for askfomo.com errors, frames resolved to `components/…` files. Settings → Error tracking → Symbol sets shows any source map PostHog couldn't fetch.
+- [ ] A week after deploy, check whether "Hydration failed (React #418)" still appears. If it does, `html_age_s` and `$pathname` on the event say which page and how stale it was.
+- [ ] Optional: add the `error_tracking:read` scope to `POSTHOG_PERSONAL_API_KEY` so Claude can read issues and symbol sets directly.
+- [ ] `/event/[id]` (EventDetail) and `PlaceDetail` still read the clock while rendering; move them to `useNow()` if #418 shows up on those pages.
+
 **What sits behind sign-in (13 Oct)**
 - [ ] Merge [PR #27](https://github.com/jasbir98/fomo/pull/27). It edits `supabase/add_finds.sql` so only signed-in visitors can read the hand-picks. If you run that SQL before merging, re-run the policy part after.
 - [ ] After it deploys, sign in and check For you shows every pick and the "You qualify" badges are back. Signed out, For you shows 2 picks and a sign-in card.
@@ -165,7 +171,7 @@ GitHub Actions ran the Thursday email 4–7 hours late. A Vercel cron now starts
 ## Product and operations
 | Doc | What it is |
 |---|---|
-| [analytics.md](analytics.md) | PostHog setup: events, dashboards and surveys. |
+| [analytics.md](analytics.md) | PostHog setup: events, dashboards, surveys and exception capture. |
 | [auth-email-templates.md](auth-email-templates.md) | Supabase sign-in email templates. |
 | [push-notifications.md](push-notifications.md) | Setup checklist for web push ("Book early" on-sale alerts). Not switched on yet. |
 

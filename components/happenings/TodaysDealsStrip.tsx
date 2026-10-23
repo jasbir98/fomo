@@ -9,6 +9,7 @@ import { savingBadgeLabel, shortStartTimeFromNote } from "@/lib/happenings/forma
 import { weekdayOf, localDayDate } from "@/lib/happenings/occurrence";
 import { CITY } from "@/lib/city";
 import { useEffectiveWho } from "@/lib/personalise/useEffectiveWho";
+import { useNow } from "@/lib/useNow";
 import type { DealCardData } from "@/lib/happenings/feed-types";
 import type { DealVenueGroup, RankedDealItem } from "@/lib/happenings/venue-deals";
 import { happeningToPreview, prefetchHappening, setHappeningPreview } from "@/lib/happenings/preview-cache";
@@ -16,7 +17,7 @@ import { track, priceBand } from "@/lib/analytics/track";
 
 export interface TodaysDealsStripProps {
   deals: RankedDealItem[];
-  /** Defaults to `new Date()` — accepted so a caller (or a test) can pin "today" rather than this component reading the clock itself. */
+  /** Defaults to the shared page clock (`useNow`) — accepted so a caller (or a test) can pin "today" rather than this component reading the clock itself. */
   at?: Date;
   /** `card_opened`'s `surface` — this strip only ever renders on Home, so callers pass "home_today_deals". */
   surface?: "home_today_deals";
@@ -157,9 +158,11 @@ function TodaysDealGroupCard({ group, surface, position }: { group: DealVenueGro
  * real "today" list (see `todaysDeals`'s own MIN_RENDER_COUNT), rather than
  * padding out a one-card strip.
  */
-export function TodaysDealsStrip({ deals, at = new Date(), surface, className = "" }: TodaysDealsStripProps) {
+export function TodaysDealsStrip({ deals, at: atProp, surface, className = "" }: TodaysDealsStripProps) {
+  const now = useNow();
   if (deals.length === 0) return null;
 
+  const at = atProp ?? now;
   const weekdayName = WEEKDAY_LABEL[weekdayOf(localDayDate(at, CITY.timezone))];
 
   return (

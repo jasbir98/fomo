@@ -31,6 +31,7 @@ import "server-only";
 import type Anthropic from "@anthropic-ai/sdk";
 import { getAnthropic, CHAT_MODEL } from "@/lib/ai/anthropic";
 import { supabaseServer } from "@/lib/supabase/server";
+import { captureServerException } from "@/lib/analytics/server-exception";
 import {
   consumeRateLimit,
   rateLimitedResponse,
@@ -783,6 +784,13 @@ export async function POST(req: Request): Promise<Response> {
     return await handleChat(req, slot);
   } catch (err) {
     console.error("[api/chat] request failed", err);
+    await captureServerException(err, {
+      path: new URL(req.url).pathname,
+      method: req.method,
+      headers: req.headers,
+      route: "/api/chat",
+      handled: true,
+    });
     if (slot.held) await refundAnonRateLimit(req, CHAT_ANON_ROUTE, CHAT_ANON_DAILY_LIMIT.windowSeconds);
     return jsonError("Something went wrong.", 500);
   }

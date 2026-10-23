@@ -15,6 +15,7 @@ import { buildFeed, parsePrice, parseRange, parseWindow } from "@/lib/happenings
 import { parseWhoGroups } from "@/lib/happenings/groups";
 import type { FeedResponse } from "@/lib/happenings/feed-types";
 import { isUnauthorizedError } from "@/lib/supabase-error";
+import { captureServerException } from "@/lib/analytics/server-exception";
 import { cachedJson, CACHE_PRIVATE_NO_STORE } from "@/lib/http/cache";
 
 export const runtime = "nodejs";
@@ -55,6 +56,15 @@ export async function GET(request: Request) {
     // generic 500 below, since that's a real "sign in again" case, not a
     // transient failure a Retry button should paper over.
     const unauthorized = isUnauthorizedError(err);
+    if (!unauthorized) {
+      await captureServerException(err, {
+        path: new URL(request.url).pathname,
+        method: request.method,
+        headers: request.headers,
+        route: "/api/feed",
+        handled: true,
+      });
+    }
     return cachedJson<FeedResponse>(
       {
         hero: null,

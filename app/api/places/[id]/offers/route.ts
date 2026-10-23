@@ -13,6 +13,7 @@
  */
 import "server-only";
 import { supabaseServer } from "@/lib/supabase/server";
+import { captureServerException } from "@/lib/analytics/server-exception";
 import { listHappeningsForPlace } from "@/lib/db/happenings";
 import type { Happening } from "@/lib/happenings/types";
 import { cachedJson, CACHE_PRIVATE_NO_STORE } from "@/lib/http/cache";
@@ -23,7 +24,7 @@ export interface PlaceOffersResponse {
   offers: Happening[];
 }
 
-export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
+export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const db = await supabaseServer();
   // Public: place pages are browsable signed out (user decision 2026-09-15).
@@ -33,6 +34,13 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
     return cachedJson<PlaceOffersResponse>({ offers }, CACHE_PRIVATE_NO_STORE);
   } catch (err) {
     console.error("[api/places/:id/offers] failed", err);
+    await captureServerException(err, {
+      path: new URL(request.url).pathname,
+      method: request.method,
+      headers: request.headers,
+      route: "/api/places/[id]/offers",
+      handled: true,
+    });
     return cachedJson<PlaceOffersResponse>({ offers: [] }, CACHE_PRIVATE_NO_STORE, { status: 500 });
   }
 }

@@ -24,6 +24,7 @@
 import "server-only";
 import { timingSafeEqual } from "node:crypto";
 import { NextResponse } from "next/server";
+import { captureServerException } from "@/lib/analytics/server-exception";
 
 export const runtime = "nodejs";
 
@@ -63,6 +64,13 @@ export async function GET(request: Request) {
   if (!res.ok) {
     const body = await res.text();
     console.error(`[api/cron/weekly-email] dispatch -> ${res.status}: ${body}`);
+  await captureServerException(new Error(`weekly-email GitHub dispatch failed with ${res.status}`), {
+    path: new URL(request.url).pathname,
+    method: request.method,
+    headers: request.headers,
+    route: "/api/cron/weekly-email",
+    handled: true,
+  });
     return NextResponse.json({ error: "Dispatch failed", status: res.status }, { status: 502 });
   }
 

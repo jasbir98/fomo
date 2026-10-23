@@ -43,6 +43,7 @@ import "server-only";
 import { NextResponse } from "next/server";
 import { supabaseServer } from "@/lib/supabase/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
+import { captureServerException } from "@/lib/analytics/server-exception";
 import type { Db } from "@/lib/supabase/types";
 import { consumeAnonRateLimit, anonRateLimitedResponse } from "@/lib/rate-limit";
 import { buildTipDetails, normaliseTipLink } from "@/lib/tips/normalise";
@@ -194,6 +195,13 @@ export async function POST(request: Request) {
       );
     }
     console.error("[api/tips] insert failed", error);
+    await captureServerException(error, {
+      path: new URL(request.url).pathname,
+      method: request.method,
+      headers: request.headers,
+      route: "/api/tips",
+      handled: true,
+    });
     return NextResponse.json({ error: "Couldn't save that. Try again." }, { status: 500 });
   }
 

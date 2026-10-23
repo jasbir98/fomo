@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { FeedResponse, FeedWindow } from "@/lib/happenings/feed-types";
-import { weekendDates } from "@/lib/happenings/format";
+import { shortDayLabel, weekendDates } from "@/lib/happenings/format";
 import { countDeals, weekendCardKey, weekendCards, type WeekendInitial } from "@/lib/happenings/weekend";
 import { isFreeCard } from "@/lib/happenings/price-label";
 import { isKidFriendly } from "@/lib/happenings/family";
@@ -115,7 +115,7 @@ export function WeekendClient({ initial = null }: WeekendClientProps) {
 
       <div className="flex flex-col gap-3 px-4 pt-1 lg:mx-auto lg:w-full lg:max-w-[1200px] lg:px-8 lg:pt-2">
         <p className="text-body-md text-on-surface-variant">
-          Free, cheap and discounted things to do in Edinburgh on {dayLabel(saturday)} and {dayLabel(sunday)}.
+          Free, cheap and discounted things to do in Edinburgh on {shortDayLabel(saturday)} and {shortDayLabel(sunday)}.
         </p>
         <p className="flex items-center gap-2 text-label-md font-semibold text-primary">
           <Icon name="receipt_long" size={18} />
@@ -223,14 +223,4 @@ export function WeekendClient({ initial = null }: WeekendClientProps) {
       </div>
     </div>
   );
-}
-
-function dayLabel(dayDate: string): string {
-  const [y, m, d] = dayDate.split("-").map(Number);
-  return new Date(Date.UTC(y, m - 1, d)).toLocaleDateString("en-GB", {
-    weekday: "short",
-    day: "numeric",
-    month: "short",
-    timeZone: "UTC",
-  });
 }

@@ -38,6 +38,7 @@ import { track, priceBand, trackOutboundClicked } from "@/lib/analytics/track";
 import { isNewSince, useNewSinceCutoff } from "@/lib/personalise/freshness";
 import { FindBadge } from "@/components/finds/FindBadge";
 import { useFind } from "@/lib/finds/useFinds";
+import { useNow } from "@/lib/useNow";
 import type { FindSubjectType } from "@/lib/finds/types";
 
 /** Set by FeedListCard for the row it renders; CardShell reads it to show the "New" badge. */
@@ -132,10 +133,10 @@ function CategoryDot({ category }: { category: Happening["category"] }) {
  * one compact plain string ("On now · until 16 May", see
  * `happeningOnNowLabel`); anything else its clock label ("Tonight 8pm", "Fri
  * 3 Oct 7pm"), falling back to the bare day ("Today"/"Tomorrow"/"Fri 3 Oct")
- * for occurrences with no clock time so every card states its date. Computed
- * with `new Date()` at render — safe, because these cards only ever render
- * after the client-side feed fetch (`useCachedJson`'s server snapshot is
- * always empty), never in SSR HTML.
+ * for occurrences with no clock time so every card states its date. Callers
+ * pass `useNow()`, never a bare `new Date()`: the first feed is rendered into
+ * cached HTML on the server, and a clock read at render time would not match
+ * it when the client hydrates (lib/useNow.tsx).
  */
 export function occurrenceWhenLabel(occurrence: Occurrence, now: Date = new Date()): string {
   if (occurrenceIsLive(occurrence, now)) return happeningOnNowLabel(occurrence, now);
@@ -288,6 +289,7 @@ function HappeningRow({
   const priceLabel = priceLabelForHappening(happening);
   const eligibility = eligibilityLine(happening);
   const who = useEffectiveWho();
+  const now = useNow();
   const whoGroup = whoGroupForEligibility(happening.eligibility);
   const qualifies = whoGroup != null && who.includes(whoGroup);
   const oneLiner = oneLinerSummary(happening.summary);
@@ -322,7 +324,7 @@ function HappeningRow({
           <MetaRow
             icon={<CategoryDot category={happening.category} />}
             tag={scopeTag(tag)}
-            when={occurrenceWhenLabel(occurrence)}
+            when={occurrenceWhenLabel(occurrence, now)}
             trailing={venue}
           />
           <h4 className="line-clamp-2 text-headline-sm font-bold leading-snug text-on-surface">{happening.title}</h4>
@@ -343,7 +345,7 @@ function HappeningRow({
           />
         }
       >
-        <span className="shrink-0">{checkedLabel(happening.verified_at)}</span>
+        <span className="shrink-0">{checkedLabel(happening.verified_at, now)}</span>
         {eligibility && qualifies ? (
           <span className="inline-flex min-w-0 items-center gap-1 rounded-full bg-secondary-container/25 px-2 py-0.5 text-label-sm font-bold text-primary">
             <Icon name="check_circle" filled size={12} className="shrink-0" />
@@ -373,6 +375,7 @@ function HappeningRow({
  */
 function SeriesRow({ card, surface, position }: { card: SeriesCardData; surface?: FeedCardSurface; position?: number }) {
   const { lead, occurrence } = card;
+  const now = useNow();
   const tag = happeningTypeTag(lead, occurrence.exact);
   const thumbnail = lead.image_url ?? defaultImageFor(lead);
   const oneLiner = oneLinerSummary(lead.summary);
@@ -400,7 +403,7 @@ function SeriesRow({ card, surface, position }: { card: SeriesCardData; surface?
           <MetaRow
             icon={<CategoryDot category={lead.category} />}
             tag={scopeTag(tag)}
-            when={occurrenceWhenLabel(occurrence)}
+            when={occurrenceWhenLabel(occurrence, now)}
             trailing={`${card.locationCount} locations`}
             trailingClassName="font-semibold text-secondary"
           />
@@ -422,7 +425,7 @@ function SeriesRow({ card, surface, position }: { card: SeriesCardData; surface?
           />
         }
       >
-        <span className="shrink-0">{checkedLabel(lead.verified_at)}</span>
+        <span className="shrink-0">{checkedLabel(lead.verified_at, now)}</span>
         {showGoodWithKids(familyFitForHappening(lead), { priceText: priceLabel?.text, familyOffer: lead.eligibility === "family" }) ? (
           <GoodWithKidsTag />
         ) : null}
@@ -441,6 +444,7 @@ function SeriesRow({ card, surface, position }: { card: SeriesCardData; surface?
  */
 function RecurringRow({ card, surface, position }: { card: RecurringCardData; surface?: FeedCardSurface; position?: number }) {
   const { lead, dates } = card;
+  const now = useNow();
   const extraCount = dates.length - 1;
   const dateLabel = `${shortDayLabel(dates[0])}${extraCount > 0 ? ` + ${extraCount} more date${extraCount === 1 ? "" : "s"}` : ""}`;
   const priceLabel = priceLabelForCard(lead);
@@ -498,7 +502,7 @@ function RecurringRow({ card, surface, position }: { card: RecurringCardData; su
           )
         }
       >
-        {lead.kind === "happening" ? <span className="shrink-0">{checkedLabel(lead.happening.verified_at)}</span> : null}
+        {lead.kind === "happening" ? <span className="shrink-0">{checkedLabel(lead.happening.verified_at, now)}</span> : null}
         {showGoodWithKids(familyFitForCard(lead), {
           priceText: priceLabel?.text,
           familyOffer: lead.kind === "happening" && lead.happening.eligibility === "family",
@@ -513,6 +517,7 @@ function RecurringRow({ card, surface, position }: { card: RecurringCardData; su
 function FestivalRow({ happening, surface, position }: { happening: Happening; surface?: FeedCardSurface; position?: number }) {
   const find = useFind("happening", happening.id);
   const onOpen = useContext(CardOnOpen);
+  const now = useNow();
   const priceLabel = priceLabelForHappening(happening);
   const ctaHref = happening.booking_url ?? happening.source_url;
   const ctaLabel = happening.cta_label ?? "View Details";
@@ -584,7 +589,7 @@ function FestivalRow({ happening, surface, position }: { happening: Happening; s
         </div>
         <div className="flex shrink-0 items-center gap-1 text-label-sm font-medium text-on-surface-variant/70 lg:min-w-0 lg:shrink">
           <Icon name="verified" size={16} className="shrink-0 text-secondary" />
-          <span className="truncate">{checkedLabel(happening.verified_at)}</span>
+          <span className="truncate">{checkedLabel(happening.verified_at, now)}</span>
         </div>
       </div>
 
@@ -607,9 +612,9 @@ function FestivalRow({ happening, surface, position }: { happening: Happening; s
 }
 
 function EventRow({ event, surface, position }: { event: EventItem; surface?: FeedCardSurface; position?: number }) {
-  const eventDate = eventDateLabel(event);
-  // Client-render only (see occurrenceWhenLabel) — safe to read the clock here.
-  const eventLive = eventIsInProgress(event);
+  const now = useNow();
+  const eventDate = eventDateLabel(event, now);
+  const eventLive = eventIsInProgress(event, now);
   const eventTime = formatEventTimeSpan(event.starts_at, event.ends_at);
   const priceLabel = priceLabelForEvent(event);
   // Own photo -> the linked venue's photo -> the category tile (event
@@ -634,7 +639,7 @@ function EventRow({ event, surface, position }: { event: EventItem; surface?: Fe
         <div className="flex min-w-0 flex-1 flex-col">
           <MetaRow
             tag={<TypeTag tag="EVENT" kind="event" />}
-            when={eventLive ? eventOnNowLabel(event.ends_at) : eventDate}
+            when={eventLive ? eventOnNowLabel(event.ends_at, now) : eventDate}
             trailing={event.venue_name}
           />
           <h4 className="line-clamp-2 text-headline-sm font-bold leading-snug text-on-surface">{event.name}</h4>

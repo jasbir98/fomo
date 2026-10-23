@@ -12,9 +12,9 @@ new: `instrumentation-client.ts` (init), `next.config.ts` (reverse proxy),
   before the rest of the client bundle. No-ops entirely (posthog-js is never
   even initialised) if `NEXT_PUBLIC_POSTHOG_KEY` is unset.
 - **EU hosting + same-origin proxy**: `api_host: "/ingest"`,
-  `ui_host: "https://eu.posthog.com"`. `next.config.ts` rewrites
-  `/ingest/static/*` → `eu-assets.i.posthog.com` and `/ingest/*` →
-  `eu.i.posthog.com`, so every capture/decide/flags/replay call is
+  `ui_host: "https://eu.posthog.com"`. `proxy.ts` (`posthogRewrite`)
+  forwards `/ingest/static/*` → `eu-assets.i.posthog.com` and `/ingest/*` →
+  `eu.i.posthog.com` with the cookie header stripped, so every capture/decide/flags/replay call is
   same-origin (no extra CSP entries needed — `connect-src 'self'` and
   `script-src 'self'` already cover it; `worker-src blob:` for session
   replay was already in the CSP). `skipTrailingSlashRedirect: true` stops
@@ -130,6 +130,99 @@ here". `app/signin/page.tsx` writes the method to
 navigation; `IdentifyUser` reads and clears it once, on mount, only firing
 `signin_completed` when the flag is present. A returning visitor who's
 already signed in never has the flag set, so it never fires for them.
+
+## Exceptions
+
+PostHog Error tracking (Error tracking tab, or `$exception` events) gets
+every error from the browser and the server, each with a readable message,
+a stack that points at our source, the route, and context.
+
+### Where they come from
+
+| Path | Captured by | `mechanism` |
+|---|---|---|
+| Uncaught browser error, unhandled promise rejection | posthog-js `capture_exceptions` (`instrumentation-client.ts`) | `handled: false` |
+| Render error caught by `app/error.tsx` / `app/global-error.tsx` | `reportError()` → `posthog.captureException` (`lib/analytics/report-error.ts`), with `boundary` and `digest` | `handled: true` |
+| Uncaught server error (server component, route handler, server action, proxy) | `onRequestError` in `instrumentation.ts` → `captureServerException` | `type: onRequestError` |
+| Route handler that catches an unexpected error and answers 5xx | `captureServerException(err, {route, handled: true, …})` in that catch | `type: route-catch` |
+
+`console.error` is not captured (React and Next log recoverable noise
+through it). A server component error reaches the browser as a generic
+message plus `digest`; the server-side event carries the real message and
+stack under the same `digest`, so filter on `digest` to pair them.
+
+### What each event carries
+
+- **Type and message.** Production React only sends codes ("Minified React
+  error #418; visit …"); `lib/analytics/exceptions.ts` rewrites the common
+  ones into words, e.g. "Hydration failed: the server-rendered text didn't
+  match the client (React #418)", and sets `react_error_code`.
+- **Stack.** Browser: `productionBrowserSourceMaps` serves a `.map` next to
+  every chunk and PostHog fetches it through the chunk's `sourceMappingURL`,
+  so frames resolve to `components/…/Foo.tsx:line`. This only works where
+  PostHog can fetch the JS: askfomo.com, not localhost or SSO-protected
+  previews (those show minified frames). Settings → Error tracking →
+  Symbol sets lists each map and why any failed. The trade-off: the client
+  source is readable to anyone who requests a map (it ships to every
+  visitor minified anyway; no server code or secrets are in it).
+  **Decision (23 Oct 2026): public maps for now.** Revisit if exposing the
+  client source and its comments starts to matter, or if Symbol sets shows
+  PostHog failing to fetch them. The alternative is uploading private maps
+  at build time with `@posthog/nextjs-config` (needs a personal API key with
+  error tracking write in Vercel) and turning `productionBrowserSourceMaps`
+  off. Try it on a preview first and check: Turbopack support, that its
+  delete-after-upload leaves `.next/server/**/*.map` alone (the server
+  mapping above needs them), whether a failed upload fails the deploy, and
+  that its release version matches `VERCEL_GIT_COMMIT_SHA`.
+  Server: `experimental.serverSourceMaps` writes a map beside each server
+  chunk; `scripts/trace-server-maps.mjs` (run by `npm run build`) adds each
+  function's own chunk maps to its Vercel file trace (largest function: ~9 MB
+  of maps); `lib/analytics/server-source-map.ts` maps frames to
+  `app/…/page.tsx:line` before the event is sent.
+- **Where.** `$current_url` / `$pathname`; server events add `route` (the
+  route file pattern), `route_type`, `render_source`, `method`.
+- **Context.** `app_release` (git SHA of the build, from
+  `VERCEL_GIT_COMMIT_SHA`), `app_env` (production/preview/development),
+  `signed_in`, `consent_status`, browser/OS, and on browser events
+  `html_age_s`: how old the server-rendered HTML was (from the
+  `fomo-rendered-at` meta in `app/layout.tsx`). A hydration error with a
+  large `html_age_s` means time-dependent text rendered from a cached page.
+- **Noise dropped** in `before_send`: "Error invoking postMessage: Java
+  object is gone" (Facebook/Instagram's Android in-app browser). Add more to
+  `NOISE` in `lib/analytics/exceptions.ts`.
+
+Server events have `distinct_id` "fomo-server" and no person profile, and,
+like the browser, only send when `NEXT_PUBLIC_POSTHOG_KEY` is set and, in
+dev, `NEXT_PUBLIC_POSTHOG_DEBUG=1`.
+
+### What the first look found (21 Oct)
+
+55 `$exception` events over 30 days, 31 of them from askfomo.com. Message and URL were always there;
+what was missing was everything else (no source maps, no release, no
+context, React codes instead of words).
+
+- **Production: 29 × React #418 (hydration mismatch)**: 24 on `/`, 3 on
+  `/deals` (two of them the "HTML" variant), 1 on `/weekend`, 1 on a
+  happening page. Cause: those pages
+  are built on the server and cached (ISR), and cards worked out "Tonight",
+  "On now · until 5pm", "Checked 2 days ago", today's deals and their order
+  from `new Date()` at render, so the cached HTML disagreed with the client
+  once the clock moved on. Fixed with `lib/useNow.tsx`: the first client
+  render uses the server's render time, then switches to the real clock.
+- **Production: 2 × "Error invoking postMessage: Java object is gone"** from
+  Instagram/Facebook's Android in-app browser. Not ours; now dropped.
+- **Localhost only (dev edits in progress):** `feedPending`/`windowControl`/
+  `happeningCtaLabel`/`useGeolocation` ReferenceErrors and missing-module
+  errors while files were mid-edit. All gone from the current code.
+
+### Testing it
+
+`/debug/errors` (404 in production) has one button per path: throw in
+render (error boundary), throw uncaught, reject a promise, throw on the
+server. Run it on a preview, or locally with `npm run build && npm start`
+(or dev with `NEXT_PUBLIC_POSTHOG_DEBUG=1`), then look for "Fomo test:"
+events in PostHog. Local events have `$host = localhost:…`, which the
+dashboard's test-account filter already excludes.
 
 ## Verifying locally
 

@@ -16,6 +16,7 @@ import { NextResponse } from "next/server";
 import { supabaseServer } from "@/lib/supabase/server";
 import { listAlertHappeningIds, createAlert, deleteAlert } from "@/lib/db/push";
 import { isUnauthorizedError } from "@/lib/supabase-error";
+import { captureServerException } from "@/lib/analytics/server-exception";
 import { cachedJson, CACHE_PRIVATE_NO_STORE } from "@/lib/http/cache";
 
 export const runtime = "nodejs";
@@ -44,6 +45,7 @@ export async function GET() {
     return cachedJson({ happeningIds }, CACHE_PRIVATE_NO_STORE);
   } catch (err) {
     console.error("[api/alerts] GET failed", err);
+    if (!isUnauthorizedError(err)) await captureServerException(err, { route: "/api/alerts", handled: true });
     return cachedJson(
       { happeningIds: [] },
       CACHE_PRIVATE_NO_STORE,
@@ -75,6 +77,13 @@ export async function POST(request: Request) {
   } catch (err) {
     console.error("[api/alerts] POST failed", err);
     if (isUnauthorizedError(err)) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    await captureServerException(err, {
+      path: new URL(request.url).pathname,
+      method: request.method,
+      headers: request.headers,
+      route: "/api/alerts",
+      handled: true,
+    });
     return NextResponse.json({ error: "Failed to create alert" }, { status: 500 });
   }
 }
@@ -102,6 +111,13 @@ export async function DELETE(request: Request) {
   } catch (err) {
     console.error("[api/alerts] DELETE failed", err);
     if (isUnauthorizedError(err)) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    await captureServerException(err, {
+      path: new URL(request.url).pathname,
+      method: request.method,
+      headers: request.headers,
+      route: "/api/alerts",
+      handled: true,
+    });
     return NextResponse.json({ error: "Failed to remove alert" }, { status: 500 });
   }
 }

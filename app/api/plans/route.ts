@@ -16,6 +16,7 @@
 import "server-only";
 import { after, NextResponse } from "next/server";
 import { anonRateLimitedResponse, consumeAnonRateLimit, consumeGlobalRateLimit } from "@/lib/rate-limit";
+import { captureServerException } from "@/lib/analytics/server-exception";
 import { PlansUnavailableError, savePlan } from "@/lib/plans/db";
 import { buildPlanItems, planItemsHash } from "@/lib/plans/snapshot";
 import { PLAN_MAX_ITEMS, PLAN_MIN_ITEMS, type PlanRef } from "@/lib/plans/types";
@@ -99,6 +100,13 @@ export async function POST(request: Request) {
       return bad("unavailable", 503);
     }
     console.error("[api/plans] failed", err);
+    await captureServerException(err, {
+      path: new URL(request.url).pathname,
+      method: request.method,
+      headers: request.headers,
+      route: "/api/plans",
+      handled: true,
+    });
     return bad("server_error", 500);
   }
 }

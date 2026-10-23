@@ -23,6 +23,7 @@ import { supabaseServer } from "@/lib/supabase/server";
 import { upsertPushSubscription, deletePushSubscriptionByEndpoint } from "@/lib/db/push";
 import { isUnauthorizedError } from "@/lib/supabase-error";
 import { isAllowedPushEndpoint } from "@/lib/push/allowed-endpoint";
+import { captureServerException } from "@/lib/analytics/server-exception";
 
 export const runtime = "nodejs";
 
@@ -76,6 +77,13 @@ export async function POST(request: Request) {
   } catch (err) {
     console.error("[api/push/subscribe] POST failed", err);
     if (isUnauthorizedError(err)) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    await captureServerException(err, {
+      path: new URL(request.url).pathname,
+      method: request.method,
+      headers: request.headers,
+      route: "/api/push/subscribe",
+      handled: true,
+    });
     return NextResponse.json({ error: "Failed to save subscription" }, { status: 500 });
   }
 }
@@ -103,6 +111,13 @@ export async function DELETE(request: Request) {
   } catch (err) {
     console.error("[api/push/subscribe] DELETE failed", err);
     if (isUnauthorizedError(err)) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    await captureServerException(err, {
+      path: new URL(request.url).pathname,
+      method: request.method,
+      headers: request.headers,
+      route: "/api/push/subscribe",
+      handled: true,
+    });
     return NextResponse.json({ error: "Failed to remove subscription" }, { status: 500 });
   }
 }
