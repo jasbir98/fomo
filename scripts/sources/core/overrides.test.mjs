@@ -22,13 +22,20 @@ test("set: merges columns over the scraped row, scraped values lose", () => {
   assert.equal(rows[0].is_free, false);
   assert.equal(rows[0].name, "Thrift Festival");
   assert.equal(rows[0].status, "active");
-  assert.deepEqual(applied, [{ provider: "allevents", provider_event_id: row().provider_event_id, hide: false, setKeys: ["price_from", "is_free"] }]);
+  assert.deepEqual(applied, [{ provider: "allevents", provider_event_id: row().provider_event_id, hide: false, cancel: false, setKeys: ["price_from", "is_free"] }]);
 });
 
 test("hide: forces status 'gone' even when the row was active", () => {
   const { rows, applied } = applyEventOverrides([row()], [entry({ hide: true })]);
   assert.equal(rows[0].status, "gone");
   assert.equal(applied[0].hide, true);
+});
+
+test("cancel: forces status 'cancelled' even when the source still lists it as active", () => {
+  const { rows, applied } = applyEventOverrides([row()], [entry({ cancel: true })]);
+  assert.equal(rows[0].status, "cancelled");
+  assert.equal(applied[0].cancel, true);
+  assert.equal(applied[0].hide, false);
 });
 
 test("non-matching rows are untouched (same object); provider must match too", () => {
@@ -48,7 +55,8 @@ test("the input row is not mutated", () => {
 test("unknown or non-column set keys throw with a clear message", () => {
   assert.throws(() => applyEventOverrides([row()], [entry({ set: { price: 3 } })]), /"price" is not an overridable events column/);
   assert.throws(() => applyEventOverrides([row()], [entry({ set: { status: "gone" } })]), /"status" is not an overridable/);
-  assert.throws(() => validateOverrides([entry()]), /needs hide: true or a non-empty set/);
+  assert.throws(() => validateOverrides([entry()]), /needs hide: true, cancel: true or a non-empty set/);
+  assert.throws(() => validateOverrides([entry({ hide: true, cancel: true })]), /hide and cancel are exclusive/);
   assert.throws(() => validateOverrides([{ provider: "allevents", hide: true }]), /required strings/);
 });
 
@@ -68,6 +76,13 @@ test("prepareRows (upsertEvents stamping): a hidden row ends up 'gone' with a fr
   assert.equal("_flag" in rows[0], false);
   assert.equal(rows[1].status, "active");
   assert.equal(applied.length, 1);
+});
+
+test("prepareRows: a cancel override survives stamping with a fresh last_seen_at", () => {
+  const seenAt = "2026-10-23T20:00:00.000Z";
+  const { rows } = prepareRows([row()], seenAt, [entry({ cancel: true })]);
+  assert.equal(rows[0].status, "cancelled");
+  assert.equal(rows[0].last_seen_at, seenAt);
 });
 
 test("prepareRows: set values survive stamping; a source-cancelled row stays cancelled", () => {

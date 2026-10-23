@@ -110,7 +110,7 @@ export async function upsertEvents(rows, { runStart = new Date(), overrides } = 
   if (rows.length === 0) return { ok: 0, failed: 0 };
   const { rows: stamped, applied } = prepareRows(rows, runStart.toISOString(), overrides);
   for (const a of applied) {
-    const what = [a.hide ? "hide" : null, a.setKeys.length ? `set ${a.setKeys.join(",")}` : null].filter(Boolean).join(" + ");
+    const what = [a.hide ? "hide" : null, a.cancel ? "cancel" : null, a.setKeys.length ? `set ${a.setKeys.join(",")}` : null].filter(Boolean).join(" + ");
     console.log(`[daily-sources] override ${a.provider} ${a.provider_event_id}: ${what}`);
   }
 
