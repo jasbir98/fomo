@@ -11,7 +11,8 @@ import { basketItemForHappening } from "@/lib/plans/basket";
 import {
   ELIGIBILITY_FALLBACK,
   ELIGIBILITY_ICON,
-  checkedLabel,
+  isStale,
+  lastCheckedLabel,
   happeningTypeTag,
   occurrenceRangeLabel,
   recurrencePatternLabel,
@@ -950,9 +951,14 @@ export function HappeningDetail({ id, presentation = "page", initialData }: Deta
               <span className="truncate text-body-sm font-bold text-on-surface">Source: {happening.source_name}</span>
             </div>
             <span className="shrink-0 rounded-full bg-surface-container px-2.5 py-0.5 text-label-sm font-bold text-secondary">
-              {checkedLabel(happening.verified_at, now)}
+              {lastCheckedLabel(happening.verified_at, now)}
             </span>
           </div>
+          {isStale(happening.verified_at, now) ? (
+            <p className="mt-2 text-body-sm text-on-surface-variant">
+              We haven&apos;t been able to re-confirm this recently. Check with {happening.source_name} before you go.
+            </p>
+          ) : null}
           {safeSourceUrl ? (
             <button
               type="button"
