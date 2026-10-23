@@ -7,17 +7,21 @@
  * Add an entry when a source gets a specific event wrong and nothing in the
  * adapter or validator can fix it generally: a missing price or time, a wrong
  * link, or a duplicate listing the cross-source dedupe can't catch (different
- * titles). Match is exact on provider + provider_event_id. Always give a reason
+ * titles), or an event cancelled at its organiser that the source still lists
+ * as on. Match is exact on provider + provider_event_id. Always give a reason
  * (what's wrong, how you verified it, and when). An entry for an event that has
  * ended does nothing useful and can be deleted.
  *
- *   { provider, provider_event_id, reason, hide?: true, set?: { ...columns } }
+ *   { provider, provider_event_id, reason, hide?: true, cancel?: true, set?: { ...columns } }
  *
  *   set   merges the given events columns over the scraped row (scraped values
  *         lose). Only the columns in OVERRIDABLE_COLUMNS are allowed.
  *   hide  keeps the row in the upsert (so last_seen_at still updates and
  *         retire.mjs doesn't misread it) but forces status 'gone'. No new
  *         status: events_status_check only allows active/cancelled/gone/expired.
+ *   cancel  same as hide, but forces status 'cancelled': for events the organiser
+ *           cancelled while an aggregator (AllEvents mirrors Eventbrite) still
+ *           lists them, so the source never sends eventStatus=EventCancelled.
  */
 
 export const OVERRIDABLE_COLUMNS = [
@@ -93,6 +97,13 @@ export const EVENT_OVERRIDES = [
     reason: "Duplicates the curated happening tags-fest-2026 (which has the 10:00-17:00 times); titles differ too much for merge-events.ts to collapse them.",
     hide: true,
   },
+  {
+    provider: "allevents",
+    provider_event_id: "https://allevents.in/edinburgh/summers-end/100001994833619054",
+    reason:
+      "Water of Leith Conservation Trust's Summer's End (Sun 25 Oct) is marked cancelled on its Eventbrite page (eventbrite.co.uk/e/summers-end-tickets-1994834164686, checked 2026-10-23); AllEvents still lists it as on.",
+    cancel: true,
+  },
 ];
 
 /** Throws on a malformed entry or a `set` key that isn't a real events column. */
@@ -102,8 +113,11 @@ export function validateOverrides(overrides) {
     if (!o || typeof o.provider !== "string" || typeof o.provider_event_id !== "string" || !o.provider || !o.provider_event_id) {
       throw new Error(`event override ${id}: provider and provider_event_id are required strings`);
     }
-    if (!o.hide && !(o.set && Object.keys(o.set).length > 0)) {
-      throw new Error(`event override ${id}: needs hide: true or a non-empty set`);
+    if (!o.hide && !o.cancel && !(o.set && Object.keys(o.set).length > 0)) {
+      throw new Error(`event override ${id}: needs hide: true, cancel: true or a non-empty set`);
+    }
+    if (o.hide && o.cancel) {
+      throw new Error(`event override ${id}: hide and cancel are exclusive (gone vs cancelled)`);
     }
     for (const key of Object.keys(o.set ?? {})) {
       if (!OVERRIDABLE_COLUMNS.includes(key)) {
@@ -119,7 +133,7 @@ validateOverrides(EVENT_OVERRIDES);
 
 /**
  * Pure: apply `overrides` to `rows`. Returns { rows, applied } where applied is
- * [{ provider, provider_event_id, hide, setKeys }] for each entry that matched
+ * [{ provider, provider_event_id, hide, cancel, setKeys }] for each entry that matched
  * a row. Rows without an entry are returned as-is; matched rows are copies.
  */
 export function applyEventOverrides(rows, overrides = EVENT_OVERRIDES) {
@@ -131,7 +145,8 @@ export function applyEventOverrides(rows, overrides = EVENT_OVERRIDES) {
     if (!o) return row;
     const next = { ...row, ...(o.set ?? {}) };
     if (o.hide) next.status = "gone";
-    applied.push({ provider: o.provider, provider_event_id: o.provider_event_id, hide: !!o.hide, setKeys: Object.keys(o.set ?? {}) });
+    if (o.cancel) next.status = "cancelled";
+    applied.push({ provider: o.provider, provider_event_id: o.provider_event_id, hide: !!o.hide, cancel: !!o.cancel, setKeys: Object.keys(o.set ?? {}) });
     return next;
   });
   return { rows: out, applied };
