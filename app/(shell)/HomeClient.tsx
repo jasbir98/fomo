@@ -718,23 +718,13 @@ export function HomeClient({ initialFeed = null }: HomeClientProps) {
               a text line plus a full-width link bar stacked under it. */}
           <div className="flex items-center justify-between gap-3 px-1">
             <p className="min-w-0 text-label-md text-on-surface-variant">{windowSummary()}</p>
-            <div className="flex shrink-0 items-center gap-2">
-              {/* The only phone entry to /kids for visitors who haven't said
-                  "I've got kids" (the side nav is desktop-only). */}
-              <Link
-                href="/kids"
-                className="flex h-9 shrink-0 items-center gap-1 rounded-full border border-hairline bg-surface-container-low px-3 text-label-md font-semibold text-primary transition-opacity hover:opacity-80"
-              >
-                With kids
-              </Link>
-              <Link
-                href="/weekend"
-                className="flex h-9 shrink-0 items-center gap-1 rounded-full border border-hairline bg-surface-container-low px-3 text-label-md font-semibold text-primary transition-opacity hover:opacity-80"
-              >
-                This weekend
-                <Icon name="chevron_right" size={18} />
-              </Link>
-            </div>
+            <Link
+              href="/weekend"
+              className="flex h-9 shrink-0 items-center gap-1 rounded-full border border-hairline bg-surface-container-low px-3 text-label-md font-semibold text-primary transition-opacity hover:opacity-80"
+            >
+              This weekend
+              <Icon name="chevron_right" size={18} />
+            </Link>
           </div>
           {switchToast ? (
             <button
