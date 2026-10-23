@@ -164,10 +164,16 @@ stack under the same `digest`, so filter on `digest` to pair them.
   previews (those show minified frames). Settings → Error tracking →
   Symbol sets lists each map and why any failed. The trade-off: the client
   source is readable to anyone who requests a map (it ships to every
-  visitor minified anyway; no server code or secrets are in it). If that
-  ever matters, switch to uploading private maps at build time with
-  `@posthog/nextjs-config` (needs a personal API key with error tracking
-  write in Vercel) and turn `productionBrowserSourceMaps` off.
+  visitor minified anyway; no server code or secrets are in it).
+  **Decision (23 Oct 2026): public maps for now.** Revisit if exposing the
+  client source and its comments starts to matter, or if Symbol sets shows
+  PostHog failing to fetch them. The alternative is uploading private maps
+  at build time with `@posthog/nextjs-config` (needs a personal API key with
+  error tracking write in Vercel) and turning `productionBrowserSourceMaps`
+  off. Try it on a preview first and check: Turbopack support, that its
+  delete-after-upload leaves `.next/server/**/*.map` alone (the server
+  mapping above needs them), whether a failed upload fails the deploy, and
+  that its release version matches `VERCEL_GIT_COMMIT_SHA`.
   Server: `experimental.serverSourceMaps` writes a map beside each server
   chunk; `scripts/trace-server-maps.mjs` (run by `npm run build`) adds each
   function's own chunk maps to its Vercel file trace (largest function: ~9 MB
