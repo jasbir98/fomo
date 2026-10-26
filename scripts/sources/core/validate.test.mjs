@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { isJunkTitle, isOnlineOnly, validateRow, validateRows } from "./validate.mjs";
+import { isJunkTitle, isOnlineOnly, isSelfGuidedProduct, validateRow, validateRows } from "./validate.mjs";
 
 const NOW = new Date("2026-10-08T12:00:00Z");
 const DAY = 24 * 60 * 60 * 1000;
@@ -86,6 +86,28 @@ test("online_only: JSON-LD flag, venue/address words, title tag without coordina
   // A physical venue with coordinates is not condemned by its title alone.
   assert.equal(isOnlineOnly(row({ name: "Online Poker Night" })), false);
   assert.equal(validateRow(row({ venue_name: "Virgin Records" }), { now: NOW }).ok, true);
+});
+
+test("self_guided: audio/GPS/app tours are products, not events", () => {
+  for (const name of [
+    "Edinburgh Audio Tour: Echoes of Intrigue",
+    "Edinburgh Highlights Audio Tour: Iconic Landmarks",
+    "Glasgow Audio Tour: An Odyssey Through History and Culture",
+    "Old Town Self-Guided Walking Trail",
+    "GPS Treasure Hunt: Royal Mile",
+    "Edinburgh Outdoor Escape Game",
+    "Smartphone Tour of Leith",
+  ]) {
+    assert.equal(validateRow(row({ name }), { now: NOW }).reason, "self_guided", name);
+  }
+  for (const name of ["Ghost Tour of the Old Town", "Walking Tour with a Guide", "Audiobook Club", "The Tour (Live)"]) {
+    assert.equal(isSelfGuidedProduct({ name }), false, name);
+  }
+});
+
+test("not_edinburgh: coordinates outvote an Edinburgh city field", () => {
+  const inverness = row({ lat: 57.4778, lng: -4.2247, city: "Edinburgh", address: "Bishop's Road, Inverness" });
+  assert.equal(validateRow(inverness, { now: NOW }).reason, "not_edinburgh");
 });
 
 test("bad_url: bad ticket_url rejects, bad image_url is dropped", () => {
