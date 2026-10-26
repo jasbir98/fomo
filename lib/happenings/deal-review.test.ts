@@ -13,6 +13,8 @@ function deal(id: string, over: Partial<ReviewableDeal> = {}): ReviewableDeal {
     id,
     title: `Deal ${id}`,
     venue_name: `Venue ${id}`,
+    address: null,
+    scope: "venue",
     source_url: `https://example.com/${id}`,
     status: "live",
     saving_label: "20% off with a student card",
@@ -85,11 +87,69 @@ test("a non-genuine deal is only flagged, never changed", () => {
   assert.deepEqual(v.flags.map((f) => f.flag), ["not_genuine"]);
 });
 
-test("an out-of-bounds deal is flagged; one with no coordinates is not", () => {
-  const glasgow = only(deal("a", { lat: 55.8642, lng: -4.2518 }));
-  assert.equal(glasgow.action, "keep");
-  assert.deepEqual(glasgow.flags.map((f) => f.flag), ["outside_edinburgh"]);
-  assert.deepEqual(only(deal("b", { lat: null, lng: null })).flags, []);
+test("a pin outside the Edinburgh box (no postcode, no town) goes dormant", () => {
+  const v = only(deal("a", { venue_name: "Some Bar", title: "Pint offer", lat: 55.8642, lng: -4.2518 }));
+  assert.equal(v.action, "dormant");
+  assert.equal(v.reason, "outside Edinburgh: pin 55.8642, -4.2518");
+  assert.deepEqual(v.flags, []);
+});
+
+test("a deal with no coordinates is not read as outside Edinburgh", () => {
+  assert.equal(only(deal("b", { lat: null, lng: null })).action, "keep");
+});
+
+test("an EH21 address (Musselburgh) goes dormant", () => {
+  const v = only(deal("a", { venue_name: "Lido", address: "1 High St, Musselburgh EH21 7AB" }));
+  assert.equal(v.action, "dormant");
+  assert.equal(v.reason, "outside Edinburgh: EH21 postcode");
+});
+
+test("an EH6 address is kept", () => {
+  assert.equal(only(deal("a", { address: "10 Leith Walk, Edinburgh EH6 5AB" })).action, "keep");
+});
+
+test("an EH30 address (South Queensferry) is kept", () => {
+  assert.equal(only(deal("a", { address: "3 High St, South Queensferry EH30 9PA" })).action, "keep");
+});
+
+test("EH districts: the city, its edge and the non-geographic codes are in; the rest are out", () => {
+  const inside = ["EH1 1AA", "EH17 8XY", "EH28 8AB", "EH29 9BA", "EH30 9TA", "EH91 1AB", "EH95 1AA", "EH99 1AB"];
+  const outside = ["EH18 1AA", "EH22 1AA", "EH26 6AA", "EH27 8AA", "EH31 1AA", "EH39 4AA"];
+  for (const address of inside) assert.equal(only(deal("i", { address })).action, "keep", address);
+  for (const address of outside) assert.equal(only(deal("o", { address })).action, "dormant", address);
+});
+
+test("a Glasgow G1 postcode goes dormant", () => {
+  const v = only(deal("a", { address: "12 Buchanan St, Glasgow G1 2FF" }));
+  assert.equal(v.action, "dormant");
+  assert.equal(v.reason, "outside Edinburgh: G1 postcode");
+});
+
+test("a town name in the venue goes dormant when there is no address", () => {
+  const v = only(deal("a", { venue_name: "Lido Musselburgh", title: "20% off main menu" }));
+  assert.equal(v.action, "dormant");
+  assert.equal(v.reason, "outside Edinburgh: Musselburgh");
+});
+
+test("a town name in the title is matched too, whole words only", () => {
+  assert.equal(only(deal("a", { title: "Bus trip to North Berwick" })).reason, "outside Edinburgh: North Berwick");
+  assert.equal(only(deal("b", { title: "Stirlingshire offer" })).action, "keep");
+});
+
+test("Leith and Portobello are inside the city, so they never match as towns", () => {
+  assert.equal(only(deal("a", { title: "The Lioness of Leith", venue_name: "The Lioness of Leith" })).action, "keep");
+  assert.equal(only(deal("b", { venue_name: "Portobello Beach Bar", title: "Pizza night" })).action, "keep");
+});
+
+test("an Edinburgh postcode decides before a town name or the pin", () => {
+  const v = only(deal("a", { address: "5 Shore, EH6 6QU", venue_name: "Musselburgh Arms", lat: 55.8642, lng: -4.2518 }));
+  assert.equal(v.action, "keep");
+});
+
+test("no address, no coordinates and an Edinburgh name is kept", () => {
+  const v = only(deal("a", { address: null, lat: null, lng: null, venue_name: "Bella Italia Edinburgh", title: "Student deal" }));
+  assert.equal(v.action, "keep");
+  assert.deepEqual(v.flags, []);
 });
 
 test("same venue plus the same saving badge is flagged as a duplicate on both rows", () => {
@@ -171,4 +231,9 @@ test("a national chain's shallow discount is flagged; a deep one or a local 10% 
   assert.deepEqual(shallow.flags.map((f) => f.flag), ["chain_shallow"]);
   assert.deepEqual(only(deal("b", { venue_name: "ASK Italian Edinburgh", saving_label: "50% off mains" })).flags, []);
   assert.deepEqual(only(deal("c", { venue_name: "Paper Tiger", saving_label: "10% off" })).flags, []);
+});
+
+test("a national offer is never hidden for where its head office is", () => {
+  const v = only(deal("a", { scope: "national", venue_name: "16-25 Railcard", address: "1 Euston Sq, London NW1 2FA" }));
+  assert.equal(v.action, "keep");
 });

@@ -746,13 +746,13 @@ class FixedPageTests(unittest.TestCase):
 class EdinburghDistrictAndWordingTests(unittest.TestCase):
     def test_city_districts_count_as_edinburgh(self):
         from deal_sources.gate import has_eh_postcode, has_non_eh_postcode
-        for pc in ("EH1 1EE", "EH6 6RB", "EH15 3RD", "EH21 6AA", "EH30 9TA"):
+        for pc in ("EH1 1EE", "EH6 6RB", "EH15 3RD", "EH30 9TA"):
             self.assertTrue(has_eh_postcode(pc), pc)
             self.assertFalse(has_non_eh_postcode(pc), pc)
 
     def test_lothians_districts_do_not(self):
         from deal_sources.gate import has_eh_postcode, has_non_eh_postcode
-        for pc in ("EH39 5EG", "EH49 7AE", "EH26 9LP"):
+        for pc in ("EH39 5EG", "EH49 7AE", "EH26 9LP", "EH21 6AA", "EH22 1AA"):
             self.assertFalse(has_eh_postcode(pc), pc)
             self.assertTrue(has_non_eh_postcode(pc), pc)
 

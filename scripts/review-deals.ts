@@ -12,8 +12,8 @@
  * with lib/happenings/deal-review.ts (all the rules live there, tested):
  *
  *   retire   the deal has ended            -> status 'retired'
- *   dormant  unverified for 30+ days       -> status 'dormant'
- *   flagged  not a genuine deal, outside Edinburgh, likely duplicate (report only)
+ *   dormant  unverified for 30+ days, or outside Edinburgh -> status 'dormant'
+ *   flagged  not a genuine deal, likely duplicate (report only)
  *   new      created in the last 24 hours, with their flags (report only)
  *
  * WRITES. Only the retire and dormant changes are written, as a status change
@@ -121,7 +121,7 @@ function buildReport(review: ReturnType<typeof reviewDeals>, mode: string): stri
     `#### Retire (ended): ${review.retire.length}`,
     "",
     table(review.retire, (v) => v.reason ?? ""),
-    `#### Dormant (unverified ${STALE_DORMANT_DAYS}+ days): ${review.dormant.length}`,
+    `#### Dormant (unverified ${STALE_DORMANT_DAYS}+ days, or outside Edinburgh): ${review.dormant.length}`,
     "",
     table(review.dormant, (v) => v.reason ?? ""),
     `#### Flagged, no change made: ${review.flagged.length}`,

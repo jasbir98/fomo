@@ -9,12 +9,14 @@
  * Three outcomes per deal, applied in this order:
  *
  *   retire   it has ended (the offer is gone for good) -> status 'retired'
- *   dormant  nothing has confirmed it for STALE_DORMANT_DAYS -> status 'dormant'
+ *   dormant  nothing has confirmed it for STALE_DORMANT_DAYS, or it is outside
+ *            Edinburgh (see `locate`) -> status 'dormant' (hidden, reversible)
  *   keep     everything else
  *
- * Rows that are kept can also carry FLAGS (not a genuine deal, outside
- * Edinburgh, a likely duplicate, a national chain's shallow discount). A flag never changes a row: it is a line in
- * the report for a person to look at. The only writes are retire and dormant,
+ * Rows that are kept can also carry FLAGS (not a genuine deal, a likely
+ * duplicate, a national chain's shallow discount). A flag never changes a row:
+ * it is a line in the report for a person to look at. The only writes are
+ * retire and dormant,
  * both soft (a status change, never a DELETE), and both bounded by MAX_CHANGES
  * (`exceedsCap`) so a bug in the rules can't empty the catalogue.
  *
@@ -52,10 +54,71 @@ export const MAX_CHANGES = 15;
 export const NEW_WINDOW_HOURS = 24;
 
 /**
- * Rough box around Edinburgh used only to FLAG a deal whose pin lands
- * elsewhere (a bad geocode, or a Glasgow venue scraped by mistake). Tighter
- * than CITY.bbox, which is padded for geocoding and the map. Rows without
- * coordinates are skipped: no coordinates is a data gap, not a wrong place.
+ * A UK postcode's outward code (the part before the space), e.g. "EH21" from
+ * "EH21 7AB". A postcode is the most exact place an address states, so it is
+ * the first signal `locate` tries. The inward half is required so a stray
+ * "A1" in an address isn't read as a postcode.
+ */
+export const POSTCODE_OUTWARD_RE = /\b([A-Z]{1,2}\d{1,2}[A-Z]?)\s*\d[A-Z]{2}\b/i;
+
+/**
+ * EH districts that count as Edinburgh. EH1 to EH17 are the city and EH28 to
+ * EH30 its western edge (Kirkliston, Ratho, South Queensferry), inside the City
+ * of Edinburgh council area. EH91, EH95 and EH99 are non-geographic codes, so
+ * they are not a place outside the city either. Everything else (EH18 to EH27,
+ * EH31 and up) is another council's area: Musselburgh (EH21), Dalkeith (EH22)
+ * and Penicuik (EH26) are in Midlothian and East Lothian.
+ */
+export const EDINBURGH_EH_DISTRICTS: ReadonlySet<number> = new Set([
+  ...Array.from({ length: 17 }, (_, i) => i + 1),
+  28,
+  29,
+  30,
+  91,
+  95,
+  99,
+]);
+
+/**
+ * Towns outside the city, matched as whole words in a deal's venue or title.
+ * This catches a deal with no postcode, where the pin can't be trusted to say
+ * where it is ("Lido Musselburgh", a Glasgow bar). Leith, Portobello, Cramond
+ * and South Queensferry are deliberately absent: they are inside Edinburgh, and
+ * a name like "The Lioness of Leith" must not make a deal outside.
+ */
+export const OUTSIDE_TOWNS = [
+  "Musselburgh",
+  "Dalkeith",
+  "Bonnyrigg",
+  "Loanhead",
+  "Lasswade",
+  "Penicuik",
+  "Livingston",
+  "Linlithgow",
+  "Bathgate",
+  "Broxburn",
+  "Haddington",
+  "North Berwick",
+  "Dunbar",
+  "Prestonpans",
+  "Tranent",
+  "Gorebridge",
+  "Glasgow",
+  "Stirling",
+  "Dunfermline",
+  "Kirkcaldy",
+  "Peebles",
+  "Innerleithen",
+  "Inverness",
+  "Fort William",
+] as const;
+const OUTSIDE_TOWN_RE = new RegExp(`\\b(${OUTSIDE_TOWNS.join("|")})\\b`, "i");
+
+/**
+ * Rough box around Edinburgh: the last signal `locate` tries, for a row with no
+ * postcode and no town name in its text. A pin outside it (a bad geocode, or a
+ * Glasgow venue scraped by mistake) makes the row dormant. Tighter than
+ * CITY.bbox, which is padded for geocoding and the map.
  */
 export const EDINBURGH_BBOX = { minLat: 55.85, maxLat: 56.0, minLng: -3.45, maxLng: -3.05 } as const;
 
@@ -65,6 +128,8 @@ export type ReviewableDeal = Pick<
   | "id"
   | "title"
   | "venue_name"
+  | "address"
+  | "scope"
   | "source_url"
   | "status"
   | "saving_label"
@@ -82,7 +147,7 @@ export type ReviewableDeal = Pick<
   | "created_at"
 > & { season_valid_until?: string | null };
 
-export type DealFlag = "not_genuine" | "outside_edinburgh" | "duplicate" | "chain_shallow";
+export type DealFlag = "not_genuine" | "duplicate" | "chain_shallow";
 
 export interface DealVerdict {
   deal: ReviewableDeal;
@@ -160,14 +225,42 @@ function staleReason(deal: ReviewableDeal, now: Date): string | null {
   return null;
 }
 
-function outsideEdinburgh(deal: ReviewableDeal): boolean {
-  if (typeof deal.lat !== "number" || typeof deal.lng !== "number") return false;
-  return (
-    deal.lat < EDINBURGH_BBOX.minLat ||
-    deal.lat > EDINBURGH_BBOX.maxLat ||
-    deal.lng < EDINBURGH_BBOX.minLng ||
-    deal.lng > EDINBURGH_BBOX.maxLng
-  );
+/** Whether an outward code such as "EH21" or "G1" is in Edinburgh. */
+function isEdinburghOutward(outward: string): boolean {
+  const m = /^EH(\d{1,2})[A-Z]?$/.exec(outward);
+  return m !== null && EDINBURGH_EH_DISTRICTS.has(Number(m[1]));
+}
+
+/**
+ * Where a deal is, decided by the first signal that answers: its address
+ * postcode, then a town name in its venue or title, then its pin. Returns null
+ * when none does. No data is a gap, not a wrong place, so the caller keeps the
+ * deal.
+ */
+export function locate(deal: ReviewableDeal): { inside: boolean; why: string } | null {
+  const pc = deal.address ? POSTCODE_OUTWARD_RE.exec(deal.address) : null;
+  if (pc) {
+    const outward = pc[1].toUpperCase();
+    return { inside: isEdinburghOutward(outward), why: `${outward} postcode` };
+  }
+
+  for (const text of [deal.venue_name, deal.title]) {
+    const town = text ? OUTSIDE_TOWN_RE.exec(text) : null;
+    if (town) {
+      const name = OUTSIDE_TOWNS.find((t) => t.toLowerCase() === town[1].toLowerCase()) ?? town[1];
+      return { inside: false, why: name };
+    }
+  }
+
+  if (typeof deal.lat === "number" && typeof deal.lng === "number") {
+    const inside =
+      deal.lat >= EDINBURGH_BBOX.minLat &&
+      deal.lat <= EDINBURGH_BBOX.maxLat &&
+      deal.lng >= EDINBURGH_BBOX.minLng &&
+      deal.lng <= EDINBURGH_BBOX.maxLng;
+    return { inside, why: `pin ${deal.lat}, ${deal.lng}` };
+  }
+  return null;
 }
 
 /**
@@ -221,6 +314,12 @@ export function reviewDeals(deals: readonly ReviewableDeal[], now: Date): DealRe
     if (ended) return { deal, action: ended.action, reason: ended.reason, flags: [], isNew };
     const stale = staleReason(deal, now);
     if (stale) return { deal, action: "dormant", reason: stale, flags: [], isNew };
+    // A UK-wide offer (scope "national", e.g. a railcard) is valid in Edinburgh
+    // wherever its head office is, so where it is listed doesn't matter.
+    const place = deal.scope === "national" ? null : locate(deal);
+    if (place && !place.inside) {
+      return { deal, action: "dormant", reason: `outside Edinburgh: ${place.why}`, flags: [], isNew };
+    }
     return { deal, action: "keep", reason: null, flags: [], isNew };
   });
 
@@ -231,9 +330,6 @@ export function reviewDeals(deals: readonly ReviewableDeal[], now: Date): DealRe
   for (const v of kept) {
     if (!isGenuineDeal(v.deal)) {
       v.flags.push({ flag: "not_genuine", detail: "no discount, code or restricted-audience saving" });
-    }
-    if (outsideEdinburgh(v.deal)) {
-      v.flags.push({ flag: "outside_edinburgh", detail: `${v.deal.lat}, ${v.deal.lng}` });
     }
     const twin = dupes.get(v.deal.id);
     if (twin) v.flags.push({ flag: "duplicate", detail: `looks like "${twin}"` });
