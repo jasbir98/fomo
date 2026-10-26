@@ -17,7 +17,7 @@
 --   feeds the retirement health gate and the "Source health" summary.
 --
 -- Existing RLS on events (read_all for anon + authenticated, no write policy)
--- already covers the new columns; events stays public-read.
+-- already covers the new columns. (Superseded by live_only_public_read.sql, which narrows the public read to status = 'active'.)
 
 -- 1. events columns
 alter table events add column if not exists last_seen_at timestamptz;

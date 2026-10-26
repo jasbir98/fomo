@@ -31,6 +31,10 @@ export interface LoadedFinds {
  * its empty state. That also covers the window before supabase/add_finds.sql
  * has been run (listLiveFinds already maps a missing table to []).
  *
+ * `loadSubjects` reads events and happenings with the service role, so it
+ * returns ended and hidden rows too; buildFindItems (via findIsStale) is what
+ * drops anything not live/active, so Finds never shows a hidden subject.
+ *
  * `limit` trims the result to the first N after sorting (Fomo level, then
  * soonest) — the teaser a signed-out visitor sees — while `total` still counts
  * them all.

@@ -5,9 +5,10 @@
  *
  * A route, not a direct client-side `lib/db` call, because
  * lib/db/happenings.ts is `server-only` (it's the read the GET /api/feed
- * route uses) — unlike lib/db/places.ts/lib/db/events.ts, which have no such
- * restriction and so the place/event detail pages can call getPlace/getEvent
- * straight from the browser. Same session gate as every other /api/* route
+ * route uses) — unlike lib/db/places.ts, which has no such restriction and so
+ * the place detail page can call getPlace straight from the browser.
+ * (Events used to work that way too; GET /api/events/[id] now serves them,
+ * since the public read is live-only and ended events need the service role.) Same session gate as every other /api/* route
  * in this app (proxy.ts already 401s an unauthenticated request before
  * this ever runs; the explicit check below is belt-and-braces, matching
  * /api/feed's own).
@@ -26,14 +27,17 @@ export type HappeningResponse = HappeningDetailData;
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const db = await supabaseServer();
-  // Public: shared deal links open signed out (user decision 2026-09-15);
-  // happenings are `read_all` to anon under RLS.
+  // Public: shared deal links open signed out (user decision 2026-09-15).
+  // The public RLS read is live-only (supabase/live_only_public_read.sql), so
+  // loadHappeningDetail reads the requested row itself through the service
+  // role (an ended deal's link must still open); `db` serves the live-only
+  // sibling and place lookups.
 
   try {
     const { happening, siblings } = await loadHappeningDetail(db, id);
     // CACHE_MEDIUM, not CACHE_PRIVATE_NO_STORE: this response never depends
-    // on the caller (RLS grants `read_all` to anon, and nothing here reads
-    // `db`'s session). It's still `private` (browser-cache only), never
+    // on the caller (the siblings are live rows RLS grants to anon, and
+    // nothing here reads `db`'s session). It's still `private` (browser-cache only), never
     // `public`/`s-maxage` — lib/http/cache.ts's own file-header doc comment
     // explains why that's unsafe for ANY /api/* route in this app
     // regardless of the data itself: proxy.ts refreshes the session cookie

@@ -8,8 +8,8 @@
  * each page's `revalidate`) and hand the result to the client component as
  * its starting content; the client still fetches its own copy on mount.
  *
- * Built with the cookie-less anon client (every read is `read_all` to anon
- * under RLS) and a generic ranking (`who: []`), so the page stays static and
+ * Built with the cookie-less anon client (every read is of live/active rows,
+ * which anon may read under RLS) and a generic ranking (`who: []`), so the page stays static and
  * can be served from the cache instead of rendered per visitor.
  */
 import "server-only";

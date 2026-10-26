@@ -6,8 +6,9 @@
  * paint of Home, Deals, Free and This weekend).
  *
  * Public: signed-out visitors browse the feed too (user decision
- * 2026-09-15). Every table read is `read_all` to anon under RLS, so a
- * cookie-less request simply runs as the anon role.
+ * 2026-09-15). Every table read here is public to anon under RLS (live
+ * happenings and active events only), so a cookie-less request simply runs as
+ * the anon role.
  */
 import "server-only";
 import { supabaseServer } from "@/lib/supabase/server";

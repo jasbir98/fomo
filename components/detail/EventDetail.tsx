@@ -3,11 +3,9 @@
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { supabaseBrowserAuth } from "@/lib/supabase/client";
 import { buildAskFomoHref } from "@/lib/chat-seed";
 import { buildSearchMapUrl, directionsUrlFor } from "@/lib/maps/links";
 import { safeHttpUrl } from "@/lib/http/safe-url";
-import { getEvent } from "@/lib/db";
 import { useSaved } from "@/lib/useSaved";
 import { eventDefaultImage, eventImageFor } from "@/lib/events/image";
 import { eventHasEnded, formatEventPrice, formatEventWhen, isDateOnlyStart } from "@/lib/events/format";
@@ -17,7 +15,7 @@ import { buildEventFallbackDescription } from "@/lib/events/description";
 import type { EventItem } from "@/lib/types";
 import { Button, ErrorState, FomoLoader, Icon, PhotoCarousel, ShareButton, StatusPill } from "@/components/ui";
 import type { CarouselPhoto } from "@/components/ui";
-import { getEventPreview, takePrefetchedEvent, type EventPreview } from "@/lib/events/preview-cache";
+import { fetchEvent, getEventPreview, takePrefetchedEvent, type EventPreview } from "@/lib/events/preview-cache";
 import { track, trackOutboundClicked } from "@/lib/analytics/track";
 import { FindBadge } from "@/components/finds/FindBadge";
 import { GoodWithKidsTag, showGoodWithKids } from "@/components/happenings/GoodWithKidsTag";
@@ -94,7 +92,6 @@ function eventGoogleCalendarUrl(event: EventItem): string {
  * is a save/bookmark toggle (lib/useSaved.ts) instead of add-to-itinerary.
  */
 export function EventDetail({ id, presentation = "page", initialEvent }: DetailProps & { initialEvent?: EventItem | null }) {
-  const db = supabaseBrowserAuth();
   const pathname = usePathname();
   const { isSaved: checkSaved, toggle: toggleSaved } = useSaved();
   // On this week's hand-picked "For you" list? Drives the badge + "why" line at the top of the details card.
@@ -107,9 +104,9 @@ export function EventDetail({ id, presentation = "page", initialEvent }: DetailP
   const [event, setEvent] = useState<EventItem | null>(initialEvent ?? null);
   const [loading, setLoading] = useState(!initialEvent);
   const hadInitialEvent = useRef(initialEvent != null);
-  // True only after a real fetch failure — `getEvent` (lib/db/events.ts)
-  // throws on an actual Supabase/network error and only ever resolves to
-  // `null` for a genuine "no such row", so this stays reserved for the
+  // True only after a real fetch failure — `fetchEvent`
+  // (lib/events/preview-cache.ts) throws on a non-2xx response or a network
+  // error and only ever resolves to `null` for a genuine "no such row", so this stays reserved for the
   // former and never fires for the latter.
   const [error, setError] = useState(false);
   const [reloadTick, setReloadTick] = useState(0);
@@ -130,9 +127,9 @@ export function EventDetail({ id, presentation = "page", initialEvent }: DetailP
     let cancelled = false;
     // Reuses a card's early prefetch (started at pointerdown/touchstart,
     // see lib/events/preview-cache.ts) when one's in flight for this id,
-    // instead of firing a second, redundant `getEvent` read.
+    // instead of firing a second, redundant request.
     const prefetched = takePrefetchedEvent(id);
-    (prefetched ?? getEvent(db, id))
+    (prefetched ?? fetchEvent(id))
       .then((data) => {
         if (!cancelled) {
           setEvent(data);
@@ -150,7 +147,7 @@ export function EventDetail({ id, presentation = "page", initialEvent }: DetailP
     return () => {
       cancelled = true;
     };
-  }, [db, id, reloadTick]);
+  }, [id, reloadTick]);
 
   if (loading) {
     // No preview at all (a shared link opened directly, a fresh reload) —
