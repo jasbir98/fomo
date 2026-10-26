@@ -116,7 +116,14 @@ import { occurrenceIsPastLocalHours } from "@/lib/happenings/local-hours";
 import { categoryStyle } from "@/lib/happenings/category-style";
 import { dealFacets, isGenuineDeal } from "@/lib/happenings/groups";
 import { groupHappeningsIntoSeries, seriesLookup, type HappeningSeriesGroup } from "@/lib/happenings/series";
-import { dedupeProviderEvents, mergeProviderEventsIntoCards, normalizeText, type MergeableCard } from "@/lib/happenings/merge-events";
+import {
+  dedupeHappenings,
+  dedupeProviderEvents,
+  mergeProviderEventsIntoCards,
+  normalizeText,
+  type MergeableCard,
+} from "@/lib/happenings/merge-events";
+import { isOutOfSeason } from "@/lib/happenings/season";
 import { groupRecurringCards } from "@/lib/happenings/recurring";
 import { everydayCardRunsOn, isEverydayCard, isEverydayRecurrence } from "@/lib/happenings/everyday";
 import {
@@ -824,7 +831,15 @@ export async function buildFeed(db: Db, opts: BuildFeedOptions): Promise<FeedRes
   }
   for (const p of prewarm) p.catch(() => {});
 
-  const rawHappenings = await listLiveHappenings(db, CITY);
+  // Out-of-season rows (an August festival pass in October, last year's
+  // edition of an annual event — lib/happenings/season.ts) and curated
+  // copies of one dated event (merge-events.ts's `dedupeHappenings`) are
+  // dropped here, once, so every section below agrees on them.
+  const rawHappenings = dedupeHappenings(
+    (await listLiveHappenings(db, CITY)).filter((h) => !isOutOfSeason(h, now, timeZone)),
+    now,
+    timeZone
+  );
 
   // Batch-fetch every place a happening might borrow a photo from —
   // collected up front, over ALL happenings, so one query covers the hero,
