@@ -10,7 +10,9 @@
  * audience-fit signals, each capped/weighted so no one factor (urgency,
  * especially) can dominate the rest — plus a short human `reason` string
  * built from whichever factors actually contributed, for the hero card's
- * "why this" pill.
+ * "why this" pill. A run-length factor keeps a months-long listing from
+ * tying with something that's on tonight only: long runs are marked down,
+ * genuine one-offs get a small bump.
  *
  * Pure and deterministic, same testability rationale as format.ts/
  * book-early.ts: no fetch, no `server-only`, so it can run against fixture
@@ -26,7 +28,8 @@
  * by not deleting a working, documented function no one asked to remove).
  */
 import { CITY } from "@/lib/city";
-import { localDayDate, daysUntilLastChance } from "@/lib/happenings/occurrence";
+import { localDayDate, daysUntilLastChance, normalizeRecurrence } from "@/lib/happenings/occurrence";
+import { isNationalChain } from "@/lib/happenings/deal-score";
 import { bucketForDayDate, isStale, moneyLabel, savingBadgeLabel } from "@/lib/happenings/format";
 import { isGenuineDeal, whoGroupForEligibility, type DealWhoGroup } from "@/lib/happenings/groups";
 import { priceSignalForEvent } from "@/lib/cards/price";
@@ -63,6 +66,31 @@ const CHEAP_AND_SOON_BONUS = 10;
 
 /** Event tickets below this count as "under £10" for the cheap-and-soon bonus. */
 const CHEAP_EVENT_MAX = 10;
+
+/** A run of this many days or more counts as long-running — an exhibition or
+ *  a season-length aggregator listing, not a night out. */
+const LONG_RUN_DAYS = 14;
+
+/** Penalty for a long run that isn't about to end: it's always there, so
+ *  there's no reason to lead with it today. A run ending within 2 days is
+ *  exempt (it's genuinely a last chance). */
+const LONG_RUN_PENALTY = 15;
+
+/** Bonus for a genuine one-off (single day, not a recurring slot) that's
+ *  today, tomorrow or this weekend — rare, so worth surfacing. */
+const ONE_OFF_BONUS = 8;
+
+/** A happening that's a national chain's offer is marked down so the Fomo Pick
+ *  is never a chain discount when a local option exists. */
+const CHAIN_HERO_PENALTY = 10;
+
+/** Whole days from `from` to `to` ("YYYY-MM-DD" local days). UTC arithmetic,
+ *  so DST can't skew it. */
+function dayDiff(from: string, to: string): number {
+  const [fy, fm, fd] = from.split("-").map(Number);
+  const [ty, tm, td] = to.split("-").map(Number);
+  return Math.round((Date.UTC(ty, tm - 1, td) - Date.UTC(fy, fm - 1, fd)) / 86_400_000);
+}
 
 /**
  * True when `url` is a real photo: set, not one of the bundled category
@@ -139,7 +167,9 @@ function buildReason(factors: ReasonFactor[]): string | null {
  * Callers are expected to have already excluded `recurrence: "always"` rows
  * (no "last chance" of their own — they belong in Free Any Time) and
  * computed `occurrence` via lib/happenings/occurrence.ts, same contract as
- * the old `happeningHeroScore`.
+ * the old `happeningHeroScore`. Run length comes from the occurrence's own
+ * span, so a weekly slot is never "long-running"; only `once`/`dates`/`annual`
+ * single days earn the one-off bonus.
  */
 export function happeningRecommendationScore(
   h: Happening,
@@ -193,6 +223,14 @@ export function happeningRecommendationScore(
   }
   if (h.is_free && bucket !== "coming_up") score += CHEAP_AND_SOON_BONUS;
 
+  // --- Run length: long runs are always there, one-offs aren't. ------
+  const runDays = dayDiff(occurrence.dayDate, occurrence.lastDayDate);
+  if (runDays >= LONG_RUN_DAYS && daysLeft > 2) score -= LONG_RUN_PENALTY;
+  if (runDays <= 0 && bucket !== "coming_up") {
+    const type = normalizeRecurrence(h.recurrence).type;
+    if (type === "once" || type === "dates" || type === "annual") score += ONE_OFF_BONUS;
+  }
+
   // --- Scarcity ----------------------------------------------------------
   if (h.sellout_risk === "high") {
     score += 10;
@@ -224,6 +262,9 @@ export function happeningRecommendationScore(
     }
   }
 
+  // --- National chains: same everywhere, never the Edinburgh pick. ----
+  if (isNationalChain(h)) score -= CHAIN_HERO_PENALTY;
+
   return { score, reason: buildReason(factors) };
 }
 
@@ -239,6 +280,10 @@ export function happeningRecommendationScore(
  * There's likewise no `sellout_risk`, curator `priority`, or `eligibility`
  * on `EventItem` — those factors simply don't apply and are skipped, never
  * scored as a penalty for missing data.
+ *
+ * Run length comes from `starts_at`..`ends_at` (null = single day): a long
+ * run that isn't about to end is marked down, a single-day event that's soon
+ * gets the one-off bonus.
  */
 export function eventRecommendationScore(
   e: EventItem,
@@ -276,6 +321,12 @@ export function eventRecommendationScore(
   }
   const cheap = e.is_free || (e.price_from != null && e.price_from < CHEAP_EVENT_MAX);
   if (cheap && bucket !== "coming_up") score += CHEAP_AND_SOON_BONUS;
+
+  // --- Run length: long runs are always there, one-offs aren't. ------
+  const lastDay = e.ends_at ? localDayDate(new Date(e.ends_at), timeZone) : dayDate;
+  const runDays = dayDiff(dayDate, lastDay);
+  if (runDays >= LONG_RUN_DAYS && dayDiff(localDayDate(now, timeZone), lastDay) > 2) score -= LONG_RUN_PENALTY;
+  if (runDays <= 0 && bucket !== "coming_up") score += ONE_OFF_BONUS;
 
   // --- Scarcity / Curation / Audience: no data on EventItem, skipped. ---
 

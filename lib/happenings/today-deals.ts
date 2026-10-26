@@ -7,7 +7,10 @@
  * to open the app every day", so the ranking favours the deals that are
  * specifically ABOUT today (a weekly Tuesday offer) over deals that merely
  * happen to also be valid today (a standing `always` deal, valid every day
- * and therefore not really a "today" signal at all).
+ * and therefore not really a "today" signal at all). Within a tier the
+ * steals go first (lib/happenings/deal-score.ts's `dealStealScore`: deep
+ * discount, tied to a day or two of the week, local over national chain), so
+ * a chain's every-day student discount doesn't lead a local Tuesday-only one.
  *
  * Timezone: every date comparison goes through lib/happenings/occurrence.ts's
  * helpers, which resolve "today" in `timeZone` (default `CITY.timezone`,
@@ -23,6 +26,7 @@ import {
   normalizeRecurrence,
   weekdayOf,
 } from "@/lib/happenings/occurrence";
+import { dealStealScore } from "@/lib/happenings/deal-score";
 import { whoGroupForEligibility, type DealWhoGroup } from "@/lib/happenings/groups";
 import { groupDealsByVenue, type RankedDealItem } from "@/lib/happenings/venue-deals";
 import type { DealCardData, DealsSection } from "@/lib/happenings/feed-types";
@@ -60,7 +64,18 @@ function qualifies(card: DealCardData, who: readonly DealWhoGroup[]): boolean {
   return group != null && who.includes(group);
 }
 
-/** Stable partition — qualifying-first, both halves keeping their relative order — so a tier's own internal ranking (e.g. "ends soon" for dated deals) survives the eligibility re-sort. */
+/** A dated deal with this many days or fewer left sorts ahead of the rest of its tier, whatever its steal score ("ends soon"). */
+const ENDS_SOON_DAYS = 2;
+
+/** Stable sort, best deal first by `dealStealScore`; equal scores keep their input order. */
+function sortByStealScore(list: DealCardData[]): DealCardData[] {
+  return list
+    .map((card, index) => ({ card, index, score: dealStealScore(card.happening) }))
+    .sort((a, b) => b.score - a.score || a.index - b.index)
+    .map((x) => x.card);
+}
+
+/** Stable partition — qualifying-first, both halves keeping their relative order — so a tier's own internal ranking (steal score, "ends soon" for dated deals) survives the eligibility re-sort. */
 function rankQualifyingFirst(list: DealCardData[], who: readonly DealWhoGroup[]): DealCardData[] {
   const qualifying: DealCardData[] = [];
   const rest: DealCardData[] = [];
@@ -75,13 +90,15 @@ function rankQualifyingFirst(list: DealCardData[], who: readonly DealWhoGroup[])
  *  1. Weekly deals whose `recurrence.days` includes today's weekday, not
  *     past a set `until`, and not ended — these rank first, they're what
  *     makes the strip feel "today" ("Tuesday: £5 pizza...").
- *  2. Dated deals (once/dates/annual) active today, "ends soon" first.
+ *  2. Dated deals (once/dates/annual) active today: ending within
+ *     ENDS_SOON_DAYS days first ("ends soon"), then by steal score.
  *  3. `always` deals — excluded UNLESS tiers 1+2 total fewer than
  *     TOPUP_TARGET, in which case they top the list up so it's never a
  *     single card.
  *
- * Within each tier, eligible ("You qualify") deals rank first without
- * hiding ineligible ones. Capped at `limit` (default 10) BEFORE venue
+ * Within each tier (weekly, `always`, and the rest of dated) deals are ordered
+ * by `dealStealScore`, best first, then eligible ("You qualify") deals rank
+ * first without hiding ineligible ones. Capped at `limit` (default 10) BEFORE venue
  * grouping (see `groupDealsByVenue`'s call below) — venue grouping runs
  * LAST, over this final ranked/capped list, so a venue with several deals
  * collapses into one card at the position of its best-ranked offer rather
@@ -121,18 +138,18 @@ export function todaysDeals(deals: DealsSection, at: Date, options: TodaysDealsO
     }
   }
 
-  datedToday.sort((a, b) => a.daysLeft - b.daysLeft);
+  const dated = datedToday
+    .map((x, index) => ({ ...x, index, score: dealStealScore(x.card.happening), endsSoon: x.daysLeft <= ENDS_SOON_DAYS }))
+    .sort((a, b) => Number(b.endsSoon) - Number(a.endsSoon) || b.score - a.score || a.index - b.index)
+    .map((x) => x.card);
 
-  const weeklyRanked = rankQualifyingFirst(weeklyToday, who);
-  const datedRanked = rankQualifyingFirst(
-    datedToday.map((x) => x.card),
-    who
-  );
+  const weeklyRanked = rankQualifyingFirst(sortByStealScore(weeklyToday), who);
+  const datedRanked = rankQualifyingFirst(dated, who);
 
   let result = [...weeklyRanked, ...datedRanked];
 
   if (result.length < TOPUP_TARGET) {
-    const alwaysRanked = rankQualifyingFirst(always, who);
+    const alwaysRanked = rankQualifyingFirst(sortByStealScore(always), who);
     for (const card of alwaysRanked) {
       if (result.length >= TOPUP_TARGET) break;
       result.push(card);
