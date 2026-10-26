@@ -16,11 +16,24 @@ When `--publish` is explicitly used, only the just-verified rows are marked appr
 
 ## Live rechecks (how "Checked Nd ago" stays short)
 
-`scraper/recheck_live.py` runs daily (`.github/workflows/daily-recheck.yml`, 05:37 and 16:52 UTC). It reloads the source page of every live row not confirmed in the last 7 days and runs the same `verify_record` check as step 6. A pass sets `verified_at` to now; a 404/410 retires the row; anything else (a block, a timeout, a saving label or date no longer on the page) leaves the row alone and lists it in the run summary for a person to check. No AI calls, so no off-peak constraint. `--dry-run` reports without writing.
+`scraper/recheck_live.py` runs daily as the first step of the daily deal review (`.github/workflows/daily-deal-review.yml`, 12:37 UTC; see below). It reloads the source page of every live row not confirmed in the last 7 days and runs the same `verify_record` check as step 6. A pass sets `verified_at` to now; a 404/410 retires the row; anything else (a block, a timeout, a saving label or date no longer on the page) leaves the row alone and lists it in the run summary for a person to check. No AI calls, so no off-peak constraint. `--dry-run` reports without writing.
 
 The weekly run keeps its own 21-day recheck as a backstop and applies it on every `--stage` run. (Until 23 Oct 2026 it only wrote results under `--publish`, which the schedule never passes, so live rows aged past 40 days.)
 
 The app shows "Checked today / yesterday / Nd ago" for 13 days. From 14 days (`STALE_AFTER_DAYS` in `lib/happenings/format.ts`) cards drop the line, the hero names the source instead, the detail page shows "Last checked 3 Oct" with a "check with the source before you go" note, and hero/For you ranking de-prioritizes the row.
+
+## Daily deal review
+
+`.github/workflows/daily-deal-review.yml` runs at 12:37 UTC, after the 11:17 events import. It re-verifies live rows (`recheck_live.py`, above), then `scripts/review-deals.ts` goes through every live deal and removes the ones that are finished or have gone unconfirmed. It makes no AI calls. To run it by hand: `npx tsx --env-file=.env.local scripts/review-deals.ts --dry-run`, and to run the whole job from GitHub, use "Run workflow" (with the `dry_run` box ticked if you only want the report).
+
+What it does to each live deal:
+
+- **Retired** (gone for good): the deal has ended. Its end date has passed, its weekly or yearly rule has run past its `until` date, its list of dates has run out, or its season (`season_valid_until`) is over. A yearly deal whose season is over goes dormant instead, because it returns next year. A deal with no dates at all is not treated as ended.
+- **Dormant** (hidden, can be switched back on): `verified_at` is missing or more than 30 days old. The recheck keeps any deal whose source page still states it fresh, so a deal this old has failed re-verification for weeks.
+- **Flagged, nothing changed**: not a genuine discount (same test as the Deals tab), a pin outside Edinburgh, or a likely duplicate (same venue and the same saving badge or a near-identical title). A deal with no coordinates is never flagged for location. A national chain offering 10% off or less (`isNationalChain` and `dealDepth` in `lib/happenings/deal-score.ts`) is flagged too.
+- **New today**: deals created in the last 24 hours, with their flags, so a person can look over what was just added.
+
+Rules that don't bend: no row is ever deleted; only rows that are still `live` are touched, and the update re-checks that when it writes; and if one run would retire or make dormant more than 15 deals, it writes nothing, prints the list and fails the job. That many in one day is more likely a bug, or a recheck outage that left every `verified_at` old, than real expiries. If you see that failure, read the list in the run summary, fix the cause, then re-run (or change the rows by hand). The run summary has a table per section with the title, venue, reason, id and source link; `--dry-run` prints the same report and never fails, even over the cap.
 
 ## Deal sources (`scraper/deal_sources/`)
 
