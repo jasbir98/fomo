@@ -59,7 +59,7 @@ const FIND_BOOST_CAP = 15;
 /** Enough to sink an unusable Find below every usable one. */
 const FIND_INELIGIBLE_PENALTY = 100;
 /** Hero scores run roughly 0–100; a full taste match (≤ 12) is worth ~70 on top. */
-const MORE_BOOST_WEIGHT = 6;
+export const MORE_BOOST_WEIGHT = 6;
 
 const WHO_REASON: Record<DealWhoGroup, string> = {
   students: "Student offer",
@@ -143,14 +143,14 @@ export function groupOf(card: Card): ForYouGroupKey {
 }
 
 /** Subject keys a card covers: a series or recurring card also covers its lead, so a Find's lead isn't shown twice. */
-function coveredKeys(card: Card): string[] {
+export function coveredKeys(card: Card): string[] {
   if (card.kind === "series") return [subjectKey(card), `happening:${card.lead.id}`];
   if (card.kind === "recurring") return [subjectKey(card), subjectKey(card.lead)];
   return [subjectKey(card)];
 }
 
 /** An offer only some groups can use, and the visitor told us they're in none of them. An unknown visitor is never ineligible. */
-function ineligible(card: Card, prefs: BoostPrefs, whoKnown: boolean): boolean {
+export function ineligible(card: Card, prefs: BoostPrefs, whoKnown: boolean): boolean {
   const who = cardWho(card);
   return who !== null && whoKnown && !prefs.who.includes(who);
 }
@@ -168,7 +168,7 @@ export function personalReason(card: Card, prefs: BoostPrefs, affinity: Affinity
 }
 
 /** Home hero's score and reason for any card shape; series and recurring cards are scored by their lead. */
-function baseScore(card: Card, prefs: BoostPrefs, now: Date, timeZone: string): { score: number; reason: string | null } {
+export function baseScore(card: Card, prefs: BoostPrefs, now: Date, timeZone: string): { score: number; reason: string | null } {
   if (card.kind === "event") return eventRecommendationScore(card.event, now, timeZone);
   if (card.kind === "happening") return happeningRecommendationScore(card.happening, card.occurrence, now, timeZone, prefs.who);
   if (card.kind === "series") return happeningRecommendationScore(card.lead, card.occurrence, now, timeZone, prefs.who);

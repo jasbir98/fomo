@@ -16,6 +16,7 @@ import { TodaysDealsStrip } from "@/components/happenings/TodaysDealsStrip";
 import { todaysDeals } from "@/lib/happenings/today-deals";
 import { occurrenceIsPastLocalHours } from "@/lib/happenings/local-hours";
 import { leadWithPhotos } from "@/lib/happenings/hero";
+import { topPicks } from "@/lib/personalise/top-picks";
 import { KIDS_RAIL_MIN, kidsRailCards } from "@/lib/happenings/kids-rail";
 import { weekendDates } from "@/lib/happenings/format";
 import { AmbientWeather } from "@/components/weather/AmbientWeather";
@@ -475,9 +476,17 @@ export function HomeClient({ initialFeed = null }: HomeClientProps) {
     () => ({ interests: prefs.interests, budget: prefs.budget, who: dealWho, kids: prefs.kids }),
     [prefs.interests, prefs.budget, dealWho, prefs.kids]
   );
-  const boostedWhatsOnCards = useMemo(
-    () => reorderWithBoost(whatsOnCards, (card) => personalBoost(card, boostPrefs, affinity)),
-    [whatsOnCards, boostPrefs, affinity]
+  // "Top picks": the section's SECTION_CAP cards are chosen, not just the first
+  // five in time order — the For you ranking (hero score + the visitor's taste,
+  // lib/personalise/top-picks.ts), each with a one-line reason. "See all N"
+  // still counts and links the whole window.
+  // Same rule as For you: once the visitor has answered "I'm a…", an empty
+  // `who` means "none of these groups", so a Working visitor isn't shown
+  // student-only picks.
+  const whoKnown = prefs.status !== null || dealWho.length > 0;
+  const whatsOnTopPicks = useMemo(
+    () => topPicks(whatsOnCards, { prefs: boostPrefs, affinity, whoKnown, now, timeZone: CITY.timezone, count: SECTION_CAP }).picks,
+    [whatsOnCards, boostPrefs, affinity, whoKnown, now]
   );
   // "Any day" (lib/happenings/everyday.ts) — boosted within its own section,
   // never merged into the dated list above. Rotated daily first
@@ -798,7 +807,7 @@ export function HomeClient({ initialFeed = null }: HomeClientProps) {
             {feed !== null && !feedError ? (
               <div className="flex items-center justify-between px-1">
                 <h2 className="text-headline-sm font-extrabold tracking-tight text-on-surface">
-                  What&apos;s on
+                  Top picks
                   <span className="ml-1.5 font-semibold text-on-surface-variant">
                     · {WHATS_ON_WINDOW_LABEL[feedWindow]}
                   </span>
@@ -845,8 +854,8 @@ export function HomeClient({ initialFeed = null }: HomeClientProps) {
                   </div>
                 ) : (
                   <>
-                    {boostedWhatsOnCards.slice(0, SECTION_CAP).map((card, i) => (
-                      <FeedListCard key={cardKey(card)} card={card} surface="home_whats_on" position={i} />
+                    {whatsOnTopPicks.map(({ card, reason }, i) => (
+                      <FeedListCard key={cardKey(card)} card={card} surface="home_whats_on" position={i} reason={reason} />
                     ))}
                     <SeeAllButton
                       href={`/whats-on?window=${feedWindow}`}
