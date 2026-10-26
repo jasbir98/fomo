@@ -65,6 +65,8 @@ export interface FeedListCardProps {
   planAdd?: boolean;
   /** With `planAdd`: the days this list is about (/weekend's Saturday and Sunday), so a pick lands on the day it's shown for. */
   planDays?: string[];
+  /** A short "why this" line shown above the card (an icon plus truncated text), like the For you tab's. `null` keeps the line's space on desktop so cards in a row stay level; omit the prop for no line at all. */
+  reason?: string | null;
 }
 
 /** One `card_opened` call site for every happening-backed row variant below
@@ -679,17 +681,34 @@ function EventRow({ event, surface, position }: { event: EventItem; surface?: Fe
  * instead renders the wider civic variant (source-link row + full-width
  * CTA), matching the mockup's Doors Open Days card.
  */
-export function FeedListCard({ card, surface, position, onOpen, planAdd = false, planDays }: FeedListCardProps) {
+export function FeedListCard({ card, surface, position, onOpen, planAdd = false, planDays, reason }: FeedListCardProps) {
   // "New since your last visit" (lib/personalise/freshness.ts): badges the
   // card without moving it, so the list keeps its time order.
   const isNew = isNewSince(card, useNewSinceCutoff());
   const plan = useMemo(() => (planAdd ? { card, surface: surface ?? "feed", days: planDays ?? [] } : null), [planAdd, card, surface, planDays]);
-  return (
+  const row = (
     <CardOnOpen.Provider value={onOpen}>
       <CardPlan.Provider value={plan}>
         <CardIsNew.Provider value={isNew}>{feedRow(card, surface, position)}</CardIsNew.Provider>
       </CardPlan.Provider>
     </CardOnOpen.Provider>
+  );
+  if (reason === undefined) return row;
+  // Grid rows stretch, and the card (last child) grows to fill, so every card
+  // in a row ends at the same line. A missing reason still takes its line on
+  // desktop, keeping the cards' tops level.
+  return (
+    <div className="flex h-full flex-col gap-1.5 [&>*:last-child]:flex-1">
+      {reason ? (
+        <span className="inline-flex w-fit max-w-full items-center gap-1 px-1 text-label-sm font-bold text-primary">
+          <Icon name="auto_awesome" filled size={12} className="shrink-0" />
+          <span className="truncate">{reason}</span>
+        </span>
+      ) : (
+        <span aria-hidden="true" className="hidden h-4 lg:block" />
+      )}
+      {row}
+    </div>
   );
 }
 
