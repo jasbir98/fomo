@@ -191,6 +191,12 @@ function scopeTag(tag: string): React.ReactNode {
   return isWideScopeTag(tag) ? <TypeTag tag={tag} kind="event" /> : null;
 }
 
+/** The footer's "Checked Nd ago" — nothing at all once the row is stale (see `checkedLabel`). */
+function CheckedAgo({ verifiedAt, now }: { verifiedAt: string; now: Date }) {
+  const label = checkedLabel(verifiedAt, now);
+  return label ? <span className="shrink-0">{label}</span> : null;
+}
+
 /**
  * The card's single footer row — provenance/time on the left, the bookmark on
  * the right, vertically centred in one 40px line (the save button used to sit
@@ -345,7 +351,7 @@ function HappeningRow({
           />
         }
       >
-        <span className="shrink-0">{checkedLabel(happening.verified_at, now)}</span>
+        <CheckedAgo verifiedAt={happening.verified_at} now={now} />
         {eligibility && qualifies ? (
           <span className="inline-flex min-w-0 items-center gap-1 rounded-full bg-secondary-container/25 px-2 py-0.5 text-label-sm font-bold text-primary">
             <Icon name="check_circle" filled size={12} className="shrink-0" />
@@ -425,7 +431,7 @@ function SeriesRow({ card, surface, position }: { card: SeriesCardData; surface?
           />
         }
       >
-        <span className="shrink-0">{checkedLabel(lead.verified_at, now)}</span>
+        <CheckedAgo verifiedAt={lead.verified_at} now={now} />
         {showGoodWithKids(familyFitForHappening(lead), { priceText: priceLabel?.text, familyOffer: lead.eligibility === "family" }) ? (
           <GoodWithKidsTag />
         ) : null}
@@ -502,7 +508,7 @@ function RecurringRow({ card, surface, position }: { card: RecurringCardData; su
           )
         }
       >
-        {lead.kind === "happening" ? <span className="shrink-0">{checkedLabel(lead.happening.verified_at, now)}</span> : null}
+        {lead.kind === "happening" ? <CheckedAgo verifiedAt={lead.happening.verified_at} now={now} /> : null}
         {showGoodWithKids(familyFitForCard(lead), {
           priceText: priceLabel?.text,
           familyOffer: lead.kind === "happening" && lead.happening.eligibility === "family",
@@ -528,6 +534,7 @@ function FestivalRow({ happening, surface, position }: { happening: Happening; s
     // source_url failed to parse as a URL — fall back to the raw string.
   }
   const bannerImage = happening.image_url ?? defaultImageFor(happening);
+  const checked = checkedLabel(happening.verified_at, now);
 
   return (
     <NavCard
@@ -581,16 +588,18 @@ function FestivalRow({ happening, surface, position }: { happening: Happening; s
       {/* Source domain + verified mark — PM decision 2026-09-26 (freshness
           badge) restored a subtle "Checked Nd ago" alongside the icon,
           which used to be icon-only with the full text left to the detail
-          page's Provenance section. */}
+          page's Provenance section. Hidden once stale (`checkedLabel`). */}
       <div className="flex items-center justify-between rounded-lg bg-surface-container p-2.5 lg:mt-auto lg:p-2">
         <div className="flex min-w-0 items-center gap-2">
           <Icon name="public" size={17} className="text-accent" />
           <span className="truncate text-label-md font-bold text-on-surface lg:shrink-0">{sourceHost}</span>
         </div>
-        <div className="flex shrink-0 items-center gap-1 text-label-sm font-medium text-on-surface-variant/70 lg:min-w-0 lg:shrink">
-          <Icon name="verified" size={16} className="shrink-0 text-secondary" />
-          <span className="truncate">{checkedLabel(happening.verified_at, now)}</span>
-        </div>
+        {checked ? (
+          <div className="flex shrink-0 items-center gap-1 text-label-sm font-medium text-on-surface-variant/70 lg:min-w-0 lg:shrink">
+            <Icon name="verified" size={16} className="shrink-0 text-secondary" />
+            <span className="truncate">{checked}</span>
+          </div>
+        ) : null}
       </div>
 
       <a

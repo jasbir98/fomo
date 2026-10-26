@@ -14,6 +14,14 @@
 
 When `--publish` is explicitly used, only the just-verified rows are marked approved and promoted; publisher preview images are then attached. The normal first run below never publishes.
 
+## Live rechecks (how "Checked Nd ago" stays short)
+
+`scraper/recheck_live.py` runs daily (`.github/workflows/daily-recheck.yml`, 05:37 and 16:52 UTC). It reloads the source page of every live row not confirmed in the last 7 days and runs the same `verify_record` check as step 6. A pass sets `verified_at` to now; a 404/410 retires the row; anything else (a block, a timeout, a saving label or date no longer on the page) leaves the row alone and lists it in the run summary for a person to check. No AI calls, so no off-peak constraint. `--dry-run` reports without writing.
+
+The weekly run keeps its own 21-day recheck as a backstop and applies it on every `--stage` run. (Until 23 Oct 2026 it only wrote results under `--publish`, which the schedule never passes, so live rows aged past 40 days.)
+
+The app shows "Checked today / yesterday / Nd ago" for 13 days. From 14 days (`STALE_AFTER_DAYS` in `lib/happenings/format.ts`) cards drop the line, the hero names the source instead, the detail page shows "Last checked 3 Oct" with a "check with the source before you go" note, and hero/For you ranking de-prioritizes the row.
+
 ## Deal sources (`scraper/deal_sources/`)
 
 Deals are read straight from the pages that state them, instead of from search results. Each source in `scraper/deal_sources/registry.py` is a `DealSource` with an `id`, a `trust` (`official` or `commercial`), a `status` (`shadow` or `live`), a `discover` rule (a WordPress REST query, a sitemap filter, a fixed URL list, or a listing page's links) and, where needed, extraction hints and the per-source keys listed below.

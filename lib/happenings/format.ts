@@ -133,8 +133,16 @@ export function happeningTypeTag(
 // Staleness ("Checked 2d ago")
 // ---------------------------------------------------------------------------
 
-/** A happening not re-verified in this many days is flagged stale (used to de-prioritize hero ranking, never to hide the card — see happeningHeroScore). */
-export const STALE_AFTER_DAYS = 21;
+/**
+ * A happening not re-verified in this many days is stale: cards stop showing
+ * its check age (a "Checked 40d ago" reads as "nobody's looked at this", which
+ * is worse than saying nothing), the detail page swaps to a dated "Last
+ * checked 3 Oct" with a confirm-before-you-go note, and hero/finds ranking
+ * de-prioritizes it (never hides it — see happeningHeroScore). The daily
+ * recheck (scraper/recheck_live.py) re-verifies anything older than 7 days,
+ * so a row only gets here when its source has stopped confirming it.
+ */
+export const STALE_AFTER_DAYS = 14;
 
 function wholeDaysBetween(fromIso: string, now: Date, timeZone: string): number {
   const fromDay = localDayDate(new Date(fromIso), timeZone);
@@ -144,12 +152,21 @@ function wholeDaysBetween(fromIso: string, now: Date, timeZone: string): number 
   return Math.round((Date.UTC(ny, nm - 1, nd) - Date.UTC(fy, fm - 1, fd)) / 86_400_000);
 }
 
-/** "Checked today" / "Checked yesterday" / "Checked Nd ago". Negative/garbage input (a clock-skewed `verified_at` in the future) clamps to "Checked today" rather than printing a negative day count. */
-export function checkedLabel(verifiedAt: string, now: Date = new Date(), timeZone: string = CITY.timezone): string {
+/** "Checked today" / "Checked yesterday" / "Checked Nd ago", or null once stale (cards then show no freshness line at all). Negative/garbage input (a clock-skewed `verified_at` in the future) clamps to "Checked today" rather than printing a negative day count. */
+export function checkedLabel(verifiedAt: string, now: Date = new Date(), timeZone: string = CITY.timezone): string | null {
   const days = Math.max(0, wholeDaysBetween(verifiedAt, now, timeZone));
+  if (days >= STALE_AFTER_DAYS) return null;
   if (days === 0) return "Checked today";
   if (days === 1) return "Checked yesterday";
   return `Checked ${days}d ago`;
+}
+
+/** The detail page's provenance pill: `checkedLabel` while fresh, then a plain date ("Last checked 3 Oct") rather than a growing day count. */
+export function lastCheckedLabel(verifiedAt: string, now: Date = new Date(), timeZone: string = CITY.timezone): string {
+  const fresh = checkedLabel(verifiedAt, now, timeZone);
+  if (fresh) return fresh;
+  const day = localDayDate(new Date(verifiedAt), timeZone);
+  return `Last checked ${Number(day.slice(8, 10))} ${monthShort(day)}`;
 }
 
 export function isStale(
@@ -161,13 +178,14 @@ export function isStale(
   return wholeDaysBetween(verifiedAt, now, timeZone) >= afterDays;
 }
 
-/** "Forever Edinburgh · Checked 2d ago" — every card's provenance line. */
+/** "Forever Edinburgh · Checked 2d ago" — every card's provenance line; just the source once stale. */
 export function provenanceLine(
   h: Pick<Happening, "source_name" | "verified_at">,
   now: Date = new Date(),
   timeZone: string = CITY.timezone
 ): string {
-  return `${h.source_name} · ${checkedLabel(h.verified_at, now, timeZone)}`;
+  const checked = checkedLabel(h.verified_at, now, timeZone);
+  return checked ? `${h.source_name} · ${checked}` : h.source_name;
 }
 
 // ---------------------------------------------------------------------------

@@ -65,6 +65,7 @@ export function HappeningHero({ happening, occurrence, variant = "fomo_pick", re
   const [copied, setCopied] = useState(false);
   const [imgError, setImgError] = useState(false);
   const now = useNow();
+  const checked = checkedLabel(happening.verified_at, now);
 
   const badge = savingBadgeLabel(happening);
   const district = happening.district ?? districtFromAddress(happening.address);
@@ -258,8 +259,15 @@ export function HappeningHero({ happening, occurrence, variant = "fomo_pick", re
             className="flex min-w-0 items-center gap-1 text-label-md font-medium text-on-surface-variant"
             title={`Source: ${happening.source_name}`}
           >
-            <Icon name="verified" size={15} className="shrink-0 text-accent" />
-            <span className="truncate">{checkedLabel(happening.verified_at, now)}</span>
+            {checked ? (
+              <>
+                <Icon name="verified" size={15} className="shrink-0 text-accent" />
+                <span className="truncate">{checked}</span>
+              </>
+            ) : (
+              // Stale (see checkedLabel): name the source instead of printing an old check age.
+              <span className="truncate">Via {happening.source_name}</span>
+            )}
           </span>
           {ctaHref ? (
             <a

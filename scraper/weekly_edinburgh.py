@@ -995,12 +995,19 @@ def load_catalogue() -> tuple[Catalogue | None, str | None]:
         return None, f"identity matching skipped: {exc.__class__.__name__}"
 
 
-def overdue_live_rows() -> tuple[list[dict[str, Any]], str | None]:
-    """Fetch every live row not confirmed in the last three weeks.
+# Every column verify_record reads: the source/booking URLs it reloads, the
+# hard facts it matches on the page, and the title/venue relevance signal.
+LIVE_RECHECK_COLUMNS = "id,slug,title,venue_name,source_url,booking_url,promo_code,saving_label,starts_at,ends_at,booking_opens_at,recurrence,verified_at"
 
-    This intentionally uses one flat 21-day rule for the weekly job. The
-    older per-kind advisory worklist remains available in sweep-happenings,
-    but does not water down this pipeline's hard recheck promise.
+
+def overdue_live_rows(after_days: int = VERIFY_AFTER_DAYS) -> tuple[list[dict[str, Any]], str | None]:
+    """Fetch every live row not confirmed in the last `after_days` days.
+
+    The weekly job uses one flat 21-day rule as its backstop; the daily
+    recheck (scraper/recheck_live.py) runs the same check at 7 days so the
+    app's "Checked Nd ago" stays short. The older per-kind advisory worklist
+    remains available in sweep-happenings, but does not water down this hard
+    recheck promise.
     """
     connection = supabase_connection()
     if not connection:
@@ -1012,12 +1019,12 @@ def overdue_live_rows() -> tuple[list[dict[str, Any]], str | None]:
             headers={"apikey": key, "Authorization": f"Bearer {key}"},
             params={
                 "status": "eq.live",
-                "select": "id,slug,title,source_url,promo_code,saving_label,starts_at,ends_at,booking_opens_at,verified_at",
+                "select": LIVE_RECHECK_COLUMNS,
             },
             timeout=30,
         )
         response.raise_for_status()
-        cutoff = datetime.now(timezone.utc).timestamp() - VERIFY_AFTER_DAYS * 86400
+        cutoff = datetime.now(timezone.utc).timestamp() - after_days * 86400
         rows = []
         for row in response.json():
             checked = row.get("verified_at")
@@ -1335,7 +1342,12 @@ def main() -> None:
         image_note = attach_publisher_images()
         if image_note:
             lifecycle_notes.append(image_note)
-    if args.publish and (rechecked_live or retired_live):
+    # Rechecks touch rows that are already live (a fresh verified_at, or a
+    # retire on a definitive 404/410), not new rows, so they apply on every
+    # --stage run. Gating them on --publish, which the scheduled run never
+    # passes, meant a passing recheck was thrown away and live rows aged past
+    # 40 days in the app.
+    if args.stage and (rechecked_live or retired_live):
         recheck_note = patch_live_rechecks(rechecked_live, retired_live, now)
         if recheck_note:
             lifecycle_notes.append(recheck_note)

@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { savingBadgeLabel, weekdaySummaryLabel, happeningDayLabel, happeningLiveUntilLabel, happeningTimeLabel } from "@/lib/happenings/format";
+import { checkedLabel, lastCheckedLabel, provenanceLine, savingBadgeLabel, weekdaySummaryLabel, happeningDayLabel, happeningLiveUntilLabel, happeningTimeLabel } from "@/lib/happenings/format";
 import { occurrenceIsLive } from "@/lib/happenings/occurrence";
 import type { Occurrence } from "@/lib/happenings/types";
 
@@ -97,4 +97,22 @@ test("savingBadgeLabel: a long price label is a price, not a saving", () => {
   assert.equal(savingBadgeLabel({ ...base, saving_label: "£5 off Mary King's Close", saving_amount: 5 }), "£5 off");
   assert.equal(savingBadgeLabel({ ...base, saving_label: "£1 tickets", saving_amount: 1 }), "£1 tickets");
   assert.equal(savingBadgeLabel({ ...base, saving_label: "Save up to 57%", saving_amount: 57 }), "57% off");
+});
+
+test("checkedLabel: day count while fresh, nothing once 14+ days old", () => {
+  assert.equal(checkedLabel("2026-09-29T08:00:00Z", NOW, TZ), "Checked today");
+  assert.equal(checkedLabel("2026-09-28T20:00:00Z", NOW, TZ), "Checked yesterday");
+  assert.equal(checkedLabel("2026-09-16T12:00:00Z", NOW, TZ), "Checked 13d ago");
+  assert.equal(checkedLabel("2026-09-15T12:00:00Z", NOW, TZ), null);
+  assert.equal(checkedLabel("2026-10-05T12:00:00Z", NOW, TZ), "Checked today"); // clock skew clamps
+});
+
+test("lastCheckedLabel: a date, not a growing day count, once stale", () => {
+  assert.equal(lastCheckedLabel("2026-09-27T12:00:00Z", NOW, TZ), "Checked 2d ago");
+  assert.equal(lastCheckedLabel("2026-08-20T12:00:00Z", NOW, TZ), "Last checked 20 Aug");
+});
+
+test("provenanceLine: drops the stale check age, keeps the source", () => {
+  assert.equal(provenanceLine({ source_name: "The List", verified_at: "2026-09-28T12:00:00Z" }, NOW, TZ), "The List · Checked yesterday");
+  assert.equal(provenanceLine({ source_name: "The List", verified_at: "2026-08-20T12:00:00Z" }, NOW, TZ), "The List");
 });
