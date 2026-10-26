@@ -3,7 +3,8 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import type { Happening, Occurrence } from "./types";
 import type { FeedCardData } from "./feed-types";
-import { happeningRecommendationScore, heroEligibleEvent, heroEligibleHappening, isPhotoImage, leadWithPhotos } from "./hero";
+import type { EventItem } from "@/lib/types";
+import { eventRecommendationScore, happeningRecommendationScore, heroEligibleEvent, heroEligibleHappening, isPhotoImage, leadWithPhotos } from "./hero";
 
 // Wed 14 Oct 2026, midday London.
 const now = new Date("2026-10-14T11:00:00Z");
@@ -93,4 +94,63 @@ test("hero eligibility: kids-aimed happenings and events are out, all_ages and o
   assert.equal(heroEligibleEvent({ category: "family" }), false);
   assert.equal(heroEligibleEvent({ category: "family", family_fit: "all_ages" }), true);
   assert.equal(heroEligibleEvent({ category: "music", family_fit: "kids" }), false);
+});
+
+function ev(over: Partial<EventItem>): EventItem {
+  return {
+    id: "e",
+    title: "e",
+    is_free: false,
+    price_from: null,
+    currency: "GBP",
+    image_url: "https://x.com/gig.jpg",
+    category: "music",
+    starts_at: "2026-10-14T19:00:00Z",
+    ends_at: null,
+    ...over,
+  } as unknown as EventItem;
+}
+
+test("hero score: a free months-long event scores below a one-night £12 gig tonight", () => {
+  const sociograss = ev({ is_free: true, starts_at: "2026-09-30T09:00:00Z", ends_at: "2027-01-27T17:00:00Z" });
+  const gig = ev({ price_from: 12, starts_at: "2026-10-14T19:00:00Z", ends_at: "2026-10-14T23:00:00Z" });
+  assert.ok(eventRecommendationScore(sociograss, now).score < eventRecommendationScore(gig, now).score);
+});
+
+test("hero score: a long event run ending tomorrow is not penalised", () => {
+  const endingSoon = ev({ is_free: true, starts_at: "2026-09-30T09:00:00Z", ends_at: "2026-10-15T17:00:00Z" });
+  const shortRun = ev({ is_free: true, starts_at: "2026-10-10T09:00:00Z", ends_at: "2026-10-15T17:00:00Z" });
+  const longRun = ev({ is_free: true, starts_at: "2026-09-30T09:00:00Z", ends_at: "2026-11-30T17:00:00Z" });
+  const ending = eventRecommendationScore(endingSoon, now).score;
+  assert.equal(ending, eventRecommendationScore(shortRun, now).score);
+  assert.equal(ending - eventRecommendationScore(longRun, now).score, 15);
+});
+
+test("hero score: a weekly happening instance gets no one-off bonus, a once single day does", () => {
+  const once = hap("once", "https://x.com/a.jpg");
+  const weekly = { ...once, recurrence: { type: "weekly", days: [3] } } as unknown as Happening;
+  const dates = { ...once, recurrence: { type: "dates", dates: ["2026-10-14"] } } as unknown as Happening;
+  const today = occ("2026-10-14");
+  const onceScore = happeningRecommendationScore(once, today, now).score;
+  assert.equal(onceScore - happeningRecommendationScore(weekly, today, now).score, 8);
+  assert.equal(happeningRecommendationScore(dates, today, now).score, onceScore);
+});
+
+test("hero score: a long-running happening is marked down unless it ends within 2 days", () => {
+  const h = hap("exhibition", "https://x.com/a.jpg");
+  const span = (seriesEnd: string): Occurrence => ({ ...occ("2026-10-14"), lastDayDate: "2026-11-30", seriesEndDayDate: seriesEnd });
+  const far = happeningRecommendationScore(h, span("2026-11-30"), now).score;
+  const ending = happeningRecommendationScore(h, span("2026-10-15"), now).score;
+  assert.ok(ending > far);
+  assert.equal(far, happeningRecommendationScore(h, occ("2026-10-14"), now).score - 15 - 8);
+});
+
+test("hero score: a chain deal scores 10 below an identical local one", () => {
+  const local = { ...hap("Student 2-for-1", "https://x.com/a.jpg"), venue_name: "Local Cafe" } as Happening;
+  const chain = { ...local, venue_name: "Nando's" } as Happening;
+  const today = occ("2026-10-14");
+  assert.equal(
+    happeningRecommendationScore(local, today, now).score - happeningRecommendationScore(chain, today, now).score,
+    10
+  );
 });

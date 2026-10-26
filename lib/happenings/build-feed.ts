@@ -115,6 +115,7 @@ import {
 import { occurrenceIsPastLocalHours } from "@/lib/happenings/local-hours";
 import { categoryStyle } from "@/lib/happenings/category-style";
 import { dealFacets, isGenuineDeal } from "@/lib/happenings/groups";
+import { dealStealScore } from "@/lib/happenings/deal-score";
 import { groupHappeningsIntoSeries, seriesLookup, type HappeningSeriesGroup } from "@/lib/happenings/series";
 import { dedupeProviderEvents, mergeProviderEventsIntoCards, normalizeText, type MergeableCard } from "@/lib/happenings/merge-events";
 import { groupRecurringCards } from "@/lib/happenings/recurring";
@@ -691,18 +692,20 @@ async function buildDealsSection(db: Db, dealCards: DealCardData[]): Promise<Dea
     });
   }
 
+  // Best deal first (`dealStealScore`, lib/happenings/deal-score.ts): each
+  // group's offers are sorted so its lead offer is its best, groups by that
+  // best offer's score (more offers breaks a tie), and singles by their own.
+  // `saving_amount` isn't used: it's sometimes a saving and sometimes a price.
+  const stealScore = (c: DealCardData) => dealStealScore(c.happening);
+  for (const g of venueGroups) g.offers.sort((a, b) => stealScore(b) - stealScore(a));
+
   venueGroups.sort((a, b) => {
-    const countCmp = b.offers.length - a.offers.length;
-    if (countCmp !== 0) return countCmp;
-    const savingCmp = (b.offers[0]?.happening.saving_amount ?? 0) - (a.offers[0]?.happening.saving_amount ?? 0);
-    return savingCmp;
+    const scoreCmp = (b.offers[0] ? stealScore(b.offers[0]) : 0) - (a.offers[0] ? stealScore(a.offers[0]) : 0);
+    if (scoreCmp !== 0) return scoreCmp;
+    return b.offers.length - a.offers.length;
   });
 
-  remainingSingles.sort((a, b) => {
-    const priorityCmp = (b.happening.priority ?? 50) - (a.happening.priority ?? 50);
-    if (priorityCmp !== 0) return priorityCmp;
-    return (b.happening.saving_amount ?? -1) - (a.happening.saving_amount ?? -1);
-  });
+  remainingSingles.sort((a, b) => stealScore(b) - stealScore(a));
 
   return { venueGroups, singles: remainingSingles };
 }
