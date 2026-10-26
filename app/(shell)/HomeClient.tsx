@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { CITY, cityBadge, SUPPORTED_CITIES } from "@/lib/city";
 import { chooseCity, dismissCityPrompt, useSelectedCity } from "@/lib/useSelectedCity";
-import { prefetchJson, useCachedJson, usePeekCachedJson } from "@/lib/http/clientCache";
+import { prefetchJson, useCachedJson } from "@/lib/http/clientCache";
 import type { FeedCardData, FeedResponse, FeedWindow } from "@/lib/happenings/feed-types";
 import { NOTIFY_ME_ENABLED } from "@/lib/happenings/book-early";
 import type { WeatherCondition } from "@/lib/weather";
@@ -488,9 +488,6 @@ export function HomeClient({ initialFeed = null }: HomeClientProps) {
     () => reorderWithBoost(anyDayCards, (card) => personalBoost(card, boostPrefs, affinity)),
     [anyDayCards, boostPrefs, affinity]
   );
-  // Tab count / badge = dated list + Any day, so the number never shrinks just
-  // because an item moved sections. Same rule as /whats-on.
-  const whatsOnTotal = whatsOnCards.length + anyDayCards.length;
   const boostedTodaysDeals = useMemo(
     () =>
       reorderWithBoost(todaysDealsList, (item: RankedDealItem) =>
@@ -510,24 +507,10 @@ export function HomeClient({ initialFeed = null }: HomeClientProps) {
     return `Nothing lined up for ${WHATS_ON_WINDOW_LABEL[feedWindow].toLowerCase()} yet. Try another tab.`;
   }
 
-  // Peek (never fetch) the other two windows' feed cache so the segmented
-  // control can show every tab's count, not just the active one — warmed by
-  // the idle-prefetch effect above once the visitor has loaded any window
-  // this session. `null` (unknown) until that prefetch resolves; the active
-  // window always has its own count immediately via `feed` itself.
-  const peekedNow = usePeekCachedJson<FeedResponse>("feed:now");
-  const peekedComingUp = usePeekCachedJson<FeedResponse>("feed:coming_up");
-  const peekedBookEarly = usePeekCachedJson<FeedResponse>("feed:book_early");
-
-  function countFor(w: FeedWindow): number | null {
-    const data = w === feedWindow ? feed : w === "now" ? peekedNow : w === "coming_up" ? peekedComingUp : peekedBookEarly;
-    if (!data) return null;
-    return w === "book_early" ? data.bookEarly.length : (data.whatsOn[0]?.cards.length ?? 0) + (data.anyDay?.cards.length ?? 0);
-  }
-
-  function toastLabelFor(w: FeedWindow, count: number): string {
-    const noun = w === "book_early" ? `${count === 1 ? "thing" : "things"} to book early` : w === "coming_up" ? "coming up" : "on today";
-    return `Showing ${count} ${noun} ↓`;
+  // No counts on Home: "53 things on today" made the app read like a
+  // directory to sift through, not a few good picks. "See all N" stays.
+  function toastLabelFor(w: FeedWindow): string {
+    return w === "book_early" ? "Showing what to book early ↓" : w === "coming_up" ? "Showing what's coming up ↓" : "Showing what's on today ↓";
   }
 
   // Fires once the newly-active window's own data is actually in (see the
@@ -537,9 +520,7 @@ export function HomeClient({ initialFeed = null }: HomeClientProps) {
   useEffect(() => {
     if (!pendingToastRef.current || feed === null) return;
     pendingToastRef.current = false;
-    const count = countFor(feedWindow);
-    if (count == null) return;
-    const label = toastLabelFor(feedWindow, count);
+    const label = toastLabelFor(feedWindow);
     if (switchToastTimerRef.current) clearTimeout(switchToastTimerRef.current);
     // `setSwitchToast` deliberately isn't called synchronously in the effect
     // body — this effect is genuinely reacting to an external event (the new
@@ -549,45 +530,15 @@ export function HomeClient({ initialFeed = null }: HomeClientProps) {
     // structurally; queueing it is the standard escape hatch.
     queueMicrotask(() => setSwitchToast({ label }));
     switchToastTimerRef.current = setTimeout(() => setSwitchToast(null), 2000);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [feed, feedWindow]);
 
-  // Segment labels grow a "· N" count once that tab's data has actually
-  // loaded (this tab, or an idle-prefetched other one) — omitted rather than
-  // shown as 0/blank while unknown, so a slow prefetch just reads as "no
-  // count yet" instead of a flash of "0".
-  const windowOptions = useMemo(
-    () =>
-      WINDOW_OPTIONS.map((opt) => {
-        const count = countFor(opt.value);
-        return count != null ? { ...opt, count } : opt;
-      }),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [feed, feedWindow, peekedNow, peekedComingUp, peekedBookEarly]
-  );
-
-  // One-line, plain-words description of what the active tab's count
-  // actually represents — read literally off WHATS_ON_WINDOW_LABEL/the
-  // Book early copy above rather than inventing separate wording, so it
-  // can't drift out of sync with what the section heading itself says.
+  // One plain-words line saying what the active tab shows, so the content
+  // swap below it always comes with a reason.
   function windowSummary(): string {
-    const count = countFor(feedWindow);
-    if (feedWindow === "book_early") {
-      return count != null
-        ? `${count} ${count === 1 ? "thing" : "things"} worth booking before they sell out`
-        : "Big dates worth booking before they sell out";
-    }
-    if (feedWindow === "now") {
-      return count != null
-        ? `${count} ${count === 1 ? "thing" : "things"} on today`
-        : "What's on today";
-    }
-    // coming_up — COMING_UP_LOOKAHEAD_DAYS in app/api/feed/route.ts is 90
-    // days; "next few months" is the honest, human-readable rounding of that
-    // rather than restating the exact day count.
-    return count != null
-      ? `${count} ${count === 1 ? "thing" : "things"} in the next few months`
-      : "Everything coming up over the next few months";
+    if (feedWindow === "book_early") return "Big dates worth booking before they sell out";
+    if (feedWindow === "now") return "What's on today";
+    // coming_up — COMING_UP_LOOKAHEAD_DAYS in app/api/feed/route.ts is 90 days.
+    return "Everything coming up over the next few months";
   }
 
   // Tapping a tab to the right of the current one slides new content in from
@@ -712,12 +663,11 @@ export function HomeClient({ initialFeed = null }: HomeClientProps) {
         </div>
 
         {/* Window control — drives What's on, and on Book early the hero too
-            (see `heroKind`). Labels grow their own count once known
-            (`windowOptions`); the plain-words line underneath restates the
+            (see `heroKind`). The plain-words line underneath restates the
             active tab's window so the abrupt content swap below it always
             comes with a reason, not just new cards. */}
         <div className="flex flex-col gap-1.5">
-          <SegmentedControl value={feedWindow} options={windowOptions} onChange={handleWindowChange} className="lg:max-w-md" />
+          <SegmentedControl value={feedWindow} options={WINDOW_OPTIONS} onChange={handleWindowChange} className="lg:max-w-md" />
           {/* Summary line and the /weekend link share one row, rather than
               a text line plus a full-width link bar stacked under it. */}
           <div className="flex items-center justify-between gap-3 px-1">
@@ -853,15 +803,7 @@ export function HomeClient({ initialFeed = null }: HomeClientProps) {
                     · {WHATS_ON_WINDOW_LABEL[feedWindow]}
                   </span>
                 </h2>
-                {/* Count badge and the "See all N" link share this
-                    right-aligned row — same slot on every tab (What's on
-                    here, Book early below). */}
-                <div className="flex items-center gap-2">
-                  <span className="rounded-full border border-hairline-strong bg-surface-container px-2.5 py-0.5 text-label-sm font-extrabold text-primary">
-                    {whatsOnTotal}
-                  </span>
-                  <SeeAllLink href={`/whats-on?window=${feedWindow}`} total={whatsOnCards.length} />
-                </div>
+                <SeeAllLink href={`/whats-on?window=${feedWindow}`} total={whatsOnCards.length} />
               </div>
             ) : null}
 
