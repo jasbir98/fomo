@@ -7,13 +7,22 @@ test("isEdinburghRow: within 15km of the centre by coordinates", () => {
   assert.equal(isEdinburghRow({ lat: 55.8642, lng: -4.2518, city: "Glasgow" }), false);
 });
 
-test("isEdinburghRow: locality keyword fallback when coordinates are missing or far", () => {
+test("isEdinburghRow: locality keyword fallback only when coordinates are missing", () => {
   assert.equal(isEdinburghRow({ city: "Leith", address: null }), true);
   assert.equal(isEdinburghRow({ city: null, address: "12 Dalry Road" }), true);
   assert.equal(isEdinburghRow({ city: "London", address: "1 High St" }), false);
   assert.equal(isEdinburghRow({}), false);
-  // Far coordinates but an Edinburgh address still passes (keyword check is independent).
-  assert.equal(isEdinburghRow({ lat: 51.5, lng: -0.12, address: "Edinburgh Road, London" }), true);
+  // Coordinates decide when present: an Edinburgh-sounding address or city doesn't rescue a far venue.
+  assert.equal(isEdinburghRow({ lat: 51.5, lng: -0.12, address: "Edinburgh Road, London" }), false);
+  assert.equal(isEdinburghRow({ lat: 57.4778, lng: -4.2247, city: "Edinburgh", address: "Bishop's Road, Inverness" }), false);
+  // Without coordinates the address beats the city field.
+  assert.equal(isEdinburghRow({ city: "Edinburgh", address: "1 Argyle St, Glasgow" }), false);
+});
+
+test("isEdinburghRow: localities match whole words only", () => {
+  // "leith" inside "Innerleithen" / "Leithen Crescent" is not Leith.
+  assert.equal(isEdinburghRow({ address: "Leithen Crescent, Innerleithen", city: "Innerleithen" }), false);
+  assert.equal(isEdinburghRow({ address: "Leith Walk" }), true);
 });
 
 test("haversineKm: Edinburgh -> Glasgow is roughly 67km", () => {

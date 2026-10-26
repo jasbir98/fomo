@@ -36,12 +36,30 @@ export function haversineKm(a, b) {
   return 2 * R * Math.asin(Math.sqrt(h));
 }
 
+// Whole words only: a bare substring let "leith" match "Innerleithen" and
+// "Leithen Crescent" (Sparky @ Vale Club, 38km away, was imported that way).
+const LOCALITY_RES = LOCALITY_KEYWORDS.map((k) => new RegExp(`\\b${k}\\b`, "i"));
+
+/** True when `text` names an Edinburgh locality as a whole word. */
+export function namesEdinburghLocality(text) {
+  const t = String(text ?? "");
+  return LOCALITY_RES.some((re) => re.test(t));
+}
+
+/**
+ * Is this row's venue in Edinburgh? Coordinates decide whenever a row has
+ * them: within GEO_RADIUS_KM of the centre or not, whatever its address or
+ * city says. Without coordinates the venue address decides. `city` only
+ * counts when there is no address either: sources often fill it from the
+ * search they ran ("Edinburgh") rather than from the venue, so it never
+ * outvotes a real location.
+ */
 export function isEdinburghRow(row) {
   if (row.lat != null && row.lng != null) {
-    if (haversineKm(EDINBURGH_CENTER, { lat: row.lat, lng: row.lng }) <= GEO_RADIUS_KM) return true;
+    return haversineKm(EDINBURGH_CENTER, { lat: Number(row.lat), lng: Number(row.lng) }) <= GEO_RADIUS_KM;
   }
-  const haystack = `${row.city ?? ""} ${row.address ?? ""}`.toLowerCase();
-  return LOCALITY_KEYWORDS.some((k) => haystack.includes(k));
+  if (row.address) return namesEdinburghLocality(`${row.address} ${row.venue_name ?? ""}`);
+  return namesEdinburghLocality(`${row.city ?? ""} ${row.venue_name ?? ""}`);
 }
 
 // --- category enhancement -----------------------------------------------------

@@ -13,6 +13,9 @@
  *   junk_title     fewer than two letters/digits (symbols-only, single char; "1984" is fine),
  *                  "test event", or the title is just the venue name
  *   online_only    JSON-LD VirtualLocation / "online", "livestream", "zoom"... as the location
+ *   self_guided    a product, not an event: audio/GPS/app tours, self-guided trails, outdoor
+ *                  escape games ("Edinburgh Audio Tour: Echoes of Intrigue" — Skiddle lists one
+ *                  row per day, every day, so ~700 of them sat in the feed)
  *   past           event (or its end) is already over
  *   beyond_window  starts after now + LOOKAHEAD_DAYS
  *   end_before_start
@@ -26,7 +29,7 @@
 
 import { decodeHtmlEntities } from "../../lib/describe.mjs";
 import { LOOKAHEAD_DAYS } from "./config.mjs";
-import { LOCALITY_KEYWORDS, isEdinburghRow } from "./normalize.mjs";
+import { isEdinburghRow, namesEdinburghLocality } from "./normalize.mjs";
 
 export const REJECT_REASONS = [
   "missing_name",
@@ -34,6 +37,7 @@ export const REJECT_REASONS = [
   "bad_url",
   "junk_title",
   "online_only",
+  "self_guided",
   "past",
   "beyond_window",
   "end_before_start",
@@ -95,6 +99,17 @@ export function isOnlineOnly(row) {
   return false;
 }
 
+// Titles of things you buy and do on your own phone, any day, rather than
+// turn up to: audio/GPS/app tours, self-guided trails, outdoor escape games,
+// virtual tours. Title only: a real event's description can mention "an audio
+// guide is available" without being one.
+const SELF_GUIDED_TITLE_RE =
+  /\baudio[- ]?(?:tour|guide|walk|trail)s?\b|\bself[- ]guided\b|\bgps[- ]?(?:treasure )?(?:guided|tour|trail|game|hunt)s?\b|\b(?:smartphone|phone|app)[- ](?:based|guided|tour|trail|game|treasure hunt|scavenger hunt)s?\b|\boutdoor escape (?:game|room)s?\b|\bvirtual (?:tour|walk)s?\b/i;
+
+export function isSelfGuidedProduct(row) {
+  return SELF_GUIDED_TITLE_RE.test(String(row.name ?? ""));
+}
+
 /**
  * isEdinburghRow, plus one carve-out: a row with NO location data at all (no
  * coordinates, city, address or venue — e.g. Luma hides the venue until you
@@ -105,8 +120,7 @@ export function isEdinburghOrUnlocatedButNamed(row) {
   if (isEdinburghRow(row)) return true;
   const unlocated = row.lat == null && row.lng == null && !row.city && !row.address && !row.venue_name;
   if (!unlocated) return false;
-  const name = String(row.name ?? "").toLowerCase();
-  return LOCALITY_KEYWORDS.some((k) => name.includes(k));
+  return namesEdinburghLocality(row.name);
 }
 
 /**
@@ -133,6 +147,7 @@ export function validateRow(row, { now = new Date() } = {}) {
 
   if (isJunkTitle(name, cleaned.venue_name)) return reject("junk_title");
   if (isOnlineOnly(row)) return reject("online_only");
+  if (isSelfGuidedProduct(cleaned)) return reject("self_guided");
 
   let endMs = null;
   if (cleaned.ends_at != null) {

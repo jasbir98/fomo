@@ -35,7 +35,8 @@
 import type { EventItem } from "@/lib/types";
 import type { HappeningCardData, SeriesCardData } from "@/lib/happenings/feed-types";
 import { weeklySpanOf, type WeeklySpan } from "@/lib/events/format";
-import { localDayDate, weekdayOf } from "@/lib/happenings/occurrence";
+import { localDayDate, nextOccurrence, normalizeRecurrence, weekdayOf } from "@/lib/happenings/occurrence";
+import type { Happening } from "@/lib/happenings/types";
 import { NO_VENUE_KEY, PROVIDER_PRIORITY, normalizeEventTitle, normalizeVenueKey } from "@/lib/events/identity";
 
 /** The two What's-on card kinds a provider event can be merged into — never
@@ -54,6 +55,9 @@ const BRACKETED_RE = /\([^)]*\)|\[[^\]]*\]/g;
 const APOSTROPHE_RE = /['\u2019]/g;
 const NON_ALNUM_RE = /[^a-z0-9\s]/g;
 const YEAR_RE = /^(19|20)\d{2}$/;
+/** A season range ("2026/27", "2026-27") is one edition, not a year plus a
+ *  stray "27" token — dropped whole, like a bare year. */
+const YEAR_RANGE_RE = /\b(19|20)\d{2}\s*[/\u2013-]\s*\d{2}\b/g;
 
 /**
  * Words that show up on a provider listing page ("... Tickets", "... Tour",
@@ -98,6 +102,7 @@ export function normalizeText(raw: string): string {
   let s = raw.normalize("NFKD").replace(DIACRITICS_RE, "");
   s = s.toLowerCase();
   s = s.replace(BRACKETED_RE, " ");
+  s = s.replace(YEAR_RANGE_RE, " ");
   s = s.replace(APOSTROPHE_RE, "");
   s = s.replace(NON_ALNUM_RE, " ");
   const rawTokens = s.split(/\s+/).filter(Boolean);
@@ -206,11 +211,70 @@ export const HIGH_CONFIDENCE_JACCARD = 0.85;
  * attached — accepted by design, not a gap to close with more machinery.
  */
 export function isTitleMatch(a: string, b: string): boolean {
-  const ta = tokenSet(a);
-  const tb = tokenSet(b);
-  const jaccard = titleSimilarity(a, b);
+  return isTokenSetMatch(tokenSet(a), tokenSet(b));
+}
+
+function jaccardOf(a: Set<string>, b: Set<string>): number {
+  if (a.size === 0 || b.size === 0) return 0;
+  let intersection = 0;
+  for (const t of a) if (b.has(t)) intersection++;
+  return intersection / (a.size + b.size - intersection);
+}
+
+/** `isTitleMatch`'s rule over already-tokenised titles. */
+function isTokenSetMatch(ta: Set<string>, tb: Set<string>): boolean {
+  const jaccard = jaccardOf(ta, tb);
   const isSubset = containment(ta, tb) === 1;
   return (isSubset && jaccard >= TITLE_MATCH_THRESHOLD) || jaccard >= HIGH_CONFIDENCE_JACCARD;
+}
+
+/** Words that say "Edinburgh", not which venue — never stripped as venue tokens. */
+const CITY_TOKENS = new Set(["edinburgh", "edinburghs", "scotland", "uk"]);
+
+/**
+ * A title's tokens with its venue's name taken out, when the title spells
+ * the whole venue out: "Alison Moyet at Usher Hall" at "Usher Hall" ->
+ * {alison, moyet}. A title that only shares some of the venue's words keeps
+ * them all, and a title that is nothing but its venue is left whole.
+ */
+function tokensWithoutVenue(title: string, venue: string | null): Set<string> {
+  const tokens = tokenSet(title);
+  if (!venue) return tokens;
+  const venueTokens = [...tokenSet(venue)].filter((t) => !CITY_TOKENS.has(t));
+  if (venueTokens.length === 0 || !venueTokens.every((t) => tokens.has(t))) return tokens;
+  const stripped = new Set([...tokens].filter((t) => !venueTokens.includes(t)));
+  return stripped.size > 0 ? stripped : tokens;
+}
+
+/** Same venue, as far as two free-text venue names can say: identical venue
+ *  keys (lib/events/identity.ts), or one name contained in the other. */
+export function isSameVenue(a: string | null, b: string | null): boolean {
+  const ka = normalizeVenueKey(a);
+  const kb = normalizeVenueKey(b);
+  if (ka === NO_VENUE_KEY || kb === NO_VENUE_KEY) return false;
+  return ka === kb || isTitleMatch(a ?? "", b ?? "");
+}
+
+/** Identical titles once the venue, years, noise words and stopwords are
+ *  stripped: "The Classic Rock Show" == "The Classic Rock Show at Usher Hall",
+ *  but "The Saturday Show" != "The Early Saturday Show". */
+export function isSameTitleAtVenue(aTitle: string, aVenue: string | null, bTitle: string, bVenue: string | null): boolean {
+  const a = tokensWithoutVenue(aTitle, aVenue);
+  const b = tokensWithoutVenue(bTitle, bVenue);
+  return a.size === b.size && [...a].every((t) => b.has(t));
+}
+
+/**
+ * `isTitleMatch` for two listings already known to be at the same venue,
+ * with the venue's name stripped from each title first. Catches the pairs
+ * where one source appends the venue and the other doesn't: "Alison Moyet
+ * at Usher Hall" vs "Alison Moyet" scores Jaccard 0.5 raw (a miss), 1.0
+ * stripped. Callers must check the venue themselves (`isSameVenue`); without
+ * that gate, stripping would make "Quiz at The Stand" match any "Quiz".
+ */
+export function isTitleMatchAtVenue(aTitle: string, aVenue: string | null, bTitle: string, bVenue: string | null): boolean {
+  if (isTitleMatch(aTitle, bTitle)) return true;
+  return isTokenSetMatch(tokensWithoutVenue(aTitle, aVenue), tokensWithoutVenue(bTitle, bVenue));
 }
 
 function cardTitle(card: MergeableCard): string {
@@ -305,7 +369,12 @@ export function mergeProviderEventsIntoCards(
         if (!isWeeklySpanMatch(card, event, span)) continue;
       } else {
         if (card.occurrence.dayDate !== eventDay) continue;
-        if (!isTitleMatch(cardTitle(card), event.name)) continue;
+        // Raw titles first; failing that, the same titles with the venue
+        // stripped, but only when both sides name the same venue.
+        const venueStrippedMatch =
+          isSameVenue(cardVenue(card), eventVenue) &&
+          isTitleMatchAtVenue(cardTitle(card), cardVenue(card), event.name, eventVenue);
+        if (!isTitleMatch(cardTitle(card), event.name) && !venueStrippedMatch) continue;
       }
       let score = titleSimilarity(cardTitle(card), event.name);
       // Venue agreement only ever nudges a tie between two same-day,
@@ -405,6 +474,106 @@ export function dedupeProviderEvents(events: EventItem[], timeZone: string): Eve
     } else if (venueKeys[matchIdx] === NO_VENUE_KEY) {
       venueKeys[matchIdx] = venueKey;
     }
+  }
+  return out;
+}
+
+/** Happening kinds `dedupeHappenings` collapses: dated one-offs. Deals,
+ *  tours and activities can share a title and a day and still be different
+ *  offers (a student rate vs an over-60s one), so they are left to
+ *  scripts/dedupe-happenings.mjs, which also compares price and eligibility. */
+const DEDUPE_HAPPENING_KINDS = new Set<Happening["kind"]>(["event", "festival"]);
+/** Weekly rows are a venue's standing line-up ("The Saturday Show", "The
+ *  Early Saturday Show"): never collapsed here. */
+const DEDUPE_HAPPENING_RECURRENCES = new Set(["once", "annual", "dates"]);
+const HAPPENING_DEDUPE_LOOKAHEAD_MS = 366 * 86_400_000;
+
+/** The local wall-clock time of `iso`, or null when it's midnight (a date-only
+ *  row stored as 00:00, e.g. Ticketmaster UK research rows). */
+function clockTime(iso: string | null, timeZone: string): string | null {
+  if (!iso) return null;
+  const hm = new Intl.DateTimeFormat("en-GB", { timeZone, hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).format(new Date(iso));
+  return hm === "00:00" ? null : hm;
+}
+
+/** Keep order for two copies of one happening: a real start time, a photo,
+ *  a booking link, a place link, then the more recently verified. */
+function happeningKeepScore(h: Happening, timeZone: string): number {
+  return (
+    (clockTime(h.starts_at, timeZone) ? 16 : 0) +
+    (h.image_url ? 8 : 0) +
+    (h.booking_url ? 4 : 0) +
+    (h.place_id || (h.lat != null && h.lng != null) ? 2 : 0)
+  );
+}
+
+function isBetterHappening(candidate: Happening, existing: Happening, timeZone: string): boolean {
+  const c = happeningKeepScore(candidate, timeZone);
+  const e = happeningKeepScore(existing, timeZone);
+  if (c !== e) return c > e;
+  return (candidate.verified_at ?? "") > (existing.verified_at ?? "");
+}
+
+/**
+ * Collapses curated happenings that are the same dated event researched
+ * twice, usually from two listings of one Ticketmaster page: "The Classic
+ * Rock Show" (Ticketmaster UK, 00:00) and "The Classic Rock Show at Usher
+ * Hall" (Ticketmaster, 19:00); "Edinburgh's Hogmanay" and "Edinburgh's
+ * Hogmanay 2026/27". Two rows are one when they're the same kind (a dated
+ * event or festival, never a weekly one: see `DEDUPE_HAPPENING_KINDS`), their
+ * next occurrences fall on the same local day, their titles are identical
+ * once the venue name and years are stripped (`isSameTitleAtVenue`; stricter
+ * than the provider merge, since both sides here are curated and a wrong
+ * merge hides a real event), and their venues agree. A festival may name its
+ * venue loosely ("Various city centre venues"), so for festivals the venue
+ * check is skipped. When both rows carry a real clock time more than
+ * `DEDUPE_MAX_START_GAP_MS` apart they stay separate (a matinee and an
+ * evening show).
+ *
+ * The survivor (`isBetterHappening`) borrows a photo or booking link from the
+ * row it replaces when it has none. Order of first appearance is kept.
+ * Read-time only: the duplicate stays live in the DB; making it dormant is
+ * scripts/dedupe-happenings.mjs's job.
+ */
+export function dedupeHappenings(happenings: Happening[], now: Date, timeZone: string): Happening[] {
+  const to = new Date(now.getTime() + HAPPENING_DEDUPE_LOOKAHEAD_MS);
+  const out: Happening[] = [];
+  const byDay = new Map<string, number[]>(); // "kind|day" -> indexes into `out`
+
+  for (const h of happenings) {
+    if (!DEDUPE_HAPPENING_KINDS.has(h.kind) || !DEDUPE_HAPPENING_RECURRENCES.has(normalizeRecurrence(h.recurrence).type)) {
+      out.push(h);
+      continue;
+    }
+    const occ = nextOccurrence(h, now, to, timeZone);
+    if (!occ) {
+      out.push(h);
+      continue;
+    }
+    const key = `${h.kind}|${occ.dayDate}`;
+    const bucket = byDay.get(key) ?? [];
+    const matchIdx = bucket.find((idx) => {
+      const other = out[idx];
+      if (h.kind !== "festival" && !isSameVenue(h.venue_name, other.venue_name)) return false;
+      if (!isSameTitleAtVenue(h.title, h.venue_name, other.title, other.venue_name)) return false;
+      const a = clockTime(h.starts_at, timeZone) && h.starts_at ? Date.parse(h.starts_at) : null;
+      const b = clockTime(other.starts_at, timeZone) && other.starts_at ? Date.parse(other.starts_at) : null;
+      return a == null || b == null || Math.abs(a - b) <= DEDUPE_MAX_START_GAP_MS;
+    });
+
+    if (matchIdx === undefined) {
+      bucket.push(out.length);
+      byDay.set(key, bucket);
+      out.push(h);
+      continue;
+    }
+    const existing = out[matchIdx];
+    const [keep, drop] = isBetterHappening(h, existing, timeZone) ? [h, existing] : [existing, h];
+    out[matchIdx] = {
+      ...keep,
+      image_url: keep.image_url ?? drop.image_url,
+      booking_url: keep.booking_url ?? drop.booking_url,
+    };
   }
   return out;
 }
