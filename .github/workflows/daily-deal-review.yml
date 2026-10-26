@@ -1,0 +1,74 @@
+name: Daily deal review
+
+# Re-verifies live happenings, deals included, against their source pages
+# (scraper/recheck_live.py, which also retires any whose page is a 404/410),
+# then takes finished and long-unconfirmed deals off the feed and lists odd ones
+# for a person (scripts/review-deals.ts). Rules and the safety cap:
+# docs/weekly-pipeline.md, "Daily deal review". No AI calls, so no DeepSeek
+# off-peak constraint.
+on:
+  schedule:
+    # 12:37 UTC daily, after the 11:17 events import (daily-sources.yml) and
+    # off the hour for the same reason: avoids GitHub's top-of-hour pile-up.
+    - cron: "37 12 * * *"
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Report only: recheck and review write nothing"
+        required: false
+        default: false
+        type: boolean
+
+# Least privilege: the job only checks out code. It writes to Supabase, not git.
+permissions:
+  contents: read
+
+# One review at a time: two overlapping runs would race on the same rows.
+concurrency:
+  group: daily-deal-review
+  cancel-in-progress: false
+
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    # NEXT_PUBLIC_SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY live as Production
+    # environment secrets on jasbir98/fomo, not repository secrets.
+    environment: Production
+    timeout-minutes: 20
+    env:
+      NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL || secrets.SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      DRY_RUN: ${{ inputs.dry_run && '--dry-run' || '' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: scraper/requirements.txt
+
+      # Playwright is in requirements.txt but recheck_live.py doesn't use it,
+      # so the browser download is skipped.
+      - name: Install Python dependencies
+        run: pip install -r scraper/requirements.txt
+
+      # First on purpose: it refreshes verified_at on every deal whose source
+      # page still states it, which is what keeps the review below from making
+      # a good deal dormant. If this step fails the job stops, so the review
+      # never runs against a verified_at the recheck couldn't update.
+      - name: Re-verify live happenings
+        run: python3 scraper/recheck_live.py $DRY_RUN
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install Node dependencies
+        run: npm ci
+
+      # tsx isn't a project dependency, so npx fetches it; --yes skips the
+      # install prompt. Exits 1 without writing anything if it would change
+      # more than 15 deals.
+      - name: Review deals
+        run: npx --yes tsx scripts/review-deals.ts $DRY_RUN

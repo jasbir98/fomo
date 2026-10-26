@@ -201,11 +201,12 @@ def restricted_audience(text: str) -> str | None:
 EH_POSTCODE_RE = re.compile(r"\bEH(\d{1,2})\s?\d[A-Z]{2}\b", re.I)
 UK_POSTCODE_RE = re.compile(r"\b([A-Z]{1,2})(\d[A-Z\d]?)\s?\d[A-Z]{2}\b", re.I)
 
-# EH outward codes Fomo counts as Edinburgh: the city (EH1-EH17), Musselburgh
-# (EH21) and Dalkeith (EH22) on its edge, and Kirkliston / Ratho / South
-# Queensferry (EH28-EH30) inside the council area. Other EH districts are
-# Lothians towns (EH39 Dirleton, EH49 Linlithgow, EH26 Penicuik) — out.
-EDINBURGH_EH_DISTRICTS = frozenset({*range(1, 18), 21, 22, 28, 29, 30})
+# EH outward codes Fomo counts as Edinburgh: the city (EH1-EH17) and
+# Kirkliston / Ratho / South Queensferry (EH28-EH30) inside the council area.
+# Other EH districts are Lothians towns (EH21 Musselburgh, EH22 Dalkeith, EH26
+# Penicuik, EH49 Linlithgow) — out. Same list as the daily deal review
+# (lib/happenings/deal-review.ts), which hides any live deal outside it.
+EDINBURGH_EH_DISTRICTS = frozenset({*range(1, 18), 28, 29, 30})
 
 
 def _is_edinburgh_district(digits: str) -> bool:
