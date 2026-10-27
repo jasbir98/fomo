@@ -9,7 +9,7 @@ Things waiting on you, newest first. Tick them off here, or ask Claude to update
 
 **Persona fit and "Near you now" (27 Oct)** ([plan](plans/2026-10-27-persona-near-now.md))
 Signed-out Top picks were led by listings for a narrow audience (Dementia Friendly Activities on 26 Oct, a Pregnancy & Parents Centre talk on 27 Oct). They now score 20 lower (`lib/happenings/audience.ts`), so they leave the top slots but stay in "See all". Part B, "Near you now": a "What's on near me?" button under Top picks on the Today tab. One tap asks for location, then shows today's cards and deals within a 20-minute walk, nearest first ("450 m · 6 min walk · starts 19:00"). No account needed; coordinates never leave the phone.
-- [ ] Merge the `niche-audience` PR.
+- [x] Merged as [PR #57](https://github.com/jasbir98/fomo/pull/57) (27 Oct).
 - [ ] Merge Part B, [PR #58](https://github.com/jasbir98/fomo/pull/58) (`near-now`).
 - [ ] ~3 Nov: check `near_me_tapped` and `near_me_result` (status, count) in PostHog. Questions: what share of Home visitors tap, how many get `denied`, and how often the result is `empty` or `outside_city`. Ignore the handful of dev-test events from 27 Oct.
 
