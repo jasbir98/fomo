@@ -13,6 +13,7 @@ import { AppHeader } from "@/components/shell/AppHeader";
 import { FomoSpot } from "@/components/fomo/FomoSpot";
 import { AnyDaySection, FeedHero, FeedListCard, FreeAnyTimeList, BookEarlyCard, KidsRail, SubscribeCard } from "@/components/happenings";
 import { TodaysDealsStrip } from "@/components/happenings/TodaysDealsStrip";
+import { NearNowSection } from "@/components/happenings/NearNowSection";
 import { todaysDeals } from "@/lib/happenings/today-deals";
 import { occurrenceIsPastLocalHours } from "@/lib/happenings/local-hours";
 import { leadWithPhotos } from "@/lib/happenings/hero";
@@ -865,6 +866,11 @@ export function HomeClient({ initialFeed = null }: HomeClientProps) {
                     />
                   </>
                 )}
+                {/* "Near you now" — today's cards and deals within a short
+                    walk, from this same feed. Today only: distance means
+                    nothing for next week's list. Asks for location only on
+                    a tap (components/happenings/NearNowSection.tsx). */}
+                {feedWindow === "now" ? <NearNowSection feed={feed} className="lg:col-span-2" /> : null}
                 <AnyDaySection cards={boostedAnyDayCards} surface="home_any_day" desktopGrid />
               </div>
             )}

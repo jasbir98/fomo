@@ -51,7 +51,7 @@ const CardPlan = createContext<{ card: FeedCardData; surface: string; days: stri
 /** Where this list is mounted — sent as `card_opened`'s `surface` so
  *  analytics can tell a Home "What's on" tap apart from the same card
  *  rendered on /whats-on, /weekend, /deals, /free or /book-early. */
-export type FeedCardSurface = "home_whats_on" | "whats_on" | "weekend" | "free" | "deals" | "book_early" | "home_any_day" | "whats_on_any_day" | "for_you" | "home_kids_rail";
+export type FeedCardSurface = "home_whats_on" | "whats_on" | "weekend" | "free" | "deals" | "book_early" | "home_any_day" | "whats_on_any_day" | "for_you" | "home_kids_rail" | "home_near_now";
 
 export interface FeedListCardProps {
   card: FeedCardData;
@@ -67,6 +67,8 @@ export interface FeedListCardProps {
   planDays?: string[];
   /** A short "why this" line shown above the card (an icon plus truncated text), like the For you tab's. `null` keeps the line's space on desktop so cards in a row stay level; omit the prop for no line at all. */
   reason?: string | null;
+  /** Material Symbols name for the `reason` line's icon; defaults to the For you sparkle. */
+  reasonIcon?: string;
 }
 
 /** One `card_opened` call site for every happening-backed row variant below
@@ -681,7 +683,7 @@ function EventRow({ event, surface, position }: { event: EventItem; surface?: Fe
  * instead renders the wider civic variant (source-link row + full-width
  * CTA), matching the mockup's Doors Open Days card.
  */
-export function FeedListCard({ card, surface, position, onOpen, planAdd = false, planDays, reason }: FeedListCardProps) {
+export function FeedListCard({ card, surface, position, onOpen, planAdd = false, planDays, reason, reasonIcon = "auto_awesome" }: FeedListCardProps) {
   // "New since your last visit" (lib/personalise/freshness.ts): badges the
   // card without moving it, so the list keeps its time order.
   const isNew = isNewSince(card, useNewSinceCutoff());
@@ -701,7 +703,7 @@ export function FeedListCard({ card, surface, position, onOpen, planAdd = false,
     <div className="flex h-full flex-col gap-1.5 [&>*:last-child]:flex-1">
       {reason ? (
         <span className="inline-flex w-fit max-w-full items-center gap-1 px-1 text-label-sm font-bold text-primary">
-          <Icon name="auto_awesome" filled size={12} className="shrink-0" />
+          <Icon name={reasonIcon} filled size={12} className="shrink-0" />
           <span className="truncate">{reason}</span>
         </span>
       ) : (
