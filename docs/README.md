@@ -7,9 +7,10 @@ Run `/plans` in Claude Code for a summary of this page.
 
 Things waiting on you, newest first. Tick them off here, or ask Claude to update this list.
 
-**Near you now on Home (27 Oct)** (branch `near-now`)
-An outside review said Home lacks spatial urgency. Today's tab now has a "What's on near me?" button under Top picks. One tap asks for location, then shows today's cards and deals within a 20-minute walk, nearest first ("450 m · 6 min walk · starts 19:00"). No account needed; coordinates never leave the phone.
-- [ ] Merge the PR.
+**Persona fit and "Near you now" (27 Oct)** ([plan](plans/2026-10-27-persona-near-now.md))
+Signed-out Top picks were led by listings for a narrow audience (Dementia Friendly Activities on 26 Oct, a Pregnancy & Parents Centre talk on 27 Oct). They now score 20 lower (`lib/happenings/audience.ts`), so they leave the top slots but stay in "See all". Part B, "Near you now": a "What's on near me?" button under Top picks on the Today tab. One tap asks for location, then shows today's cards and deals within a 20-minute walk, nearest first ("450 m · 6 min walk · starts 19:00"). No account needed; coordinates never leave the phone.
+- [ ] Merge the `niche-audience` PR.
+- [ ] Merge Part B, [PR #58](https://github.com/jasbir98/fomo/pull/58) (`near-now`).
 - [ ] ~3 Nov: check `near_me_tapped` and `near_me_result` (status, count) in PostHog. Questions: what share of Home visitors tap, how many get `denied`, and how often the result is `empty` or `outside_city`. Ignore the handful of dev-test events from 27 Oct.
 
 **Feed hygiene: audio tours, out-of-season and duplicate rows (26 Oct)** ([PR #51](https://github.com/jasbir98/fomo/pull/51))
@@ -193,6 +194,7 @@ Snapshots of the plans approved in Claude Code plan mode. Each one is a record o
 
 | Plan | Status |
 |---|---|
+| [2026-10-27 Persona fit and "Near you now"](plans/2026-10-27-persona-near-now.md) | Approved 27 Oct. Part A (niche-audience demotion) on `niche-audience`; Part B ("Near you now" on Home) proposed as its own session. |
 | [2026-10-20 Families: "With kids" lens and family supply](plans/2026-10-20-families-lens.md) | Merged in [PR #45](https://github.com/jasbir98/fomo/pull/45); follow-ups in [PR #46](https://github.com/jasbir98/fomo/pull/46). SQL and backfill done 20 Oct; places approval and promotion listed above. |
 | [2026-10-14 Technical SEO](plans/2026-10-14-technical-seo.md) | Built and checked against a production build; in [PR #35](https://github.com/jasbir98/fomo/pull/35). Slug URLs proposed, not built. |
 | [2026-10-14 Shareable weekend plan](plans/2026-10-14-weekend-plan.md) | Built and checked end to end; in [PR #34](https://github.com/jasbir98/fomo/pull/34). SQL run 15 Oct. |

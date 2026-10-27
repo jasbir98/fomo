@@ -169,7 +169,7 @@ export function personalReason(card: Card, prefs: BoostPrefs, affinity: Affinity
 
 /** Home hero's score and reason for any card shape; series and recurring cards are scored by their lead. */
 export function baseScore(card: Card, prefs: BoostPrefs, now: Date, timeZone: string): { score: number; reason: string | null } {
-  if (card.kind === "event") return eventRecommendationScore(card.event, now, timeZone);
+  if (card.kind === "event") return eventRecommendationScore(card.event, now, timeZone, prefs.who);
   if (card.kind === "happening") return happeningRecommendationScore(card.happening, card.occurrence, now, timeZone, prefs.who);
   if (card.kind === "series") return happeningRecommendationScore(card.lead, card.occurrence, now, timeZone, prefs.who);
   return baseScore(card.lead, prefs, now, timeZone);
