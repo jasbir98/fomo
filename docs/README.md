@@ -7,6 +7,11 @@ Run `/plans` in Claude Code for a summary of this page.
 
 Things waiting on you, newest first. Tick them off here, or ask Claude to update this list.
 
+**Near you now on Home (27 Oct)** (branch `near-now`)
+An outside review said Home lacks spatial urgency. Today's tab now has a "What's on near me?" button under Top picks. One tap asks for location, then shows today's cards and deals within a 20-minute walk, nearest first ("450 m · 6 min walk · starts 19:00"). No account needed; coordinates never leave the phone.
+- [ ] Merge the PR.
+- [ ] ~3 Nov: check `near_me_tapped` and `near_me_result` (status, count) in PostHog. Questions: what share of Home visitors tap, how many get `denied`, and how often the result is `empty` or `outside_city`. Ignore the handful of dev-test events from 27 Oct.
+
 **Feed hygiene: audio tours, out-of-season and duplicate rows (26 Oct)** ([PR #51](https://github.com/jasbir98/fomo/pull/51))
 An outside review said Home reads like a coupon directory. The ranking half is on `rare-finds-ranking`; this is the data half. Skiddle lists self-guided audio tours as one event a day (729 active rows), so the import now rejects audio/GPS/app tours, trusts coordinates over the `city` field, and matches "Leith" as a whole word (Innerleithen got in). Home now hides out-of-season rows (an August festival pass in October, "Edinburgh Marathon 2026 entry" recurring into 2027, annual deals more than 45 days out) and collapses curated duplicates (Classic Rock Show, Hogmanay, Alison Moyet).
 - [x] Merged as [PR #51](https://github.com/jasbir98/fomo/pull/51) (26 Oct).
