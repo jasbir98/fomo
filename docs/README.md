@@ -7,6 +7,11 @@ Run `/plans` in Claude Code for a summary of this page.
 
 Things waiting on you, newest first. Tick them off here, or ask Claude to update this list.
 
+**Persona fit and "Near you now" (27 Oct)** ([plan](plans/2026-10-27-persona-near-now.md))
+Signed-out Top picks were led by listings for a narrow audience (Dementia Friendly Activities on 26 Oct, a Pregnancy & Parents Centre talk on 27 Oct). They now score 20 lower (`lib/happenings/audience.ts`), so they leave the top slots but stay in "See all". "Near you now" on Home is Part B of the plan, proposed as its own session.
+- [ ] Merge the `niche-audience` PR.
+- [ ] Start and merge Part B ("Near you now").
+
 **Feed hygiene: audio tours, out-of-season and duplicate rows (26 Oct)** ([PR #51](https://github.com/jasbir98/fomo/pull/51))
 An outside review said Home reads like a coupon directory. The ranking half is on `rare-finds-ranking`; this is the data half. Skiddle lists self-guided audio tours as one event a day (729 active rows), so the import now rejects audio/GPS/app tours, trusts coordinates over the `city` field, and matches "Leith" as a whole word (Innerleithen got in). Home now hides out-of-season rows (an August festival pass in October, "Edinburgh Marathon 2026 entry" recurring into 2027, annual deals more than 45 days out) and collapses curated duplicates (Classic Rock Show, Hogmanay, Alison Moyet).
 - [x] Merged as [PR #51](https://github.com/jasbir98/fomo/pull/51) (26 Oct).
@@ -188,6 +193,7 @@ Snapshots of the plans approved in Claude Code plan mode. Each one is a record o
 
 | Plan | Status |
 |---|---|
+| [2026-10-27 Persona fit and "Near you now"](plans/2026-10-27-persona-near-now.md) | Approved 27 Oct. Part A (niche-audience demotion) on `niche-audience`; Part B ("Near you now" on Home) proposed as its own session. |
 | [2026-10-20 Families: "With kids" lens and family supply](plans/2026-10-20-families-lens.md) | Merged in [PR #45](https://github.com/jasbir98/fomo/pull/45); follow-ups in [PR #46](https://github.com/jasbir98/fomo/pull/46). SQL and backfill done 20 Oct; places approval and promotion listed above. |
 | [2026-10-14 Technical SEO](plans/2026-10-14-technical-seo.md) | Built and checked against a production build; in [PR #35](https://github.com/jasbir98/fomo/pull/35). Slug URLs proposed, not built. |
 | [2026-10-14 Shareable weekend plan](plans/2026-10-14-weekend-plan.md) | Built and checked end to end; in [PR #34](https://github.com/jasbir98/fomo/pull/34). SQL run 15 Oct. |

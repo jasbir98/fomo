@@ -154,3 +154,35 @@ test("hero score: a chain deal scores 10 below an identical local one", () => {
     10
   );
 });
+
+test("hero score: a niche-audience listing scores 20 below the same listing for anyone", () => {
+  const plain = ev({ name: "Activities at the Festival Theatre", is_free: true });
+  const niche = ev({ name: "Festival Theatre's Dementia Friendly Activities", is_free: true });
+  assert.equal(eventRecommendationScore(plain, now).score - eventRecommendationScore(niche, now).score, 20);
+
+  const talk = { ...hap("Free talk", "https://x.com/a.jpg"), title: "Free talk" };
+  const course = { ...talk, title: "Irish Language Classes" };
+  const o = occ("2026-10-14");
+  assert.equal(happeningRecommendationScore(talk, o, now).score - happeningRecommendationScore(course, o, now).score, 20);
+});
+
+test("hero score: an over-60s listing isn't niche for an over-60 visitor", () => {
+  const seniors = ev({ name: "Seniors Tea Dance", is_free: true });
+  const plain = ev({ name: "Tea Dance", is_free: true });
+  assert.equal(eventRecommendationScore(seniors, now, undefined, ["over_60"]).score, eventRecommendationScore(plain, now).score);
+  assert.ok(eventRecommendationScore(seniors, now).score < eventRecommendationScore(plain, now).score);
+});
+
+test("hero score: a parents' session isn't niche for a visitor with kids", () => {
+  const talk = ev({ name: "Bilingualism Talk at the Pregnancy & Parents Centre", is_free: true });
+  const plain = ev({ name: "Bilingualism Talk", is_free: true });
+  assert.equal(eventRecommendationScore(talk, now, undefined, ["families"]).score, eventRecommendationScore(plain, now).score);
+});
+
+test("hero score: a happening already narrowed by eligibility isn't marked down twice", () => {
+  const o = occ("2026-10-14");
+  const anyone = { ...hap("x", "https://x.com/a.jpg"), title: "Free Travel" };
+  const over60 = { ...anyone, title: "Free Travel Over 60s", eligibility: "over_60" } as Happening;
+  // Only the eligibility markdown (10), not the niche one on top.
+  assert.equal(happeningRecommendationScore(anyone, o, now).score - happeningRecommendationScore(over60, o, now).score, 10);
+});
