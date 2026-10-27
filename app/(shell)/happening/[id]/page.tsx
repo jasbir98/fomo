@@ -23,8 +23,11 @@ export function generateStaticParams() {
 export const revalidate = 300;
 
 /**
- * Happenings are `read_all` to anon under RLS, so this uses the cookie-less
- * client and the page stays cacheable. `cache()` shares the one lookup
+ * Uses the cookie-less anon client and the page stays cacheable.
+ * loadHappeningDetail reads the requested row itself through the service role
+ * (the public RLS read is live-only, supabase/live_only_public_read.sql, and
+ * an ended deal's link must still open); the anon client here only serves its
+ * live-only sibling and place lookups. `cache()` shares the one lookup
  * between generateMetadata and the page. Null means the lookup itself
  * failed (not that the deal is missing): the page then renders the client
  * component's own loading path rather than a false 404.

@@ -4,7 +4,7 @@ import { notFound } from "next/navigation";
 import { EventDetail } from "@/components/detail/EventDetail";
 import { JsonLd } from "@/components/seo/JsonLd";
 import { getEvent } from "@/lib/db/events";
-import { supabaseAnon } from "@/lib/supabase/anon";
+import { supabaseAdmin } from "@/lib/supabase/admin";
 import { breadcrumbJsonLd, LIST_PAGES } from "@/lib/seo/breadcrumbs";
 import { pageMetadata } from "@/lib/seo/metadata";
 import { eventSeo } from "@/lib/seo/detail";
@@ -24,15 +24,18 @@ export function generateStaticParams() {
 export const revalidate = 300;
 
 /**
- * `events` is readable by anon under RLS, so this uses the cookie-less client
- * and the page stays cacheable. `cache()` shares the one lookup between
+ * Read with the service-role client: the public RLS read of `events` is
+ * active-only (supabase/live_only_public_read.sql), but a shared link to an
+ * event that has since expired or been cancelled must still open (and render
+ * its "ended" state, noindex). It carries no cookies, so the page stays
+ * cacheable. `cache()` shares the one lookup between
  * generateMetadata and the page. `undefined` means the lookup itself failed
  * (not that the event is missing): the page then renders the client
  * component's own loading path rather than a false 404.
  */
 const loadEvent = cache(async (id: string): Promise<EventItem | null | undefined> => {
   try {
-    return await getEvent(supabaseAnon(), id);
+    return await getEvent(supabaseAdmin(), id);
   } catch (err) {
     console.error("[event page] lookup failed", err);
     return undefined;

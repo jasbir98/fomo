@@ -23,7 +23,8 @@ export function generateStaticParams() {
 export const revalidate = 300;
 
 /**
- * Places, offers and events are all `read_all` to anon under RLS, so this
+ * Places are `read_all` to anon under RLS, and the offers and events it lists
+ * are live/active rows only, which anon may read, so this
  * uses the cookie-less client and the page stays cacheable. `cache()` shares
  * the one lookup between generateMetadata and the page. Null means the lookup
  * itself failed (not that the place is missing): the page then renders the

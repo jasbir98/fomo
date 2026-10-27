@@ -808,7 +808,7 @@ export interface BuildFeedOptions {
  * Takes the Supabase client as a parameter so the same build serves the API
  * route (cookie-bound client, signed-in hero) and statically rendered pages
  * (cookie-less anon client, see lib/supabase/anon.ts). Every table read here
- * is `read_all` to anon under RLS.
+ * is of rows anon may see under RLS (live happenings, active events).
  */
 export async function buildFeed(db: Db, opts: BuildFeedOptions): Promise<FeedResponse> {
   const { window, range, price, now, who: whoInput } = opts;

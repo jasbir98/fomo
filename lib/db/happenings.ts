@@ -70,7 +70,11 @@ function isPastSeason(h: Happening, timeZone: string): boolean {
  * (lib/db/places.ts, lib/db/events.ts). No `status`/`scope` filter: a card
  * that linked here already knows the row is live and in-scope, and a direct
  * id lookup should resolve regardless (a dormant/retired row still has a
- * page, it just won't have been linked to from the feed). Missing-table
+ * page, it just won't have been linked to from the feed).
+ *
+ * The public RLS read is live-only (supabase/live_only_public_read.sql), so
+ * callers that want the hidden rows too must pass `supabaseAdmin()`; with an
+ * anon or session client a non-live id comes back null. Missing-table
  * degrades to null rather than throwing, same reasoning as
  * `listLiveHappenings`.
  */
@@ -107,7 +111,8 @@ export async function listHappeningsForPlace(db: Db, placeId: string): Promise<H
 /**
  * Happenings by id, any status — the Saved list resolves saved rows through
  * this, and an offer that has since gone dormant should still show there
- * (the caller marks it ended) rather than silently vanish.
+ * (the caller marks it ended) rather than silently vanish. Needs
+ * `supabaseAdmin()` for that: an anon or session client only sees live rows.
  */
 export async function listHappeningsByIds(db: Db, ids: string[]): Promise<Happening[]> {
   if (ids.length === 0) return [];

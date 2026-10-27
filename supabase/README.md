@@ -45,6 +45,15 @@
    "Make link" says it couldn't make the link; nothing else breaks. Safe to
    re-run.
 
+6. **`live_only_public_read.sql`** — narrows the public read of `happenings`
+   to `status = 'live'` and `events` to `status = 'active'` (they were
+   `using (true)`, so the anon key could list dormant, retired, expired,
+   cancelled and withdrawn rows). Run it by hand AFTER the PR that adds it is
+   deployed: that PR moves every by-id read of a hidden row (detail pages and
+   their metadata, `.ics` links, `GET /api/events/[id]`, Saved, plans) onto the
+   service role, so tightening the policy first would 404 ended items opened
+   from shared links. Safe to re-run.
+
 Then run **`verify_security.sql`** (read-only, one result set) and check it
 shows no `no_rls`, `anon_write_policy`, `legacy_table` or
 `anon_exec_definer_fn` rows.
@@ -71,8 +80,8 @@ Tables as they exist after `archive/drop_legacy.sql` (applied 2026-09-28). "RLS 
 | `place_photos` | Per-place photo carousel + list thumbnail, with provenance | Same pipeline (service role) | Everyone (`lib/db/places.ts`) | `read_all` |
 | `place_sources` | Per-field citation provenance for promoted places | Same pipeline (service role) | Not read by the app today; kept readable for pipeline debugging | `read_all` |
 | `places_staging` | Review queue for scraped/extracted places before promotion | `scraper/upsert_places.py` (service role) | `scripts/promote-places.mjs` (service role) | service-role-only |
-| `events` | Skiddle + Ticketmaster event cache | `scripts/daily-sources.mjs` (GitHub Actions, service role; proactive crawl + API pull) | Everyone (`lib/db/events.ts` — feed/explore/chat) | `read_all` |
-| `happenings` | "What's On" money/access deals catalog (discounts, free-entry days, Book Early offers) | Pipeline: `scraper/happenings_research.py` → `scraper/upsert_happenings.py` → `happenings_staging` → `scripts/promote-happenings.mjs` (service role) | Everyone (`lib/db/happenings.ts`) | `read_all` |
+| `events` | Skiddle + Ticketmaster event cache | `scripts/daily-sources.mjs` (GitHub Actions, service role; proactive crawl + API pull) | Everyone, `active` rows only (`lib/db/events.ts` — feed/explore/chat); ended/hidden rows by id via the service role (`/api/events/[id]`, Saved, plans, event page) | `read_all` until `live_only_public_read.sql` runs, then `read_active` (`status = 'active'`) |
+| `happenings` | "What's On" money/access deals catalog (discounts, free-entry days, Book Early offers) | Pipeline: `scraper/happenings_research.py` → `scraper/upsert_happenings.py` → `happenings_staging` → `scripts/promote-happenings.mjs` (service role) | Everyone, `live` rows only (`lib/db/happenings.ts`); non-live rows by id via the service role (happening page/API, Saved, plans) | `read_all` until `live_only_public_read.sql` runs, then `read_live` (`status = 'live'`) |
 | `happening_sources` | Per-field citation provenance for promoted happenings | Same pipeline (service role) | Not read by the app today; kept readable, same as `place_sources` | `read_all` |
 | `finds` | Fomo Finds: the hand-approved list of steals (a `why` line + 1-5 Fomo level pointing at an event or happening) | `scripts/finds.ts` (service role): `suggest` drafts, a person `approve`s | Everyone, `live` rows only (`lib/db/finds.ts`, `/finds`, `/api/finds`) | `read_all` for `status = 'live'` only; writes service-role only |
 | `happenings_staging` | Review queue for scraped happenings before promotion | `scraper/upsert_happenings.py` (service role) | `scripts/promote-happenings.mjs`, `scripts/sweep-happenings.mjs` (service role) | service-role-only |

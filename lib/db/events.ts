@@ -215,7 +215,10 @@ export async function listUpcomingEventsForPlace(db: Db, placeId: string, at: Da
   return ((data ?? []) as unknown as RawEvent[]).map(withCleanDescription).filter((row) => eventIsLive(row, at));
 }
 
-/** Fetch a single event by id, whatever its status (expired/gone/cancelled rows still resolve). Returns null if not found. */
+/**
+ * Fetch a single event by id, whatever its status (expired/gone/cancelled rows still resolve). Returns null if not found.
+ * Pass `supabaseAdmin()` for the non-active rows: an anon or session client only sees `status = 'active'` under RLS.
+ */
 export async function getEvent(db: Db, id: string): Promise<EventItem | null> {
   const { data, error } = await withEventFallbacks(({ embed }) =>
     db.from("events").select(embed ? DETAIL_SELECT : "*").eq("id", id).maybeSingle()
@@ -226,7 +229,8 @@ export async function getEvent(db: Db, id: string): Promise<EventItem | null> {
 
 /**
  * Batch-fetch events by id (any status), for resolving a saved-item id back into a full
- * row (GET /api/saved) — mirrors listPlacesByIds (lib/db/places.ts).
+ * row (GET /api/saved) — mirrors listPlacesByIds (lib/db/places.ts). Pass
+ * `supabaseAdmin()` to include non-active rows (an anon or session client only sees active ones).
  */
 export async function listEventsByIds(db: Db, ids: string[]): Promise<EventItem[]> {
   if (ids.length === 0) return [];

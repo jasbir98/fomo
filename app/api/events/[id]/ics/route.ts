@@ -7,30 +7,28 @@
  * lib/happenings/ics.ts, which both builders share) — `Content-Disposition:
  * inline` so iOS Safari opens the native "Add Event" sheet directly.
  *
- * Public: proxy.ts matches this one path with a dedicated PUBLIC_EVENT_ICS
- * regex (GET/HEAD only) — bare /api/events (the destination-search route,
- * one directory up) stays behind a session, since it triggers paid Mapbox
- * geocoding + Ticketmaster/Skiddle calls + service-role writes for an
- * arbitrary caller-supplied destination and nothing in the app actually
- * calls it. No cache headers, same reasoning as the happenings ics route:
- * fetched once per tap, not repeatedly, so there's nothing for a cache to
- * usefully save here.
+ * Public: proxy.ts matches this path with a dedicated PUBLIC_EVENT_ICS
+ * regex (GET/HEAD only). The event is read with the service role because the
+ * public RLS read is active-only (supabase/live_only_public_read.sql) and an
+ * ended event's calendar link should still resolve. No cache headers, same
+ * reasoning as the happenings ics route: fetched once per tap, not
+ * repeatedly, so there's nothing for a cache to usefully save here.
  */
 import "server-only";
 import { NextResponse } from "next/server";
-import { supabaseServer } from "@/lib/supabase/server";
+import { supabaseAdmin } from "@/lib/supabase/admin";
 import { captureServerException } from "@/lib/analytics/server-exception";
-import { getEvent } from "@/lib/db";
+import { getEvent } from "@/lib/db/events";
 import { buildEventIcs, ICS_CONTENT_TYPE } from "@/lib/happenings/ics";
 
 export const runtime = "nodejs";
 
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const db = await supabaseServer();
-
   try {
-    const event = await getEvent(db, id);
+    // Service role: the public read is active-only; an ended event's link
+    // still resolves here (buildEventIcs does not care about status).
+    const event = await getEvent(supabaseAdmin(), id);
     if (!event) {
       return NextResponse.json({ error: "Not found" }, { status: 404 });
     }

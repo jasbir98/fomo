@@ -28,6 +28,12 @@ let adminClient: Db | undefined;
  * Consumers: lib/rate-limit.ts and lib/db/push.ts's per-user writes, plus
  * app/api/subscribe, app/api/unsubscribe and app/api/resend/webhook's
  * session-less writes — routes with no signed-in caller to write as.
+ *
+ * Also the by-id reads of hidden rows, which the live-only public RLS policies
+ * (supabase/live_only_public_read.sql) no longer let anon or a session see:
+ * happening/event detail (pages, metadata, API routes, .ics), the Saved list
+ * (lib/cards/resolve.ts) and weekend plans (lib/plans/snapshot.ts). Use it
+ * for that one query only, never for a whole request.
  */
 export function supabaseAdmin(): Db {
   if (!adminClient) {

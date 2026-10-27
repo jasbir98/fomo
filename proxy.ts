@@ -97,8 +97,9 @@ function signinReasonForPath(pathname: string): SigninReason | null {
 
 /**
  * Read-only catalogue APIs the public pages call. GET/HEAD only; each serves
- * data RLS already grants `read_all` to anon, and handles a missing user
- * itself. Saved, push and alerts stay behind a session — they write per-user
+ * data RLS already grants to anon (live rows only), or, for the by-id detail
+ * routes, reads the one row it needs through the service role itself, and
+ * handles a missing user itself. Saved, push and alerts stay behind a session — they write per-user
  * rows. (Chat is public too, but POST-only; see PUBLIC_POST_PREFIXES.)
  */
 const PUBLIC_API_PREFIXES = [
@@ -120,13 +121,14 @@ const PUBLIC_API_PREFIXES = [
   "/api/cron",
 ];
 const PUBLIC_PLACE_OFFERS = /^\/api\/places\/[^/]+\/offers$/;
-// Only the .ics download off a single event is public — the bare
+// Only a single event's JSON and its .ics download are public — the bare
 // /api/events?destination=… route (which would otherwise let anyone trigger
 // paid Mapbox geocoding + Ticketmaster/Skiddle calls + service-role cache
 // writes with an arbitrary destination string) is gone entirely (2026-09
-// cleanup), not merely excluded here. See app/api/events/[id]/ics/route.ts's
-// doc comment.
+// cleanup), not merely excluded here. See app/api/events/[id]/route.ts and
+// app/api/events/[id]/ics/route.ts's doc comments.
 const PUBLIC_EVENT_ICS = /^\/api\/events\/[^/]+\/ics$/;
+const PUBLIC_EVENT_DETAIL = /^\/api\/events\/[^/]+$/;
 
 /**
  * POST endpoints servable with no session, kept as a SEPARATE allowlist from
@@ -155,6 +157,7 @@ function isPublicApi(request: NextRequest): boolean {
   return (
     PUBLIC_PLACE_OFFERS.test(pathname) ||
     PUBLIC_EVENT_ICS.test(pathname) ||
+    PUBLIC_EVENT_DETAIL.test(pathname) ||
     PUBLIC_API_PREFIXES.some((prefix) => matchesPrefix(pathname, prefix))
   );
 }

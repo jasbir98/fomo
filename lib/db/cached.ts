@@ -5,8 +5,8 @@
  * Why: one /api/feed request made 6-7 sequential Supabase round trips
  * (live happenings, two upcoming-events reads, all ~3,400 city places for
  * Free Any Time, venue lookups) — 3.5-4.5s per request, and Deals, Book early
- * and Free each paid it again. Every one of these tables is `read_all` to
- * anon under RLS, so the rows are identical for every visitor — safe to share
+ * and Free each paid it again. Every one of these reads is of rows anon may see under RLS
+ * (places, live happenings, active events), so the rows are identical for every visitor — safe to share
  * across requests.
  *
  * Semantics, per key:

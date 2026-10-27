@@ -13,7 +13,7 @@
  */
 import "server-only";
 import { NextResponse } from "next/server";
-import { supabaseServer } from "@/lib/supabase/server";
+import { supabaseAdmin } from "@/lib/supabase/admin";
 import { captureServerException } from "@/lib/analytics/server-exception";
 import { getHappeningById } from "@/lib/db/happenings";
 import { nextOccurrences } from "@/lib/happenings/occurrence";
@@ -23,10 +23,11 @@ export const runtime = "nodejs";
 
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const db = await supabaseServer();
-
   try {
-    const happening = await getHappeningById(db, id);
+    // Service role: the public read is live-only, but a calendar link for a
+    // deal that has since gone dormant should still resolve (then 404 below if
+    // it has no upcoming date).
+    const happening = await getHappeningById(supabaseAdmin(), id);
     if (!happening) {
       return NextResponse.json({ error: "Not found" }, { status: 404 });
     }

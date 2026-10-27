@@ -1,9 +1,8 @@
 /**
  * Turns the refs a visitor picked into the frozen `PlanItem`s a plan row
- * stores. Every title, time, price and image comes from the live
- * happenings/events rows read here with the anon client, never from the
- * request body, so a plan link can't put arbitrary text or images on an
- * askfomo.com receipt.
+ * stores. Every title, time, price and image comes from the happenings/events
+ * rows read here, never from the request body, so a plan link can't put
+ * arbitrary text or images on an askfomo.com receipt.
  */
 import "server-only";
 import { createHash } from "node:crypto";
@@ -14,7 +13,7 @@ import { eventImageFor } from "@/lib/events/image";
 import { defaultImageFor } from "@/lib/happenings/category-style";
 import { addDays, endOfLocalDay, localDayDate, nextOccurrence, nextOccurrences, startOfLocalDay } from "@/lib/happenings/occurrence";
 import type { Happening } from "@/lib/happenings/types";
-import { supabaseAnon } from "@/lib/supabase/anon";
+import { supabaseAdmin } from "@/lib/supabase/admin";
 import type { EventItem } from "@/lib/types";
 import { priceForEvent, priceForHappening } from "./price";
 import type { PlanItem, PlanRef } from "./types";
@@ -73,7 +72,11 @@ function eventItem(e: EventItem, now: Date): PlanItem | null {
  * left is still a plan.
  */
 export async function buildPlanItems(refs: PlanRef[], now: Date = new Date()): Promise<PlanItem[]> {
-  const db = supabaseAnon();
+  // Service role so a pick that has since gone dormant or ended is still found
+  // and then dropped by happeningItem/eventItem below (status + ended checks),
+  // rather than depending on what the public policy exposes. Rows are only
+  // ever turned into PlanItems (title, venue, day, price, image).
+  const db = supabaseAdmin();
   const happeningIds = refs.filter((r) => r.kind === "happening").map((r) => r.id);
   const eventIds = refs.filter((r) => r.kind === "event").map((r) => r.id);
   const [happenings, events] = await Promise.all([listHappeningsByIds(db, happeningIds), listEventsByIds(db, eventIds)]);

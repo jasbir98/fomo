@@ -11,6 +11,7 @@ import { getHappeningById, listLiveHappenings } from "@/lib/db/happenings";
 import { listPlacesByIds } from "@/lib/db/places";
 import { groupHappeningsIntoSeries } from "@/lib/happenings/series";
 import type { Happening } from "@/lib/happenings/types";
+import { supabaseAdmin } from "@/lib/supabase/admin";
 import type { Db } from "@/lib/supabase/types";
 import type { Place } from "@/lib/types";
 
@@ -45,9 +46,17 @@ export interface HappeningDetailData {
   venueWebsite?: string | null;
 }
 
-/** Throws only if the happening lookup itself fails; a missing row is `{ happening: null }`. */
+/**
+ * Throws only if the happening lookup itself fails; a missing row is `{ happening: null }`.
+ *
+ * The requested row is read through the service role, not `db`: the public RLS
+ * read is live-only (supabase/live_only_public_read.sql), but a link to a deal
+ * that has since gone dormant or retired must still open its page. Only that
+ * one by-id query bypasses RLS. The series siblings and the place photos below
+ * stay on `db` — they list live rows only, which is all anon may read.
+ */
 export async function loadHappeningDetail(db: Db, id: string): Promise<HappeningDetailData> {
-  let happening = await getHappeningById(db, id);
+  let happening = await getHappeningById(supabaseAdmin(), id);
   let siblings: Happening[] = [];
   let venueWebsite: string | null = null;
   if (happening) {

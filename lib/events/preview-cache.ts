@@ -8,19 +8,15 @@
  * feed taps are actually provider events, not happenings, so this extends
  * the same instant-preview/prefetch treatment there).
  *
- * One difference from the happenings version: app/(shell)/event/[id]/page.tsx
- * has no `/api/events/[id]` JSON route to fetch — it reads the row directly
- * via `getEvent(db, id)` (lib/db/events.ts, a plain Supabase client call,
- * not `server-only`), same as every other lib/db/* read this app's client
- * components already do straight from the browser. So "prefetch" here means
- * kicking off that same `getEvent` call early, not an HTTP fetch — there's
- * no `/api/*` response, and therefore no Cache-Control decision to make for
- * this path (unlike GET /api/happenings/[id]).
+ * Like the happenings version, "prefetch" is an HTTP fetch of a JSON route,
+ * GET /api/events/[id] (app/api/events/[id]/route.ts). That route reads with
+ * the service role because the public `events` read is active-only, so an
+ * ended event opened from a shared link or Saved can't be read straight from
+ * the browser any more.
  */
 
 import type { EventItem } from "@/lib/types";
-import { supabaseBrowserAuth } from "@/lib/supabase/client";
-import { getEvent } from "@/lib/db";
+import type { EventResponse } from "@/app/api/events/[id]/route";
 
 export interface EventPreview {
   title: string;
@@ -88,12 +84,19 @@ export function getEventPreview(id: string): EventPreview | null {
   }
 }
 
-/** Kicks off `getEvent` early (a card's pointerdown/touchstart) and stashes
+/** GET /api/events/[id]. Resolves to `null` for an id with no row; throws on a non-2xx or network failure. */
+export async function fetchEvent(id: string): Promise<EventItem | null> {
+  const res = await fetch(`/api/events/${encodeURIComponent(id)}`);
+  if (!res.ok) throw new Error(`GET /api/events/${id} ${res.status}`);
+  return ((await res.json()) as EventResponse).event;
+}
+
+/** Kicks off the event fetch early (a card's pointerdown/touchstart) and stashes
  *  the promise so the detail page's own load can reuse it instead of
- *  issuing a second, redundant read. No-op if one's already in flight. */
+ *  issuing a second, redundant request. No-op if one's already in flight. */
 export function prefetchEvent(id: string): void {
   if (fetchCache.has(id)) return;
-  const promise = getEvent(supabaseBrowserAuth(), id);
+  const promise = fetchEvent(id);
   // A failed prefetch shouldn't wedge this id — let the detail page retry
   // from scratch instead of replaying the same rejection.
   promise.catch(() => fetchCache.delete(id));
