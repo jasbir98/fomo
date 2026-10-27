@@ -57,6 +57,18 @@ interface Scored {
   skipped: boolean;
 }
 
+/** Reason parts that only repeat the card's own date chip ("Today", "Tomorrow")
+ *  and the section header ("Top picks · Today"). "last chance today" stays:
+ *  the chip doesn't say it ends. */
+const DAY_ONLY_PARTS = new Set(["today", "tonight", "tomorrow"]);
+
+/** "Free · today" -> "Free"; "today" -> null. */
+export function withoutDayOnlyParts(reason: string | null): string | null {
+  if (!reason) return null;
+  const parts = reason.split(" · ").filter((p) => !DAY_ONLY_PARTS.has(p.trim().toLowerCase()));
+  return parts.length > 0 ? parts.join(" · ") : null;
+}
+
 export function topPicks(
   cards: readonly FeedCardData[],
   { prefs, affinity = {}, whoKnown = prefs.who.length > 0, now = new Date(), timeZone = CITY.timezone, count = TOP_PICKS_COUNT, minPhotos = TOP_PICKS_MIN_PHOTOS }: TopPicksInput
@@ -76,7 +88,7 @@ export function topPicks(
       card,
       index,
       score: base.score + boost * MORE_BOOST_WEIGHT,
-      reason: (personalised ? personalReason(card, prefs, affinity) : null) ?? base.reason,
+      reason: (personalised ? personalReason(card, prefs, affinity) : null) ?? withoutDayOnlyParts(base.reason),
       photo: isPhotoImage(cardImageUrl(card)),
       skipped: ineligible(card, prefs, whoKnown),
     });

@@ -4,7 +4,7 @@ import assert from "node:assert/strict";
 import type { Happening } from "@/lib/happenings/types";
 import type { FeedCardData } from "@/lib/happenings/feed-types";
 import { cardRecommendationScore } from "@/lib/happenings/hero";
-import { topPicks } from "./top-picks";
+import { topPicks, withoutDayOnlyParts } from "./top-picks";
 import type { BoostPrefs } from "./score";
 
 const NOW = new Date("2026-10-12T10:00:00Z");
@@ -141,4 +141,14 @@ test("a series and its member never both appear", () => {
   } as unknown as FeedCardData;
   const { picks } = topPicks([series, member, ...plain(3)], { prefs: NO_PREFS, now: NOW, timeZone: TZ });
   assert.equal(picks.filter((p) => p.card.kind === "series" || (p.card.kind === "happening" && p.card.happening.id === "lead")).length, 1);
+});
+
+test("reasons drop day words the card's date chip and the section header already say", () => {
+  assert.equal(withoutDayOnlyParts("Free · today"), "Free");
+  assert.equal(withoutDayOnlyParts("today"), null);
+  assert.equal(withoutDayOnlyParts("tonight"), null);
+  assert.equal(withoutDayOnlyParts("tomorrow · sells out fast"), "sells out fast");
+  assert.equal(withoutDayOnlyParts("Free · last chance today"), "Free · last chance today");
+  assert.equal(withoutDayOnlyParts("this weekend"), "this weekend");
+  assert.equal(withoutDayOnlyParts(null), null);
 });
