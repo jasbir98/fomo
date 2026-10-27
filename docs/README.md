@@ -7,10 +7,10 @@ Run `/plans` in Claude Code for a summary of this page.
 
 Things waiting on you, newest first. Tick them off here, or ask Claude to update this list.
 
-**Feed hygiene: audio tours, out-of-season and duplicate rows (26 Oct)** (branch `feed-hygiene`)
+**Feed hygiene: audio tours, out-of-season and duplicate rows (26 Oct)** ([PR #51](https://github.com/jasbir98/fomo/pull/51))
 An outside review said Home reads like a coupon directory. The ranking half is on `rare-finds-ranking`; this is the data half. Skiddle lists self-guided audio tours as one event a day (729 active rows), so the import now rejects audio/GPS/app tours, trusts coordinates over the `city` field, and matches "Leith" as a whole word (Innerleithen got in). Home now hides out-of-season rows (an August festival pass in October, "Edinburgh Marathon 2026 entry" recurring into 2027, annual deals more than 45 days out) and collapses curated duplicates (Classic Rock Show, Hogmanay, Alison Moyet).
-- [ ] Merge the `feed-hygiene` PR.
-- [ ] Approve and run the events cleanup in the Supabase SQL editor (marks rows `gone`, which the import reverts if a source lists them again): `update events set status = 'gone' where status = 'active' and (name ilike '%audio tour%' or city in ('Inverness', 'Inverness ', 'Fort William', 'Innerleithen', 'North Kessock'));` Expect 748 rows (729 audio tours, 19 Inverness/Fort William/Innerleithen rows last seen on 2 Aug).
+- [x] Merged as [PR #51](https://github.com/jasbir98/fomo/pull/51) (26 Oct).
+- [x] Events cleanup done 27 Oct: 732 rows set to `gone` (713 audio tours, 19 Inverness/Fort William/Innerleithen rows). The rest had expired overnight. Filter used: `status = 'active' and (name ilike '%audio tour%' or city in ('Inverness', 'Inverness ', 'Fort William', 'Innerleithen', 'North Kessock'))`. The import now rejects them, so they stay gone.
 - [ ] Decide whether nearby towns count as Edinburgh for events: Halloween Happenings at Dalkeith Country Park (Forever Edinburgh) sits inside the 15km radius, so the import keeps it. Out-of-Edinburgh deals (Go Ape Dalkeith, Lido Musselburgh) are the daily deal-review job's call (branch `deal-review`), not this one.
 - [ ] Optional: make the two duplicate happenings dormant so other readers (chat, Explore) stop seeing them too: `update happenings set status = 'dormant' where id in ('09e2a009-ebff-433f-9ba4-31555fb16208', 'e609eedf-3de6-475a-a882-caada5022791');` (The Classic Rock Show from Ticketmaster UK; "Edinburgh's Hogmanay" from Edinburgh.org.)
 - Not done: Ask Fomo and Explore read happenings without the season filter, so they can still suggest the EIF Young Musicians Pass in October.
