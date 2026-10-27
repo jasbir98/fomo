@@ -38,6 +38,7 @@ import type { Happening, HappeningEligibility, Occurrence } from "@/lib/happenin
 import type { EventItem } from "@/lib/types";
 import type { FeedCardData } from "@/lib/happenings/feed-types";
 import { familyFitForEvent, familyFitForHappening } from "@/lib/happenings/family";
+import { nicheAudience } from "@/lib/happenings/audience";
 
 /** Value's own sub-score never contributes more than this — a big saving on
  *  a mediocre-otherwise item shouldn't outrank a merely-good, well-rounded
@@ -83,6 +84,21 @@ const ONE_OFF_BONUS = 8;
 /** A happening that's a national chain's offer is marked down so the Fomo Pick
  *  is never a chain discount when a local option exists. */
 const CHAIN_HERO_PENALTY = 10;
+/** A listing for a niche audience (dementia-friendly sessions, conferences,
+ *  language courses — lib/happenings/audience.ts) sits below the main crowd's
+ *  picks. Not applied twice to a happening whose `eligibility` already
+ *  narrows it (that's marked down above). */
+const NICHE_AUDIENCE_PENALTY = 20;
+
+/** The niche-audience markdown for `who`: an "older" listing isn't niche for an
+ *  over-60, nor a "parents" one for a visitor with kids. */
+function nicheAudiencePenalty(title: string, description: string | null, who: readonly DealWhoGroup[]): number {
+  const audience = nicheAudience(title, description);
+  if (!audience) return 0;
+  if (audience === "older" && who.includes("over_60")) return 0;
+  if (audience === "parents" && who.includes("families")) return 0;
+  return NICHE_AUDIENCE_PENALTY;
+}
 
 /** Whole days from `from` to `to` ("YYYY-MM-DD" local days). UTC arithmetic,
  *  so DST can't skew it. */
@@ -260,6 +276,8 @@ export function happeningRecommendationScore(
     } else {
       score -= 10;
     }
+  } else {
+    score -= nicheAudiencePenalty(h.title, h.summary, who);
   }
 
   // --- National chains: same everywhere, never the Edinburgh pick. ----
@@ -288,7 +306,8 @@ export function happeningRecommendationScore(
 export function eventRecommendationScore(
   e: EventItem,
   now: Date = new Date(),
-  timeZone: string = CITY.timezone
+  timeZone: string = CITY.timezone,
+  who: readonly DealWhoGroup[] = []
 ): RecommendationResult {
   const factors: ReasonFactor[] = [];
   let score = 0;
@@ -328,7 +347,10 @@ export function eventRecommendationScore(
   if (runDays >= LONG_RUN_DAYS && dayDiff(localDayDate(now, timeZone), lastDay) > 2) score -= LONG_RUN_PENALTY;
   if (runDays <= 0 && bucket !== "coming_up") score += ONE_OFF_BONUS;
 
-  // --- Scarcity / Curation / Audience: no data on EventItem, skipped. ---
+  // --- Scarcity / Curation: no data on EventItem, skipped. -------------
+
+  // --- Audience: read from the title (no eligibility column on events). --
+  score -= nicheAudiencePenalty(e.name, e.description, who);
 
   // --- Presentation --------------------------------------------------
   if (isPhotoImage(eventImageUrl(e))) score += 8;
@@ -362,7 +384,7 @@ export function cardRecommendationScore(
   who: readonly DealWhoGroup[] = []
 ): number {
   if (card.kind === "recurring") return cardRecommendationScore(card.lead, now, timeZone, who);
-  if (card.kind === "event") return eventRecommendationScore(card.event, now, timeZone).score;
+  if (card.kind === "event") return eventRecommendationScore(card.event, now, timeZone, who).score;
   const h = card.kind === "series" ? card.lead : card.happening;
   return happeningRecommendationScore(h, card.occurrence, now, timeZone, who).score;
 }

@@ -407,7 +407,7 @@ function pickHero(
     if (Number.isNaN(startMs) || startMs < eventFrom || startMs > eventCutoff) continue;
     if (!heroEligibleEvent(e)) continue; // kids-aimed items never take the hero slot
     if (priceSignalForEvent(e) !== "cheap") continue; // free-or-cheap only, never a guessed-cheap sports exemption
-    const { score, reason } = eventRecommendationScore(e, now, timeZone);
+    const { score, reason } = eventRecommendationScore(e, now, timeZone, who);
     candidates.push({ card: { kind: "event", event: e, reason }, score, startMs, everyday: false, photo: isPhotoImage(eventImageUrl(e)) });
   }
 
