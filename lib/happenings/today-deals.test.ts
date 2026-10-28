@@ -48,25 +48,58 @@ test("weekly tier: a local Monday-only 20% deal ranks above a chain's 30% deal t
   assert.deepEqual(ids(todaysDeals(section(chain, other, local), at)), ["Biddy Mulligans", "Local Cafe", "ASK Italian"]);
 });
 
-test("weekly tier still comes before dated and always deals", () => {
-  const weekly = card("Chain Weekly", { venue_name: "ASK Italian", saving_label: "10% off", recurrence: MON_TO_THU });
-  const dated = card("Dated", { saving_label: "50% off", starts_at: "2026-10-20T00:00:00Z", ends_at: "2026-11-30T00:00:00Z", recurrence: { type: "once" } });
-  const always = card("Always", { saving_label: "50% off" });
-  assert.deepEqual(ids(todaysDeals(section(always, dated, weekly), at)), ["Chain Weekly", "Dated", "Always"]);
+test("a one-day weekly deal leads over a chain's weekly deal and an always deal", () => {
+  const chain = card("Chain Weekly", { venue_name: "ASK Italian", saving_label: "50% off", recurrence: MON_TO_THU });
+  const always = card("Always", { saving_label: "2 for 1" });
+  const monday = card("Monday Only", { saving_label: "20% off", recurrence: MON });
+  assert.deepEqual(ids(todaysDeals(section(chain, always, monday), at)), ["Monday Only", "Always", "Chain Weekly"]);
 });
 
-test("dated tier: ending within 2 days first, then by steal score", () => {
-  const soonWeak = card("Soon Weak", { saving_label: "10% off", starts_at: "2026-10-20T00:00:00Z", ends_at: "2026-10-27T23:00:00Z", recurrence: { type: "once" } });
-  const laterStrong = card("Later Strong", { saving_label: "60% off", starts_at: "2026-10-20T00:00:00Z", ends_at: "2026-12-30T00:00:00Z", recurrence: { type: "once" } });
-  const laterWeak = card("Later Weak", { saving_label: "15% off", starts_at: "2026-10-20T00:00:00Z", ends_at: "2026-12-30T00:00:00Z", recurrence: { type: "once" } });
-  const weekly = card("Weekly", { saving_label: "5% off", recurrence: MON });
-  const out = ids(todaysDeals(section(laterWeak, soonWeak, laterStrong, weekly), at));
-  assert.deepEqual(out.slice(1), ["Soon Weak", "Later Strong", "Later Weak"]);
+test("lead: last chance first, then by steal score; weak deals don't lead", () => {
+  const lastChance = card("Last Chance", { saving_label: "2 for 1", starts_at: "2026-10-20T00:00:00Z", ends_at: "2026-10-27T23:00:00Z", recurrence: { type: "once" } });
+  const monday = card("Monday Only", { saving_label: "60% off", recurrence: MON });
+  const weakLastChance = card("Weak Last Chance", { saving_label: "5% off", starts_at: "2026-10-20T00:00:00Z", ends_at: "2026-10-27T23:00:00Z", recurrence: { type: "once" } });
+  const later = card("Later", { saving_label: "60% off", starts_at: "2026-10-20T00:00:00Z", ends_at: "2026-12-30T00:00:00Z", recurrence: { type: "once" } });
+  assert.deepEqual(ids(todaysDeals(section(weakLastChance, later, monday, lastChance), at)), ["Last Chance", "Monday Only", "Later"]);
 });
 
-test("eligible deals still rank first within a tier", () => {
+test("a deal added in the last three days leads", () => {
+  const old = card("Old", { saving_label: "60% off", created_at: "2026-09-01T00:00:00Z" });
+  const fresh = card("Fresh", { saving_label: "25% off", created_at: "2026-10-25T09:00:00Z" });
+  const other = card("Other", { saving_label: "50% off" });
+  assert.deepEqual(ids(todaysDeals(section(old, other, fresh), at)), ["Fresh", "Old", "Other"]);
+});
+
+test("eligible deals still rank first within the lead and the rotation", () => {
   const strong = card("Strong", { saving_label: "50% off", recurrence: MON });
-  const studentWeak = card("Student Weak", { saving_label: "10% off", eligibility: "student", recurrence: MON_TO_THU });
-  const rest = card("Rest", { saving_label: "20% off", recurrence: MON });
-  assert.deepEqual(ids(todaysDeals(section(strong, rest, studentWeak), at, { who: ["students"] })), ["Student Weak", "Strong", "Rest"]);
+  const studentLead = card("Student Lead", { saving_label: "20% off", eligibility: "student", recurrence: MON });
+  const always = card("Always", { saving_label: "60% off" });
+  const studentAlways = card("Student Always", { saving_label: "30% off", eligibility: "student" });
+  assert.deepEqual(ids(todaysDeals(section(strong, studentLead, always, studentAlways), at, { who: ["students"] })), [
+    "Student Lead",
+    "Strong",
+    "Student Always",
+    "Always",
+  ]);
+});
+
+test("the rotation shows different good deals on consecutive days and covers the pool", () => {
+  const pool = Array.from({ length: 40 }, (_, i) => card(`Deal ${i}`, { saving_label: "2 for 1" }));
+  const chain = card("Chain", { venue_name: "Greggs", saving_label: "10% off" });
+  // 40 good deals, 5 a day: an 8-day cycle. 2026-10-26 is day 20,752, so a lap starts on 2026-10-26 (20,752 = 8 × 2,594).
+  const days = Array.from({ length: 24 }, (_, d) => ids(todaysDeals(section(chain, ...pool), new Date(at.getTime() + d * 86_400_000), { limit: 5 })));
+  for (const day of days) {
+    assert.equal(day.length, 5);
+    assert.ok(!day.includes("Chain"));
+  }
+  const firstLap = days.slice(0, 8);
+  for (let d = 1; d < firstLap.length; d++) assert.equal(firstLap[d].filter((id) => firstLap[d - 1].includes(id)).length, 0);
+  assert.ok(new Set(firstLap.flat()).size >= 32);
+  assert.equal(new Set(days.flat()).size, 40);
+});
+
+test("the same day gives the same deals", () => {
+  const pool = Array.from({ length: 30 }, (_, i) => card(`Deal ${i}`, { saving_label: "2 for 1" }));
+  const later = new Date("2026-10-26T21:00:00Z");
+  assert.deepEqual(ids(todaysDeals(section(...pool), at)).sort(), ids(todaysDeals(section(...pool.reverse()), later)).sort());
 });

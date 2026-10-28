@@ -7,6 +7,12 @@ Run `/plans` in Claude Code for a summary of this page.
 
 Things waiting on you, newest first. Tick them off here, or ask Claude to update this list.
 
+**Home deals rotate daily (28 Oct)** (branch `home-fresh-deals`)
+Home's "Today's deals" showed the same ~10 deals every day: today's weekly deals and dated deals filled every slot, so the 93 standing deals never appeared. Now it leads with up to 4 deals that are news today (a one-or-two-day weekly offer, a deal on its last two days, a deal added in the last 3 days, tagged "New"). The rest rotates daily through every good deal (steal score 15+, which keeps chains and 10%-off filler out), so the days don't repeat and each deal comes round about once a week. Live data, 14 days: 52 different cards, up from about 12.
+- [ ] Open a PR and merge.
+- [ ] No deals have been added since 12 Oct (179 live). Rotation fixes repetition, not supply; "New" only shows once sources run again.
+- [ ] Six "Tattoo Hospitality 2027" packages (Piper, Castle, Gatehouse, Scotland, Cannonball, Drummer) are live as deals. They're hospitality packages, not cheap deals. Consider retiring them.
+
 **Persona fit and "Near you now" (27 Oct)** ([plan](plans/2026-10-27-persona-near-now.md))
 Signed-out Top picks were led by listings for a narrow audience (Dementia Friendly Activities on 26 Oct, a Pregnancy & Parents Centre talk on 27 Oct). They now score 20 lower (`lib/happenings/audience.ts`), so they leave the top slots but stay in "See all". Part B, "Near you now": a "What's on near me?" button under Top picks on the Today tab. One tap asks for location, then shows today's cards and deals within a 20-minute walk, nearest first ("450 m · 6 min walk · starts 19:00"). No account needed; coordinates never leave the phone.
 - [x] Merged as [PR #57](https://github.com/jasbir98/fomo/pull/57) (27 Oct).
