@@ -7,6 +7,7 @@ import { DealPhoto } from "@/components/happenings/DealPhoto";
 import { dealCardTitle, dealGroupSubtitle, dealSubtitle } from "@/lib/happenings/deal-label";
 import { savingBadgeLabel, shortStartTimeFromNote } from "@/lib/happenings/format";
 import { weekdayOf, localDayDate } from "@/lib/happenings/occurrence";
+import { isNewDeal } from "@/lib/happenings/today-deals";
 import { CITY } from "@/lib/city";
 import { useEffectiveWho } from "@/lib/personalise/useEffectiveWho";
 import { useNow } from "@/lib/useNow";
@@ -32,7 +33,7 @@ const WEEKDAY_LABEL = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "
  *  fixed-width scroller). Same tap target (`/happening/[id]`), same badge/
  *  thumbnail language (savingBadgeLabel, defaultImageFor) so it reads
  *  as the same app, just condensed. */
-function TodaysDealCard({ card, surface, position }: { card: DealCardData; surface?: "home_today_deals"; position?: number }) {
+function TodaysDealCard({ card, at, surface, position }: { card: DealCardData; at: Date; surface?: "home_today_deals"; position?: number }) {
   const { happening, who: cardWho } = card;
   const badge = savingBadgeLabel(happening);
   const style = categoryStyle(happening.category);
@@ -74,6 +75,7 @@ function TodaysDealCard({ card, surface, position }: { card: DealCardData; surfa
       <div className="flex min-w-0 flex-1 flex-col gap-0.5">
         <div className="flex items-center gap-1 text-label-sm font-bold uppercase tracking-wide">
           <Icon name={style.icon} size={11} className={style.textClass} />
+          {isNewDeal(happening, at) ? <span className="text-primary">New</span> : null}
           {time ? <span className="text-accent">{time}</span> : null}
         </div>
         <h5 className="line-clamp-2 text-label-lg font-bold leading-snug text-on-surface">{title}</h5>
@@ -187,7 +189,7 @@ export function TodaysDealsStrip({ deals, at: atProp, surface, className = "" }:
           item.kind === "group" ? (
             <TodaysDealGroupCard key={`group-${item.key}`} group={item} surface={surface} position={i} />
           ) : (
-            <TodaysDealCard key={happeningKey(item.card)} card={item.card} surface={surface} position={i} />
+            <TodaysDealCard key={happeningKey(item.card)} card={item.card} at={at} surface={surface} position={i} />
           )
         )}
       </div>
