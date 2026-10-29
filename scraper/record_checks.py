@@ -80,6 +80,32 @@ def stated_on_page(value: str, text: str, is_date: bool = False, is_time: bool =
     return False
 
 
+# "£6", "£11.50", "£ 5", "25%", "25 %". A figure followed by another digit or
+# a decimal part is a different figure ("£6" is not on a page saying "£60").
+_SAVING_FIGURE_RE = re.compile(r"£\s?\d+(?:\.\d+)?|\d+(?:\.\d+)?\s?%")
+
+
+def _figure_pattern(figure: str) -> re.Pattern[str]:
+    compact = re.sub(r"\s", "", figure)
+    if compact.startswith("£"):
+        return re.compile(r"£\s?" + re.escape(compact[1:]) + r"(?![\d]|\.\d)")
+    return re.compile(r"(?<![\d.])" + re.escape(compact[:-1]) + r"\s?%")
+
+
+def saving_figures_stated_on_page(label: str, text: str) -> bool:
+    """Softer saving-label check, for rows that already passed the strict one
+    and are only being re-confirmed: true when the label names at least one
+    £ amount or percentage and every one of them is on the page.
+
+    Saving labels are our own wording ("£1 entry" for a page saying "Young
+    Scot card holders: £1"), so the verbatim check failed on most re-checks
+    of curated deals and they went dormant while the offer was still there.
+    The figure is the fact that matters; a label with no figure still needs
+    the verbatim match."""
+    figures = _SAVING_FIGURE_RE.findall(label)
+    return bool(figures) and all(_figure_pattern(f).search(text) for f in figures)
+
+
 _WEEKDAY_NAMES = ("Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday")
 
 

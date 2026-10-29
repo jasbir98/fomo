@@ -58,7 +58,7 @@ from deal_sources.registry import get_sources as get_deal_sources  # noqa: E402
 from deal_sources.runner import DealRunResult, markdown_section as deal_sources_markdown, run_deal_sources, summary_json as deal_sources_summary  # noqa: E402
 from web_fetch import USER_AGENT, TextParser, _looks_like_challenge_page, robot_allows  # noqa: E402,F401
 from school_holidays import upcoming_holiday, warn_if_stale  # noqa: E402
-from record_checks import record_is_fully_expired, stated_on_page, weekly_days_stated_on_page  # noqa: E402
+from record_checks import record_is_fully_expired, saving_figures_stated_on_page, stated_on_page, weekly_days_stated_on_page  # noqa: E402
 
 WEEKLY_CAP_USD = 3.00
 VERIFY_AFTER_DAYS = 21
@@ -753,7 +753,14 @@ def relevance_signal_present(record: dict[str, Any], text: str) -> bool:
     return any(token in lowered for token in tokens)
 
 
-def verify_record(record: dict[str, Any]) -> tuple[dict[str, Any], list[str]]:
+def verify_record(record: dict[str, Any], recheck: bool = False) -> tuple[dict[str, Any], list[str]]:
+    """Reasons `record` doesn't match its source page; empty when it does.
+
+    `recheck` is for live rows being re-confirmed: a reworded saving label
+    passes when its £ amounts and percentages are on the page
+    (record_checks.saving_figures_stated_on_page). New candidates keep the
+    verbatim rule.
+    """
     collection_members = record.get("_collection_members")
     if isinstance(collection_members, list):
         missing: list[str] = []
@@ -778,10 +785,13 @@ def verify_record(record: dict[str, Any]) -> tuple[dict[str, Any], list[str]]:
 
     missing: list[str] = []
 
-    # Hard facts -- verbatim, case-sensitive.
+    # Hard facts -- verbatim, case-sensitive (a re-checked saving label may
+    # match on its figures instead, see the docstring).
     for field in ("promo_code", "saving_label"):
         value = record.get(field)
         if isinstance(value, str) and value and not stated_on_page(value, text):
+            if field == "saving_label" and recheck and saving_figures_stated_on_page(value, text):
+                continue
             missing.append(f"{field} is not stated verbatim on source page")
 
     # Hard facts -- dates (and, for booking_opens_at, the stated time), each
@@ -1303,7 +1313,7 @@ def main() -> None:
         lifecycle_notes.append(overdue_failure)
     elif overdue_rows:
         with concurrent.futures.ThreadPoolExecutor(max_workers=8) as pool:
-            for row, reasons in pool.map(verify_record, overdue_rows):
+            for row, reasons in pool.map(lambda row: verify_record(row, recheck=True), overdue_rows):
                 if reasons:
                     review.append({"slug": row["slug"], "title": row["title"], "reason": "live recheck: " + "; ".join(reasons)})
                     if any("HTTP 404" in reason or "HTTP 410" in reason for reason in reasons):
