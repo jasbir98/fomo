@@ -5,8 +5,9 @@ The app shows "Checked Nd ago" on every card and hides it once a row is 14
 days old (lib/happenings/format.ts). This keeps rows well inside that window:
 every live row not confirmed in the last 7 days has its source page reloaded
 and its hard facts (saving label, promo code, dates, weekly days) matched
-again, with the exact check the weekly pipeline uses
-(weekly_edinburgh.verify_record). No AI calls, so it is safe in DeepSeek's
+again, with the check the weekly pipeline uses (weekly_edinburgh.verify_record),
+except that a reworded saving label passes when its £ amounts and percentages
+are on the page. No AI calls, so it is safe in DeepSeek's
 peak hours.
 
   - every fact still on the page -> verified_at = now
@@ -47,7 +48,7 @@ def main() -> None:
     retired: list[dict] = []
     unconfirmed: list[tuple[dict, list[str]]] = []
     with concurrent.futures.ThreadPoolExecutor(max_workers=args.workers) as pool:
-        for row, reasons in pool.map(verify_record, rows):
+        for row, reasons in pool.map(lambda row: verify_record(row, recheck=True), rows):
             if not reasons:
                 confirmed.append(row)
             elif any("HTTP 404" in r or "HTTP 410" in r for r in reasons):
