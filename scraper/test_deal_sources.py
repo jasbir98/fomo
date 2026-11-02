@@ -571,6 +571,29 @@ class ReportSqlTests(unittest.TestCase):
         self.assertIn("extraction_status = 'validated' and approved = false", sql)
         self.assertIn("slug in ('')", "\n".join(w.approve_sql("b", [])))
 
+    def test_approve_sql_never_approves_a_row_routed_drop(self):
+        import weekly_edinburgh as w
+        lines = w.approve_sql("edi-daily-2026-11-02", ["a-b"])
+        self.assertIn("coalesce(quality_route, '') <> 'drop'", "\n".join(lines))
+        # ANDed outside the OR of the slug list and the validated rule, so it covers both
+        drop_at = next(i for i, l in enumerate(lines) if "<> 'drop'" in l)
+        or_at = next(i for i, l in enumerate(lines) if "slug in (" in l)
+        self.assertLess(drop_at, or_at)
+        self.assertTrue(lines[drop_at].lstrip().startswith("and "))
+        self.assertTrue(lines[-1].endswith(";"))
+
+    def test_report_says_the_sql_needs_the_quality_columns(self):
+        import tempfile
+        import weekly_edinburgh as w
+        report = {"cost": {"spent_usd": 0, "cap_usd": 1}, "direct_records": 0, "research_records": 0, "verified": [], "review": [],
+                  "review_staging_slugs": [], "source_failures": []}
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "r.md"
+            w.make_report("b1", report, path)
+            text = path.read_text()
+        self.assertIn("add_deal_quality.sql", text)
+        self.assertIn("quality_route = 'drop'", text)
+
 
 class RestrictedAudienceTests(unittest.TestCase):
     ACCESS_PASS = ("The Access Pass is a free membership scheme designed to improve the booking experience for "
@@ -979,6 +1002,56 @@ class QualityTests(unittest.TestCase):
         self.assertEqual(L({"lat": 55.95, "lng": -3.19}), (True, "pin 55.95, -3.19"))
         self.assertFalse(L({"lat": 55.86, "lng": -4.25})[0])
         self.assertIsNone(L({"lat": None, "lng": None}))
+
+    def test_street_named_after_a_town_is_not_the_town(self):
+        L = quality.locate
+        for name in ("Dalkeith Road", "Dalkeith Rd", "Dalkeith Street", "Dalkeith St", "Dalkeith Place", "Dalkeith Pl",
+                     "Dalkeith Avenue", "Dalkeith Ave", "Dalkeith Terrace", "Dalkeith Lane", "dalkeith road", "Glasgow Rd", "Musselburgh Lane"):
+            self.assertIsNone(L({"venue_name": f"Cafe, {name}", "title": "Free coffee"}), name)
+        self.assertEqual(L({"venue_name": "Dalkeith Road Cafe, Dalkeith", "title": "x"}), (False, "Dalkeith"))  # a later bare mention counts
+        self.assertEqual(L({"venue_name": "Dalkeith Stables", "title": "x"}), (False, "Dalkeith"))  # "St" is not "Stables"
+        self.assertEqual(L({"title": "Go Ape Dalkeith: 15% discount", "venue_name": "Go Ape"}), (False, "Dalkeith"))
+        self.assertEqual(L({"venue_name": "Lido Musselburgh"}), (False, "Musselburgh"))
+        # With no postcode the street name falls through to the pin: inside Edinburgh keeps the row
+        self.assertEqual(L({"venue_name": "Dalkeith Road", "lat": 55.94, "lng": -3.17}), (True, "pin 55.94, -3.17"))
+        r, result = self.strong(venue_name="Cafe on Dalkeith Road", address=None)
+        self.assertEqual(quality.route_deal(r, result, source_class="web"), "publish")
+
+    def test_same_venue_uses_place_id_then_name_plus_area(self):
+        sv = quality.same_venue
+        civ, civp = {"venue_name": "Civerinos"}, {"venue_name": "Civerinos Portobello"}
+        self.assertTrue(sv(civ, civp) and sv(civp, civ))
+        self.assertTrue(sv({"venue_name": "The Blackbird"}, {"venue_name": "Blackbird Edinburgh"}))
+        self.assertTrue(sv({"venue_name": "Civerinos"}, {"venue_name": "Civerinos Old Town"}))  # multi-word area
+        self.assertFalse(sv({"venue_name": "The Stand"}, {"venue_name": "The Standing Order"}))
+        self.assertFalse(sv({"venue_name": "Stand"}, {"venue_name": "Stand Comedy Club"}))  # no general containment
+        self.assertFalse(sv({"venue_name": "Civerinos"}, {"venue_name": "Civerinos Slice"}))  # not an area word
+        self.assertFalse(sv({"venue_name": "Civerinos Leith"}, {"venue_name": "Civerinos Portobello"}))
+        self.assertFalse(sv({"venue_name": ""}, {"venue_name": ""}))
+        # place_id decides when both have one, in either direction
+        self.assertTrue(sv({"venue_name": "A", "place_id": "p1"}, {"venue_name": "Totally Different", "place_id": "p1"}))
+        self.assertFalse(sv({"venue_name": "Civerinos", "place_id": "p1"}, {"venue_name": "Civerinos", "place_id": "p2"}))
+        self.assertTrue(sv({"venue_name": "Civerinos", "place_id": "p1"}, {"venue_name": "Civerinos Portobello"}))  # only one has an id: names
+
+    def test_two_civerinos_rows_do_not_both_publish(self):
+        def routed(slug, venue, score):
+            return quality.RoutedDeal({"slug": slug, "venue_name": venue, "title": slug, "source_name": f"S{slug}"}, quality.QualityResult(score, ["r"]), "publish")
+        out = quality.apply_daily_limit([routed("a", "Civerinos", 80), routed("b", "Civerinos Portobello", 90), routed("c", "The Stand", 70), routed("d", "The Standing Order", 70)])
+        self.assertEqual([r.route for r in out], ["digest", "publish", "publish", "publish"])
+        self.assertIn("same venue", out[0].result.reasons[-1])
+        same_id = quality.apply_daily_limit([
+            quality.RoutedDeal({"slug": "x", "venue_name": "One", "place_id": "p", "title": "x"}, quality.QualityResult(80, []), "publish"),
+            quality.RoutedDeal({"slug": "y", "venue_name": "Two", "place_id": "p", "title": "y"}, quality.QualityResult(75, []), "publish")])
+        self.assertEqual([r.route for r in same_id], ["publish", "digest"])
+
+    def test_source_class(self):
+        sc = quality.source_class
+        self.assertEqual(sc({"source_url": "https://www.instagram.com/p/x/"}), "social")
+        self.assertEqual(sc({"source_url": "https://m.facebook.com/x"}), "social")
+        self.assertEqual(sc({"source_url": "https://example.com/", "source_urls": ["https://www.tiktok.com/@x"]}), "social")
+        self.assertEqual(sc({"source_url": "https://example.com/", "source_name": "Edinburgh newsletter digest"}), "newsletter")
+        self.assertEqual(sc({"source_url": "https://notinstagram.com/x"}), "web")
+        self.assertEqual(sc({"source_url": "https://itison.com/Edinburgh/deals/x", "source_name": "itison Edinburgh deals"}), "web")
 
     def test_outside_edinburgh_routes_to_drop_with_a_reason(self):
         for over in ({"venue_name": "Lido Musselburgh"}, {"address": "Dalkeith EH22 1AA"}, {"lat": 55.86, "lng": -4.25}):

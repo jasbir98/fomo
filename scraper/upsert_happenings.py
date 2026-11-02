@@ -102,13 +102,28 @@ ALLOWED_COLUMNS = {
     "approved",
     "status",
     "verified_at",
+    "quality_score",
+    "quality_reasons",
+    "quality_route",
+    "evidence_quote",
 }
 
 
 # Columns added by supabase/add_deal_source_columns.sql. They are only sent when
 # a row actually has a value, so a batch with none (every topic-only run) still
 # upserts cleanly on a database where that migration has not been run yet.
-SPARSE_COLUMNS = {"price_text", "includes", "season_valid_until", "family_fit"}
+SPARSE_COLUMNS = {"price_text", "includes", "season_valid_until", "family_fit",
+                  "quality_score", "quality_reasons", "quality_route", "evidence_quote"}
+
+# supabase/add_deal_quality.sql adds these (evidence_quote too). Like family_fit below: if the database
+# does not have them yet, they are dropped from the batch and the upsert retried, with one warning.
+QUALITY_COLUMNS = ("quality_score", "quality_reasons", "quality_route", "evidence_quote")
+_quality_columns_missing = False
+
+
+def quality_columns_missing() -> bool:
+    """True once an upsert in this process found the quality columns absent from the table."""
+    return _quality_columns_missing
 
 # family_fit (happenings_staging.family_fit) may not exist in the database yet. If PostgREST
 # says so, the column is dropped from the batch and the upsert retried, with one warning.
@@ -196,6 +211,16 @@ def upsert_happenings(records: list[dict[str, Any]], table: str = "happenings_st
             print(f"[upsert-happenings] WARN: {table}.family_fit column not found - run the family_fit migration. "
                   "Upserting without family_fit for now.", file=sys.stderr)
         rows = [{k: v for k, v in row.items() if k != "family_fit"} for row in rows]
+        resp = requests.post(endpoint, headers=headers, params=params, json=rows, timeout=30)
+
+    global _quality_columns_missing
+    if resp.status_code >= 300 and any(c in batch_columns for c in QUALITY_COLUMNS) \
+            and any(_is_missing_column(resp, c) for c in QUALITY_COLUMNS):
+        if not _quality_columns_missing:
+            _quality_columns_missing = True
+            print(f"[upsert-happenings] WARN: {table} quality_* columns not found - run supabase/add_deal_quality.sql. "
+                  "Upserting without them for now.", file=sys.stderr)
+        rows = [{k: v for k, v in row.items() if k not in QUALITY_COLUMNS} for row in rows]
         resp = requests.post(endpoint, headers=headers, params=params, json=rows, timeout=30)
 
     if resp.status_code >= 300:

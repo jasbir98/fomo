@@ -1,5 +1,7 @@
 # Weekly Edinburgh happenings pipeline
 
+Since 2 Nov 2026 this script runs **every day** (`.github/workflows/daily-deals.yml`, see "Daily deals run" below), reading all the deal sources daily and a rotating slice of the research topics. The Monday cron is gone; the weekly workflow stays for running everything by hand.
+
 `scraper/weekly_edinburgh.py` is the safe weekly refresh for the Edinburgh happenings catalogue. It reads publisher pages first, runs narrow research topics independently, and reloads every candidate from its cited page before it can be staged. Nothing is deleted.
 
 ## What a run does
@@ -10,7 +12,8 @@
 4. Runs 53 small DeepSeek research topics (plus up to 2 dated school-holiday topics, see below) in priority order: ticket releases, resident rewards, student and young-professional deals, concessions, offers, low-cost cinema, comedy, ceilidhs, free museum days, family and kids topics (museum and gallery family activities, school-holiday activities, Bookbug and library sessions, kids eat free, children's theatre, family days out and kids-go-free, kids' cinema clubs), parkruns, markets, free tours, museum lates, festivals, sports fixtures, and seasonal/council events. Each has its own source seeds. Up to four run concurrently.
 5. Merges duplicate title/date candidates and creates conservative city-level collections for truly identical activity families: for example, Cramond, Holyrood, and Portobello become one **Edinburgh parkruns** card (family fit `all_ages`), and individual library Bookbug sessions become one **Bookbug at Edinburgh libraries** card (free, weekly, ages 0 to 4, category `family`, family fit `kids`), while retaining and checking every individual source page. It does not collapse unrelated items merely because they share a category. Before verification, two silent (non-review) drops happen: a candidate whose every stated date has already passed (e.g. this year's already-finished Fringe dates mislabelled "annual"), and a candidate that names no concrete date, price/promo code, or venue — generic programme narration rather than a real thing to do or offer.
 6. The run then links high-confidence venues to existing places and reloads every remaining candidate's source page (falling back to its other `source_urls`/`booking_url` if the first is blocked or challenged). A price, promo code, date, stated recurrence weekday, and booking release date/time must still be visibly stated on that page — verbatim for promo codes/saving figures, verbatim OR any common textual format (UK numeric, ordinal-day, weekday-abbreviated, etc.) for dates. The title/venue name is only a soft relevance signal — an LLM-paraphrased title is expected to never match verbatim — used solely to catch a page that turns out to be about something else. Anything that fails a hard check remains a review item rather than a live entry.
-7. Writes a Markdown and JSON report plus the verified JSON output under `scraper/out/<batch-id>/`.
+7. Scores and routes every final record (publish, digest or drop), re-checks the ones that would publish against their source page, and stamps `quality_score`, `quality_reasons` and `quality_route` on each staged row. It acts on a "publish" route only with `--auto-publish`. See "Daily deals run".
+8. Writes a Markdown and JSON report plus the verified JSON output under `scraper/out/<batch-id>/`.
 
 When `--publish` is explicitly used, only the just-verified rows are marked approved and promoted; publisher preview images are then attached. The normal first run below never publishes.
 
@@ -31,12 +34,78 @@ What it does to each live deal:
 - **Retired** (gone for good): the deal has ended. Its end date has passed, its weekly or yearly rule has run past its `until` date, its list of dates has run out, or its season (`season_valid_until`) is over. A yearly deal whose season is over goes dormant instead, because it returns next year. A deal with no dates at all is not treated as ended.
 - **Dormant** (hidden, can be switched back on), in two cases:
   - `verified_at` is missing or more than 30 days old. The recheck keeps any deal whose source page still states it fresh, so a deal this old has failed re-verification for weeks.
-  - **Outside Edinburgh.** The first of three signals that answers decides: (1) the postcode in `address`, where EH1 to EH17, EH28 to EH30, EH91, EH95 and EH99 are inside and any other postcode (other EH districts such as EH21 Musselburgh, or G, FK, KY, ML and so on) is outside; (2) a town name in `venue_name` or `title`, as a whole word, from a list such as Musselburgh, Dalkeith, Livingston, Glasgow and Stirling (Leith, Portobello, Cramond and South Queensferry are inside the city, so they are not on the list); (3) the pin, if it falls outside a rough box around Edinburgh. A deal with none of the three (no address, no town name, no coordinates) is kept: no data is a gap, not a wrong place. The reason shown is, for example, `outside Edinburgh: EH21 postcode`.
+  - **Outside Edinburgh.** The first of three signals that answers decides: (1) the postcode in `address`, where EH1 to EH17, EH28 to EH30, EH91, EH95 and EH99 are inside and any other postcode (other EH districts such as EH21 Musselburgh, or G, FK, KY, ML and so on) is outside; (2) a town name in `venue_name` or `title`, as a whole word, from a list such as Musselburgh, Dalkeith, Livingston, Glasgow and Stirling (Leith, Portobello, Cramond and South Queensferry are inside the city, so they are not on the list; a town name directly followed by Road, Rd, Street, St, Place, Pl, Avenue, Ave, Terrace or Lane is a street, not the town, so "Dalkeith Road" in Newington is not Dalkeith, while "Go Ape Dalkeith" and "Lido Musselburgh" still are); (3) the pin, if it falls outside a rough box around Edinburgh. A deal with none of the three (no address, no town name, no coordinates) is kept: no data is a gap, not a wrong place. The reason shown is, for example, `outside Edinburgh: EH21 postcode`.
 - The checks run in this order for each deal: ended, then stale, then outside Edinburgh. The first that applies sets its outcome.
 - **Flagged, nothing changed**: not a genuine discount (same test as the Deals tab), or a likely duplicate (same venue and the same saving badge or a near-identical title). A national chain offering 10% off or less (`isNationalChain` and `dealDepth` in `lib/happenings/deal-score.ts`) is flagged too.
 - **New today**: deals created in the last 24 hours, with their flags, so a person can look over what was just added.
 
 Rules that don't bend: no row is ever deleted; only rows that are still `live` are touched, and the update re-checks that when it writes; and if one run would retire or make dormant more than 15 deals, it writes nothing, prints the list and fails the job. That many in one day is more likely a bug, or a recheck outage that left every `verified_at` old, than real expiries. If you see that failure, read the list in the run summary, fix the cause, then re-run (or change the rows by hand). The run summary has a table per section with the title, venue, reason, id and source link; `--dry-run` prints the same report and never fails, even over the cap.
+
+**Drought alarm.** After the review, if no deal row (any status) has a `created_at` in the last 7 days, the job prints a "DROUGHT: no new deals" section, adds it to the run summary and **exits 1 even though the review itself succeeded**. The retire and dormant writes are always made first (the alarm is checked before the writes but the exit comes after them), so a failing job never means the review was skipped. If the check itself can't read the database it logs that and does not fail. `--dry-run` prints the section but keeps exit code 0. The rule is `dealDrought` in `lib/happenings/deal-review.ts`; it would have fired on 19 Oct, and on 26 Oct 2026 when the last new deal was 12 Oct. When it fires, check the daily deals run, the digest and `DEAL_AUTO_PUBLISH`.
+
+## Daily deals run
+
+`.github/workflows/daily-deals.yml` runs `scraper/weekly_edinburgh.py` every day at **11:43 UTC**: after the 11:17 events import, before the 12:37 daily deal review (so the review's drought alarm sees whatever it published). Like the weekly job it waits for a clear DeepSeek off-peak hour (`scraper/deepseek_hours.py --wait 60`; a manual run just checks).
+
+```bash
+python3 scraper/weekly_edinburgh.py --stage --workers 1 --cap-usd 0.45 --deal-sources-usd 0.20 --topic-slice auto \
+  --batch-id edi-daily-<London date> [--auto-publish]
+```
+
+- **Every deal source, every day.** Pages that haven't changed cost nothing (the `source_pages` ledger). The deal sources get at most $0.20 of the **$0.45 hard cap** (about $14 a month); the topics and the AI rating use the rest. The tidy (lifecycle sweep) is on, as always.
+- **Topic slice (`--topic-slice auto`).** The topics rotate by London weekday so each runs once a week, and the **deal topics run twice a week**, three or four days apart. A deal topic is one in `offers` mode or whose name says student, resident, concession, deal, offer or happy hour (18 of 53). A topic's days come from its place in the priority order, so adding or removing a topic moves the ones after it by a day (nothing is lost). The dated school-holiday topics run on two weekdays picked from a hash of their name. About 10 topics a day. `--topic-slice 0-6` runs that weekday's slice by hand (Monday = 0); the default `all` runs everything, as the weekly job does.
+- **Batch ids** are `edi-daily-YYYY-MM-DD`; promote and the artifact use them. A second run on the same day shares the batch.
+- Output: the run summary and an artifact (`daily-deals-<run number>`, 30 days).
+- **Dispatch input `mode`:** `stage` (the daily run) or `promote` (publishes rows already approved in staging, as the weekly job does; the review page triggers this). The promote dispatch uses `ref: main`, so **`daily-deals.yml` must be on `main`** before it can work.
+- **Digest job.** After the research job, even if it failed, a second job emails the deal digest (`scripts/deal-digest.ts --send`), because rows already waiting still need review.
+
+### Routes
+
+After a run's records are final, each one gets a score (0 to 100, `scraper/deal_sources/quality.py`), an AI rating of "would a student or young professional in Edinburgh care?" (one cheap off-peak call per 25 records; it can only lower a score; a failed or peak-hours call means no cap and is logged), and a route:
+
+| Route | Rule | What happens |
+|---|---|---|
+| Publish | Score 70+, every check passed, no duplicate or dormant match, a web source (never social or newsletters), and the source page re-checked now | Live only if auto-publish is on. At most 10 a run, 1 per venue, 4 per source. Extras go to digest |
+| Digest | Score 40 to 69, or any flag, or social/newsletter | Waits for one-tap review |
+| Drop | Below 40, expired, or outside Edinburgh | Staged with its reasons, never shown |
+
+Events, activities and free access go through the same route: free and under £10 things score higher, and they get the same fresh check. (So in a shadow report, free events can take publish slots next to deals; read the per-source table.)
+
+Two rows at one venue count as one for the per-venue limit when they share a `place_id`, or when one name is the other's full name plus an Edinburgh area word ("Civerinos" and "Civerinos Portobello"). "The Stand" and "The Standing Order" stay separate.
+
+**Fresh check.** A row routed publish is re-read against its source page in the same run, immediately before it can be promoted (`verify_record`: saving label, dates and weekdays still stated, the page still about the venue). A failure moves it to digest with the reason, and the next best row takes the slot. At most 30 pages are re-checked a run. This covers stale rows and anything the page has since changed.
+
+**Evidence.** Only an in-memory record carries the quote proof (`_evidence`); a staged row loses it. So routing runs inside the run, the report says how many rows of each source carried it, and the main quote is saved on the staged row as `evidence_quote` (so the digest can show it). Topic records have no `_evidence`; they can publish only if their extraction was validated. In the 2 Nov shadow run all 105 rows from the live deal sources carried it, itison's 17 of 17 included.
+
+### Shadow mode and turning auto-publish on
+
+**Auto-publish is off by default.** Off, the run scores, routes and stages, and the report's "Deal quality routing" section lists the rows that **would publish** (with the per-source table, the fresh-check failures, the AI rating and its cost). Nothing is approved or promoted. The workflow passes `--auto-publish` only when the repository variable `DEAL_AUTO_PUBLISH` is exactly `true`.
+
+To turn it on, after reading three days of shadow reports and agreeing the thresholds with the backtest: run the SQL below, then set the variable (GitHub: Settings, Secrets and variables, Actions, Variables, `DEAL_AUTO_PUBLISH` = `true`). Set it to anything else, or delete it, to go back to shadow mode. On, a run approves **only** the rows that are routed publish, freshly verified and from a web source (`approved = true`, one PATCH for exactly those slugs in that batch) and promotes **exactly those slugs** (`scripts/promote-happenings.mjs --batch-id <id> --slugs a,b,c`; an empty list or no batch id is refused, so it can never widen to "everything approved"). If approving fails, nothing is promoted; if promoting fails the rows stay approved and the next `promote` run picks them up. The 10 a day limit is per run, so a manual second run the same day can publish another 10.
+
+### What stops duplicates and undone reviews
+
+Each day has a new batch, so before routing the run reads the staging table (`scraper/staging_guard.py`) and leaves out:
+
+- a deal **already waiting** in an earlier batch (same slug, or the same thing by `scraper/identity.py` even if the title is paraphrased). It is counted, not refreshed;
+- a deal a person **rejected** (`reviewed_action = 'reject'`), unless its saving label, dates or recurrence changed;
+- a deal that **expired unreviewed** (`reviewed_action = 'expired'`) for 30 days from `reviewed_at`;
+- any row of **this batch** that has `reviewed_at` set, `approved = true`, or is promoted or rejected, so a same-day re-run can't wipe an approval or rejection.
+
+The counts are in the report ("Staging guard"). `reviewed_at` and `reviewed_action` come from `supabase/add_deal_review.sql`; without it the guard says so once and carries on without honouring reviews.
+
+### Waiting backlog
+
+`python3 scraper/score_backlog.py` scores every waiting staged row (all kinds; the backtest's set A without the deals-only filter) and prints the table. It is a dry run unless you add `--apply`, which writes only `quality_score`, `quality_reasons` and `quality_route`, and never approves or publishes. A backlog row can't route publish (it has lost its evidence and has had no fresh check), so it goes to digest or drop. `--no-ai` skips the rating; ratings are cached in `scraper/out/score-backlog/`.
+
+### Set-up you have to do by hand
+
+1. Run `supabase/add_deal_quality.sql` (adds `quality_score`, `quality_reasons`, `quality_route`, `evidence_quote`) and `supabase/add_deal_review.sql` in the Supabase SQL editor. Until then the pipeline logs once that the columns are missing, drops them from the upsert, and carries on.
+2. Push the two workflow files (`daily-deals.yml` and the edited `weekly-research.yml`) yourself, and get `daily-deals.yml` onto `main`: Claude's local token can't push workflow files (`gh auth refresh -h github.com -s workflow` fixes that).
+3. Add the secrets the digest job reads (`RESEND_API_KEY`, `REVIEW_DIGEST_TO`, `REVIEW_SIGNING_SECRET`; `FOMO_FROM_EMAIL` as a variable or a secret).
+4. Leave `DEAL_AUTO_PUBLISH` unset for at least three days of shadow reports.
+
+Tests: `python3 scraper/test_deal_sources.py`, `test_deal_routing.py` and `test_score_backlog.py` (stdlib, no network); the workflow YAML is only checked to parse and to pass flags the script accepts.
 
 ## Deal sources (`scraper/deal_sources/`)
 
@@ -174,7 +243,7 @@ python3 scraper/weekly_edinburgh.py --stage --publish
 
 ## Scheduling later
 
-**GitHub Actions (current):** `.github/workflows/weekly-research.yml` runs `--stage --workers 1` every Monday 11:23 UTC. It never calls DeepSeek in its weekday peak hours (01:00–04:00 and 06:00–10:00 UTC, double price): a scheduled run that GitHub starts late waits for a clear off-peak hour, a manual run in peak stops with the next start time, and `scraper/llm_client.py` refuses DeepSeek in peak regardless (`scraper/deepseek_hours.py`). It never publishes: the report lands in the run summary and as an artifact. Approve rows with the report's SQL, then run the workflow manually with `mode: promote` (and the batch id) to publish them. Needs `DEEPSEEK_API_KEY`, `NEXT_PUBLIC_SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` on the Production environment.
+**GitHub Actions (current):** `.github/workflows/daily-deals.yml` is the schedule (below). `.github/workflows/weekly-research.yml` has **no schedule any more** and is run by hand (all topics, `--stage --workers 1`). It never calls DeepSeek in its weekday peak hours (01:00–04:00 and 06:00–10:00 UTC, double price): a scheduled run that GitHub starts late waits for a clear off-peak hour, a manual run in peak stops with the next start time, and `scraper/llm_client.py` refuses DeepSeek in peak regardless (`scraper/deepseek_hours.py`). It never publishes: the report lands in the run summary and as an artifact. Approve rows with the report's SQL (or the review page), then run the workflow manually with `mode: promote` (and the batch id) to publish them. Needs `DEEPSEEK_API_KEY`, `NEXT_PUBLIC_SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` on the Production environment.
 
 The local options below remain for running it off GitHub.
 

@@ -22,12 +22,14 @@ import re
 import subprocess
 import sys
 import threading
+import zlib
 import urllib.parse
 import urllib.robotparser
 from dataclasses import dataclass, field
 from datetime import date, datetime, timezone
 from pathlib import Path
 from typing import Any, Iterable
+from zoneinfo import ZoneInfo
 
 import requests
 from dotenv import load_dotenv
@@ -51,10 +53,14 @@ from happenings_research import (  # noqa: E402
     web_search_tool_for_model,
 )
 from deepseek_hours import DeepSeekPeakHours, next_clear_start  # noqa: E402
-from llm_client import RESEARCH_CALL_KWARGS, default_research_model, make_research_client  # noqa: E402
+from llm_client import RESEARCH_CALL_KWARGS, default_research_model, make_research_client, research_provider  # noqa: E402
 from upsert_happenings import upsert_happenings  # noqa: E402
 from identity import Catalogue, reconcile  # noqa: E402
 from deal_sources.registry import get_sources as get_deal_sources  # noqa: E402
+from deal_sources import quality  # noqa: E402
+import deal_routing  # noqa: E402
+import staging_guard  # noqa: E402
+import upsert_happenings as upsert_module  # noqa: E402
 from deal_sources.runner import DealRunResult, markdown_section as deal_sources_markdown, run_deal_sources, summary_json as deal_sources_summary  # noqa: E402
 from web_fetch import USER_AGENT, TextParser, _looks_like_challenge_page, robot_allows  # noqa: E402,F401
 from school_holidays import upcoming_holiday, warn_if_stale  # noqa: E402
@@ -233,6 +239,51 @@ def holiday_topics(today: date) -> tuple[Topic, ...]:
 def topics_for(today: date) -> tuple[Topic, ...]:
     """The static TOPICS plus any dated school-holiday topics for `today`."""
     return TOPICS + holiday_topics(today)
+
+
+# --- daily topic slices (--topic-slice auto) -----------------------------------------------------
+#
+# The daily run does not research every topic every day. A topic's days are fixed by its place in
+# the priority order of the static TOPICS above, so each non-deal topic runs once a week and each
+# deal topic (the offers, student, resident and concession ones) twice a week, three or four days
+# apart. Adding or removing a topic shifts the topics after it by a day; nothing is lost, a topic
+# just changes weekday once. The dated school-holiday topics are not in TOPICS: they run on two
+# weekdays picked from a hash of their name, so they keep their days for the whole holiday.
+
+_DEAL_TOPIC_WORDS = re.compile(r"student|resident|concession|deal|offer|happy hour", re.I)
+
+
+def is_deal_topic(topic: Topic) -> bool:
+    return topic.mode == "offers" or bool(_DEAL_TOPIC_WORDS.search(topic.name))
+
+
+def _static_topic_days() -> dict[str, frozenset[int]]:
+    days: dict[str, frozenset[int]] = {}
+    ordered = sorted(TOPICS, key=lambda t: (-t.priority, t.name))
+    for group in ([t for t in ordered if is_deal_topic(t)], [t for t in ordered if not is_deal_topic(t)]):
+        deal = bool(group) and is_deal_topic(group[0])
+        for k, topic in enumerate(group):
+            first = k % 7
+            days[topic.name] = frozenset({first, (first + 3) % 7}) if deal else frozenset({first})
+    return days
+
+
+def topic_days(topic: Topic) -> frozenset[int]:
+    """The weekdays (Monday = 0) this topic runs on under --topic-slice auto."""
+    static = _static_topic_days()
+    if topic.name in static:
+        return static[topic.name]
+    first = zlib.crc32(topic.name.encode()) % 7
+    return frozenset({first, (first + 3) % 7})
+
+
+def topic_slice(topics: Iterable[Topic], weekday: int) -> tuple[Topic, ...]:
+    """The topics that run on `weekday` (Monday = 0), in their original order."""
+    return tuple(t for t in topics if weekday in topic_days(t))
+
+
+def london_weekday(now: datetime | None = None) -> int:
+    return (now or datetime.now(timezone.utc)).astimezone(ZoneInfo("Europe/London")).weekday()
 
 
 def canonical_url(url: str) -> str:
@@ -846,19 +897,26 @@ def record_is_low_value(record: dict[str, Any]) -> bool:
 
 def approve_sql(batch_id: str, review_slugs: list[str]) -> list[str]:
     """The report's approve statement: every verified row in the batch that is not
-    approved yet, plus the review slugs the reader has checked."""
+    approved yet, plus the review slugs the reader has checked -- but never a row routed
+    'drop' (it is staged with its reasons so a person can see why, not to be published).
+
+    The `quality_route` condition needs supabase/add_deal_quality.sql to have been run: until
+    then the statement fails with "column quality_route does not exist" and approves nothing.
+    That is deliberate (fail safe); the report text says so."""
     quoted_batch = batch_id.replace("'", "''")
     slugs = ", ".join("'" + str(slug).replace("'", "''") + "'" for slug in review_slugs) or "''"
     return [
         "update happenings_staging",
         "set approved = true, extraction_status = 'approved'",
         f"where batch_id = '{quoted_batch}'",
+        "  and coalesce(quality_route, '') <> 'drop'",
         f"  and (slug in ({slugs})",
         "       or (extraction_status = 'validated' and approved = false));",
     ]
 
 
-def make_report(batch_id: str, report: dict[str, Any], report_path: Path, deal_result: DealRunResult | None = None) -> None:
+def make_report(batch_id: str, report: dict[str, Any], report_path: Path, deal_result: DealRunResult | None = None,
+                routing_lines: list[str] | None = None) -> None:
     review = report["review"]
     lines = [
         f"# Edinburgh weekly pipeline — {batch_id}", "",
@@ -870,6 +928,7 @@ def make_report(batch_id: str, report: dict[str, Any], report_path: Path, deal_r
         f"- Verified records: {len(report['verified'])}",
         f"- Review required: {len(review)}", "",
         *(deal_sources_markdown(deal_result) if deal_result is not None else []),
+        *(routing_lines or []),
         "## Dropped — past/expired (not staged, not review items)", "",
     ]
     lines += [f"- {title}" for title in report.get("dropped_expired", [])] or ["- None"]
@@ -885,7 +944,9 @@ def make_report(batch_id: str, report: dict[str, Any], report_path: Path, deal_r
     lines += [
         "", "## Ready SQL", "",
         "Approves this batch's verified rows (`extraction_status = 'validated'`, not yet approved) AND the review slugs listed",
-        "below. Delete any review slug you have not checked before running it.", "",
+        "below, except rows routed `drop` (`quality_route = 'drop'`), which it never approves.",
+        "Needs `supabase/add_deal_quality.sql` to have been run: without the `quality_route` column this statement errors and approves",
+        "nothing. Delete any review slug you have not checked before running it.", "",
         "```sql",
     ]
     lines += approve_sql(batch_id, report.get("review_staging_slugs", []))
@@ -920,6 +981,15 @@ def run_tidy() -> str | None:
     except (OSError, subprocess.CalledProcessError) as exc:
         detail = getattr(exc, "stderr", "") or str(exc)
         return f"tidy failed: {detail.strip()}"
+
+
+def make_rating_call() -> Any:
+    """Build the AI relevance rating call (deal_routing.rate_records catches a failure here).
+    make_research_client refuses to build a DeepSeek client in DeepSeek's peak hours."""
+    if research_provider() == "none":
+        raise RuntimeError("no LLM API key set (DEEPSEEK_API_KEY)")
+    client, _provider = make_research_client("weekly-edinburgh-routing")
+    return quality.make_rating_call(client, default_research_model())
 
 
 def link_batch_records(batch_id: str) -> str | None:
@@ -1108,12 +1178,30 @@ def main() -> None:
         "scraper/out/<batch-id>/: no page-ledger access, no sweep, no staging. Implies --only-deal-sources; "
         "cannot be combined with --stage/--publish.",
     )
+    parser.add_argument(
+        "--topic-slice", default="all", metavar="all|auto|0-6",
+        help="Which research topics to run: all (default), auto (today's slice by London weekday: each topic once a week, "
+        "deal topics twice a week) or a weekday number 0-6 (Monday = 0) to run that day's slice.",
+    )
+    parser.add_argument(
+        "--auto-publish", action="store_true",
+        help="Approve and promote ONLY the rows routed 'publish' that also pass a fresh source-page check "
+        "(scraper/deal_routing.py). Requires --stage. Off by default: without it the run only reports 'would publish'.",
+    )
     parser.add_argument("--dry-run", action="store_true", help="Do not call AI, fetch publishers, write staging, or publish.")
     parser.add_argument("--stage", action="store_true", help="Upsert verified rows into happenings_staging (off by default).")
     parser.add_argument("--publish", action="store_true", help="Approve and promote verified rows. Requires --stage; never the default.")
     args = parser.parse_args()
     if args.publish and not args.stage:
         parser.error("--publish requires --stage")
+    if args.auto_publish and not args.stage:
+        parser.error("--auto-publish requires --stage")
+    if args.auto_publish and args.publish:
+        parser.error("--auto-publish and --publish are different modes: use one")
+    if args.auto_publish and args.deal_sources_preview:
+        parser.error("--deal-sources-preview writes nothing: drop --auto-publish")
+    if args.topic_slice not in ("all", "auto") and not (args.topic_slice.isdigit() and 0 <= int(args.topic_slice) <= 6):
+        parser.error("--topic-slice must be all, auto or a weekday number 0-6")
     if args.cap_usd <= 0 or args.topic_reserve_usd <= 0 or args.deal_sources_usd < 0:
         parser.error("cost values must be positive")
     if args.deal_sources_preview and (args.stage or args.publish):
@@ -1129,9 +1217,14 @@ def main() -> None:
 
     all_topics = topics_for(datetime.now(timezone.utc).date())
     selected_topics = all_topics
+    slice_note = ""
+    if args.topic_slice != "all":
+        slice_day = london_weekday() if args.topic_slice == "auto" else int(args.topic_slice)
+        selected_topics = topic_slice(all_topics, slice_day)
+        slice_note = f" (--topic-slice {args.topic_slice}: weekday {slice_day}, Monday = 0)"
     if args.only:
         needles = [s.lower() for s in args.only]
-        selected_topics = tuple(t for t in all_topics if any(n in t.name.lower() for n in needles))
+        selected_topics = tuple(t for t in selected_topics if any(n in t.name.lower() for n in needles))
         if not selected_topics:
             parser.error(f"--only matched no topic names out of: {', '.join(t.name for t in all_topics)}")
 
@@ -1139,7 +1232,7 @@ def main() -> None:
         print(
             f"[weekly-edinburgh] dry run: {len(DIRECT_SOURCES)} direct sources and "
             f"{len(selected_topics)} independent topics configured"
-            + (f" (filtered from {len(all_topics)} by --only)" if args.only else "") + "."
+            + (f" (filtered from {len(all_topics)} by --only)" if args.only else "") + slice_note + "."
         )
         print("[weekly-edinburgh] topic order (priority, mode, name):")
         for topic in sorted(selected_topics, key=lambda t: -t.priority):
@@ -1174,6 +1267,8 @@ def main() -> None:
         lifecycle_notes.append(catalogue_note)
 
     ledger = CostLedger(args.cap_usd, args.input_usd_per_million, args.output_usd_per_million, args.search_usd)
+    # Hold a little of the cap back for the AI relevance rating that runs after the topics.
+    routing_reserved = deal_routing.ROUTING_RESERVE_USD if ledger.reserve(deal_routing.ROUTING_RESERVE_USD) else 0.0
     research_records = 0
     topic_failures: list[dict[str, str]] = []
     stopped_for: str | None = None  # OUT_OF_CREDIT or PEAK_HOURS: every later call would fail the same way
@@ -1324,6 +1419,26 @@ def main() -> None:
                 else:
                     rechecked_live.append(row["id"])
 
+    # Daily runs have a new batch_id each day: leave out what is already waiting, was rejected, or was
+    # reviewed in this batch (scraper/staging_guard.py). Reads only. Runs before routing so a skipped
+    # row never takes a publish slot.
+    guard: staging_guard.GuardStats | None = None
+    connection = supabase_connection()
+    if connection:
+        other_rows, this_batch_rows, guard_load_notes = staging_guard.load_rows(args.batch_id, staging_guard.make_get_all(*connection))
+        staging_records, guard = staging_guard.apply_guard(staging_records, other_rows, this_batch_rows)
+        guard.notes.extend(guard_load_notes)
+        lifecycle_notes.extend(guard.notes)
+        skipped = guard.skipped_slugs
+        if skipped:
+            verified = [r for r in verified if r["slug"] not in skipped]
+            review = [item for item in review if item["slug"] not in skipped]
+            review_staging_slugs = [slug for slug in review_staging_slugs if slug not in skipped]
+            print(f"[staging-guard] skipped {guard.total} record(s): waiting {len(guard.already_waiting)}, rejected {len(guard.rejected)}, "
+                  f"expired {len(guard.expired)}, reviewed in this batch {len(guard.reviewed_in_batch)}", flush=True)
+    else:
+        lifecycle_notes.append("staging guard skipped: Supabase credentials are unavailable")
+
     output_json = out_dir / "edinburgh-weekly-candidates.json"
     if args.stage and staging_records:
         # The batch linker edits this file, so write and reload before the
@@ -1337,6 +1452,38 @@ def main() -> None:
             staging_records = json.loads(output_json.read_text()).get("records", staging_records)
             verified_slugs = {record["slug"] for record in verified}
             verified = [record for record in staging_records if record.get("slug") in verified_slugs]
+
+    # Score and route every final record, then re-check the ones routed publish against their source
+    # page. This stamps quality_score / quality_reasons / quality_route onto the records (so onto the
+    # staged rows) and approves nothing: only --auto-publish acts on a route, further down.
+    routing: deal_routing.RoutingOutcome | None = None
+    routing_budget = routing_reserved or max(0.0, args.cap_usd - ledger.spent)
+    # Limits that hold across runs: rows published today and venues published in the last 7 days. A failed
+    # read means: with --auto-publish nothing publishes (fail safe), in shadow mode the report says it is unknown.
+    auto_on = bool(args.auto_publish and args.stage)
+    if connection:
+        publish_history, history_error = deal_routing.load_publish_history(staging_guard.make_get_all(*connection))
+    else:
+        publish_history, history_error = None, "Supabase credentials are unavailable"
+    if history_error:
+        lifecycle_notes.append(f"publish limit history unavailable: {history_error}" + (" (auto-publish published nothing)" if auto_on else ""))
+    try:
+        routing = deal_routing.run_routing(
+            staging_records,
+            make_rating_call=make_rating_call,
+            verify=lambda record: verify_record(record)[1],
+            in_rate=args.input_usd_per_million,
+            out_rate=args.output_usd_per_million,
+            rating_budget_usd=routing_budget,
+            history=publish_history,
+            history_error=history_error,
+            fail_safe=auto_on,
+        )
+        ledger.settle(routing_reserved, Usage(input_tokens=routing.rating.input_tokens, output_tokens=routing.rating.output_tokens))
+    except Exception as exc:  # routing is advisory: a bug in it must not lose the run's staged rows
+        lifecycle_notes.append(f"quality routing failed: {exc.__class__.__name__}: {exc}")
+        ledger.settle(routing_reserved, Usage())
+
     if args.publish:
         for record in verified:
             record["approved"] = True
@@ -1346,6 +1493,17 @@ def main() -> None:
         upsert_happenings(staging_records)
     if args.stage and deal_result is not None:
         deal_result.commit_ledgers()  # only now: a failed upsert above leaves pages unrecorded
+
+    # --auto-publish (default OFF): approve and promote exactly the rows routed publish that passed
+    # the fresh check, and nothing else. Off, this only logs what would publish.
+    published: deal_routing.PublishResult | None = None
+    if routing is not None:
+        published = deal_routing.auto_publish(routing, args.batch_id, enabled=auto_on)
+        lifecycle_notes.extend(published.notes)
+        if published.promoted:
+            image_note = attach_publisher_images()
+            if image_note:
+                lifecycle_notes.append(image_note)
 
     # Promotion remains an explicit second-run action.  The first invocation
     # cannot become live by accident, even if someone uses --stage.
@@ -1383,9 +1541,16 @@ def main() -> None:
         "deal_sources": deal_sources_summary(deal_result) if deal_result is not None else None,
         "published": bool(args.publish and verified),
         "live_rechecks": {"confirmed": len(rechecked_live), "retired": len(retired_live)},
+        "staging_guard": staging_guard.summary_json(guard) if guard is not None else None,
+        "routing": deal_routing.summary_json(routing, auto_publish_on=bool(args.auto_publish), published=published) if routing is not None else None,
     }
     (out_dir / "weekly-report.json").write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\n")
-    make_report(args.batch_id, report, out_dir / "weekly-report.md", deal_result)
+    routing_lines = staging_guard.markdown_section(guard) if guard is not None else []
+    if routing is not None:
+        routing_lines += deal_routing.markdown_section(
+            routing, auto_publish_on=bool(args.auto_publish), published=published,
+            columns_missing=upsert_module.quality_columns_missing())
+    make_report(args.batch_id, report, out_dir / "weekly-report.md", deal_result, routing_lines)
     if deal_result is not None:
         (out_dir / "deal-sources-report.md").write_text(
             "\n".join(deal_sources_markdown(deal_result, heading=f"# Deal sources — {args.batch_id}")) + "\n")

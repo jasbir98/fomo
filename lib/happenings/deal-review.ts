@@ -112,7 +112,18 @@ export const OUTSIDE_TOWNS = [
   "Inverness",
   "Fort William",
 ] as const;
-const OUTSIDE_TOWN_RE = new RegExp(`\\b(${OUTSIDE_TOWNS.join("|")})\\b`, "i");
+
+/**
+ * A town name directly followed by one of these is a street, not the town:
+ * "Dalkeith Road" is a real Edinburgh street, so a row with no postcode that
+ * only mentions that road must not read as Dalkeith. "Go Ape Dalkeith" and "Lido Musselburgh" still
+ * do. Keep in step with STREET_WORDS in scraper/deal_sources/quality.py.
+ */
+export const STREET_WORDS = ["Road", "Rd", "Street", "St", "Place", "Pl", "Avenue", "Ave", "Terrace", "Lane"] as const;
+const OUTSIDE_TOWN_RE = new RegExp(
+  `\\b(${OUTSIDE_TOWNS.join("|")})\\b(?!\\s+(?:${STREET_WORDS.join("|")})\\b)`,
+  "i"
+);
 
 /**
  * Rough box around Edinburgh: the last signal `locate` tries, for a row with no
@@ -172,6 +183,53 @@ export interface DealReview {
   changeCount: number;
   /** True when a non-dry run must write nothing (see MAX_CHANGES). */
   overCap: boolean;
+}
+
+/** No new deal in this many days is a drought (see `dealDrought`). */
+export const DROUGHT_DAYS = 7;
+
+export interface DroughtResult {
+  /** True when no deal was created in the last `days` days. */
+  drought: boolean;
+  /** The newest `created_at` among the deals given, or null if there are none. */
+  newest: string | null;
+  /** Whole days from `newest` to `now` (rounded down), or null if there are no deals. */
+  daysSince: number | null;
+  /** Deals created inside the window. */
+  recent: number;
+  days: number;
+}
+
+/**
+ * The drought alarm: true when no deal row was created in the last `days` days.
+ * This is the rule that would have caught 12 to 26 Oct 2026, when nothing new
+ * went live for weeks because approvals were manual and nobody noticed. Pass every
+ * deal row, any status (a deal that went live and was already retired still shows
+ * the pipeline is working); rows whose `kind` is set and is not "deal" are ignored.
+ * A `created_at` that is missing or unparseable never counts as recent.
+ */
+export function dealDrought(
+  rows: readonly { created_at?: string | null; kind?: string | null }[],
+  now: Date,
+  days: number = DROUGHT_DAYS
+): DroughtResult {
+  const cutoff = now.getTime() - days * 86_400_000;
+  let newest: number | null = null;
+  let recent = 0;
+  for (const row of rows) {
+    if (row.kind != null && row.kind !== "deal") continue;
+    const ms = parseMs(row.created_at);
+    if (ms === null) continue;
+    if (newest === null || ms > newest) newest = ms;
+    if (ms >= cutoff) recent += 1;
+  }
+  return {
+    drought: recent === 0,
+    newest: newest === null ? null : new Date(newest).toISOString(),
+    daysSince: newest === null ? null : Math.max(0, Math.floor((now.getTime() - newest) / 86_400_000)),
+    recent,
+    days,
+  };
 }
 
 /** True when a run that would change `changeCount` rows is over the safety cap. */

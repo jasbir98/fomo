@@ -7,8 +7,9 @@ worth showing: a score from 0 to 100, then a route:
   digest   worth a person's glance (the weekly review / digest)
   drop     not worth anyone's time
 
-AUTO-PUBLISH IS OFF. Nothing in the pipeline acts on a route yet; the weekly run only reports
-them, so the thresholds below can be tuned against the backtest first.
+The pipeline (scraper/deal_routing.py, called from weekly_edinburgh.py) scores and routes every
+final record of a run and stores the result on the staged row. Acting on a "publish" route is
+off unless the run is started with --auto-publish (shadow mode: it only reports "would publish").
 
 Ports kept in step with the app by hand:
   * dealDepth, dayRarity, NATIONAL_CHAINS and isNationalChain: lib/happenings/deal-score.ts
@@ -16,7 +17,7 @@ Ports kept in step with the app by hand:
   * the cheap-price rule and lib/happenings/price-benchmarks.json: gate.py (is_cheap_price)
 
 Nothing here touches the network. rate_relevance makes one DeepSeek call per batch through an
-injected callable and is not called from the pipeline yet.
+injected callable (scraper/deal_routing.py supplies one built on llm_client.make_research_client).
 """
 
 from __future__ import annotations
@@ -201,7 +202,11 @@ OUTSIDE_TOWNS = (
     "Bathgate", "Broxburn", "Haddington", "North Berwick", "Dunbar", "Prestonpans", "Tranent", "Gorebridge",
     "Glasgow", "Stirling", "Dunfermline", "Kirkcaldy", "Peebles", "Innerleithen", "Inverness", "Fort William",
 )
-_OUTSIDE_TOWN_RE = re.compile(r"\b(" + "|".join(OUTSIDE_TOWNS) + r")\b", re.I)
+# A town name directly followed by a street word is a street, not the town: "Dalkeith Road" is a
+# real Edinburgh street (keep in step with STREET_WORDS in lib/happenings/deal-review.ts).
+STREET_WORDS = ("Road", "Rd", "Street", "St", "Place", "Pl", "Avenue", "Ave", "Terrace", "Lane")
+_OUTSIDE_TOWN_RE = re.compile(
+    r"\b(" + "|".join(OUTSIDE_TOWNS) + r")\b(?!\s+(?:" + "|".join(STREET_WORDS) + r")\b)", re.I)
 EDINBURGH_BBOX = {"minLat": 55.85, "maxLat": 56.0, "minLng": -3.45, "maxLng": -3.05}
 
 
@@ -402,6 +407,17 @@ class RoutedDeal:
 
 _VENUE_NOISE = {"the", "edinburgh"}
 
+# Area words that may follow a venue's name for one of its branches ("Civerinos Portobello").
+# Deliberately a list, not general containment: "The Stand" must not merge with "The Standing Order".
+EDINBURGH_AREAS = (
+    "portobello", "leith", "morningside", "stockbridge", "bruntsfield", "newington", "marchmont", "tollcross",
+    "grassmarket", "cramond", "corstorphine", "newhaven", "fountainbridge", "haymarket", "gorgie", "dalry",
+    "canonmills", "broughton", "comely bank", "quartermile", "holyrood", "abbeyhill", "bonnington",
+    "murrayfield", "craigleith", "duddingston", "joppa", "sciennes", "polwarth", "shandon", "slateford",
+    "southside", "old town", "new town", "west end", "city centre", "south queensferry", "kirkliston",
+    "ratho", "currie", "juniper green", "colinton", "balerno", "gyle", "ocean terminal", "fort kinnaird",
+)
+
 
 def venue_key(record: dict[str, Any]) -> str:
     """Normalised venue_name, else title: lower case, no punctuation, without 'the' and 'edinburgh'."""
@@ -410,28 +426,47 @@ def venue_key(record: dict[str, Any]) -> str:
     return " ".join(w for w in words if w not in _VENUE_NOISE)
 
 
+def same_venue(a: dict[str, Any], b: dict[str, Any]) -> bool:
+    """Whether two records are at one venue, for the per-venue publish limit.
+    Both with a place_id: that decides (equal ids are the same venue, different ids are not).
+    Otherwise the normalised names (venue_key) are equal, or one is the other's full name plus
+    a known Edinburgh area word ("Civerinos" and "Civerinos Portobello"). Never general containment."""
+    pa, pb = str(a.get("place_id") or "").strip(), str(b.get("place_id") or "").strip()
+    if pa and pb:
+        return pa == pb
+    ka, kb = venue_key(a), venue_key(b)
+    if not ka or not kb:
+        return False
+    if ka == kb:
+        return True
+    short, long_ = sorted((ka, kb), key=len)
+    return any(long_ == f"{short} {area}" for area in EDINBURGH_AREAS)
+
+
 def apply_daily_limit(routed: list[RoutedDeal], limit: int = DAILY_PUBLISH_LIMIT, *,
-                      per_venue: int = VENUE_PUBLISH_LIMIT, per_source: int = SOURCE_PUBLISH_LIMIT) -> list[RoutedDeal]:
-    """Keep at most `limit` publishes in one run, `per_venue` for one venue and `per_source` for one
-    source_name. Best score first (ties keep the earlier item); the rest move to digest with a reason.
-    Returns a new list in the same order. A record with no source_name has no source limit."""
+                      per_venue: int = VENUE_PUBLISH_LIMIT, per_source: int = SOURCE_PUBLISH_LIMIT,
+                      already_today: int = 0) -> list[RoutedDeal]:
+    """Keep at most `limit` publishes in one run, `per_venue` for one venue (see same_venue) and
+    `per_source` for one source_name. Best score first (ties keep the earlier item); the rest move
+    to digest with a reason. Returns a new list in the same order. A record with no source_name has
+    no source limit. With auto-publish the caller passes the day's remainder as `limit` and the number
+    already published today as `already_today` (only used in the reason text)."""
     publishing = sorted((i for i, r in enumerate(routed) if r.route == "publish"), key=lambda i: (-routed[i].result.score, i))
-    venues: Counter[str] = Counter()
+    kept_records: list[dict[str, Any]] = []
     sources: Counter[str] = Counter()
-    kept = 0
     why: dict[int, str] = {}
     for i in publishing:
         record = routed[i].record
-        venue, source = venue_key(record), str(record.get("source_name") or "")
-        if venue and venues[venue] >= per_venue:
+        source = str(record.get("source_name") or "")
+        if sum(1 for k in kept_records if same_venue(record, k)) >= per_venue:
             why[i] = f"same venue as a higher-scoring publish ({per_venue} per venue): moved to digest"
         elif source and sources[source] >= per_source:
             why[i] = f"source limit of {per_source} reached: moved to digest"
-        elif kept >= limit:
-            why[i] = f"over the daily limit of {limit}: moved to digest"
+        elif len(kept_records) >= limit:
+            why[i] = (f"over the daily limit of {limit + already_today} ({already_today} already published today): moved to digest"
+                      if already_today else f"over the daily limit of {limit}: moved to digest")
         else:
-            kept += 1
-            venues[venue] += 1
+            kept_records.append(record)
             sources[source] += 1
     out: list[RoutedDeal] = []
     for i, item in enumerate(routed):
@@ -439,6 +474,31 @@ def apply_daily_limit(routed: list[RoutedDeal], limit: int = DAILY_PUBLISH_LIMIT
             item = replace(item, result=QualityResult(item.result.score, [*item.result.reasons, why[i]]), route="digest")
         out.append(item)
     return out
+
+
+# --- where a record came from ----------------------------------------------------------------
+
+SOCIAL_HOSTS = ("instagram.com", "facebook.com", "fb.com", "tiktok.com", "twitter.com", "x.com")
+
+
+def _host(url: Any) -> str:
+    from urllib.parse import urlparse
+    return (urlparse(str(url or "")).hostname or "").lower()
+
+
+def source_class(record: dict[str, Any]) -> str:
+    """'social', 'newsletter' or 'web'. Social when the source URL (or any of source_urls) is on a
+    social host; newsletter when the source name says so. Anything unclear that mentions either is
+    not 'web', so it can never auto-publish."""
+    urls = [record.get("source_url"), *(record.get("source_urls") or [])]
+    if any(_host(u) == h or _host(u).endswith("." + h) for u in urls for h in SOCIAL_HOSTS):
+        return "social"
+    name = str(record.get("source_name") or "").lower()
+    if "newsletter" in name:
+        return "newsletter"
+    if any(word in name for word in ("instagram", "facebook", "tiktok")):
+        return "social"
+    return "web"
 
 
 # --- AI relevance rating (not called from the pipeline yet) -------------------------------
