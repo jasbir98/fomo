@@ -279,6 +279,26 @@ class RatingPromptTests(unittest.TestCase):
         for venue in ("Peffermill", "Murrayfield", "Holyrood"):  # nothing is hard-coded to the rows that prompted it
             self.assertNotIn(venue, text)
 
+    def test_deals_have_their_own_scale_and_non_deals_keep_the_go_out_of_your_way_one(self):
+        text = quality.RATING_SYSTEM_PROMPT
+        deals, rest = text.split("EVERYTHING ELSE")
+        self.assertIn("DEALS (kind: deal)", deals)
+        for phrase in ("5 = clearly cheap and useful", "everyday meal, drink, coffee, cinema trip or night out", "4 = a good saving", "modest price per person",
+                       "4 also covers a voucher you pay for in advance when the price per person is £15 or less",
+                       "20% or more off food, drink or a night out at a local independent place",
+                       "3 = a real discount on something pricey: a voucher over £15 a head, a spa or hotel treat", "2 or less = a narrow group"):
+            self.assertIn(phrase, deals)
+        self.assertNotIn("go out of your way", deals)
+        self.assertIn("worth going out of your way for", rest)
+        self.assertIn("per-person price", text)
+        self.assertIn("not the headline discount percentage", text)
+
+    def test_the_kind_and_the_price_text_are_sent_with_each_row(self):
+        prompt = quality.build_rating_prompt([{"slug": "a", "title": "Lunch and a drink", "kind": "deal", "price_text": "from £8.50", "saving_label": "£8.50 lunch"}])
+        self.assertIn("kind: deal", prompt)
+        self.assertIn("price_text: from £8.50", prompt)
+        self.assertNotIn("Some Voucher Site", quality.build_rating_prompt([{"slug": "b", "title": "t", "source_name": "Some Voucher Site"}]))  # rate on price, not the source
+
     def test_the_prompt_reaches_the_model_unchanged_by_rate_relevance(self):
         seen = []
         quality.rate_relevance([self.ROW], lambda p: seen.append(p) or quality.RatingResult([{"slug": "friday-sport", "rating": 1}]))
@@ -300,29 +320,39 @@ class NonDealCapTests(unittest.TestCase):
 
     def test_a_free_event_with_no_rating_is_capped_below_publish(self):
         result = quality.score_deal(self.event())
-        self.assertEqual(result.score, quality.PUBLISH_AT - 1)
-        self.assertTrue(any(r.startswith("not a deal: capped at 69") for r in result.reasons))
+        self.assertLessEqual(result.score, quality.PUBLISH_AT - 1)
         self.assertEqual(quality.route_deal(self.event(), result, source_class="web"), "digest")
+
+    def test_a_free_event_needs_a_5_to_publish_and_a_4_is_capped(self):
+        row = self.event()
+        for rating in (None, 3, 4):
+            self.assertLessEqual(quality.score_deal(row, ai_rating=rating).score, quality.NON_DEAL_CAP, rating)
+        five = quality.score_deal(row, ai_rating=5)
+        self.assertGreaterEqual(five.score, quality.PUBLISH_AT)
+        self.assertEqual(quality.route_deal(row, five, source_class="web"), "publish")
 
     def test_a_low_rating_still_lowers_it_further(self):
         self.assertEqual(quality.score_deal(self.event(), ai_rating=2).score, 45)
-        self.assertEqual(quality.score_deal(self.event(), ai_rating=3).score, 69)
+        self.assertLessEqual(quality.score_deal(self.event(), ai_rating=3).score, 69)
 
-    def test_a_free_event_rated_4_or_5_is_not_capped_and_can_publish(self):
-        for rating in (4, 5):
-            result = quality.score_deal(self.event(), ai_rating=rating)
-            self.assertGreaterEqual(result.score, quality.PUBLISH_AT)
-            self.assertEqual(quality.route_deal(self.event(), result, source_class="web"), "publish")
+    def test_the_cap_reason_says_why(self):
+        # exactly at the cap before the rating cap: free 20 + base 20 + local 15 + audience 5 + evidence 10 = 70, so a 4 is capped to 69
+        result = quality.score_deal(self.event(), ai_rating=4)
+        self.assertEqual(result.score, quality.NON_DEAL_CAP)
+        self.assertTrue(any(r.startswith("not a deal: capped at 69") and "no AI rating of 5" in r for r in result.reasons))
 
     def test_an_event_with_no_stated_price_is_capped_even_with_a_5(self):
-        row = self.event(is_free=None)
+        row = self.event(is_free=None, title="Gig night")
         result = quality.score_deal(row, ai_rating=5)
         self.assertLessEqual(result.score, quality.PUBLISH_AT - 1)
-        self.assertTrue(any("no stated free or low price" in r for r in result.reasons))
 
-    def test_a_low_price_event_rated_5_is_not_capped(self):
+    def test_a_low_price_event_rated_5_has_a_smaller_value_and_does_not_reach_publish_alone(self):
         row = self.event(is_free=None, saving_label="£5 entry")
-        self.assertGreaterEqual(quality.score_deal(row, ai_rating=5).score, quality.PUBLISH_AT)
+        result = quality.score_deal(row, ai_rating=5)
+        self.assertIn(f"value: low price £5 +{quality.LOW_PRICE_VALUE}", result.reasons)
+        self.assertEqual(quality.LOW_PRICE_VALUE, 15)
+        self.assertEqual(quality.FREE_VALUE, 20)
+        self.assertLess(result.score, quality.PUBLISH_AT)
 
     def test_deals_are_not_touched_and_the_thresholds_are_unchanged(self):
         deal = {"slug": "d", "title": "£3 cask pints", "kind": "deal", "venue_name": "Local Bar", "recurrence": {"type": "weekly", "days": [2]},
@@ -332,7 +362,105 @@ class NonDealCapTests(unittest.TestCase):
 
     def test_every_non_deal_kind_is_covered(self):
         for kind in quality.OTHER_KINDS:
-            self.assertEqual(quality.score_deal(self.event(kind=kind)).score, quality.NON_DEAL_CAP, kind)
+            self.assertLessEqual(quality.score_deal(self.event(kind=kind)).score, quality.NON_DEAL_CAP, kind)
+
+    def test_a_non_deal_gets_no_limited_days_bonus_but_a_deal_still_does(self):
+        event = quality.score_deal(self.event(), ai_rating=5)
+        self.assertFalse(any(r.startswith("limited days") for r in event.reasons))
+        deal = quality.score_deal({"slug": "d", "title": "£3 cask pints", "kind": "deal", "venue_name": "Bar", "recurrence": {"type": "weekly", "days": [2]}})
+        self.assertTrue(any(r.startswith("limited days") for r in deal.reasons))
+
+    def test_the_rating_prompt_defines_5_as_worth_going_out_of_your_way_for_and_a_routine_night_as_3(self):
+        text = quality.RATING_SYSTEM_PROMPT
+        self.assertIn("worth going out of your way for", text)
+        self.assertIn("A routine regular night is a 3", text)
+        self.assertIn("Being free is not enough for a 5", text)
+        self.assertNotIn("quiz", text.lower())
+        self.assertNotIn("open mic", text.lower())
+
+
+class WeeklyPatternTests(unittest.TestCase):
+    LOUD = {"slug": "loud", "title": "Loud Poets Open Mic", "kind": "deal", "venue_name": "Storytelling Centre", "recurrence": {"type": "weekly", "days": [1]},
+            "time_note": "Second and last Monday of each month; doors open 6:30pm", "saving_label": "£3 cask pints", "eligibility": "anyone", "extraction_status": "validated"}
+
+    def test_the_wording_is_found_in_the_rows_own_text_or_quote(self):
+        for phrase in ("second and last Monday of each month", "first Friday of the month", "every other week", "fortnightly", "monthly showcase",
+                       "on the 1st & 3rd Thursday", "once a month", "alternate weekends"):
+            self.assertIsNotNone(quality.different_pattern({"summary": f"Open mic {phrase} at the bar"}), phrase)
+        self.assertIsNone(quality.different_pattern({"summary": "Every Monday at 7pm, free", "time_note": "Mondays"}))
+        self.assertIsNotNone(quality.different_pattern({"_evidence": {"deal_quote": "Join us on the last Thursday of every month"}}))
+        self.assertIsNotNone(quality.different_pattern({"page_excerpt": "takes place on the second and last Monday"}))
+
+    def test_a_weekly_row_with_that_wording_earns_no_limited_days_bonus_and_cannot_publish(self):
+        result = quality.score_deal(self.LOUD)
+        self.assertFalse(any(r.startswith("limited days:") for r in result.reasons))
+        self.assertTrue(any(r.startswith("limited days not counted") for r in result.reasons))
+        plain = dict(self.LOUD, time_note="Every Monday, doors 6:30pm")
+        self.assertGreater(quality.score_deal(plain).score, result.score)
+        self.assertGreaterEqual(quality.score_deal(plain).score, quality.PUBLISH_AT)
+        self.assertEqual(quality.route_deal(plain, quality.score_deal(plain), source_class="web"), "publish")
+        res = quality.score_deal(self.LOUD)
+        res.score = 95  # even a high score
+        self.assertEqual(quality.route_deal(self.LOUD, res, source_class="web"), "digest")
+        self.assertTrue(any(r.startswith("not every week") for r in res.reasons))
+
+    def test_a_row_that_is_not_weekly_is_not_judged_by_this(self):
+        row = dict(self.LOUD, recurrence={"type": "dates", "dates": ["2026-12-14"]})
+        self.assertIsNone(quality.weekly_pattern_conflict(row))
+
+
+class AnnualSeasonTests(unittest.TestCase):
+    CARNIVAL = {"slug": "carnival", "title": "Edinburgh Festival Carnival 2026", "kind": "event", "recurrence": {"type": "annual", "month": 7, "day": 19},
+                "venue_name": "Princes Street Gardens", "is_free": True, "extraction_status": "validated"}
+
+    def test_an_annual_row_whose_date_this_year_has_passed_is_out_of_season(self):
+        why = quality.annual_out_of_season(self.CARNIVAL, TODAY)
+        self.assertIn("2027-07-19", why)
+
+    def test_one_more_than_45_days_ahead_is_out_of_season_and_one_inside_45_days_is_not(self):
+        row = lambda m, d: dict(self.CARNIVAL, recurrence={"type": "annual", "month": m, "day": d})
+        self.assertIsNone(quality.annual_out_of_season(row(12, 16), TODAY))   # 44 days
+        self.assertIsNone(quality.annual_out_of_season(row(12, 17), TODAY))   # 45 days
+        self.assertIsNotNone(quality.annual_out_of_season(row(12, 18), TODAY))  # 46 days
+        self.assertIsNone(quality.annual_out_of_season(row(11, 2), TODAY))    # today
+
+    def test_other_recurrences_and_rows_without_a_date_are_never_judged(self):
+        self.assertIsNone(quality.annual_out_of_season(dict(self.CARNIVAL, recurrence={"type": "weekly", "days": [1]}), TODAY))
+        self.assertIsNone(quality.annual_out_of_season(dict(self.CARNIVAL, recurrence={"type": "annual"}), TODAY))
+        self.assertIsNone(quality.annual_out_of_season(dict(self.CARNIVAL, recurrence=None), TODAY))
+
+    def test_such_a_row_never_routes_publish(self):
+        res = quality.score_deal(self.CARNIVAL, ai_rating=5)
+        res.score = 95
+        self.assertEqual(quality.route_deal(self.CARNIVAL, res, source_class="web", today=TODAY), "digest")
+        self.assertTrue(any(r.startswith("out of season") for r in res.reasons))
+
+
+class DailyNonDealLimitTests(unittest.TestCase):
+    def item(self, slug, kind, score, venue=None, source="S"):
+        return quality.RoutedDeal({"slug": slug, "kind": kind, "venue_name": venue or f"V {slug}", "source_name": source},
+                                  quality.QualityResult(score, []), "publish")
+
+    def test_at_most_three_non_deals_in_the_day(self):
+        items = [self.item(f"e{i}", "event", 90 - i, source=f"S{i}") for i in range(5)] + [self.item("d", "deal", 70)]
+        out = quality.apply_daily_limit(items, 10)
+        self.assertEqual([r.route for r in out], ["publish"] * 3 + ["digest", "digest", "publish"])
+        self.assertIn("non-deal limit of 3", out[3].result.reasons[-1])
+
+    def test_non_deals_already_published_today_count(self):
+        out = quality.apply_daily_limit([self.item("e", "event", 90), self.item("d", "deal", 70)], 10, already_non_deal=3)
+        self.assertEqual([r.route for r in out], ["digest", "publish"])
+
+    def test_a_deal_beats_a_non_deal_on_a_tie_for_the_last_slot(self):
+        out = quality.apply_daily_limit([self.item("e", "event", 80), self.item("d", "deal", 80)], 1)
+        self.assertEqual([r.route for r in out], ["digest", "publish"])
+
+    def test_waiting_rows_come_after_this_runs_rows_even_with_a_higher_score(self):
+        new = self.item("new", "deal", 71)
+        waiting = self.item("old", "deal", 99)
+        waiting.record["_backlog"] = True
+        out = quality.apply_daily_limit([waiting, new], 1)
+        self.assertEqual([r.route for r in out], ["digest", "publish"])
 
 
 class LiveDuplicateTests(unittest.TestCase):
@@ -415,7 +543,7 @@ class BacklogFlowTests(unittest.TestCase):
         pages = {"https://example.com/gone": Resp(False, 404, reason="HTTP 404"), "https://example.com/lapsed": Resp(True, 200, LEITH),
                  "https://example.com/blocked": Resp(False, 403, reason="blocked/challenged (HTTP 403)")}
         rows, written, requested, report = self.run_main(waiting, pages, ["--no-ai"])
-        self.assertEqual({s: r["route"] for s, r in rows.items()}, {"ok": "digest", "gone": "drop", "lapsed": "drop", "blocked": "digest"})
+        self.assertEqual({s: r["route"] for s, r in rows.items()}, {"ok": "publish", "gone": "drop", "lapsed": "drop", "blocked": "digest"})  # ok is a publish candidate; a blocked page cannot be
         self.assertIn("page check: ok 2026-11-02"[:14], " ".join(rows["ok"]["reasons"]))
         self.assertTrue(any(x.startswith("page check: unconfirmed") for x in rows["blocked"]["reasons"]))
         self.assertEqual(len(requested), 4)

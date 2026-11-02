@@ -1,14 +1,18 @@
 /**
- * Which staged deals go in today's digest email, and which have waited too
- * long. Pure: scripts/deal-digest.ts reads the rows and writes the results,
+ * Which staged deals go in the weekly digest email, and which have waited too
+ * long. Reviewing is optional: the daily run publishes what it can verify by itself, and
+ * this email only lists the unsure ones (at most MAX_DIGEST_ITEMS, Mondays only, see
+ * isDigestDay). Rows nobody looks at simply wait and expire. Pure: scripts/deal-digest.ts reads the rows and writes the results,
  * this file only decides. Rules (docs: plan "Phase 2"):
  *
- *   waiting  quality_route = 'digest', not approved, not promoted, no
+ *   waiting  quality_route = 'digest' (or 'publish': a candidate the daily run has not published yet), not approved, not promoted, no
  *            happening_id, not reviewed (reviewed_at null), not rejected.
  *   expires  waiting and staged (created_at) more than 14 days ago: the script
  *            marks it reviewed-expired so a pile-up can't form.
- *   sent     best score first, at most 10. A row already sent comes back only
+ *   sent     best score first, at most 5. A row already sent comes back only
  *            if still unreviewed and last sent more than 3 days ago.
+ *   season   an annual row that is out of season (its date has passed, or is more than 45 days
+ *            away: scraper reason "out of season: ...") is never shown. It stays waiting and expires.
  *   checked  only rows whose source page was looked at (quality_reasons carries a "page check: ok"
  *            or "page check: unconfirmed" marker, see scraper/page_check.py). A row that was not
  *            reached, or never checked, stays waiting but is not emailed. Confirmed rows come first;
@@ -25,7 +29,7 @@
  *            twice and an old duplicate cannot reach a digest.
  */
 
-export const MAX_DIGEST_ITEMS = 10;
+export const MAX_DIGEST_ITEMS = 5;
 export const RESEND_AFTER_DAYS = 3;
 export const EXPIRE_AFTER_DAYS = 14;
 /** Most rows of one category (or kind, when a row has no category) in one email. */
@@ -97,7 +101,7 @@ const timeOf = (iso: string | null | undefined): number | null => {
 
 /** True while the row still needs a person's decision and may be emailed. */
 export function isWaiting(row: StagedDeal): boolean {
-  if (row.quality_route !== "digest") return false;
+  if (row.quality_route !== "digest" && row.quality_route !== "publish") return false;
   if (row.approved === true) return false;
   if (row.happening_id) return false;
   if (row.reviewed_at) return false;
@@ -188,11 +192,25 @@ export function planDigest(
   const due = unique
     .filter(([key, r]) => !isOver(r, now) && sentLongAgo(lastSent.get(key) ?? null, now))
     .map(([, r]) => r);
-  // Only rows whose source page was looked at.
-  const checked = due.filter((r) => pageCheckState(r) !== "none");
+  // Only rows whose source page was looked at, and never an annual row that is out of season.
+  const shown = due.filter((r) => !isOutOfSeason(r));
+  const checked = shown.filter((r) => pageCheckState(r) !== "none");
   const items = pickVaried(checked.sort(byDigestOrder), maxItems);
 
-  return { expire, items, waitingTotal: unique.length, unchecked: due.length - checked.length };
+  return { expire, items, waitingTotal: unique.length, unchecked: shown.length - checked.length };
+}
+
+/** An annual row the scorer marked "out of season: ..." (its date passed, or is more than 45 days away). Never shown; it waits and expires. */
+export function isOutOfSeason(row: StagedDeal): boolean {
+  return reasonStrings(row).some((r) => r.startsWith("out of season"));
+}
+
+/**
+ * True on the day the weekly digest goes out: Monday, London time. The workflow runs daily and the script
+ * decides, so the email is at most weekly whatever the schedule.
+ */
+export function isDigestDay(now: number): boolean {
+  return new Intl.DateTimeFormat("en-GB", { weekday: "long", timeZone: "Europe/London" }).format(new Date(now)) === "Monday";
 }
 
 /** Whether a row's source page was looked at: ok, unconfirmed (we could not tell), or none (never, or not reached). */
@@ -274,7 +292,7 @@ function reasonStrings(row: StagedDeal): string[] {
 }
 
 /** Bookkeeping, not a reason a person needs: the flat starting score, the evidence bonus and its backtest note, the page-check marker and the backlog note. */
-const UNINFORMATIVE_REASON = /^(base\b|evidence\b|page check:|backlog row:)/i;
+const UNINFORMATIVE_REASON = /^(base\b|evidence\b|page check:|backlog row:|backlog candidate:)/i;
 
 /** Up to `n` of the stored reasons that say something: not "base +20" or "evidence +10", in the order they were stored (value first). */
 export function topReasons(row: StagedDeal, n = 3): string[] {

@@ -1,13 +1,17 @@
 #!/usr/bin/env -S npx tsx
 /**
- * scripts/deal-digest.ts — the daily deal digest: up to 10 waiting deals,
- * best score first, in one phone-friendly email with one-tap Approve / Reject
- * (app/review/[token]). Runs in the daily deals workflow after the daily run.
+ * scripts/deal-digest.ts — the weekly, optional deal digest: up to 5 of the unsure
+ * waiting deals, best score first, in one phone-friendly email with one-tap Approve / Reject
+ * (app/review/[token]). The daily run publishes what it can verify by itself, so nothing
+ * needs a person: the email only lists what it could not. The daily deals workflow runs this
+ * every day after the research job; it sends on Mondays (London time) only, and expires old
+ * rows every day.
  *
  *   npx tsx --env-file=.env.local scripts/deal-digest.ts            # dry run: reads, prints, writes nothing
  *   npx tsx --env-file=.env.local scripts/deal-digest.ts --send     # expire, email, mark sent
  *
- * Options: --base-url <origin>      links point here (default the site, lib/seo/site.ts)
+ * Options: --any-day               send on any day (default: Mondays only, London time; reviewing is optional)
+ *          --base-url <origin>      links point here (default the site, lib/seo/site.ts)
  *          --max-age-days <n>       expire after n days unreviewed (default 14)
  *
  * FIRST RUN. There is a backlog of waiting rows from the 19 and 26 Oct runs (and any older). With the
@@ -20,16 +24,16 @@
  * quality_reasons) are emailed; the dry run says how many were held back. At most 3 per category.
  *
  * What it does (rules in lib/review/digest.ts, all unit-tested):
- *   1. Reads happenings_staging rows routed 'digest' that nobody has decided.
+ *   1. Reads happenings_staging rows routed 'digest' (or a 'publish' candidate not yet published) that nobody has decided.
  *   2. EXPIRES (--send only) rows staged more than 14 days ago: extraction_status
  *      'rejected', reviewed_action 'expired', with a reason, so a pile-up can't form.
- *   3. Picks the best 10 by quality_score, one row per slug (past batches stage the same deal
+ *   3. Picks the best 5 by quality_score, one row per slug (past batches stage the same deal
  *      again: the newest batch's row wins). A slug already live in `happenings`, or with any
  *      row already reviewed, approved or promoted, is skipped. A row already emailed comes back
  *      only if still unreviewed and last sent more than 3 days ago (counting every copy of the slug).
  *   4. Emails them through Resend to REVIEW_DIGEST_TO, and ONLY then sets digest_sent_at.
  *      A failed send writes nothing, so the same rows are tried again next run.
- *   5. Sends nothing when there are no items.
+ *   5. Sends nothing when there are no items, and nothing on a day that is not a Monday in London (--any-day overrides).
  *
  * ENV. Always: NEXT_PUBLIC_SUPABASE_URL (or SUPABASE_URL), SUPABASE_SERVICE_ROLE_KEY.
  * For --send: RESEND_API_KEY, REVIEW_DIGEST_TO (one address; never hard-coded),
@@ -52,6 +56,7 @@ import {
   EXPIRE_AFTER_DAYS,
   MAX_DIGEST_ITEMS,
   expiredReason,
+  isDigestDay,
   planDigest,
   type StagedDeal,
 } from "@/lib/review/digest";
@@ -63,9 +68,11 @@ const { values: args } = parseArgs({
     send: { type: "boolean", default: false },
     "base-url": { type: "string" },
     "max-age-days": { type: "string" },
+    "any-day": { type: "boolean", default: false },
   },
 });
 const SEND = args.send === true;
+const ANY_DAY = args["any-day"] === true;
 const BASE_URL = (args["base-url"] ?? SITE_URL).replace(/\/+$/, "");
 const MAX_AGE_DAYS = args["max-age-days"] ? Number(args["max-age-days"]) : EXPIRE_AFTER_DAYS;
 
@@ -126,7 +133,7 @@ async function rest<T = unknown>(method: "GET" | "PATCH", path: string, body?: u
 
 const WAITING_QUERY =
   `happenings_staging?select=${DIGEST_COLUMNS}` +
-  "&quality_route=eq.digest&happening_id=is.null&reviewed_at=is.null" +
+  "&quality_route=in.(digest,publish)&happening_id=is.null&reviewed_at=is.null" +
   "&or=(approved.is.null,approved.eq.false)" +
   "&or=(extraction_status.is.null,extraction_status.not.in.(promoted,approved,rejected))" +
   "&order=id.asc";
@@ -239,7 +246,16 @@ async function main() {
     console.log(`[deal-digest] expired ${expiredCount} row(s).`);
   }
 
-  // 2. Nothing to send: stop (expiry above still stands).
+  // 2. Not the weekly send day: stop (expiry above still stands). A dry run still shows what Monday's email would hold.
+  const sendDay = ANY_DAY || isDigestDay(now.getTime());
+  if (SEND && !sendDay) {
+    console.log("[deal-digest] not a Monday in London: no email today (the digest is weekly and optional; --any-day overrides).");
+    summary(mode, plan.items.length, plan.waitingTotal, expiredCount, "no email (not the weekly send day)");
+    return;
+  }
+  if (!SEND && !sendDay) console.log("[deal-digest] note: today is not a Monday in London, so --send would not email today.");
+
+  // 3. Nothing to send: stop (expiry above still stands).
   if (plan.items.length === 0) {
     console.log("[deal-digest] 0 items for the digest: no email.");
     summary(mode, plan.items.length, plan.waitingTotal, expiredCount, "no email (nothing to send)");
@@ -259,7 +275,7 @@ async function main() {
     return;
   }
 
-  // 3. Send, then (only then) mark the rows as sent.
+  // 4. Send, then (only then) mark the rows as sent.
   await sendEmail(email);
   console.log(`[deal-digest] sent ${plan.items.length} deal(s) to the review address.`);
   try {

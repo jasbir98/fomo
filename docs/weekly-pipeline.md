@@ -57,7 +57,7 @@ python3 scraper/weekly_edinburgh.py --stage --workers 1 --cap-usd 0.45 --deal-so
 - **Batch ids** are `edi-daily-YYYY-MM-DD`; promote and the artifact use them. A second run on the same day shares the batch.
 - Output: the run summary and an artifact (`daily-deals-<run number>`, 30 days).
 - **Dispatch input `mode`:** `stage` (the daily run) or `promote` (publishes rows already approved in staging, as the weekly job does; the review page triggers this). The promote dispatch uses `ref: main`, so **`daily-deals.yml` must be on `main`** before it can work.
-- **Digest job.** After the research job, even if it failed, a second job emails the deal digest (`scripts/deal-digest.ts --send --max-age-days 30`), because rows already waiting still need review. It passes `--max-age-days 30` for now: the default 14 days would expire about a hundred waiting backlog rows in one go (106 on 2 Nov). Drop the flag once the backlog has been reviewed. The email's header states the age limit actually used.
+- **Digest job.** After the research job, even if it failed, a second job runs the optional deal digest (`scripts/deal-digest.ts --send --max-age-days 30`). It runs every day, expires old waiting rows every day, and emails **only on Mondays (London time)**, up to 5 rows, and only if there is at least 1. Reviewing is optional: nothing needs a person. It passes `--max-age-days 30` for now: the default 14 days would expire about a hundred waiting backlog rows in one go (106 on 2 Nov). Drop the flag once the backlog has been reviewed. The email's header states the age limit actually used.
 
 ### Routes
 
@@ -65,11 +65,22 @@ After a run's records are final, each one gets a score (0 to 100, `scraper/deal_
 
 | Route | Rule | What happens |
 |---|---|---|
-| Publish | Score 70+, every check passed, no duplicate or dormant match, a web source (never social or newsletters), and the source page re-checked now | Live only if auto-publish is on. At most 10 a run, 1 per venue, 4 per source. Extras go to digest |
-| Digest | Score 40 to 69, or any flag, or social/newsletter | Waits for one-tap review |
+| Publish | Score 70+, every check passed, no duplicate or dormant match, a web source (never social or newsletters), and the source page re-checked now | Live only if auto-publish is on. At most 10 a day, 1 per venue, 4 per source, 3 non-deals. Extras go to digest |
+| Digest | Score 40 to 69, or any flag, or social/newsletter | Waits. It expires after the age limit; the weekly email lists the best few for an optional one-tap review |
 | Drop | Below 40, expired, or outside Edinburgh | Staged with its reasons, never shown |
 
-**Only deals can score 70 or more on the score alone.** An event, activity, free_access, festival or tour is capped at 69 (just under `PUBLISH_AT`) unless it has a stated free or low price (£10 or under) **and** an AI rating of 4 or 5. With no rating it can never route publish; it goes to the digest. `PUBLISH_AT` (70) and `DROP_BELOW` (40) are unchanged.
+**Free nights have to be worth it.** Only a deal can reach 70 on its score alone. An event, activity, free_access, festival or tour:
+
+- gets **no limited-days bonus** (a weekly quiz or open mic is not rare);
+- is worth less for being free (+20, not +30) or cheap (+15 for £10 or under, not +20);
+- reaches publish **only with an AI rating of 5**, and is otherwise capped at 69. A 5 means "worth going out of your way for": a one-off, something unusual, or something with a real draw. The prompt tells the model a routine regular night is a 3 unless the page shows something more, and that being free is not enough. With no rating a non-deal can never publish;
+- counts toward **at most 3 non-deals out of the day's 10** publishes (deals win ties).
+
+`PUBLISH_AT` (70) and `DROP_BELOW` (40) are unchanged.
+
+**A weekly row that is not weekly.** A row earns the limited-days bonus only if its record is weekly **and** its own text, quote or page excerpt does not say a different pattern ("second and last Monday", "first Friday of the month", "every other week", "fortnightly", "monthly", "once a month"). With that wording it gets no bonus and **cannot publish**.
+
+**Annual events out of season.** An annual row (month and day known) whose date this year has passed, or whose next date is more than **45 days** away (the app's season rule in `lib/happenings/season.ts`, applied here to every kind), cannot publish and **is not shown in the digest**. It stays waiting and expires.
 
 Events, activities and free access go through the same route: free and under £10 things score higher, and they get the same fresh check. (So in a shadow report, free events can take publish slots next to deals; read the per-source table.)
 
@@ -94,7 +105,9 @@ The result is stored as one line in `quality_reasons` ("page check: ok 2026-11-0
 
 **Auto-publish is off by default.** Off, the run scores, routes and stages, and the report's "Deal quality routing" section lists the rows that **would publish** (with the per-source table, the fresh-check failures, the AI rating and its cost). Nothing is approved or promoted. The workflow passes `--auto-publish` only when the repository variable `DEAL_AUTO_PUBLISH` is exactly `true`.
 
-To turn it on, after reading three days of shadow reports and agreeing the thresholds with the backtest: run the SQL below, then set the variable (GitHub: Settings, Secrets and variables, Actions, Variables, `DEAL_AUTO_PUBLISH` = `true`). Set it to anything else, or delete it, to go back to shadow mode. On, a run approves **only** the rows that are routed publish, freshly verified and from a web source (`approved = true`, one PATCH for exactly those slugs in that batch) and promotes **exactly those slugs** (`scripts/promote-happenings.mjs --batch-id <id> --slugs a,b,c`; an empty list or no batch id is refused, so it can never widen to "everything approved"). If approving fails, nothing is promoted; if promoting fails the rows stay approved and the next `promote` run picks them up. The 10 a day limit is per run, so a manual second run the same day can publish another 10.
+The three days of shadow reports were the plan; the owner chose to publish verified rows without waiting, so turn it on when ready: run the SQL below, then set the variable (GitHub: Settings, Secrets and variables, Actions, Variables, `DEAL_AUTO_PUBLISH` = `true`). Set it to anything else, or delete it, to go back to shadow mode. On, a run approves **only** the rows that are routed publish, freshly verified and from a web source (`approved = true`, one PATCH for exactly those slugs in that batch) and promotes **exactly those slugs** (`scripts/promote-happenings.mjs --batch-id <id> --slugs a,b,c`; an empty list or no batch id is refused, so it can never widen to "everything approved"). If approving fails, nothing is promoted; if promoting fails the rows stay approved and the next `promote` run picks them up. The 10 a day limit counts rows published earlier the same day, so a second run cannot publish another 10.
+
+**Waiting rows can publish too.** With auto-publish on, after this run's own rows have taken their slots the run fills the remaining ones from **waiting staged rows** that `score_backlog.py` routed `publish`, best stored score first (at most 40 tried a run). Each must pass every rule a new row does: the 10 a day limit, 4 per source, 1 per venue, the 7-day venue cooldown, at most 3 non-deals a day, no blocking validation errors (`commercial_source_review` is allowed), not expired, in Edinburgh, not already live (slug or identity match), annual rows in season, never social or newsletter, and not marked unconfirmed, gone or lapsed by the page check. A waiting row has lost its quote evidence, so it publishes only if a **fresh `verify_record` of its source page passes in that same run**. A failure stays waiting: with auto-publish on, the run rewrites that row's three quality columns as `digest` with the reason ("fresh check failed: ..."). Any failure to read the waiting rows means none are used. Each group is approved and promoted under its own batch id. With the flag off none of this writes anything; the report still lists the waiting rows that would publish.
 
 ### What stops duplicates and undone reviews
 
@@ -109,26 +122,29 @@ The counts are in the report ("Staging guard"). `reviewed_at` and `reviewed_acti
 
 ### Waiting backlog
 
-`python3 scraper/score_backlog.py` scores every waiting staged row (all kinds; the backtest's set A without the deals-only filter) and prints the table. It is a dry run unless you add `--apply`, which writes only `quality_score`, `quality_reasons` and `quality_route`, and never approves or publishes. A backlog row can't route publish (it has lost its evidence and has had no fresh check), so it goes to digest or drop. `--no-ai` skips the rating; ratings are cached in `scraper/out/score-backlog/`.
+`python3 scraper/score_backlog.py` scores every waiting staged row (all kinds; the backtest's set A without the deals-only filter) and prints the table. It is a dry run unless you add `--apply`, which writes only `quality_score`, `quality_reasons` and `quality_route`, and never approves or publishes. A backlog row can now route **publish**, which only makes it a candidate for the daily run (see "Waiting rows can publish too"); this script publishes nothing. A candidate must have a page check of `ok`, no possible-duplicate note and no blocking error, or it is routed digest. `--no-ai` skips the rating; ratings are cached in `scraper/out/score-backlog/`.
 
 What else it does, in order: (1) a row that matches a **live** happening by `scraper/identity.py` (a confident match) drops with "already live as <slug>"; a merely possible match stays digest with a note; (2) it looks at the source pages of the rows still in play, best score first, **at most 150 pages** (`--page-cap`), as above, and the day's results are cached in `scraper/out/score-backlog/page-checks.json` so `--apply` after a dry run does not hit the sites again; (3) it rates the rows with the page excerpts (`--refresh-ai` re-rates them, off-peak only); (4) it scores, applies the non-deal cap and writes. `--offline` skips (1) and (2) for tests. Re-run it (dry run, then `--apply`) whenever you want the unreached rows checked; an `ok` marker under 7 days old is reused without a request.
 
-### The digest email
+### The digest email (optional)
 
-`scripts/deal-digest.ts` (rules in `lib/review/digest.ts`) emails up to 10 waiting rows, best score first. What decides which:
+Nothing needs a person any more: the daily run publishes the rows it can verify, and unsure rows simply wait and expire. `scripts/deal-digest.ts` (rules in `lib/review/digest.ts`) is a weekly, optional email of the unsure ones. The wording says so: "Nothing needs you ... these are the unsure ones". What it does:
 
+- **Sends only on Mondays (London time), only if there is at least 1 row, and at most 5 rows.** The workflow runs it daily; on other days it only expires old rows. `--any-day` overrides for a manual send.
 - **Only rows whose source page was checked** (see "Source page check"). The rest stay waiting.
-- **At most 3 rows of one category in one email** (a row with no category counts under its kind), so a night of quizzes cannot fill it, and **at most 1 row per venue** (the best score wins; names are compared lower-case without punctuation, "the" or "edinburgh"; a row with no venue never blocks another). On equal scores a deal comes before an event. A row cut for variety is not rejected or expired; it stays waiting for a later email.
-- **Each card shows the three most informative reasons**: the stored reasons in order, leaving out "base" and "evidence" (and the page-check and backlog notes), so you read "value: free +30", "limited days: 1 a week +20", "local +15" rather than "base +20".
+- **At most 3 rows of one category in one email** (a row with no category counts under its kind), and **at most 1 row per venue** (the best score wins; names are compared lower-case without punctuation, "the" or "edinburgh"; a row with no venue never blocks another). On equal scores a deal comes before an event. A row cut for variety is not rejected or expired; it stays waiting for a later email.
+- **An annual row that is out of season is never shown.**
+- **Each card shows the three most informative reasons**: the stored reasons in order, leaving out "base" and "evidence" (and the page-check and backlog notes), so you read "value: free +30" rather than "base +20".
 - A row whose page could not be read says so on the card.
-- Expiry: waiting rows older than `--max-age-days` (default 14, the workflow passes 30 for now) are marked expired when sent. The header says "not reviewed within N days" with the real N.
+- Expiry: waiting rows older than `--max-age-days` (default 14, the workflow passes 30 for now) are marked expired when run with `--send`. The header says "not reviewed within N days" with the real N.
+- The drought alarm (the 12:37 daily deal review) is unchanged.
 
 ### Set-up you have to do by hand
 
 1. Run `supabase/add_deal_quality.sql` (adds `quality_score`, `quality_reasons`, `quality_route`, `evidence_quote`) and `supabase/add_deal_review.sql` in the Supabase SQL editor. Until then the pipeline logs once that the columns are missing, drops them from the upsert, and carries on.
 2. Push the two workflow files (`daily-deals.yml` and the edited `weekly-research.yml`) yourself, and get `daily-deals.yml` onto `main`: Claude's local token can't push workflow files (`gh auth refresh -h github.com -s workflow` fixes that).
 3. Add the secrets the digest job reads (`RESEND_API_KEY`, `REVIEW_DIGEST_TO`, `REVIEW_SIGNING_SECRET`; `FOMO_FROM_EMAIL` as a variable or a secret).
-4. Leave `DEAL_AUTO_PUBLISH` unset for at least three days of shadow reports.
+4. `DEAL_AUTO_PUBLISH` is the switch. The old advice was to leave it unset for three days of shadow reports; the owner has chosen not to wait. It stays unset until someone sets it.
 
 Tests: `python3 scraper/test_deal_sources.py`, `test_deal_routing.py`, `test_score_backlog.py` and `test_digest_quality.py` (stdlib, no network); the workflow YAML is only checked to parse and to pass flags the script accepts.
 

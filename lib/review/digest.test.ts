@@ -6,6 +6,8 @@ import {
   MAX_DIGEST_ITEMS,
   MAX_PER_BUCKET,
   evidenceQuote,
+  isDigestDay,
+  isOutOfSeason,
   isOver,
   isStale,
   isUnconfirmedSource,
@@ -43,7 +45,7 @@ const deal = (over: Partial<StagedDeal> = {}): StagedDeal => ({
 test("isWaiting: only digest-routed, undecided, unpromoted rows", () => {
   assert.equal(isWaiting(deal()), true);
   assert.equal(isWaiting(deal({ approved: null, extraction_status: null })), true);
-  assert.equal(isWaiting(deal({ quality_route: "publish" })), false);
+  assert.equal(isWaiting(deal({ quality_route: "publish" })), true); // a publish candidate the daily run has not published yet
   assert.equal(isWaiting(deal({ quality_route: "drop" })), false);
   assert.equal(isWaiting(deal({ quality_route: null })), false);
   assert.equal(isWaiting(deal({ approved: true })), false);
@@ -54,11 +56,12 @@ test("isWaiting: only digest-routed, undecided, unpromoted rows", () => {
   assert.equal(isWaiting(deal({ reviewed_at: ago(1) })), false);
 });
 
-test("best score first, at most 10", () => {
+test("best score first, at most 5", () => {
   const rows = Array.from({ length: 15 }, (_, i) => deal({ quality_score: 40 + i }));
   const { items, waitingTotal } = planDigest(rows, NOW);
   assert.equal(items.length, MAX_DIGEST_ITEMS);
-  assert.deepEqual(items.map((r) => r.quality_score), [54, 53, 52, 51, 50, 49, 48, 47, 46, 45]);
+  assert.equal(MAX_DIGEST_ITEMS, 5);
+  assert.deepEqual(items.map((r) => r.quality_score), [54, 53, 52, 51, 50]);
   assert.equal(waitingTotal, 15);
 });
 
@@ -128,7 +131,7 @@ test("a deal whose own dates have passed is not emailed, but still counts as wai
 
 test("zero waiting rows gives an empty plan", () => {
   assert.deepEqual(planDigest([], NOW), { expire: [], items: [], waitingTotal: 0, unchecked: 0 });
-  const plan = planDigest([deal({ quality_route: "publish" })], NOW);
+  const plan = planDigest([deal({ quality_route: "drop" })], NOW);
   assert.equal(plan.items.length, 0);
 });
 
@@ -293,7 +296,7 @@ test("unconfirmed rows only fill the places left after the confirmed ones", () =
 test("at most three of one category in an email; the cut rows stay waiting", () => {
   const quizzes = Array.from({ length: 6 }, (_, i) => deal({ title: `Quiz ${i}`, kind: "event", category: "nightlife", quality_score: 100 - i }));
   const others = Array.from({ length: 4 }, (_, i) => deal({ title: `Other ${i}`, kind: "event", category: `cat${i}`, quality_score: 60 - i }));
-  const plan = planDigest([...quizzes, ...others], NOW);
+  const plan = planDigest([...quizzes, ...others], NOW, { maxItems: 20 });
   assert.equal(plan.items.length, 7);
   assert.equal(plan.items.filter((r) => r.category === "nightlife").length, MAX_PER_BUCKET);
   assert.deepEqual(plan.items.slice(0, 3).map((r) => r.title), ["Quiz 0", "Quiz 1", "Quiz 2"]);
@@ -345,4 +348,28 @@ test("rows with no venue never block each other, and a venue cut does not use up
   const others = Array.from({ length: 3 }, (_, i) => deal({ venue_name: `Venue ${i}`, category: "music", quality_score: 80 - i }));
   const plan = planDigest([a, dup, ...others], NOW);
   assert.deepEqual(plan.items, [a, ...others.slice(0, 2)]);  // three music places: a plus two
+});
+
+// --- optional weekly digest -------------------------------------------------------------------
+
+test("isDigestDay is Monday in London, not UTC", () => {
+  assert.equal(isDigestDay(Date.UTC(2026, 10, 2, 12, 0, 0)), true); // Mon 2 Nov, noon
+  assert.equal(isDigestDay(Date.UTC(2026, 10, 3, 12, 0, 0)), false); // Tue
+  assert.equal(isDigestDay(Date.UTC(2026, 10, 1, 23, 59, 0)), false); // Sun night (GMT)
+  assert.equal(isDigestDay(Date.UTC(2026, 6, 5, 23, 30, 0)), true); // Sun 23:30 UTC in July is Mon 00:30 BST
+  assert.equal(isDigestDay(Date.UTC(2026, 6, 6, 23, 30, 0)), false); // Mon 23:30 UTC in July is already Tue in London
+});
+
+test("an annual row marked out of season is never shown, but still waits", () => {
+  const carnival = deal({ title: "Festival Carnival 2026", quality_score: 99, quality_reasons: ["out of season: annual, next on 2027-07-19 (259 days away, shown from 45)", "page check: ok 2026-11-02"] });
+  const fine = deal({ quality_score: 50 });
+  const plan = planDigest([carnival, fine], NOW);
+  assert.deepEqual(plan.items, [fine]);
+  assert.equal(plan.waitingTotal, 2);
+  assert.equal(isOutOfSeason(carnival), true);
+  assert.equal(isOutOfSeason(fine), false);
+});
+
+test("topReasons also skips the backlog-candidate note", () => {
+  assert.deepEqual(topReasons(deal({ quality_reasons: ["backlog candidate: publishes only if the daily run's fresh source-page check passes", "value: free +20"] })), ["value: free +20"]);
 });

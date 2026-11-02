@@ -24,7 +24,7 @@ const base = { waitingTotal: 14, expiredCount: 2, baseUrl: "https://askfomo.com/
 
 test("one card per deal with title, venue, saving, score, reasons, source and both links", () => {
   const e = renderDigestEmail({ ...base, items: [deal(), deal({ id: "11111111-2222-4333-8444-555555555555", title: "Second" })] });
-  assert.match(e.subject, /2 today, 14 waiting/);
+  assert.match(e.subject, /^Fomo: 2 unsure deals, nothing needs you$/);
   for (const part of ["£4 cask pints", "Nobles", "£4 pints", "Score 68", "cheap price for a pint", "https://nobles.test/offers", "Approve", "Reject"]) {
     assert.ok(e.html.includes(part), `html missing ${part}`);
   }
@@ -32,11 +32,21 @@ test("one card per deal with title, venue, saving, score, reasons, source and bo
   assert.equal((e.html.match(/>Approve</g) ?? []).length, 2);
 });
 
-test("header says how many are waiting in total and how many expired today", () => {
+test("the email says plainly that reviewing is optional", () => {
   const e = renderDigestEmail({ ...base, items: [deal()] });
-  assert.match(e.text, /^14 deals are waiting for review\./);
-  assert.match(e.text, /2 expired today/);
-  assert.match(renderDigestEmail({ ...base, expiredCount: 0, items: [deal()] }).text, /0 expired today/);
+  assert.match(e.text, /^Nothing needs you\./);
+  assert.match(e.text, /these are the unsure ones/);
+  assert.ok(e.html.includes("Nothing needs you."));
+  assert.ok(e.html.includes("Optional: each button opens a page"));
+  assert.ok(!/waiting for review|to review/.test(e.text + e.subject));
+  assert.match(renderDigestEmail({ ...base, items: [deal()] }).subject, /^Fomo: 1 unsure deal, nothing needs you$/);
+});
+
+test("header says how many were shown of the total and how many expired", () => {
+  const e = renderDigestEmail({ ...base, items: [deal()] });
+  assert.match(e.text, /Showing the best 1 of 14\./);
+  assert.match(e.text, /2 expired this week/);
+  assert.match(renderDigestEmail({ ...base, expiredCount: 0, items: [deal()] }).text, /0 expired this week/);
 });
 
 test("the expiry wording uses the age limit in force, 14 by default", () => {
@@ -107,6 +117,6 @@ test("brand case: Fomo in text, lowercase wordmark, never FOMO", () => {
 });
 
 test("says when only some of the waiting deals are shown", () => {
-  assert.match(renderDigestEmail({ ...base, items: [deal()] }).text, /Showing the best 1\./);
+  assert.match(renderDigestEmail({ ...base, items: [deal()] }).text, /Showing the best 1 of 14\./);
   assert.ok(!renderDigestEmail({ ...base, waitingTotal: 1, items: [deal()] }).text.includes("Showing the best"));
 });

@@ -1468,6 +1468,18 @@ def main() -> None:
         publish_history, history_error = None, "Supabase credentials are unavailable"
     if history_error:
         lifecycle_notes.append(f"publish limit history unavailable: {history_error}" + (" (auto-publish published nothing)" if auto_on else ""))
+    # Waiting rows score_backlog.py routed publish may fill the day's remaining slots. Read-only here; any read
+    # failure means no backlog (nothing extra publishes). Rows of this run are left out of it.
+    backlog_rows: list[dict[str, Any]] = []
+    backlog_note: str | None = None
+    if connection:
+        backlog_rows, backlog_note = deal_routing.load_backlog(
+            staging_guard.make_get_all(*connection), batch_id=args.batch_id,
+            run_slugs={str(r.get("slug")) for r in staging_records}, catalogue=catalogue)
+    else:
+        backlog_note = "Supabase credentials are unavailable"
+    if backlog_note:
+        lifecycle_notes.append(f"waiting rows not used: {backlog_note}")
     try:
         routing = deal_routing.run_routing(
             staging_records,
@@ -1480,6 +1492,8 @@ def main() -> None:
             history_error=history_error,
             fail_safe=auto_on,
             page_get=page_check.make_fetcher(),
+            backlog_rows=backlog_rows,
+            backlog_note=backlog_note,
         )
         ledger.settle(routing_reserved, Usage(input_tokens=routing.rating.input_tokens, output_tokens=routing.rating.output_tokens))
     except Exception as exc:  # routing is advisory: a bug in it must not lose the run's staged rows
@@ -1502,6 +1516,8 @@ def main() -> None:
     if routing is not None:
         published = deal_routing.auto_publish(routing, args.batch_id, enabled=auto_on)
         lifecycle_notes.extend(published.notes)
+        if auto_on:  # the only write the waiting rows get: a failed re-check goes back to digest with its reason
+            deal_routing.record_backlog_failures(routing)
         if published.promoted:
             image_note = attach_publisher_images()
             if image_note:

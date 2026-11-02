@@ -216,6 +216,240 @@ class FreshCheckTests(unittest.TestCase):
         self.assertEqual(stats.skipped_over_limit, 5)
 
 
+def waiting(slug="old1", **over):
+    """A stored staged row that score_backlog.py routed publish (no `_evidence`: it was lost when it was stored)."""
+    row = rec(slug, batch_id="edi-daily-2026-10-26", id=f"id-{slug}", quality_route="publish", quality_score=85, approved=False, happening_id=None,
+              quality_reasons=["base +20", "value: saving depth about 50% +30", "page check: ok 2026-11-02"], created_at="2026-10-26T12:00:00+00:00",
+              extraction_status="validated", saving_label="50% off")
+    row.pop("_evidence", None)
+    row.update(over)
+    return row
+
+
+class BacklogLoadTests(unittest.TestCase):
+    def reader(self, staged, live=(), fail=False):
+        def get_all(table, params):
+            if fail:
+                raise RuntimeError("HTTP 500: boom")
+            return list(live) if table == "happenings" else list(staged)
+        return get_all
+
+    def load(self, staged, **kw):
+        live = kw.pop("live", ())
+        fail = kw.pop("fail", False)
+        return dr.load_backlog(self.reader(staged, live, fail), batch_id="edi-daily-2026-11-02", run_slugs=kw.pop("run_slugs", set()), **kw)
+
+    def test_a_good_waiting_row_is_a_candidate_and_the_best_scores_come_first(self):
+        rows, note = self.load([waiting("a", quality_score=75), waiting("b", quality_score=90), waiting("c", quality_score=80)])
+        self.assertIsNone(note)
+        self.assertEqual([r["slug"] for r in rows], ["b", "c", "a"])
+        self.assertEqual([r["slug"] for r in self.load([waiting("a"), waiting("b")], limit=1)[0]], ["a"])
+
+    def test_rows_that_cannot_publish_are_left_out(self):
+        bad = [
+            waiting("unconfirmed", quality_reasons=["page check: unconfirmed (HTTP 403)"]),
+            waiting("gone", quality_reasons=["page check: gone (HTTP 404): the source page no longer exists"]),
+            waiting("lapsed", quality_reasons=["page check: lapsed: series lapsed: x"]),
+            waiting("social", source_url="https://www.instagram.com/p/x/"),
+            waiting("newsletter", source_name="Edinburgh newsletter"),
+            waiting("reviewed", reviewed_at="2026-10-30T10:00:00+00:00"),
+            waiting("approved", approved=True),
+            waiting("linked", happening_id="h1"),
+            waiting("rejected", extraction_status="rejected"),
+            waiting("this-batch", batch_id="edi-daily-2026-11-02"),
+            waiting("this-run"),
+            waiting("live-slug"),
+        ]
+        rows, _ = self.load(bad + [waiting("fine")], live=[{"slug": "live-slug"}], run_slugs={"this-run"})
+        self.assertEqual([r["slug"] for r in rows], ["fine"])
+
+    def test_the_newest_row_of_a_slug_wins(self):
+        rows, _ = self.load([waiting("a", created_at="2026-10-01T00:00:00+00:00", title="old"), waiting("a", created_at="2026-10-20T00:00:00+00:00", title="new")])
+        self.assertEqual([r["title"] for r in rows], ["new"])
+
+    def test_a_confident_identity_match_to_a_live_row_is_left_out(self):
+        from identity import Catalogue
+        live = [{"id": "L", "slug": "live-pints", "title": "£3 cask pints old1", "kind": "deal", "status": "live", "venue_name": "Local Bar old1",
+                 "recurrence": {"type": "weekly", "days": [2]}, "saving_label": "50% off"}]
+        rows, _ = self.load([waiting("old1")], catalogue=Catalogue(live, []))
+        self.assertEqual(rows, [])
+
+    def test_fail_safe_a_read_failure_gives_no_rows_and_says_why(self):
+        rows, note = self.load([waiting("a")], fail=True)
+        self.assertEqual(rows, [])
+        self.assertIn("nothing extra publishes", note)
+
+
+class BacklogPublishTests(unittest.TestCase):
+    def go(self, new, back, verify=passes, history=None, fail_safe=False, history_error=None, **kw):
+        return dr.run_routing(new, make_rating_call=no_rating, verify=verify, in_rate=0.28, out_rate=0.42, rating_budget_usd=0.03, today=TODAY,
+                              now=NOW, log=lambda _m: None, history=history, history_error=history_error, fail_safe=fail_safe,
+                              backlog_rows=back, **kw)
+
+    def slugs(self, outcome):
+        return sorted(r.record["slug"] for r in dr.select_publishable(outcome.final + outcome.backlog, outcome.fresh_ok))
+
+    def test_waiting_rows_fill_the_slots_left_after_this_runs_rows_best_score_first(self):
+        new = [rec(f"new{i}", source_name=f"New source {i}") for i in range(2)]
+        back = [waiting("w-low", quality_score=72, source_name="A"), waiting("w-high", quality_score=95, source_name="B"),
+                waiting("w-mid", quality_score=80, source_name="C")]
+        out = self.go(new, back, history=dr.PublishHistory(6, []))  # 4 slots left
+        self.assertEqual(self.slugs(out), ["new0", "new1", "w-high", "w-mid"])
+        low = next(r for r in out.backlog if r.record["slug"] == "w-low")
+        self.assertEqual(low.route, "digest")
+        self.assertIn("daily limit", low.result.reasons[-1])
+
+    def test_this_runs_rows_always_go_first_even_against_a_higher_scoring_waiting_row(self):
+        out = self.go([rec("new")], [waiting("w", quality_score=100)], history=dr.PublishHistory(9, []))
+        self.assertEqual(self.slugs(out), ["new"])
+
+    def test_every_limit_still_applies_to_waiting_rows(self):
+        # 4 per source, 1 per venue, the venue cooldown, and the non-deal cap of 3 a day
+        back = [waiting(f"s{i}", source_name="One Source", venue_name=f"V{i}") for i in range(6)]
+        self.assertEqual(len(self.slugs(self.go([], back, history=dr.PublishHistory(0, [])))), 4)
+        same_venue = [waiting("v1", venue_name="Nobles"), waiting("v2", venue_name="The Nobles", quality_score=80)]
+        self.assertEqual(len(self.slugs(self.go([], same_venue, history=dr.PublishHistory(0, [])))), 1)
+        recent = [{"slug": "x", "title": "Earlier", "venue_name": "Nobles", "created_at": "2026-11-01T10:00:00+00:00"}]
+        self.assertEqual(self.slugs(self.go([], [waiting("v3", venue_name="Nobles")], history=dr.PublishHistory(1, recent))), [])
+        events = [waiting(f"e{i}", kind="event", is_free=True, source_name=f"S{i}", venue_name=f"E{i}", quality_score=90) for i in range(5)]
+        out = self.go([], events, history=dr.PublishHistory(0, [], 0))
+        self.assertEqual(len(self.slugs(out)), 3)
+        out = self.go([], events, history=dr.PublishHistory(2, [], 2))
+        self.assertEqual(len(self.slugs(out)), 1)
+
+    def test_a_row_that_fails_the_fresh_check_stays_waiting_with_the_reason_and_the_next_one_takes_the_slot(self):
+        back = [waiting("dead", quality_score=95), waiting("alive", quality_score=80)]
+        verify = lambda r: ["saving_label is not stated verbatim on source page"] if r["slug"] == "dead" else []
+        out = self.go([], back, verify=verify, history=dr.PublishHistory(9, []))  # one slot
+        self.assertEqual(self.slugs(out), ["alive"])
+        dead = next(r for r in out.backlog if r.record["slug"] == "dead")
+        self.assertEqual(dead.route, "digest")
+        self.assertTrue(any(x.startswith("fresh check failed: saving_label") for x in dead.result.reasons))
+        self.assertEqual([record["slug"] for record, _ in dr.backlog_failures(out)], ["dead"])
+
+    def test_a_row_with_no_evidence_publishes_only_through_the_fresh_check(self):
+        seen = []
+
+        def verify(record):
+            seen.append(record["slug"])
+            return []
+
+        out = self.go([], [waiting("w", extraction_status="pending")], verify=verify, history=dr.PublishHistory(0, []))
+        self.assertEqual(seen, ["w"])
+        self.assertEqual(self.slugs(out), ["w"])
+        out = self.go([], [waiting("w", extraction_status="pending")], verify=lambda r: ["source could not be reloaded"], history=dr.PublishHistory(0, []))
+        self.assertEqual(self.slugs(out), [])
+
+    def test_expired_outside_edinburgh_blocking_errors_and_out_of_season_rows_never_publish(self):
+        back = [waiting("expired", recurrence={"type": "dates", "dates": ["2026-09-25"]}), waiting("far", venue_name="Lido Musselburgh"),
+                waiting("blocked", validation_errors=["quote_missing"]),
+                waiting("season", recurrence={"type": "annual", "month": 7, "day": 19}),
+                waiting("monthly", time_note="second and last Monday of each month"),
+                waiting("commercial", validation_errors=["commercial_source_review"])]
+        out = self.go([], back, history=dr.PublishHistory(0, []))
+        self.assertEqual(self.slugs(out), ["commercial"])
+
+    def test_fail_safe_an_unreadable_history_publishes_nothing_even_from_waiting_rows(self):
+        out = self.go([rec("new")], [waiting("w")], fail_safe=True, history=None, history_error="HTTP 400")
+        self.assertEqual(self.slugs(out), [])
+
+    def test_backlog_failures_are_written_back_as_digest_with_the_reason_and_only_the_quality_columns(self):
+        out = self.go([], [waiting("dead", quality_reasons=["base +20", "page check: ok 2026-11-02"])], verify=lambda r: ["page does not appear to be about this title"],
+                      history=dr.PublishHistory(0, []))
+        sent = []
+        n = dr.record_backlog_failures(out, lambda row_id, body: sent.append((row_id, body)), log=lambda _m: None)
+        self.assertEqual(n, 1)
+        row_id, body = sent[0]
+        self.assertEqual(row_id, "id-dead")
+        self.assertEqual(set(body), {"quality_score", "quality_reasons", "quality_route"})
+        self.assertEqual(body["quality_route"], "digest")
+        self.assertTrue(body["quality_reasons"][-1].startswith("fresh check failed: page does not appear"))
+        self.assertIn("page check: ok 2026-11-02", body["quality_reasons"])
+
+    def test_a_failed_write_back_is_logged_not_raised(self):
+        out = self.go([], [waiting("dead")], verify=lambda r: ["x"], history=dr.PublishHistory(0, []))
+        logged = []
+
+        def boom(row_id, body):
+            raise RuntimeError("down")
+
+        self.assertEqual(dr.record_backlog_failures(out, boom, log=logged.append), 0)
+        self.assertTrue(logged)
+
+    def test_publishing_approves_and_promotes_each_group_under_its_own_batch_id(self):
+        out = self.go([rec("new")], [waiting("w1"), waiting("w2", batch_id="edi-weekly-2026-10-19")], history=dr.PublishHistory(0, []))
+        approve = mock.Mock(side_effect=lambda b, s: (list(s), None))
+        promote = mock.Mock(return_value=None)
+        res = dr.auto_publish(out, "b1", enabled=True, approve=approve, promote=promote, log=lambda _m: None)
+        self.assertEqual(sorted(c.args[0] for c in approve.call_args_list), ["b1", "edi-daily-2026-10-26", "edi-weekly-2026-10-19"])
+        self.assertEqual(approve.call_args_list[0].args, ("b1", ["new"]))  # this run's rows first
+        self.assertEqual(sorted(res.approved), ["new", "w1", "w2"])
+        self.assertEqual(promote.call_count, 3)
+        self.assertTrue(res.promoted)
+
+    def test_flag_off_nothing_is_approved_promoted_or_written(self):
+        out = self.go([rec("new")], [waiting("w1")], history=dr.PublishHistory(0, []))
+        approve, promote = mock.Mock(), mock.Mock()
+        res = dr.auto_publish(out, "b1", enabled=False, approve=approve, promote=promote, log=lambda _m: None)
+        approve.assert_not_called()
+        promote.assert_not_called()
+        self.assertEqual((res.approved, res.promoted), ([], False))
+        self.assertEqual(self.slugs(out), ["new", "w1"])  # still reported as "would publish"
+
+    def test_the_report_lists_waiting_rows_that_would_publish(self):
+        out = self.go([rec("new")], [waiting("w1")], history=dr.PublishHistory(0, []))
+        text = "\n".join(dr.markdown_section(out, auto_publish_on=False))
+        self.assertIn("1 from the waiting rows", text)
+        self.assertIn("Waiting rows (routed publish by score_backlog.py)", text)
+
+
+class BacklogThroughMainTests(unittest.TestCase):
+    def run_main(self, flags, backlog, fail_slugs=()):
+        t = MainFlagTests()
+        patch_calls = []
+        with mock.patch.object(dr, "load_backlog", return_value=(backlog, None)), mock.patch.object(dr, "patch_quality_columns", side_effect=lambda i, b: patch_calls.append((i, b))):
+            result = t.run_main(flags, fail_slugs=fail_slugs)
+        return (*result, patch_calls)
+
+    def test_flag_off_touches_nothing_but_reports_the_waiting_row(self):
+        staged, approve, promote, report, rj, patches = self.run_main([], [waiting("w1")])
+        approve.assert_not_called()
+        promote.assert_not_called()
+        self.assertEqual(patches, [])
+        self.assertIn("w1", rj["routing"]["backlog"]["publishable"])
+
+    def test_flag_on_publishes_the_waiting_row_in_its_own_batch_and_records_a_failure(self):
+        _, approve, promote, report, rj, patches = self.run_main(["--auto-publish"], [waiting("w1")])
+        self.assertEqual([c.args for c in approve.call_args_list], [("b1", ["good"]), ("edi-daily-2026-10-26", ["w1"])])
+        self.assertEqual(patches, [])
+
+    def test_a_waiting_row_that_fails_in_main_is_written_back_only_with_the_flag_on(self):
+        _, approve, _, _, _, patches = self.run_main(["--auto-publish"], [waiting("w1")], fail_slugs={"w1"})
+        self.assertEqual([c.args for c in approve.call_args_list], [("b1", ["good"])])
+        self.assertEqual([(i, b["quality_route"]) for i, b in patches], [("id-w1", "digest")])
+        _, approve, _, _, _, patches = self.run_main([], [waiting("w1")], fail_slugs={"w1"})
+        self.assertEqual(patches, [])
+
+
+class StaleLabelTests(unittest.TestCase):
+    """A saving label that no longer matches the page already fails verify_record (not loosened)."""
+
+    def verify(self, label, page):
+        record = {"slug": "bb", "title": "The Blackbird 3 small plates for two", "venue_name": "The Blackbird", "saving_label": label,
+                  "source_url": "https://www.itison.com/Edinburgh/deals/the-blackbird-small-plates", "recurrence": {"type": "once"}}
+        with mock.patch.object(weekly, "load_verification_text", return_value=(page, None)), mock.patch.object(weekly, "gather_verification_urls", return_value=[record["source_url"]]):
+            return weekly.verify_record(record)[1]
+
+    def test_a_label_the_page_no_longer_states_fails(self):
+        page = "The Blackbird 3 or 5 small plates for two. From £19 Was £42 Save up to 61% Buy now"
+        failures = self.verify("Save up to 55%", page)
+        self.assertIn("saving_label is not stated verbatim on source page", failures)
+
+    def test_a_label_the_page_still_states_passes(self):
+        page = "The Blackbird 3 or 5 small plates for two. From £19 Was £42 Save up to 55% Buy now"
+        self.assertEqual(self.verify("Save up to 55%", page), [])
+
+
 class AutoPublishTests(unittest.TestCase):
     def setUp(self):
         self.approved: list[tuple[str, list[str]]] = []
@@ -295,7 +529,7 @@ class AutoPublishTests(unittest.TestCase):
 class MainFlagTests(unittest.TestCase):
     """weekly_edinburgh.main end to end with every outside call faked."""
 
-    def run_main(self, flags, existing=(), this_batch=(), history=(None, None)):
+    def run_main(self, flags, existing=(), this_batch=(), history=(None, None), fail_slugs=()):
         records = [rec("good", _trust="official", source_name="Forever Edinburgh offers"),
                    rec("social", source_url="https://www.instagram.com/p/x/", _trust="official"),
                    rec("weak", title="Cheese", venue_name="Other", recurrence={"type": "always"}, _evidence=None, _trust="official")]
@@ -315,7 +549,7 @@ class MainFlagTests(unittest.TestCase):
                 mock.patch.object(weekly, "run_deal_sources", return_value=deal_result), \
                 mock.patch.object(weekly, "link_batch_records", return_value=None), \
                 mock.patch.object(weekly, "attach_publisher_images", return_value=None), \
-                mock.patch.object(weekly, "verify_record", side_effect=lambda r, recheck=False: (r, [])), \
+                mock.patch.object(weekly, "verify_record", side_effect=lambda r, recheck=False: (r, ["page gone"] if r.get("slug") in fail_slugs else [])), \
                 mock.patch.object(weekly, "make_rating_call", side_effect=RuntimeError("no rating")), \
                 mock.patch.object(page_check, "make_fetcher", return_value=ok_page), \
                 mock.patch.object(weekly, "upsert_happenings", side_effect=lambda rows: staged.append([dict(r) for r in rows]) or len(rows)), \

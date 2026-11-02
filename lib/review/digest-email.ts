@@ -33,9 +33,12 @@ export function reviewUrl(baseUrl: string, token: string): string {
 
 function headline(input: DigestEmailInput): string {
   const { items, waitingTotal, expiredCount } = input;
-  const shown = items.length === waitingTotal ? "" : ` Showing the best ${items.length}.`;
-  const expired = ` ${expiredCount} expired today (not reviewed within ${input.maxAgeDays ?? EXPIRE_AFTER_DAYS} days).`;
-  return `${plural(waitingTotal, "deal is", "deals are")} waiting for review.${shown}${expired}`;
+  const shown = items.length === waitingTotal ? "" : ` Showing the best ${items.length} of ${waitingTotal}.`;
+  const expired = ` ${expiredCount} expired this week (not reviewed within ${input.maxAgeDays ?? EXPIRE_AFTER_DAYS} days).`;
+  return (
+    "Nothing needs you. Fomo publishes the deals it can verify on its own; these are the unsure ones, still waiting. " +
+    `Approve any you want live, or ignore the lot: rows nobody reviews simply expire.${shown}${expired}`
+  );
 }
 
 function priceLine(d: StagedDeal): string | null {
@@ -44,7 +47,7 @@ function priceLine(d: StagedDeal): string | null {
 
 export function renderDigestEmail(input: DigestEmailInput): DigestEmail {
   const { items, baseUrl, sign } = input;
-  const subject = `Fomo deals to review: ${items.length} today, ${input.waitingTotal} waiting`;
+  const subject = `Fomo: ${plural(items.length, "unsure deal", "unsure deals")}, nothing needs you`;
   const lead = headline(input);
 
   const cards = items.map((d, i) => {
@@ -80,7 +83,7 @@ export function renderDigestEmail(input: DigestEmailInput): DigestEmail {
     textParts.push(`   Reject: ${c.reject}`);
     textParts.push("");
   }
-  textParts.push("Each link opens a page that asks you to confirm. Links work for 7 days.");
+  textParts.push("Optional: each link opens a page that asks you to confirm. Links work for 7 days.");
 
   // --- html ---
   const btn = (href: string, label: string, bg: string, fg: string) =>
@@ -132,7 +135,7 @@ export function renderDigestEmail(input: DigestEmailInput): DigestEmail {
 <div style="font-size:22px;font-weight:800;letter-spacing:-0.02em;color:#031632">fomo</div>
 <p style="margin:12px 0 18px;font-size:16px;line-height:24px;color:#0b1c30">${escapeHtml(lead)}</p>
 ${cardHtml}
-<p style="margin:8px 0 0;font-size:13px;line-height:18px;color:#74777f">Each button opens a page that asks you to confirm, so nothing changes until you tap there. Links work for 7 days.</p>
+<p style="margin:8px 0 0;font-size:13px;line-height:18px;color:#74777f">Optional: each button opens a page that asks you to confirm, so nothing changes until you tap there. Links work for 7 days.</p>
 </div></body></html>`;
 
   return { subject, html, text: textParts.join("\n") };
