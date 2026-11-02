@@ -12,8 +12,9 @@ rules from plan §7b:
     Edinburgh-only source) and no non-Edinburgh postcode is stated;
   * it has not expired (record_checks.record_is_fully_expired);
   * it passes the app's isGenuineDeal (lib/happenings/groups.ts): a promo code,
-    discount wording, or restricted eligibility with a positive saving_amount.
-    Plain-price vouchers are dropped as `not_a_deal`.
+    discount wording, a cheap price for a named item (price-benchmarks.json), or
+    restricted eligibility with a positive saving_amount. Other plain-price vouchers
+    are dropped as `not_a_deal`.
 
 A field that fails is either fatal (the deal is rejected with that reason) or, for
 display-only text, dropped and counted. See CRITICAL_FIELDS.
@@ -23,12 +24,15 @@ Nothing here touches the network.
 
 from __future__ import annotations
 
+import json
 import re
 import unicodedata
 from difflib import SequenceMatcher
+from functools import lru_cache
 from dataclasses import dataclass, field
 from datetime import date, datetime
 from decimal import Decimal, InvalidOperation
+from pathlib import Path
 from typing import Any
 from zoneinfo import ZoneInfo
 
@@ -157,11 +161,79 @@ DISCOUNT_SHAPE_RE = re.compile(
 )
 
 
+# Good-price lines per item (a pint under £4.50, a cocktail under £7...). One file read by
+# this module, lib/happenings/cheap-price.ts and scripts/lib/weekly-picks.mjs, so there is a
+# single copy of the numbers.
+PRICE_BENCHMARKS_PATH = Path(__file__).resolve().parents[2] / "lib" / "happenings" / "price-benchmarks.json"
+
+_POUNDS_RE = re.compile(r"£\s?(\d[\d,]*(?:\.\d+)?)")
+_OFF_AFTER_RE = re.compile(r"\s*off\b", re.I)
+_SAVE_BEFORE_RE = re.compile(r"\bsav(?:e|es|ed|ing|ings)\s*(?:up to\s*)?(?:of\s*)?$", re.I)
+_FOR_TWO_RE = re.compile(r"\bfor\s+(?:two|2)\b", re.I)
+
+
+@lru_cache(maxsize=1)
+def load_price_benchmarks() -> tuple[dict[str, Any], ...]:
+    """The `items` of price-benchmarks.json: {id, max_gbp, terms}."""
+    data = json.loads(PRICE_BENCHMARKS_PATH.read_text())
+    return tuple(data["items"])
+
+
+def _term_regex(terms: list[str]) -> re.Pattern[str]:
+    return re.compile(r"(?<![a-z0-9])(?:" + "|".join(re.escape(t.lower()) for t in sorted(terms, key=len, reverse=True)) + r")(?![a-z0-9])", re.I)
+
+
+def stated_prices(text: str) -> list[float]:
+    """£ figures in `text` that are a price: not "£5 off" and not "save £5". Halved when the
+    text says "for two" / "for 2" (the benchmarks are per person)."""
+    prices: list[float] = []
+    for m in _POUNDS_RE.finditer(text or ""):
+        if _OFF_AFTER_RE.match(text, m.end()) or _SAVE_BEFORE_RE.search(text[:m.start()]):
+            continue
+        try:
+            prices.append(float(m.group(1).replace(",", "")))
+        except ValueError:
+            pass
+    if prices and _FOR_TWO_RE.search(text):
+        prices = [p / 2 for p in prices]
+    return prices
+
+
+def cheap_price_match(title: str, saving_label: str | None) -> dict[str, Any] | None:
+    """The benchmark item a fixed price beats, as {id, price, max_gbp}, or None. The lowest
+    stated price is compared with every item named in the text; the item it beats by most
+    (price / max_gbp lowest) is returned."""
+    text = f"{saving_label or ''} {title or ''}"
+    prices = stated_prices(text)
+    if not prices:
+        return None
+    price = min(prices)
+    best: dict[str, Any] | None = None
+    for item in load_price_benchmarks():
+        if price <= item["max_gbp"] and _term_regex(item["terms"]).search(text):
+            if best is None or price / item["max_gbp"] < best["price"] / best["max_gbp"]:
+                best = {"id": item["id"], "price": price, "max_gbp": item["max_gbp"]}
+    return best
+
+
+def is_cheap_price(title: str, saving_label: str | None) -> bool:
+    """A fixed price at or below the good-price line for a named item ("£4 cask pints",
+    "£5 IPA with any burger"). Not a saving: "£5 off pints" has no price, "cocktails £8" is over
+    the line, and "£29 weekday sessions" names no item."""
+    return cheap_price_match(title, saving_label) is not None
+
+
 def is_genuine_deal(title: str, saving_label: str | None, saving_amount: float | None,
                     promo_code: str | None, eligibility: str) -> bool:
+    # Mirrors isGenuineDeal in lib/happenings/groups.ts and in scripts/lib/weekly-picks.mjs,
+    # including the cheap-price check, in the same order. stated_prices, cheap_price_match and
+    # is_cheap_price are mirrored in lib/happenings/cheap-price.ts and weekly-picks.mjs: change
+    # them together.
     if promo_code:
         return True
     if DISCOUNT_SHAPE_RE.search(saving_label or "") or DISCOUNT_SHAPE_RE.search(title or ""):
+        return True
+    if is_cheap_price(title, saving_label):
         return True
     if eligibility != "anyone" and isinstance(saving_amount, (int, float)) and not isinstance(saving_amount, bool) and saving_amount > 0:
         return True
@@ -246,10 +318,13 @@ class PageContext:
     norm: str = ""
     repair_text: str = ""  # plain text of the batch the deal came from, for repair_quote()
     repaired: list[str] = field(default_factory=list)  # labels of quotes repaired in this gate run
+    loose: str = ""  # norm with the whitespace around figures removed (saving labels only)
 
     def __post_init__(self) -> None:
         if not self.norm:
             self.norm = normalise(self.text)
+        if not self.loose:
+            self.loose = loose_figures(self.norm)
 
 
 @dataclass
@@ -302,6 +377,17 @@ def repair_quote(quote: str, source_text: str, min_ratio: float = REPAIR_MIN_RAT
     return " ".join(words)
 
 
+# Publishers glue figures to their neighbours ("Was £65Save up to 31%") and the model writes
+# them with a space. This removes whitespace next to a figure, except between two digits ("1 2"
+# must never equal "12"), so only a saving label is compared this way.
+_FIGURE_SPACE_RE = re.compile(r"(?<=[\d%])\s+(?=[^\d\s])|(?<=[^\d\s])\s+(?=[£\d])")
+_ELLIPSIS_RE = re.compile(r"\s*(?:\.{3}|…)\s*")
+
+
+def loose_figures(normalised: str) -> str:
+    return _FIGURE_SPACE_RE.sub("", normalised)
+
+
 def _check_quote(raw_quote: Any, page: PageContext, label: str) -> str:
     quote = strip_markers(raw_quote).strip() if isinstance(raw_quote, str) else ""
     if not quote:
@@ -312,6 +398,14 @@ def _check_quote(raw_quote: Any, page: PageContext, label: str) -> str:
     if not nq:
         raise _FieldFail("no_quote", f"{label}: no quote")
     if nq not in page.norm:
+        # A quote joined from separate passages with " ... " passes only when every
+        # fragment is word for word on the page.
+        fragments = [f for f in (normalise(part) for part in _ELLIPSIS_RE.split(quote)) if f]
+        if fragments and all(f in page.norm for f in fragments):
+            return quote
+        # A saving label may differ from the page only in whitespace around its figures.
+        if label == "saving_label" and loose_figures(nq) in page.loose:
+            return quote
         repaired = repair_quote(quote, page.repair_text)
         if repaired and normalise(repaired) in page.norm:
             page.repaired.append(label)

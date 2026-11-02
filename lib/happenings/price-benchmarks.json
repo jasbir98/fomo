@@ -1,0 +1,13 @@
+{
+  "_comment": "Draft good-price lines for Edinburgh, per person, GBP. A fixed price at or below the line counts as a deal. Read by scraper/deal_sources/gate.py (and quality.py through it), lib/happenings/cheap-price.ts and scripts/lib/weekly-picks.mjs.",
+  "items": [
+    {"id": "pint", "max_gbp": 4.5, "terms": ["pint", "pints", "cask", "lager", "ipa", "draught", "beer"]},
+    {"id": "cocktail", "max_gbp": 7, "terms": ["cocktail", "cocktails", "martini", "spritz"]},
+    {"id": "coffee", "max_gbp": 2.5, "terms": ["coffee", "flat white", "latte", "cappuccino"]},
+    {"id": "lunch", "max_gbp": 10, "terms": ["lunch", "set menu", "meal deal"]},
+    {"id": "main", "max_gbp": 10, "terms": ["burger", "pizza", "burrito", "curry", "fish and chips", "main course", "mains"]},
+    {"id": "brunch", "max_gbp": 12, "terms": ["brunch"]},
+    {"id": "afternoon_tea", "max_gbp": 18, "terms": ["afternoon tea"]},
+    {"id": "cinema", "max_gbp": 7, "terms": ["cinema", "film ticket", "movie ticket"]}
+  ]
+}

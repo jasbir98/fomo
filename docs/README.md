@@ -7,6 +7,16 @@ Run `/plans` in Claude Code for a summary of this page.
 
 Things waiting on you, newest first. Tick them off here, or ask Claude to update this list.
 
+**Daily best deals (2 Nov)** ([plan](plans/2026-11-02-daily-best-deals.md), branch `daily-best-deals`)
+Nothing has gone live since 12 Oct. Weekly runs on 19 and 26 Oct found deals, but they need manual SQL approval, and 502 rows are waiting. The quality check rejects cheap pints (£4 cask pints at Nobles, £5 IPA with any burger at Lioness of Leith) and keeps film studio hire, because it looks for discount wording rather than value. The plan: score every deal 0 to 100 by its value, auto-publish strong ones (at most 10 a day), send unsure ones to a one-tap daily digest, drop weak ones with a saved reason, run daily, read venues' own websites, then add newsletters, then Instagram.
+- [ ] Run the SQL for the new columns and the runs table (Phases 1 and 5).
+- [ ] Add the secrets: `REVIEW_SIGNING_SECRET`, and `NEXT_PUBLIC_MAPBOX_TOKEN` so new deals get map pins (already a to-do).
+- [ ] Workflow permission: run `gh auth refresh -h github.com -s workflow`, or push the workflow branch yourself. Claude's token can't push workflow files.
+- [ ] Top up DeepSeek if the balance is low. It ran out on 12 Oct.
+- [ ] Create the newsletter inbox and subscribe it (`docs/plan-data-collection.md` §9b). About 30 minutes. Claude can't create accounts for you.
+- [ ] Set up the Meta app (§9a), for the Instagram test.
+- [ ] Register for the Festivals API (§9c). This is the biggest quick win for events, with Hogmanay on 29 Dec, and it's already built.
+
 **Home deals rotate daily (28 Oct)** (branch `home-fresh-deals`)
 Home's "Today's deals" showed the same ~10 deals every day: today's weekly deals and dated deals filled every slot, so the 93 standing deals never appeared. Now it leads with up to 4 deals that are news today (a one-or-two-day weekly offer, a deal on its last two days, a deal added in the last 3 days, tagged "New"). The rest rotates daily through every good deal (steal score 15+, which keeps chains and 10%-off filler out), so the days don't repeat and each deal comes round about once a week. Live data, 14 days: 52 different cards, up from about 12.
 - [ ] Open a PR and merge.
@@ -200,6 +210,7 @@ Snapshots of the plans approved in Claude Code plan mode. Each one is a record o
 
 | Plan | Status |
 |---|---|
+| [2026-11-02 Get the best Edinburgh deals every day](plans/2026-11-02-daily-best-deals.md) | Approved 2 Nov. Build is on branch `daily-best-deals`. Open to-dos listed at the top of this page. |
 | [2026-10-27 Persona fit and "Near you now"](plans/2026-10-27-persona-near-now.md) | Both parts shipped 27 Oct: niche-audience demotion in [PR #57](https://github.com/jasbir98/fomo/pull/57), "Near you now" on Home in [PR #58](https://github.com/jasbir98/fomo/pull/58). PostHog check due ~3 Nov. |
 | [2026-10-20 Families: "With kids" lens and family supply](plans/2026-10-20-families-lens.md) | Merged in [PR #45](https://github.com/jasbir98/fomo/pull/45); follow-ups in [PR #46](https://github.com/jasbir98/fomo/pull/46). SQL and backfill done 20 Oct; places approval and promotion listed above. |
 | [2026-10-14 Technical SEO](plans/2026-10-14-technical-seo.md) | Built and checked against a production build; in [PR #35](https://github.com/jasbir98/fomo/pull/35). Slug URLs proposed, not built. |

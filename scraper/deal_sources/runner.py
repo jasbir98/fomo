@@ -72,10 +72,14 @@ class SourceStats:
     notes: list[str] = field(default_factory=list)
     samples: list[dict[str, Any]] = field(default_factory=list)
     rejection_examples: list[dict[str, str]] = field(default_factory=list)
+    # Every rejected deal, written to <out_dir>/<source-id>-rejected.json. Not in to_json():
+    # the report keeps its counts and MAX_REJECTION_EXAMPLES examples.
+    rejected_deals: list[dict[str, Any]] = field(default_factory=list)
     ledger_writes: int = 0
 
     def to_json(self) -> dict[str, Any]:
         d = dict(self.__dict__)
+        d.pop("rejected_deals", None)
         d["rejected"] = dict(self.rejected)
         d["dropped_fields"] = dict(self.dropped_fields)
         return d
@@ -118,6 +122,24 @@ def _deal_key(item: dict[str, Any]) -> str:
 def _short(value: Any, n: int = 140) -> str:
     text = value if isinstance(value, str) else json.dumps(value, ensure_ascii=False)
     return text if len(text) <= n else text[: n - 1] + "…"
+
+
+def _rejected_entry(source: DealSource, page_url: str, item: dict[str, Any], title: str, reason: str, detail: str) -> dict[str, Any]:
+    """One rejected deal, with the model's own quotes, for <source-id>-rejected.json."""
+    fields = item.get("fields") if isinstance(item.get("fields"), dict) else {}
+    saving = fields.get("saving_label")
+    return {
+        "source_id": source.id,
+        "url": page_url,
+        "title": title,
+        "saving_label": saving.get("value") if isinstance(saving, dict) else None,
+        "reason": reason,
+        "detail": detail,
+        "quotes": {
+            "deal": item.get("quote"),
+            "fields": {name: p.get("quote") for name, p in fields.items() if isinstance(p, dict) and p.get("quote")},
+        },
+    }
 
 
 def process_page(
@@ -213,6 +235,7 @@ def process_page(
         if not verdict.ok:
             reason = verdict.reason if verdict.reason in REASONS else "invalid_record"
             stats.rejected[reason] += 1
+            stats.rejected_deals.append(_rejected_entry(source, ref.url, item, title_text, reason, verdict.detail or ""))
             if len(stats.rejection_examples) < MAX_REJECTION_EXAMPLES:
                 stats.rejection_examples.append({"title": title_text, "page": ref.url, "reason": reason, "detail": verdict.detail or ""})
             continue
@@ -228,6 +251,7 @@ def process_page(
         record = build_full_record(raw, batch_id, EDINBURGH, "deal-source", model, now_iso)
         if record is None:
             stats.rejected["invalid_record"] += 1
+            stats.rejected_deals.append(_rejected_entry(source, ref.url, item, title_text, "invalid_record", "build_full_record refused the record"))
             if len(stats.rejection_examples) < MAX_REJECTION_EXAMPLES:
                 stats.rejection_examples.append({"title": title_text, "page": ref.url, "reason": "invalid_record", "detail": "build_full_record refused the record"})
             continue
@@ -396,6 +420,8 @@ def run_deal_sources(
             out_dir.mkdir(parents=True, exist_ok=True)
             (out_dir / f"{source.id}-records.json").write_text(
                 json.dumps({"records": source_records}, ensure_ascii=False, indent=2) + "\n")
+            (out_dir / f"{source.id}-rejected.json").write_text(
+                json.dumps({"rejected": stats.rejected_deals}, ensure_ascii=False, indent=2) + "\n")
         log(f"[deal-sources] {source.id}: fetched={stats.pages_fetched} unchanged={stats.pages_unchanged} "
             f"extracted={stats.deals_extracted} kept={stats.kept} rejected={sum(stats.rejected.values())} "
             f"cost=${stats.cost_usd:.4f}")
