@@ -1,17 +1,15 @@
 name: Weekly Edinburgh research
 
 # Runs scraper/weekly_edinburgh.py (docs/weekly-pipeline.md): lifecycle sweep,
-# publisher pages, page-grounded deal sources, 47 narrow DeepSeek topics, source re-verification, then
-# upserts candidates into `happenings_staging`. It never publishes on the
-# schedule: every publish is reviewed first (approve rows with the SQL in the
-# run's report), then promoted with a manual "promote" run.
+# publisher pages, page-grounded deal sources, ALL narrow DeepSeek topics, source
+# re-verification, then upserts candidates into `happenings_staging`.
+#
+# NO LONGER SCHEDULED. The daily run (daily-deals.yml) replaced the Monday cron: it
+# reads the deal sources every day and rotates the topics so each runs weekly. This
+# workflow stays for running everything at once by hand. It never publishes on its
+# own: approve rows with the SQL in the run's report (or the review page), then run
+# "promote".
 on:
-  schedule:
-    # Monday 11:23 UTC, so the staged batch is ready to review before the
-    # Wednesday carousel and Friday email (weekly-content.yml). After
-    # DeepSeek's weekday peak (01-04 and 06-10 UTC, double price): Fomo never
-    # calls DeepSeek in peak (scraper/deepseek_hours.py).
-    - cron: "23 11 * * 1"
   workflow_dispatch:
     inputs:
       mode:

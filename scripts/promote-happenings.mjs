@@ -54,6 +54,9 @@ re-run.
 Options:
   --batch-id <id>   Only promote staging rows from this batch_id (default: all
                      approved, un-promoted rows across every batch).
+  --slugs a,b,c     Only promote these exact slugs (comma-separated). Requires
+                     --batch-id. Other approved rows are left alone; the daily
+                     pipeline's --auto-publish uses this.
 
 Requires NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY in the env
 (server-only key — happenings_staging has no anon write policy).
@@ -62,6 +65,17 @@ Requires NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY in the env
 }
 
 const BATCH_ID = parseArg("batch-id");
+const SLUGS = (parseArg("slugs") ?? "")
+  .split(",")
+  .map((s) => s.trim())
+  .filter(Boolean);
+if (process.argv.some((a) => a === "--slugs" || a.startsWith("--slugs="))) {
+  // An empty or batch-less --slugs must never widen into "promote everything approved".
+  if (SLUGS.length === 0 || !BATCH_ID) {
+    console.error("[promote-happenings] --slugs needs a non-empty list and --batch-id.");
+    process.exit(1);
+  }
+}
 
 const supabaseUrl = (process.env.NEXT_PUBLIC_SUPABASE_URL ?? "").replace(/\/$/, "");
 const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY ?? "";
@@ -143,6 +157,10 @@ const HAPPENINGS_COLUMNS = [
   "priority",
   "status",
   "verified_at",
+  // supabase/add_deal_quality.sql adds these to both tables together, so a staging row
+  // only carries them once happenings has them too (undefined values are skipped below).
+  "quality_score",
+  "quality_reasons",
 ];
 
 // Staging rows are LLM-extracted from scraped pages — booking_url/source_url
@@ -259,7 +277,9 @@ async function fetchApprovedUnpromotedStaging() {
   // on the Scotland batch).
   const PAGE_SIZE = 1000;
   const rows = [];
-  const batchFilter = BATCH_ID ? `&batch_id=eq.${encodeURIComponent(BATCH_ID)}` : "";
+  const batchFilter =
+    (BATCH_ID ? `&batch_id=eq.${encodeURIComponent(BATCH_ID)}` : "") +
+    (SLUGS.length > 0 ? `&slug=in.${encodeURIComponent(inList(SLUGS))}` : "");
   for (let offset = 0; ; offset += PAGE_SIZE) {
     const page = await rest(
       `happenings_staging?approved=eq.true&extraction_status=neq.promoted${batchFilter}` +
@@ -278,7 +298,7 @@ async function main() {
   if (!stagingRows || stagingRows.length === 0) {
     console.log(
       `[promote-happenings] nothing to promote — no approved, un-promoted staging rows` +
-        (BATCH_ID ? ` for batch_id=${BATCH_ID}.` : ".")
+        (BATCH_ID ? ` for batch_id=${BATCH_ID}` : "") + (SLUGS.length > 0 ? ` and ${SLUGS.length} named slug(s).` : ".")
     );
     return;
   }

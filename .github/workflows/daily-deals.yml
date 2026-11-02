@@ -1,0 +1,179 @@
+name: Daily deals
+
+# Runs scraper/weekly_edinburgh.py every day (docs/weekly-pipeline.md, "Daily deals run"):
+# lifecycle sweep, publisher pages, ALL page-grounded deal sources (unchanged pages cost nothing:
+# the source_pages ledger skips them) and today's slice of the research topics
+# (--topic-slice auto: every topic once a week, deal topics twice). Every final record is scored
+# and routed publish / digest / drop (scraper/deal_routing.py) and staged with its score.
+#
+# AUTO-PUBLISH IS OFF unless the repository variable DEAL_AUTO_PUBLISH equals "true". Off, the run
+# only reports "would publish" rows (shadow mode) and changes nothing live. On, only rows routed
+# publish that also pass a fresh source-page check are approved and promoted, and nothing else.
+# Turn it on in Settings > Secrets and variables > Actions > Variables.
+#
+# The weekly job (weekly-research.yml) no longer has a schedule; it stays runnable by hand.
+on:
+  schedule:
+    # 11:43 UTC every day: after the 11:17 events import (daily-sources.yml) and well before the
+    # 12:37 daily deal review (daily-deal-review.yml), so whatever this publishes is in front of
+    # the review and its drought alarm. Off the hour on purpose (GitHub's top-of-hour pile-up).
+    # Clear of DeepSeek's weekday peak (01-04 and 06-10 UTC, double price); the wait step below
+    # covers a run GitHub starts hours late (scraper/deepseek_hours.py).
+    - cron: "43 11 * * *"
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "stage (research, score and stage; publishes only if DEAL_AUTO_PUBLISH is true) or promote (publish approved staged rows)"
+        required: true
+        default: "stage"
+        type: choice
+        options:
+          - stage
+          - promote
+      batch_id:
+        description: "promote only: batch id, e.g. edi-daily-2026-11-03 (blank = every approved row)"
+        required: false
+        default: ""
+
+# Least privilege: jobs only check out code and upload artifacts.
+permissions:
+  contents: read
+
+# Never two daily runs at once: they'd both spend the DeepSeek budget.
+concurrency:
+  group: daily-deals
+  cancel-in-progress: false
+
+jobs:
+  research:
+    if: ${{ github.event_name == 'schedule' || inputs.mode != 'promote' }}
+    runs-on: ubuntu-latest
+    environment: Production
+    # --workers 1: concurrent DeepSeek research calls have crashed the streaming path
+    # (seen 2026-09-14), so topics run one at a time.
+    timeout-minutes: 120
+    env:
+      # "true" turns on --auto-publish. Anything else, or unset, leaves shadow mode on.
+      DEAL_AUTO_PUBLISH: ${{ vars.DEAL_AUTO_PUBLISH }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: scraper/requirements.txt
+
+      # The lifecycle sweep and the promote script run under node. They import only repo files,
+      # so no npm install.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      # Playwright (in requirements.txt) isn't used by this script; skip the browser download.
+      - name: Install dependencies
+        run: pip install "requests>=2.31,<3" "python-dotenv>=1.0,<2" "anthropic>=0.40,<1" "pyyaml>=6,<7"
+
+      # DeepSeek bills double 01-04 and 06-10 UTC on weekdays. A scheduled run waits for a clear
+      # off-peak hour; a manual run in peak stops at once with the next start time.
+      # llm_client.py refuses DeepSeek in peak regardless, so this step only avoids a wasted run.
+      - name: Wait for DeepSeek off-peak
+        run: |
+          if [[ "${{ github.event_name }}" == "schedule" ]]; then
+            python3 scraper/deepseek_hours.py --wait 60
+          else
+            python3 scraper/deepseek_hours.py --check 60
+          fi
+
+      - name: Run daily deals
+        env:
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL || secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          # Optional: geocodes promoted rows that have no coordinates (auto-publish only).
+          NEXT_PUBLIC_MAPBOX_TOKEN: ${{ secrets.NEXT_PUBLIC_MAPBOX_TOKEN }}
+        run: |
+          if [[ -z "$DEEPSEEK_API_KEY" ]]; then
+            echo "::error::DEEPSEEK_API_KEY is not set on the Production environment."
+            exit 1
+          fi
+          # Hard cap $0.45 a run (about $14 a month); the deal sources get at most $0.20 of it.
+          # Tidy (the lifecycle sweep) and the quality routing are on by default.
+          args=(--stage --workers 1 --cap-usd 0.45 --deal-sources-usd 0.20 --topic-slice auto
+                --batch-id "edi-daily-$(TZ=Europe/London date +%F)")
+          if [[ "$DEAL_AUTO_PUBLISH" == "true" ]]; then
+            echo "DEAL_AUTO_PUBLISH is true: passing --auto-publish"
+            args+=(--auto-publish)
+          else
+            echo "DEAL_AUTO_PUBLISH is not true: shadow mode, nothing is published"
+          fi
+          python3 scraper/weekly_edinburgh.py "${args[@]}"
+
+      - name: Add report to the run summary
+        if: always()
+        run: |
+          report=$(ls -t scraper/out/edi-daily-*/weekly-report.md 2>/dev/null | head -n 1)
+          if [[ -n "$report" ]]; then cat "$report" >> "$GITHUB_STEP_SUMMARY"; fi
+
+      - name: Upload batch output
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: daily-deals-${{ github.run_number }}
+          path: scraper/out/edi-daily-*/
+          if-no-files-found: ignore
+          retention-days: 30
+
+  digest:
+    needs: research
+    # Send even if research failed: the rows already waiting still need review.
+    if: ${{ always() && (github.event_name == 'schedule' || inputs.mode != 'promote') }}
+    runs-on: ubuntu-latest
+    environment: Production
+    timeout-minutes: 10
+    env:
+      NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL || secrets.SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+      FOMO_FROM_EMAIL: ${{ vars.FOMO_FROM_EMAIL || secrets.FOMO_FROM_EMAIL }}
+      REVIEW_DIGEST_TO: ${{ secrets.REVIEW_DIGEST_TO }}
+      REVIEW_SIGNING_SECRET: ${{ secrets.REVIEW_SIGNING_SECRET }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      # npm ci, as weekly-content.yml does: the script's @/lib imports can pull in packages
+      # (server-only, the Supabase client), so don't rely on a bare checkout.
+      - name: Install dependencies
+        run: npm ci
+      - name: Email the deal digest
+        run: npx --yes tsx scripts/deal-digest.ts --send
+
+  promote:
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.mode == 'promote' }}
+    runs-on: ubuntu-latest
+    environment: Production
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      # Only rows already marked approved = true in happenings_staging move (the review page or
+      # the report's SQL approves them).
+      - name: Promote approved rows
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL || secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          # Optional: geocodes promoted rows that have no coordinates.
+          NEXT_PUBLIC_MAPBOX_TOKEN: ${{ secrets.NEXT_PUBLIC_MAPBOX_TOKEN }}
+          BATCH_ID: ${{ inputs.batch_id }}
+        run: |
+          if [[ -n "$BATCH_ID" ]]; then
+            node scripts/promote-happenings.mjs --batch-id "$BATCH_ID"
+          else
+            node scripts/promote-happenings.mjs
+          fi
