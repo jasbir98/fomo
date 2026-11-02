@@ -49,8 +49,8 @@ DEPTH_MAX = 30
 CHEAP_PRICE_VALUE = 25
 CHEAP_PRICE_VALUE_DEEP = 35  # price at or under DEEP_PRICE_RATIO of its line
 DEEP_PRICE_RATIO = 0.7
-FREE_VALUE = 30  # non-deal kinds: free
-LOW_PRICE_VALUE = 20  # non-deal kinds: a stated price at or under LOW_PRICE_GBP
+FREE_VALUE = 20  # non-deal kinds: free (was 30: a free night is nice, but it has to be worth going out for)
+LOW_PRICE_VALUE = 15  # non-deal kinds: a stated price at or under LOW_PRICE_GBP (was 20)
 LOW_PRICE_GBP = 10
 CHAIN_PENALTY = 25
 LOCAL_BONUS = 15
@@ -64,7 +64,9 @@ HIRE_PENALTY = 20
 SERVICE_PENALTY = 15  # beauty, hair, clinical and therapy services
 RATING_CAPS = {1: 25, 2: 45, 3: 69}  # an AI rating of 4 or 5 caps nothing
 NON_DEAL_CAP = PUBLISH_AT - 1  # an event, activity, free_access, festival or tour scores at most this ...
-NON_DEAL_UNCAPPED_RATING = (4, 5)  # ... unless it has a stated free or low price AND an AI rating of 4 or 5
+NON_DEAL_UNCAPPED_RATING = (5,)  # ... unless it has a stated free or low price AND an AI rating of 5 ("worth going out of your way for")
+NON_DEAL_DAILY_LIMIT = 3  # of the day's DAILY_PUBLISH_LIMIT auto-publishes, at most this many may be non-deals
+ANNUAL_LEAD_DAYS = 45  # an annual row is in season from this many days before its date (lib/happenings/season.ts)
 
 AUDIENCE_POINTS = {
     "student": 10, "under_26": 10,
@@ -231,6 +233,75 @@ def locate(record: dict[str, Any]) -> tuple[bool, str] | None:
     return None
 
 
+# --- what the row says about when ------------------------------------------------------------
+
+# A pattern that is not "every week": "second and last Monday", "first Friday of the month", "every other
+# week", "fortnightly", "monthly". A record that says weekly while its own text says one of these is wrong.
+_ORDINAL = r"(?:first|second|third|fourth|fifth|last|1st|2nd|3rd|4th|5th)"
+_WEEKDAY = r"(?:mon|tues|wednes|thurs|fri|satur|sun)day"
+DIFFERENT_PATTERN_RE = re.compile(
+    rf"\b{_ORDINAL}(?:\s*(?:,|and|&|or)\s*{_ORDINAL})*\s+{_WEEKDAY}s?\b"
+    r"|\bevery\s+other\b|\bevery\s+(?:two|2|second|third|fourth)\s+(?:weeks?|months?)\b|\balternate\s+(?:weeks?|weekends?)\b"
+    r"|\bfortnightly\b|\bbi-?weekly\b|\bmonthly\b|\b(?:each|every)\s+month\b|\bonce\s+a\s+month\b",
+    re.I,
+)
+PATTERN_TEXT_FIELDS = ("title", "summary", "time_note", "redemption_note", "eligibility_note", "saving_label", "price_text", "evidence_quote", "page_excerpt")
+
+
+def _evidence_quote_text(record: dict[str, Any]) -> str:
+    evidence = record.get("_evidence")
+    if not isinstance(evidence, dict):
+        return ""
+    quotes = [evidence.get("deal_quote")]
+    fields = evidence.get("fields")
+    if isinstance(fields, dict):
+        quotes += [v.get("quote") for v in fields.values() if isinstance(v, dict)]
+    return " ".join(q for q in quotes if isinstance(q, str))
+
+
+def different_pattern(record: dict[str, Any]) -> str | None:
+    """The wording that says this is not a plain weekly thing ("second and last Monday", "monthly"), found in the
+    row's own text, its quote or the page excerpt; None when there is none. Only meaningful for a weekly record."""
+    text = " ".join(str(record.get(k) or "") for k in PATTERN_TEXT_FIELDS) + " " + _evidence_quote_text(record)
+    m = DIFFERENT_PATTERN_RE.search(text)
+    return " ".join(m.group(0).split()).lower() if m else None
+
+
+def weekly_pattern_conflict(record: dict[str, Any]) -> str | None:
+    """Set when the record says weekly but its text says a different pattern. Such a row earns no limited-days bonus and cannot publish."""
+    if weekly_day_count(record.get("recurrence")) is None:
+        return None
+    return different_pattern(record)
+
+
+def annual_out_of_season(record: dict[str, Any], today: date) -> str | None:
+    """Why an annual row is out of season today, or None. The app's rule (lib/happenings/season.ts): an annual row shows
+    from ANNUAL_LEAD_DAYS before its date. So one whose date this year has passed (next one is next year), or whose next
+    one is more than ANNUAL_LEAD_DAYS away, is out of season. Applied to every kind here, not only deals and free access.
+    A row without a month and day is never judged."""
+    rec = record.get("recurrence")
+    if not isinstance(rec, dict) or rec.get("type") != "annual":
+        return None
+    month, day = rec.get("month"), rec.get("day")
+    if not (isinstance(month, int) and isinstance(day, int)) or isinstance(month, bool) or isinstance(day, bool):
+        return None
+    nxt = None
+    for year in (today.year, today.year + 1):
+        try:
+            candidate = date(year, month, day)
+        except ValueError:
+            continue
+        if candidate >= today:
+            nxt = candidate
+            break
+    if nxt is None:
+        return None
+    lead = (nxt - today).days
+    if lead > ANNUAL_LEAD_DAYS:
+        return f"out of season: annual, next on {nxt.isoformat()} ({lead} days away, shown from {ANNUAL_LEAD_DAYS})"
+    return None
+
+
 # --- score -------------------------------------------------------------------------------
 
 _HIRE_RE = re.compile(r"\bhire\b", re.I)
@@ -316,10 +387,16 @@ def score_deal(record: dict[str, Any], *, ai_rating: int | None = None, now: dat
 
     days = weekly_day_count(record.get("recurrence"))
     if days is not None:
-        points = day_rarity(days)
-        if points:
-            score += points
-            reasons.append(f"limited days: {days} a week +{points}")
+        conflict = different_pattern(record)
+        if (record.get("kind") or "deal") not in DEAL_KINDS:
+            pass  # a weekly quiz or open mic is not rare: no limited-days bonus for anything that is not a deal
+        elif conflict:
+            reasons.append(f"limited days not counted: the text says '{conflict}', not every week")
+        else:
+            points = day_rarity(days)
+            if points:
+                score += points
+                reasons.append(f"limited days: {days} a week +{points}")
 
     if is_national_chain(record):
         score -= CHAIN_PENALTY
@@ -366,7 +443,7 @@ def score_deal(record: dict[str, Any], *, ai_rating: int | None = None, now: dat
         rated_well = isinstance(ai_rating, int) and not isinstance(ai_rating, bool) and ai_rating in NON_DEAL_UNCAPPED_RATING
         if not (value and rated_well):
             score = NON_DEAL_CAP
-            why = "no stated free or low price" if not value else "no AI rating of 4 or 5"
+            why = "no stated free or low price" if not value else "no AI rating of 5"
             reasons.append(f"not a deal: capped at {NON_DEAL_CAP} ({why})")
     return QualityResult(score, reasons)
 
@@ -400,6 +477,18 @@ def route_deal(record: dict[str, Any], result: QualityResult, *, source_class: s
             return "drop"
     if result.score < DROP_BELOW:
         return "drop"
+    # Never publish, and the digest does not show it: an annual row out of season (see lib/review/digest.ts).
+    season = annual_out_of_season(record, today or datetime.now(LONDON).date())
+    if season:
+        if season not in result.reasons:
+            result.reasons.append(season)
+        return "digest"
+    conflict = weekly_pattern_conflict(record)
+    if conflict:
+        reason = f"not every week: the text says '{conflict}', so it cannot publish as a weekly row"
+        if reason not in result.reasons:
+            result.reasons.append(reason)
+        return "digest"
     blocking = [e for e in _validation_errors(record) if e not in ALLOWED_VALIDATION_ERRORS]
     passed_gate = bool(record.get("_evidence"))  # deal-source records carry the gate's evidence
     if (result.score >= PUBLISH_AT and not blocking and source_class in PUBLISH_SOURCE_CLASSES
@@ -453,17 +542,25 @@ def same_venue(a: dict[str, Any], b: dict[str, Any]) -> bool:
     return any(long_ == f"{short} {area}" for area in EDINBURGH_AREAS)
 
 
+def is_non_deal(record: dict[str, Any]) -> bool:
+    return (record.get("kind") or "deal") not in DEAL_KINDS
+
+
 def apply_daily_limit(routed: list[RoutedDeal], limit: int = DAILY_PUBLISH_LIMIT, *,
                       per_venue: int = VENUE_PUBLISH_LIMIT, per_source: int = SOURCE_PUBLISH_LIMIT,
-                      already_today: int = 0) -> list[RoutedDeal]:
-    """Keep at most `limit` publishes in one run, `per_venue` for one venue (see same_venue) and
-    `per_source` for one source_name. Best score first (ties keep the earlier item); the rest move
-    to digest with a reason. Returns a new list in the same order. A record with no source_name has
-    no source limit. With auto-publish the caller passes the day's remainder as `limit` and the number
-    already published today as `already_today` (only used in the reason text)."""
-    publishing = sorted((i for i, r in enumerate(routed) if r.route == "publish"), key=lambda i: (-routed[i].result.score, i))
+                      already_today: int = 0, already_non_deal: int = 0, non_deal_limit: int = NON_DEAL_DAILY_LIMIT,
+                      already_sources: Counter[str] | None = None) -> list[RoutedDeal]:
+    """Keep at most `limit` publishes in one run, `per_venue` for one venue (see same_venue), `per_source` for one
+    source_name, and at most `non_deal_limit` non-deals (less `already_non_deal` published earlier today). Order: this
+    run's new rows before a waiting backlog row (record["_backlog"]), then best score first, a deal before a non-deal on a
+    tie, then the earlier item; the rest move to digest with a reason. Returns a new list in the same order. A record
+    with no source_name has no source limit. With auto-publish the caller passes the day's remainder as `limit`, the
+    number already published today as `already_today` (reason text only) and `already_non_deal`."""
+    publishing = sorted((i for i, r in enumerate(routed) if r.route == "publish"),
+                        key=lambda i: (bool(routed[i].record.get("_backlog")), -routed[i].result.score, is_non_deal(routed[i].record), i))
     kept_records: list[dict[str, Any]] = []
-    sources: Counter[str] = Counter()
+    sources: Counter[str] = Counter(already_sources or {})
+    non_deals = already_non_deal
     why: dict[int, str] = {}
     for i in publishing:
         record = routed[i].record
@@ -472,12 +569,16 @@ def apply_daily_limit(routed: list[RoutedDeal], limit: int = DAILY_PUBLISH_LIMIT
             why[i] = f"same venue as a higher-scoring publish ({per_venue} per venue): moved to digest"
         elif source and sources[source] >= per_source:
             why[i] = f"source limit of {per_source} reached: moved to digest"
+        elif is_non_deal(record) and non_deals >= non_deal_limit:
+            why[i] = f"non-deal limit of {non_deal_limit} a day reached (events, activities and the like): moved to digest"
         elif len(kept_records) >= limit:
             why[i] = (f"over the daily limit of {limit + already_today} ({already_today} already published today): moved to digest"
                       if already_today else f"over the daily limit of {limit}: moved to digest")
         else:
             kept_records.append(record)
             sources[source] += 1
+            if is_non_deal(record):
+                non_deals += 1
     out: list[RoutedDeal] = []
     for i, item in enumerate(routed):
         if i in why:
@@ -517,15 +618,26 @@ RATING_BATCH = 25
 RATING_TOOL_NAME = "submit_ratings"
 RATING_MAX_TOKENS = 2_000
 RATING_SYSTEM_PROMPT = (
-    "You rate deals for Fomo, an Edinburgh app for cheap and free things to do and local or student deals. "
-    "For each deal answer one question: would a student or young professional in Edinburgh actually care about this? "
-    "Rate 1 to 5: 1 = no (a clinic, a hire service, a corporate package, something far from their life), "
-    "3 = maybe, 5 = clearly yes (cheap food and drink, nights out, student offers, free things to do). "
-    "Read the summary, the notes and the page excerpt when they are given, not only the title. "
+    "You rate listings for Fomo, an Edinburgh app for cheap and free things to do and local or student deals. "
+    "For each one answer: would a student or young professional in Edinburgh actually care about this? Rate 1 to 5, "
+    "using the scale for the row's `kind`. Rate by what a person actually pays, so use the per-person price where one is given "
+    "(price_text, saving_label, the summary), not the headline discount percentage.\n"
+    "DEALS (kind: deal). 5 = clearly cheap and useful to this audience: an everyday meal, drink, coffee, cinema trip or night out "
+    "at a low price you actually pay. "
+    "4 = a good saving on something they would use, with a modest price per person. 4 also covers a voucher you pay for in advance "
+    "when the price per person is £15 or less, and 20% or more off food, drink or a night out at a local independent place where you "
+    "do not need to spend a lot. "
+    "3 = a real discount on something pricey: a voucher over £15 a head, a spa or hotel treat, or any pricier thing at a real discount. "
+    "2 or less = a narrow group, or conditions the title does not state.\n"
+    "EVERYTHING ELSE (events, activities, free access, festivals, tours). 1 = no (a clinic, a hire service, a corporate package, "
+    "something far from their life). 3 = maybe, and also the rating for anything that happens every week or month without something more to it. "
+    "5 = worth going out of your way for: a one-off, something unusual, or something with a real draw (a big prize, a notable guest, "
+    "a genuinely cheap meal or drink). Being free is not enough for a 5. A routine regular night is a 3 unless the page shows something more.\n"
+    "For every kind: read the summary, the notes and the page excerpt when they are given, not only the title. "
     "A row meant for a narrow group (children or teenagers, over-60s, members, a named neighbourhood or community, "
     "fans who have a match ticket) rates at most 2, and so does a row with a condition its title or label does not "
     "state (a ticket you must already hold, a donation or booking fee, a minimum spend, a membership). "
-    "Rate every deal once, using its slug exactly as given."
+    "Rate every row once, using its slug exactly as given."
 )
 RATING_TOOL: dict[str, Any] = {
     "name": RATING_TOOL_NAME,

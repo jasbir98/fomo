@@ -293,7 +293,7 @@ def check_from_reasons(reasons: Any, today: date, max_age_days: int = 7) -> Page
 def apply_checks(routed: list[Any], checks: dict[str, PageCheck], today: date) -> list[Any]:
     """Fold page checks into routed deals (quality.RoutedDeal). A page that is gone or lapsed makes the row
     drop; every other row not already dropped gets its marker (ok, unconfirmed or not reached) appended to
-    its reasons. Returns a new list in the same order; the inputs are not changed."""
+    its reasons, and a row routed publish whose page was not confirmed ok goes to digest. Returns a new list in the same order; the inputs are not changed."""
     from dataclasses import replace  # local: keeps the top of this module free of the quality import
 
     from deal_sources.quality import QualityResult
@@ -305,7 +305,11 @@ def apply_checks(routed: list[Any], checks: dict[str, PageCheck], today: date) -
             continue
         check = checks.get(str(item.record.get("slug") or ""))
         route = "drop" if check is not None and check.status in ("gone", "lapsed") else item.route
-        out.append(replace(item, route=route, result=QualityResult(item.result.score, [*item.result.reasons, marker(check, today)])))
+        reasons = [*item.result.reasons, marker(check, today)]
+        if route == "publish" and (check is None or check.status != "ok"):
+            route = "digest"  # a page we could not read, or did not reach, never publishes
+            reasons.append("cannot publish: the source page was not confirmed")
+        out.append(replace(item, route=route, result=QualityResult(item.result.score, reasons)))
     return out
 
 

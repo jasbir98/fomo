@@ -128,6 +128,7 @@ class FreshStats:
     skipped_over_limit: int = 0
     failures: list[tuple[str, list[str]]] = field(default_factory=list)  # (title, reasons)
     already_today: int = 0  # rows auto-published today (London date) before this run
+    already_non_deal: int = 0  # of those, non-deals
     cooldown: int = 0  # moved to digest: the venue got an auto-published deal in the last COOLDOWN_DAYS
     blocked: int = 0  # moved to digest: the day's limit was used up, or the limit history could not be read
     history_error: str | None = None
@@ -140,7 +141,8 @@ COOLDOWN_DAYS = 7  # a venue with an auto-published deal this recently routes to
 class PublishHistory:
     """Rows this pipeline published recently, for the limits that hold across runs."""
     published_today: int = 0
-    recent: list[dict[str, Any]] = field(default_factory=list)  # published within COOLDOWN_DAYS: venue_name, place_id, title, created_at
+    recent: list[dict[str, Any]] = field(default_factory=list)  # published within COOLDOWN_DAYS: venue_name, place_id, title, kind, created_at
+    published_today_non_deal: int = 0  # of published_today, how many were not deals (the day's cap is quality.NON_DEAL_DAILY_LIMIT)
 
 
 def load_publish_history(get_all: Callable[[str, dict[str, str]], list[dict[str, Any]]], *,
@@ -157,17 +159,20 @@ def load_publish_history(get_all: Callable[[str, dict[str, str]], list[dict[str,
     try:
         rows = get_all("happenings_staging", {
             "quality_route": "eq.publish", "approved": "eq.true", "extraction_status": "in.(approved,promoted)",
-            "created_at": f"gte.{cutoff}", "select": "slug,title,venue_name,place_id,created_at,source_name",
+            "created_at": f"gte.{cutoff}", "select": "slug,title,kind,venue_name,place_id,created_at,source_name",
         })
     except Exception as exc:  # noqa: BLE001 - a failed read is a reported state, never a crash
         return None, f"{exc.__class__.__name__}: {str(exc)[:200]}"
     london_today = now.astimezone(quality.LONDON).date()
     today = 0
+    non_deal = 0
     for row in rows:
         stamp = quality._parse_timestamp(row.get("created_at"))
         if stamp is not None and stamp.astimezone(quality.LONDON).date() == london_today:
             today += 1
-    return PublishHistory(today, list(rows)), None
+            if quality.is_non_deal(row):
+                non_deal += 1
+    return PublishHistory(today, list(rows), non_deal), None
 
 
 def finalize(
@@ -200,6 +205,7 @@ def finalize(
     remaining = quality.DAILY_PUBLISH_LIMIT
     if history is not None:
         stats.already_today = history.published_today
+        stats.already_non_deal = history.published_today_non_deal
         remaining = max(0, quality.DAILY_PUBLISH_LIMIT - history.published_today)
     for i, item in enumerate(current):
         if item.route != "publish":
@@ -219,7 +225,8 @@ def finalize(
                           f"({history.published_today} auto-published): moved to digest")
                 stats.blocked += 1
     while True:
-        limited = quality.apply_daily_limit(current, remaining, already_today=stats.already_today)
+        limited = quality.apply_daily_limit(current, remaining, already_today=stats.already_today,
+                                            already_non_deal=stats.already_non_deal)
         todo = [i for i, r in enumerate(limited) if r.route == "publish" and i not in checked]
         if not todo:
             break
@@ -289,6 +296,138 @@ def evidence_by_source(records: list[dict[str, Any]]) -> dict[str, tuple[int, in
     return {name: (total, with_ev) for name, (total, with_ev) in counts.items()}
 
 
+# --- waiting rows that may fill the day's remaining slots ----------------------------------------
+
+BACKLOG_MAX_CANDIDATES = 40  # waiting rows looked at per run, best stored score first (each costs a page re-check)
+BACKLOG_BLOCKING_MARKERS = ("page check: unconfirmed", "page check: gone", "page check: lapsed")
+BACKLOG_DONE_STATUSES = ("promoted", "approved", "rejected")
+
+
+def backlog_blocked_by(row: dict[str, Any]) -> str | None:
+    """Why a waiting row may not be tried for publishing, or None. Rows score_backlog.py marked unconfirmed, gone or
+    lapsed never are; neither is one a person decided, one already live, or one on social media or a newsletter."""
+    if row.get("approved") is True or row.get("happening_id") or row.get("reviewed_at") or row.get("reviewed_action"):
+        return "already decided"
+    if str(row.get("extraction_status") or "") in BACKLOG_DONE_STATUSES:
+        return f"status {row.get('extraction_status')}"
+    reasons = [str(r) for r in (row.get("quality_reasons") or []) if isinstance(r, str)]
+    marker = next((m for m in BACKLOG_BLOCKING_MARKERS if any(r.startswith(m) for r in reasons)), None)
+    if marker:
+        return marker
+    if quality.source_class(row) not in quality.PUBLISH_SOURCE_CLASSES:
+        return "social or newsletter source"
+    return None
+
+
+def load_backlog(
+    get_all: Callable[[str, dict[str, str]], list[dict[str, Any]]],
+    *,
+    batch_id: str,
+    run_slugs: set[str],
+    catalogue: Any = None,
+    limit: int = BACKLOG_MAX_CANDIDATES,
+) -> tuple[list[dict[str, Any]], str | None]:
+    """(waiting staged rows that score_backlog.py routed publish and nobody has decided, None), or ([], why) when they
+    cannot be read. Read-only; never raises. Fail safe: any read failure means no backlog, so nothing extra publishes.
+    Left out: rows of this batch or this run's slugs, slugs already live, a confident identity match to a live row,
+    and the rows backlog_blocked_by refuses. One row per slug (the newest); best stored score first, at most `limit`."""
+    try:
+        live = get_all("happenings", {"select": "slug", "status": "eq.live"})
+        rows = get_all("happenings_staging", {
+            "select": "*", "quality_route": "eq.publish", "happening_id": "is.null",
+            "or": "(approved.eq.false,approved.is.null)",
+        })
+    except Exception as exc:  # noqa: BLE001 - a failed read is a reported state, never a crash
+        return [], f"waiting rows could not be read ({exc.__class__.__name__}: {str(exc)[:160]}); nothing extra publishes"
+    live_slugs = {str(r.get("slug")) for r in live if r.get("slug")}
+    newest: dict[str, dict[str, Any]] = {}
+    for row in sorted(rows, key=lambda r: (str(r.get("created_at") or ""), str(r.get("batch_id") or ""))):
+        newest[str(row.get("slug"))] = row
+    out: list[dict[str, Any]] = []
+    for slug, row in newest.items():
+        if not slug or slug in live_slugs or slug in run_slugs or row.get("batch_id") == batch_id or backlog_blocked_by(row):
+            continue
+        if catalogue is not None:
+            found = catalogue.best_match(row)
+            if found is not None and found.verdict == "match" and found.entry.table == "happenings" and found.entry.status == "live":
+                continue
+        out.append(row)
+    out.sort(key=lambda r: -(r.get("quality_score") if isinstance(r.get("quality_score"), int) else -1))
+    return out[:limit], None
+
+
+def route_backlog(rows: list[dict[str, Any]], *, today: date | None = None, now: datetime | None = None) -> list[RoutedDeal]:
+    """Route stored rows as candidates to publish. The score is the stored one (score_backlog.py wrote it with the rating
+    and the caps). A stored row has lost its in-memory `_evidence`, so the gate is replaced by the fresh verify_record in
+    finalize(): `_evidence` is set to a placeholder here so route_deal can say publish, and nothing publishes unless that
+    fresh check passes. Everything else in route_deal still applies: expired, outside Edinburgh, blocking validation
+    errors (commercial_source_review is allowed), annual out of season, a weekly row whose text says another pattern."""
+    out: list[RoutedDeal] = []
+    for row in rows:
+        record = dict(row)
+        record["_backlog"] = True
+        record["_evidence"] = {"deal_quote": "(backlog: relies on the fresh source-page check)"}
+        score = record.get("quality_score")
+        result = QualityResult(score if isinstance(score, int) else 0, [str(r) for r in (record.get("quality_reasons") or []) if isinstance(r, str)])
+        route = quality.route_deal(record, result, source_class=quality.source_class(record), today=today)
+        out.append(RoutedDeal(record, result, route))
+    return out
+
+
+def backlog_failures(outcome: "RoutingOutcome") -> list[tuple[dict[str, Any], str]]:
+    """Waiting rows that failed the fresh check this run, with the reason text: they stay waiting and keep the reason."""
+    out = []
+    for item in outcome.backlog:
+        reason = next((r for r in item.result.reasons if r.startswith(PUBLISH_FRESH_REASON)), None)
+        if reason and item.route != "publish":
+            out.append((item.record, reason))
+    return out
+
+
+def record_backlog_failures(
+    outcome: "RoutingOutcome",
+    patch: Callable[[str, dict[str, Any]], None] | None = None,
+    log: Callable[[str], None] = print,
+) -> int:
+    """Auto-publish only: write each failed waiting row back as routed digest with the reason added to its reasons, so it stays
+    waiting (and the weekly email can show it) instead of being retried against a dead page every day. Writes the three
+    quality columns of that row and nothing else. Returns how many were written; a failed write is logged, never raised."""
+    patch = patch or patch_quality_columns
+    written = 0
+    for record, reason in backlog_failures(outcome):
+        row_id = record.get("id")
+        if not row_id:
+            continue
+        reasons = [r for r in (record.get("quality_reasons") or []) if isinstance(r, str) and not r.startswith(PUBLISH_FRESH_REASON)]
+        body = {"quality_score": record.get("quality_score"), "quality_reasons": [*reasons, reason[:400]], "quality_route": "digest"}
+        try:
+            patch(str(row_id), body)
+            written += 1
+        except Exception as exc:  # noqa: BLE001
+            log(f"[routing] could not record a failed re-check for {record.get('slug')}: {exc.__class__.__name__}")
+    return written
+
+
+def patch_quality_columns(row_id: str, body: dict[str, Any]) -> None:
+    """PATCH the quality columns of one waiting staged row (never one that is approved, promoted or linked)."""
+    import requests  # lazy: tests inject a fake
+
+    from weekly_edinburgh import supabase_connection  # lazy: importing it loads the env files
+
+    connection = supabase_connection()
+    if not connection:
+        raise RuntimeError("Supabase credentials are unavailable")
+    url, key = connection
+    allowed = {k: v for k, v in body.items() if k in ("quality_score", "quality_reasons", "quality_route")}
+    resp = requests.patch(
+        f"{url}/rest/v1/happenings_staging",
+        headers={"apikey": key, "Authorization": f"Bearer {key}", "Content-Type": "application/json", "Prefer": "return=minimal"},
+        params={"id": f"eq.{row_id}", "extraction_status": "neq.promoted", "happening_id": "is.null", "approved": "not.eq.true"},
+        json=allowed, timeout=30,
+    )
+    resp.raise_for_status()
+
+
 # --- the whole routing step ---------------------------------------------------------------------
 
 
@@ -302,6 +441,8 @@ class RoutingOutcome:
     publishable: list[RoutedDeal]  # routed publish AND freshly verified AND a web source (what auto-publish would touch)
     pages: dict[str, page_check.PageCheck] = field(default_factory=dict)  # slug -> source page check (empty when not run)
     pages_requested: int = 0
+    backlog: list[RoutedDeal] = field(default_factory=list)  # waiting rows considered for the day's remaining slots (final routes)
+    backlog_note: str | None = None  # why the backlog was not read or not used, when it was not
 
 
 def select_publishable(final: list[RoutedDeal], fresh_ok: set[str]) -> list[RoutedDeal]:
@@ -331,6 +472,8 @@ def run_routing(
     fail_safe: bool = False,
     page_get: Callable[[str], Any] | None = None,
     page_cap: int = page_check.RUN_PAGE_CAP,
+    backlog_rows: list[dict[str, Any]] | None = None,
+    backlog_note: str | None = None,
     log: Callable[[str], None] = print,
 ) -> RoutingOutcome:
     """Rate, score, route, limit and fresh-check `records`, and stamp the quality_* fields onto them.
@@ -361,14 +504,21 @@ def run_routing(
     if history is None and fail_safe:
         block_reason = f"auto-publish limits could not be read ({history_error or 'unknown'}): publishing nothing"
         log(f"[routing] {block_reason}")
-    final, fresh_ok, fresh = finalize(routed, verify, history=history, block_reason=block_reason)
+    # Waiting rows go after this run's own rows, in the same limits and with the same fresh check.
+    back_routed = route_backlog(backlog_rows or [], today=local_today, now=now)
+    everything, fresh_ok, fresh = finalize(routed + back_routed, verify, history=history, block_reason=block_reason)
+    final = everything[:len(routed)]
+    back_final = everything[len(routed):]
     fresh.history_error = history_error if history is None else None
     apply_to_records(final)
     outcome = RoutingOutcome(final, fresh_ok, fresh, rating, evidence_by_source(records), select_publishable(final, fresh_ok),
-                             checks, pages_requested)
+                             checks, pages_requested, back_final, backlog_note)
     counts = Counter(r.route for r in final)
     log(f"[routing] {len(final)} record(s): publish {counts['publish']}, digest {counts['digest']}, drop {counts['drop']}; "
         f"fresh checks {fresh.checked} ({fresh.failed} failed)")
+    if back_final:
+        back_counts = Counter(r.route for r in back_final)
+        log(f"[routing] waiting backlog: {len(back_final)} candidate(s), {back_counts['publish']} still publish after the limits and the fresh check")
     return outcome
 
 
@@ -438,7 +588,12 @@ def auto_publish(
     promote = promote or promote_staged_rows
     result = PublishResult()
     # Recomputed from the final routes rather than trusted from the outcome: the one rule for what may publish.
-    wanted = [str(r.record["slug"]) for r in select_publishable(outcome.final, outcome.fresh_ok)]
+    # This run's rows first, then the waiting rows, each group approved and promoted under its own batch id.
+    chosen = select_publishable(outcome.final, outcome.fresh_ok) + select_publishable(outcome.backlog, outcome.fresh_ok)
+    groups: dict[str, list[str]] = {}
+    for r in chosen:
+        groups.setdefault(str(r.record.get("batch_id") or batch_id), []).append(str(r.record["slug"]))
+    wanted = [slug for slugs in groups.values() for slug in slugs]
     if not enabled:
         if wanted:
             log(f"[routing] auto-publish is OFF: {len(wanted)} row(s) would publish; nothing approved or promoted")
@@ -446,22 +601,25 @@ def auto_publish(
     if not wanted:
         log("[routing] auto-publish is ON: no row qualifies")
         return result
-    approved, error = approve(batch_id, wanted)
-    if error:
-        result.notes.append(f"auto-publish: could not approve rows: {error}")
-        log(f"[routing] {result.notes[-1]}")
-        return result
-    result.approved = [s for s in approved if s in wanted]  # never promote a slug we did not ask for
-    if not result.approved:
-        result.notes.append("auto-publish: no staged row was approved (not found in happenings_staging)")
-        return result
-    failure = promote(batch_id, result.approved)
-    if failure:
-        result.notes.append(f"auto-publish: approved {len(result.approved)} row(s) but promotion failed: {failure}")
-        log(f"[routing] {result.notes[-1]}")
-        return result
-    result.promoted = True
-    log(f"[routing] auto-published {len(result.approved)} row(s)")
+    for group_batch, slugs in groups.items():
+        approved, error = approve(group_batch, slugs)
+        if error:
+            result.notes.append(f"auto-publish: could not approve rows of {group_batch}: {error}")
+            log(f"[routing] {result.notes[-1]}")
+            continue
+        really = [s for s in approved if s in slugs]  # never promote a slug we did not ask for
+        if not really:
+            result.notes.append(f"auto-publish: no staged row of {group_batch} was approved (not found in happenings_staging)")
+            continue
+        result.approved.extend(really)
+        failure = promote(group_batch, really)
+        if failure:
+            result.notes.append(f"auto-publish: approved {len(really)} row(s) of {group_batch} but promotion failed: {failure}")
+            log(f"[routing] {result.notes[-1]}")
+            continue
+        result.promoted = True
+    if result.promoted:
+        log(f"[routing] auto-published {len(result.approved)} row(s)")
     return result
 
 
@@ -499,8 +657,17 @@ def markdown_section(outcome: RoutingOutcome, *, auto_publish_on: bool, publishe
         lines.append(f"- Source page check (digest and publish candidates, best score first, at most {page_check.RUN_PAGE_CAP} pages a run): "
                      f"{outcome.pages_requested} requested; ok {by['ok']}, gone {by['gone']} (dropped), lapsed {by['lapsed']} (dropped), "
                      f"unconfirmed {by['unconfirmed']} (kept, marked); rows over the cap are not shown in the digest until checked.")
+    back = outcome.backlog
+    if outcome.backlog_note:
+        lines.append(f"- **Waiting rows not used:** {outcome.backlog_note}.")
+    elif back is not None:
+        back_pub = [r for r in back if r.route == "publish"]
+        lines.append(f"- Waiting rows (routed publish by score_backlog.py) tried for the day's remaining slots after this run's own rows: "
+                     f"{len(back)} considered, {len(back_pub)} {publish_word if not auto_publish_on else 'publish'}, "
+                     f"{len(backlog_failures(outcome))} failed the fresh check (they stay waiting with the reason).")
     lines.append(f"- Limits: {quality.DAILY_PUBLISH_LIMIT} a day across runs (London date), {quality.VENUE_PUBLISH_LIMIT} per venue per run, "
-                 f"{quality.SOURCE_PUBLISH_LIMIT} per source per run, and a venue with an auto-published deal in the last {COOLDOWN_DAYS} days goes to digest.")
+                 f"{quality.SOURCE_PUBLISH_LIMIT} per source per run, at most {quality.NON_DEAL_DAILY_LIMIT} of the day's non-deals (events, activities and the like), "
+                 f"and a venue with an auto-published deal in the last {COOLDOWN_DAYS} days goes to digest.")
     if f.history_error:
         lines.append(f"- **Limit history unavailable** ({f.history_error}). "
                      + ("Auto-publish is on, so nothing was published: " if auto_publish_on else
@@ -527,9 +694,11 @@ def markdown_section(outcome: RoutingOutcome, *, auto_publish_on: bool, publishe
                  "route_deal only publishes a row with `_evidence` or a validated extraction.")
     lines.append("")
 
-    if outcome.publishable:
-        lines += [f"### {publish_word.capitalize()} ({len(outcome.publishable)})", "", "| title | venue | source | score | kind |", "|---|---|---|---|---|"]
-        for r in sorted(outcome.publishable, key=lambda r: -r.result.score):
+    back_ok = select_publishable(outcome.backlog, outcome.fresh_ok)
+    if outcome.publishable or back_ok:
+        lines += [f"### {publish_word.capitalize()} ({len(outcome.publishable) + len(back_ok)}, of which {len(back_ok)} from the waiting rows)", "",
+                  "| title | venue | source | score | kind |", "|---|---|---|---|---|"]
+        for r in sorted([*outcome.publishable, *back_ok], key=lambda r: -r.result.score):
             rec = r.record
             lines.append(f"| {_cell(rec.get('title'))} | {_cell(rec.get('venue_name'))} | {_cell(rec.get('source_name'))} | {r.result.score} | {_cell(rec.get('kind'))} |")
         lines.append("")
@@ -556,6 +725,8 @@ def summary_json(outcome: RoutingOutcome, *, auto_publish_on: bool, published: P
         "auto_publish": auto_publish_on,
         "routes": dict(counts),
         "would_publish" if not auto_publish_on else "publishable": [str(r.record.get("slug")) for r in outcome.publishable],
+        "backlog": {"considered": len(outcome.backlog), "publishable": [str(r.record.get("slug")) for r in select_publishable(outcome.backlog, outcome.fresh_ok)],
+                    "failed": len(backlog_failures(outcome)), "note": outcome.backlog_note},
         "published": published.approved if published else [],
         "promoted": bool(published and published.promoted),
         "fresh": {"checked": outcome.fresh.checked, "failed": outcome.fresh.failed},

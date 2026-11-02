@@ -42,13 +42,23 @@ class SelectionTests(unittest.TestCase):
 
 
 class ScoringTests(unittest.TestCase):
-    def test_a_backlog_row_never_routes_publish(self):
+    def test_a_strong_backlog_row_routes_publish_as_a_candidate_and_says_so(self):
         strong = row("strong")
         item = sb.route_row(strong, None, today=TODAY, now=NOW)
         self.assertGreaterEqual(item.result.score, quality.PUBLISH_AT)
-        self.assertEqual(item.route, "digest")
-        self.assertIn("fresh check", item.result.reasons[-1])
-        self.assertTrue(all(r.route != "publish" for r in sb.score_rows([strong, row("b")], {}, today=TODAY, now=NOW)))
+        self.assertEqual(item.route, "publish")
+        self.assertIn("fresh source-page check", item.result.reasons[-1])
+        self.assertNotIn("_evidence", strong)  # the stored row itself is not altered
+
+    def test_a_blocking_validation_error_or_a_weekly_pattern_keeps_it_from_publish(self):
+        self.assertEqual(sb.route_row(row("a", validation_errors=["quote_missing"]), None, today=TODAY, now=NOW).route, "digest")
+        self.assertEqual(sb.route_row(row("b", time_note="second and last Monday of each month"), None, today=TODAY, now=NOW).route, "digest")
+        self.assertEqual(sb.route_row(row("c", recurrence={"type": "annual", "month": 7, "day": 19}), None, today=TODAY, now=NOW).route, "digest")
+
+    def test_a_backlog_row_gets_no_score_bonus_from_the_placeholder_evidence(self):
+        plain = row("p", extraction_status="pending", verified_at=None)
+        scored = quality.score_deal(dict(plain))
+        self.assertEqual(sb.route_row(plain, None, today=TODAY, now=NOW).result.score, scored.score)
 
     def test_commercial_review_rows_get_the_assumed_evidence_and_say_so(self):
         weak = {"title": "20% off food", "recurrence": {"type": "always"}, "extraction_status": "pending", "verified_at": None}

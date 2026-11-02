@@ -18,8 +18,11 @@ Nothing has gone live since 12 Oct. Weekly runs on 19 and 26 Oct found deals, bu
 - [x] After #63 and the Phase 2 PR merge, run `supabase/add_deal_quality.sql`, then `supabase/add_deal_review.sql`, in the Supabase SQL editor. Both run 2 Nov.
 - [ ] Generate a secret with `openssl rand -base64 32`. Set `REVIEW_SIGNING_SECRET` in Vercel and in GitHub's Production environment (as a secret). Set `REVIEW_DIGEST_TO` in GitHub's Production environment as a variable. Both must be set before merging to `main`, because the daily job starts on merge.
 - [ ] Add `REVIEW_SIGNING_SECRET` and `REVIEW_DIGEST_TO` to `.env.example`. That file is git-ignored, so this is a local edit only and won't appear in a commit.
-- [ ] Score the backlog: `python3 scraper/score_backlog.py`, read it, then run it with `--apply`. First digest: `npx tsx --env-file=.env.local scripts/deal-digest.ts`, read it, then run it with `--send --max-age-days 30`.
-- [ ] After 3 days of logging-only runs, read the "would publish" lists. If they look good, set the repo variable `DEAL_AUTO_PUBLISH` to `true`.
+- [ ] Score the backlog: `python3 scraper/score_backlog.py --apply`. Auto-publish needs these scores.
+- [ ] You chose to go straight to auto-publish after verification on 3 Nov, skipping the 3-day logging period. Check the first published batch.
+- [ ] Cameo £4 Wednesdays can't be confirmed on Picturehouse's own site, so they won't auto-publish.
+- [ ] Resident Rewards deals only suit EH-postcode residents: check the card makes that clear.
+- [ ] itison vouchers can be valid only from a later date: consider showing "valid from" on the card.
 - [ ] Before turning on auto-publish: catch annual events whose date has passed (the 2026 Festival Carnival reached the digest), fix rows wrongly marked weekly (Loud Poets is twice a month), and decide whether free nights should keep outranking deals.
 - [ ] Page checks aren't repeated at send time, so a row checked today can be emailed up to 30 days later.
 

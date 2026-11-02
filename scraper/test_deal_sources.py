@@ -1146,10 +1146,10 @@ class QualityTests(unittest.TestCase):
         free = quality.score_deal(self.rec(kind="event", title="Gallery late", is_free=True, verified_at=None, extraction_status="pending")).score
         cheap = quality.score_deal(self.rec(kind="activity", title="Pottery", price_text="£8", verified_at=None, extraction_status="pending")).score
         dear = quality.score_deal(self.rec(kind="tour", title="Whisky tour", price_text="£25", verified_at=None, extraction_status="pending")).score
-        # 20 + 30 + 15 + 5 = 70 would be publish-level, but an unrated non-deal is capped at NON_DEAL_CAP (69).
-        self.assertEqual((free, cheap, dear), (quality.NON_DEAL_CAP, 20 + 20 + 15 + 5, 20 + 15 + 5))
+        # Non-deals: free is worth FREE_VALUE (20) and a low price LOW_PRICE_VALUE (15), no limited-days bonus (the helper rows are weekly).
+        self.assertEqual((free, cheap, dear), (20 + 20 + 15 + 5, 20 + 15 + 15 + 5, 20 + 15 + 5))
         rated = quality.score_deal(self.rec(kind="event", title="Gallery late", is_free=True, verified_at=None, extraction_status="pending"), ai_rating=5).score
-        self.assertEqual(rated, 20 + 30 + 15 + 5)
+        self.assertEqual(rated, free)
 
     def test_clamped(self):
         r = self.rec(title="£1 cask pints", recurrence={"type": "weekly", "days": [2]}, eligibility="student", _evidence={"deal_quote": "x"})

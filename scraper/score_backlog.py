@@ -17,9 +17,12 @@ nothing else. It never sets approved, never changes extraction_status and never 
 come from supabase/add_deal_quality.sql, run by hand; if they are missing the first PATCH fails and
 the script stops with that message.
 
-Backlog routes. A stored row has lost the in-memory `_evidence` a live run carries, so a backlog row
-can never route "publish": a publish route becomes "digest" with a reason, because publishing needs a
-fresh check inside a run. Backtest assumption, labelled in the reasons: a row whose validation_errors
+Backlog routes. A backlog row can now route "publish", which means "a candidate": the daily run
+(scraper/deal_routing.py, with --auto-publish on) fills its remaining slots from these rows, best score first,
+under every limit, and publishes one only if a fresh verify_record of its source page passes in that run. A stored
+row has lost the in-memory `_evidence`, so that fresh check stands in for it. A row whose page check is not "ok"
+(unconfirmed, gone, lapsed, not reached) or that is a possible duplicate of a live row cannot be a candidate.
+This script itself never approves or publishes anything. Backtest assumption, labelled in the reasons: a row whose validation_errors
 are exactly ["commercial_source_review"] came out of a deal source and passed its quote gate, so it
 gets the evidence bonus it would have had in the run.
 
@@ -86,7 +89,9 @@ def select_waiting(staged: list[dict[str, Any]], live_slugs: set[str]) -> tuple[
 
 
 def route_row(row: dict[str, Any], rating: int | None, *, today: date | None, now: datetime | None) -> quality.RoutedDeal:
-    """Score and route one stored row. Never returns publish (see the module docstring)."""
+    """Score and route one stored row. It can now say publish: that means "a candidate for the daily run", which tries it
+    against the day's limits and a fresh verify_record of its source page, and publishes only if that passes (and only with
+    auto-publish on). A stored row has lost its in-memory `_evidence`, so the gate is replaced by that fresh check."""
     record = dict(row)
     assumed = record.get("validation_errors") == GATE_ASSUMED
     if assumed:
@@ -94,10 +99,11 @@ def route_row(row: dict[str, Any], rating: int | None, *, today: date | None, no
     result = quality.score_deal(record, ai_rating=rating, now=now)
     if assumed:
         result.reasons.append("evidence assumed: passed the deal-source quote gate (stored row has no _evidence)")
+    elif not record.get("_evidence"):
+        record["_evidence"] = {"deal_quote": "(backlog: relies on the fresh source-page check)"}  # after scoring: no score bonus
     route = quality.route_deal(record, result, source_class=quality.source_class(record), today=today)
     if route == "publish":
-        route = "digest"
-        result.reasons.append("backlog row: publishing needs a fresh check inside a run, so it goes to the digest")
+        result.reasons.append("backlog candidate: publishes only if the daily run's fresh source-page check passes")
     return quality.RoutedDeal(row, result, route)
 
 
@@ -129,7 +135,8 @@ def apply_duplicates(routed: list[quality.RoutedDeal], sure: dict[str, str], may
         if item.route != "drop" and slug in sure:
             item = quality.RoutedDeal(item.record, quality.QualityResult(item.result.score, [*item.result.reasons, f"already live as {sure[slug]}"]), "drop")
         elif item.route != "drop" and slug in maybe:
-            item = quality.RoutedDeal(item.record, quality.QualityResult(item.result.score, [*item.result.reasons, f"possible duplicate of live {maybe[slug]}"]), item.route)
+            route = "digest" if item.route == "publish" else item.route  # a possible duplicate never publishes
+            item = quality.RoutedDeal(item.record, quality.QualityResult(item.result.score, [*item.result.reasons, f"possible duplicate of live {maybe[slug]}"]), route)
         out.append(item)
     return out
 
@@ -242,7 +249,7 @@ def build_report(routed: list[quality.RoutedDeal], notes: dict[str, int], info: 
              f"- Waiting rows: {len(routed)} ({notes['staged_raw']} unpromoted unapproved staged rows, {notes['after_dedupe']} after de-duplicating by slug, "
              f"{notes['excluded_already_live']} excluded as already live; {notes['approved_null']} have approved = null).",
              f"- AI rating: {info.status}. Rows asked {info.asked}, rated {info.rated}. Tokens {info.input_tokens} in / {info.output_tokens} out, cost ${info.cost_usd:.4f}.",
-             f"- Routes: digest {counts['digest']}, drop {counts['drop']} (publish is not available to a backlog row)."]
+             f"- Routes: publish {counts['publish']} (candidates: the daily run tries them against the limits and a fresh page check; nothing publishes here), digest {counts['digest']}, drop {counts['drop']}."]
     if pages is not None:
         marks = Counter(next((x.split(" (")[0].replace(page_check.MARKER_PREFIX, "") for x in r.result.reasons if x.startswith(page_check.MARKER_PREFIX)), "none") for r in routed if r.route != "drop")
         lines.append(f"- Source pages: {pages['requested']} requested this run (cap {pages['cap']}, best score first), {pages['cached']} reused from today's cache. "
@@ -259,14 +266,14 @@ def build_report(routed: list[quality.RoutedDeal], notes: dict[str, int], info: 
     for r in routed:
         per[str(r.record.get("source_name") or "(none)")][r.route] += 1
     lines += ["## Per source", ""]
-    lines += _table(["source", "rows", "digest", "drop"],
-                    [[n, sum(c.values()), c["digest"], c["drop"]] for n, c in sorted(per.items(), key=lambda kv: (-sum(kv[1].values()), kv[0]))]) + [""]
+    lines += _table(["source", "rows", "publish", "digest", "drop"],
+                    [[n, sum(c.values()), c["publish"], c["digest"], c["drop"]] for n, c in sorted(per.items(), key=lambda kv: (-sum(kv[1].values()), kv[0]))]) + [""]
 
     kinds: dict[str, Counter] = defaultdict(Counter)
     for r in routed:
         kinds[str(r.record.get("kind") or "(none)")][r.route] += 1
     lines += ["## Per kind", ""]
-    lines += _table(["kind", "rows", "digest", "drop"], [[k, sum(c.values()), c["digest"], c["drop"]] for k, c in sorted(kinds.items())]) + [""]
+    lines += _table(["kind", "rows", "publish", "digest", "drop"], [[k, sum(c.values()), c["publish"], c["digest"], c["drop"]] for k, c in sorted(kinds.items())]) + [""]
 
     drops = Counter()
     for r in routed:
@@ -276,8 +283,10 @@ def build_report(routed: list[quality.RoutedDeal], notes: dict[str, int], info: 
             drops[(why.split(":")[0] if not why.startswith("already live") else "already live")] += 1
     lines += ["## Why rows drop", ""] + _table(["cause", "rows"], sorted(drops.items())) + [""]
 
-    for route in ("digest", "drop"):
+    for route in ("publish", "digest", "drop"):
         rows = sorted((r for r in routed if r.route == route), key=lambda r: -r.result.score)
+        if route == "publish" and not rows:
+            continue
         lines += [f"## Routed {route} ({len(rows)}), best score first", ""]
         lines += _table(["score", "title", "venue", "label", "kind", "source", "reasons"],
                         [[r.result.score, r.record.get("title"), r.record.get("venue_name"), r.record.get("saving_label"), r.record.get("kind"),
