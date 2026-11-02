@@ -1,0 +1,33 @@
+-- add_deal_review.sql — columns for the daily deal digest and one-tap review
+-- (scripts/deal-digest.ts, app/review/[token], lib/review/,
+-- docs/plans/2026-11-02-daily-best-deals.md Phase 2).
+--
+-- MUST BE RUN BY HAND in the Supabase SQL editor (nothing in the repo applies
+-- migrations). Idempotent — safe to re-run. NOT RUN YET. Run it with
+-- add_deal_quality.sql (the digest reads quality_score / quality_reasons /
+-- quality_route; this file does not depend on it) and BEFORE the first `scripts/deal-digest.ts` run or the first
+-- tap on a review link: both fail with "column ... does not exist" until then.
+--
+--   digest_sent_at   when this row was last put in a digest email (set only after the send succeeded)
+--   reviewed_at      when a person decided it, or when it expired unreviewed. NULL = still waiting
+--   reviewed_action  'approve' | 'reject' | 'expired' | 'superseded' (free text, no CHECK, like the quality columns).
+--                    'superseded' marks an older row of the same slug closed when a newer copy was reviewed.
+--
+-- Reading evidence_quote (the digest and the review page show it) needs the column from
+-- add_deal_quality.sql too; old rows have none and just show no quote.
+--
+-- No new extraction_status value is needed. The table's CHECK allows
+-- ('pending','extracted','validated','approved','rejected','promoted') and the
+-- review reuses them:
+--   approve  approved = true, extraction_status = 'approved'  (what the weekly report's approve SQL sets;
+--            scripts/promote-happenings.mjs then promotes it)
+--   reject   extraction_status = 'rejected', rejected_reason = <the reason, or 'rejected in digest review'>
+--   expired  extraction_status = 'rejected', rejected_reason = 'expired: not reviewed within 14 days',
+--            reviewed_action = 'expired'
+--   superseded  older unreviewed rows with the same slug as a row just approved or rejected:
+--            extraction_status = 'rejected', reviewed_action = 'superseded'
+-- `rejected_reason` already exists (add_happenings.sql), so the
+-- three columns below are the only schema change.
+alter table happenings_staging add column if not exists digest_sent_at timestamptz;
+alter table happenings_staging add column if not exists reviewed_at timestamptz;
+alter table happenings_staging add column if not exists reviewed_action text;

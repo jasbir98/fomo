@@ -16,6 +16,11 @@ Nothing has gone live since 12 Oct. Weekly runs on 19 and 26 Oct found deals, bu
 - [ ] Create the newsletter inbox and subscribe it (`docs/plan-data-collection.md` §9b). About 30 minutes. Claude can't create accounts for you.
 - [ ] Set up the Meta app (§9a), for the Instagram test.
 - [ ] Register for the Festivals API (§9c). This is the biggest quick win for events, with Hogmanay on 29 Dec, and it's already built.
+- [ ] After #63 and the Phase 2 PR merge, run `supabase/add_deal_quality.sql`, then `supabase/add_deal_review.sql`, in the Supabase SQL editor.
+- [ ] Generate a secret with `openssl rand -base64 32`. Set `REVIEW_SIGNING_SECRET` in Vercel and in GitHub's Production environment. Set `REVIEW_DIGEST_TO` in GitHub's Production environment.
+- [ ] Add `REVIEW_SIGNING_SECRET` and `REVIEW_DIGEST_TO` to `.env.example`.
+- [ ] Score the backlog: `python3 scraper/score_backlog.py`, read it, then run it with `--apply`. First digest: `npx tsx --env-file=.env.local scripts/deal-digest.ts`, read it, then run it with `--send --max-age-days 30`.
+- [ ] After 3 days of logging-only runs, read the "would publish" lists. If they look good, set the repo variable `DEAL_AUTO_PUBLISH` to `true`.
 
 **Home deals rotate daily (28 Oct)** (branch `home-fresh-deals`)
 Home's "Today's deals" showed the same ~10 deals every day: today's weekly deals and dated deals filled every slot, so the 93 standing deals never appeared. Now it leads with up to 4 deals that are news today (a one-or-two-day weekly offer, a deal on its last two days, a deal added in the last 3 days, tagged "New"). The rest rotates daily through every good deal (steal score 15+, which keeps chains and 10%-off filler out), so the days don't repeat and each deal comes round about once a week. Live data, 14 days: 52 different cards, up from about 12.

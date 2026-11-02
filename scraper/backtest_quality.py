@@ -32,7 +32,6 @@ from collections import Counter, defaultdict
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
-from urllib.parse import urlparse
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
@@ -46,7 +45,6 @@ DEFAULT_REJECTED_DIR = SCRAPER_DIR / "out" / "backtest-2026-11-02-preview" / "de
 OLD_REPORT = Path("/private/tmp/claude-502/-Users-jasbirsingh-Documents-personal-Roameo/e7f3eee3-5a75-47ed-9408-872b1d10eba1/scratchpad/run26/weekly-research-8/edi-weekly-2026-10-26/deal-sources-report.md")
 IN_RATE, OUT_RATE = 0.28, 0.42  # USD per million tokens, the weekly script's defaults
 COST_CEILING_USD = 0.50
-SOCIAL_HOSTS = ("instagram.com", "facebook.com", "tiktok.com", "twitter.com", "x.com")
 GATE_ASSUMED = ["commercial_source_review"]
 BANDS = [f"{lo}-{lo + 9}" for lo in range(0, 90, 10)] + ["90-100"]
 
@@ -63,12 +61,7 @@ SPOT_CHECKS = [
 
 
 def source_class(record: dict[str, Any]) -> str:
-    host = (urlparse(str(record.get("source_url") or "")).hostname or "").lower()
-    if any(host == h or host.endswith("." + h) for h in SOCIAL_HOSTS):
-        return "social"
-    if "newsletter" in str(record.get("source_name") or "").lower():
-        return "newsletter"
-    return "web"
+    return quality.source_class(record)
 
 
 def load_sets() -> tuple[list[dict[str, Any]], list[dict[str, Any]], dict[str, int]]:

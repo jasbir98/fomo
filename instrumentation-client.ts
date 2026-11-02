@@ -35,6 +35,7 @@
  */
 import posthog from "posthog-js";
 import { enrichExceptionProperties } from "@/lib/analytics/exceptions";
+import { isReviewPath } from "@/lib/review/analytics-guard";
 
 const POSTHOG_KEY = process.env.NEXT_PUBLIC_POSTHOG_KEY;
 const isDev = process.env.NODE_ENV === "development";
@@ -71,7 +72,13 @@ function htmlAgeSeconds(): number | null {
   return renderedAt > 0 ? Math.round((Date.now() - renderedAt) / 1000) : null;
 }
 
-if (POSTHOG_KEY && (!isDev || debugInDev)) {
+// /review/<token> pages carry a 7-day signed credential in the URL, so analytics
+// is not even initialised there (lib/review/analytics-guard.ts). That page has
+// no in-app links, so there is no client-side navigation out of it to start
+// capture mid-session.
+const onReviewPage = isReviewPath(window.location.pathname);
+
+if (POSTHOG_KEY && (!isDev || debugInDev) && !onReviewPage) {
   migrateLegacyConsent(POSTHOG_KEY);
 
   posthog.init(POSTHOG_KEY, {
@@ -93,6 +100,8 @@ if (POSTHOG_KEY && (!isDev || debugInDev)) {
     // lib/analytics/exceptions.ts.
     before_send: (event) => {
       if (!event) return event;
+      // Belt and braces: never send an event that names a review URL (see onReviewPage above).
+      if (isReviewPath(String(event.properties.$current_url ?? "")) || isReviewPath(String(event.properties.$pathname ?? ""))) return null;
       event.properties.consent_status = posthog.get_explicit_consent_status();
       if (event.event === "$exception") {
         if (!enrichExceptionProperties(event.properties)) return null;

@@ -1,7 +1,7 @@
 // Run: npx tsx --test lib/happenings/deal-review.test.ts
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { exceedsCap, MAX_CHANGES, reviewDeals, type ReviewableDeal } from "./deal-review";
+import { DROUGHT_DAYS, dealDrought, exceedsCap, locate, MAX_CHANGES, reviewDeals, type ReviewableDeal } from "./deal-review";
 
 // Wed 14 Oct 2026, midday London.
 const now = new Date("2026-10-14T11:00:00Z");
@@ -236,4 +236,54 @@ test("a national chain's shallow discount is flagged; a deep one or a local 10% 
 test("a national offer is never hidden for where its head office is", () => {
   const v = only(deal("a", { scope: "national", venue_name: "16-25 Railcard", address: "1 Euston Sq, London NW1 2FA" }));
   assert.equal(v.action, "keep");
+});
+
+test("a town name directly followed by a street word is a street: Dalkeith Road is in Edinburgh", () => {
+  for (const name of ["Dalkeith Road", "Dalkeith Rd", "Dalkeith Street", "Dalkeith St", "Dalkeith Place", "Dalkeith Pl", "Dalkeith Avenue", "Dalkeith Ave", "Dalkeith Terrace", "Dalkeith Lane"]) {
+    const v = only(deal("a", { address: null, venue_name: `Cafe, ${name}`, title: "Free coffee with a student card" }));
+    assert.equal(v.action, "keep", name);
+  }
+  assert.equal(only(deal("b", { address: null, title: "Pints on Musselburgh Road", venue_name: "The Pub" })).action, "keep");
+  assert.equal(only(deal("c", { address: null, title: "Glasgow Rd offer", venue_name: "The Pub" })).action, "keep");
+  assert.equal(locate(deal("d", { address: null, venue_name: "Cafe on Dalkeith Road", title: "Coffee deal" }))?.inside ?? true, true);
+});
+
+test("a real out-of-town venue is still dropped, and a later bare mention still counts", () => {
+  assert.equal(only(deal("a", { address: null, venue_name: "Go Ape Dalkeith", title: "15% discount" })).reason, "outside Edinburgh: Dalkeith");
+  assert.equal(only(deal("b", { address: null, venue_name: "Lido Musselburgh", title: "20% off" })).reason, "outside Edinburgh: Musselburgh");
+  // "Dalkeith Road" first, a bare "Dalkeith" later in the same text: the second still matches.
+  assert.equal(only(deal("c", { address: null, venue_name: "Dalkeith Road Cafe, Dalkeith", title: "20% off" })).reason, "outside Edinburgh: Dalkeith");
+  // A word that merely starts like a street word is not one: "Dalkeith Stables".
+  assert.equal(only(deal("d", { address: null, venue_name: "Dalkeith Stables", title: "20% off" })).reason, "outside Edinburgh: Dalkeith");
+  // An Edinburgh postcode still decides first.
+  assert.equal(only(deal("e", { address: "1 High St, Musselburgh EH21 6AA", venue_name: "Cafe", title: "20% off" })).reason, "outside Edinburgh: EH21 postcode");
+});
+
+// --- drought alarm ---------------------------------------------------------------------------
+
+test("drought: no deal created in 7 days fires, one inside the window clears it", () => {
+  const at = new Date("2026-11-02T12:00:00Z");
+  const days = (n: number) => new Date(at.getTime() - n * 86_400_000).toISOString();
+  assert.equal(DROUGHT_DAYS, 7);
+  assert.equal(dealDrought([{ created_at: days(8) }], at).drought, true);
+  assert.equal(dealDrought([{ created_at: days(6.9) }], at).drought, false);
+  assert.equal(dealDrought([{ created_at: days(7) }], at).drought, false); // exactly 7 days is inside
+  assert.equal(dealDrought([{ created_at: days(30) }, { created_at: days(1) }], at).recent, 1);
+  assert.equal(dealDrought([], at).drought, true); // no deals at all is a drought
+  assert.equal(dealDrought([], at).newest, null);
+  assert.equal(dealDrought([{ created_at: null }, { created_at: "not a date" }, {}], at).drought, true);
+  assert.equal(dealDrought([{ kind: "event", created_at: days(1) }], at).drought, true); // only deals count
+  assert.equal(dealDrought([{ kind: "deal", created_at: days(1) }], at).drought, false);
+});
+
+test("drought: would have fired on 26 Oct 2026 when the last deal was created on 12 Oct", () => {
+  const lastDeal = "2026-10-12T09:30:00Z";
+  const rows = [{ kind: "deal", created_at: "2026-09-28T10:00:00Z" }, { kind: "deal", created_at: lastDeal }];
+  const r = dealDrought(rows, new Date("2026-10-26T12:37:00Z"));
+  assert.equal(r.drought, true);
+  assert.equal(r.newest, "2026-10-12T09:30:00.000Z");
+  assert.equal(r.daysSince, 14);
+  // and it had not fired a week after the 12th, 18 Oct, one day before the window closed
+  assert.equal(dealDrought(rows, new Date("2026-10-18T12:37:00Z")).drought, false);
+  assert.equal(dealDrought(rows, new Date("2026-10-19T12:37:00Z")).drought, true);
 });
