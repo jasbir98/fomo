@@ -115,7 +115,7 @@ class WriteTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp, \
                 mock.patch.object(sb, "load_waiting", return_value=(waiting, {"staged_raw": 2, "after_dedupe": 2, "excluded_already_live": 0, "approved_null": 0}, ("http://x", "k"))), \
                 mock.patch.object(sb, "make_patch") as make_patch, \
-                mock.patch.object(sys, "argv", ["score_backlog.py", "--no-ai", "--out-dir", tmp]), \
+                mock.patch.object(sys, "argv", ["score_backlog.py", "--no-ai", "--offline", "--out-dir", tmp]), \
                 redirect_stdout(io.StringIO()) as out:
             sb.main()
             make_patch.assert_not_called()
@@ -128,7 +128,7 @@ class WriteTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp, \
                 mock.patch.object(sb, "load_waiting", return_value=(waiting, {"staged_raw": 1, "after_dedupe": 1, "excluded_already_live": 0, "approved_null": 0}, ("http://x", "k"))), \
                 mock.patch.object(sb, "make_patch", return_value=patch), \
-                mock.patch.object(sys, "argv", ["score_backlog.py", "--no-ai", "--apply", "--out-dir", tmp]), \
+                mock.patch.object(sys, "argv", ["score_backlog.py", "--no-ai", "--offline", "--apply", "--out-dir", tmp]), \
                 redirect_stdout(io.StringIO()):
             sb.main()
         patch.assert_called_once()

@@ -147,8 +147,10 @@ jobs:
       # (server-only, the Supabase client), so don't rely on a bare checkout.
       - name: Install dependencies
         run: npm ci
+      # --max-age-days 30: the 19 and 26 Oct backlog is still being reviewed; the 14-day default would
+      # expire about 90 waiting rows in one go. Go back to the default once the backlog is cleared.
       - name: Email the deal digest
-        run: npx --yes tsx scripts/deal-digest.ts --send
+        run: npx --yes tsx scripts/deal-digest.ts --send --max-age-days 30
 
   promote:
     if: ${{ github.event_name == 'workflow_dispatch' && inputs.mode == 'promote' }}

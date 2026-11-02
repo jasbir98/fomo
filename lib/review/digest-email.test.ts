@@ -39,6 +39,30 @@ test("header says how many are waiting in total and how many expired today", () 
   assert.match(renderDigestEmail({ ...base, expiredCount: 0, items: [deal()] }).text, /0 expired today/);
 });
 
+test("the expiry wording uses the age limit in force, 14 by default", () => {
+  assert.match(renderDigestEmail({ ...base, items: [deal()] }).text, /not reviewed within 14 days/);
+  const e = renderDigestEmail({ ...base, maxAgeDays: 30, items: [deal()] });
+  assert.match(e.text, /not reviewed within 30 days/);
+  assert.ok(!e.text.includes("14 days"));
+  assert.ok(e.html.includes("not reviewed within 30 days"));
+});
+
+test("a card shows the three most informative reasons, never base or evidence", () => {
+  const e = renderDigestEmail({
+    ...base,
+    items: [deal({ quality_reasons: ["base +20", "value: free +30", "limited days: 1 a week +20", "local +15", "evidence +10", "audience anyone +5"] })],
+  });
+  assert.ok(e.text.includes("- value: free +30") && e.text.includes("- limited days: 1 a week +20") && e.text.includes("- local +15"));
+  assert.ok(!e.text.includes("base +20") && !e.text.includes("evidence +10") && !e.text.includes("audience anyone"));
+});
+
+test("an unconfirmed source page is flagged on the card", () => {
+  const e = renderDigestEmail({ ...base, items: [deal({ quality_reasons: ["value: free +30", "page check: unconfirmed (blocked/challenged (HTTP 403))"] })] });
+  assert.match(e.text, /SOURCE PAGE NOT CONFIRMED.*HTTP 403/);
+  assert.ok(e.html.includes("Source page not confirmed"));
+  assert.ok(!renderDigestEmail({ ...base, items: [deal({ quality_reasons: ["page check: ok 2026-11-02"] })] }).text.includes("NOT CONFIRMED"));
+});
+
 test("the links carry valid, distinct approve and reject tokens for that deal", () => {
   const e = renderDigestEmail({ ...base, items: [deal()] });
   const links = [...e.text.matchAll(/(Approve|Reject): (https:\/\/askfomo\.com\/review\/(\S+))/g)];

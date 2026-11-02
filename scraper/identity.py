@@ -39,6 +39,9 @@ _STOPWORDS = {
     # the same thing (Samhuinn vs Beltane Fire Festival).
     "festival", "programme", "package", "concession", "fixture", "home", "release",
     "sale", "full", "season", "pass", "tour", "walk", "market",
+    # "Free guided tour" and "free tour for EH residents" are one offer worded two ways: how it is led and
+    # who it is for do not say WHICH offer it is.
+    "guided", "resident",
 }
 # Venue names keep place words ("National Museum of Scotland" vs "National
 # War Museum" must stay distinct), so they get a much shorter list.
