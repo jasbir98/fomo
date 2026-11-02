@@ -136,7 +136,7 @@ jobs:
       SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
       RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
       FOMO_FROM_EMAIL: ${{ vars.FOMO_FROM_EMAIL || secrets.FOMO_FROM_EMAIL }}
-      REVIEW_DIGEST_TO: ${{ secrets.REVIEW_DIGEST_TO }}
+      REVIEW_DIGEST_TO: ${{ vars.REVIEW_DIGEST_TO || secrets.REVIEW_DIGEST_TO }}
       REVIEW_SIGNING_SECRET: ${{ secrets.REVIEW_SIGNING_SECRET }}
     steps:
       - uses: actions/checkout@v4
