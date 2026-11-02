@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { dealFacets, matchesDealFilters, whoGroupForEligibility } from "./groups";
+import { dealFacets, isGenuineDeal, matchesDealFilters, whoGroupForEligibility } from "./groups";
 
 test("family eligibility maps to the families WHO group", () => {
   assert.equal(whoGroupForEligibility("family"), "families");
@@ -34,4 +34,20 @@ test("other WHO chips and the WHAT row are unchanged", () => {
   assert.equal(matchesDealFilters(kidsFitStudent, "culture", "families"), true);
   assert.equal(matchesDealFilters(kidsFitStudent, "sports", "families"), false);
   assert.equal(matchesDealFilters(kidsFitStudent, null, null), true);
+});
+
+test("isGenuineDeal accepts BOGOF-style wording", () => {
+  const row = (title: string, saving_label: string | null = null) => ({
+    title,
+    saving_label,
+    saving_amount: null,
+    promo_code: null,
+    eligibility: "anyone" as const,
+  });
+  assert.equal(isGenuineDeal(row("BOGOF burgers")), true);
+  assert.equal(isGenuineDeal(row("Pizza night", "Buy one, get one")), true);
+  assert.equal(isGenuineDeal(row("Buy one get one on cocktails")), true);
+  assert.equal(isGenuineDeal(row("Get another pint")), true);
+  assert.equal(isGenuineDeal(row("Get a second coffee")), true);
+  assert.equal(isGenuineDeal(row("Buy one book")), false);
 });

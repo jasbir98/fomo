@@ -18,6 +18,7 @@
  */
 import type { HappeningCategory, HappeningEligibility } from "@/lib/happenings/types";
 import { familyFitForHappening } from "@/lib/happenings/family";
+import { isCheapPrice } from "@/lib/happenings/cheap-price";
 
 export type DealWhatGroup = "food_drink" | "culture" | "activities" | "sports" | "wellness";
 export type DealWhoGroup = "students" | "residents" | "under_26" | "over_60" | "families";
@@ -178,6 +179,10 @@ const DISCOUNT_SHAPE_PATTERN =
  *  2. A discount-shaped `saving_label`/`title` (DISCOUNT_SHAPE_PATTERN) —
  *     "20% off", "Save up to 57%", "half-price tickets", a title containing
  *     "concession" — enough on its own too, any eligibility.
+ *  2b. A cheap price: a fixed £ price at or below the good-price line for a
+ *     named item ("£4 cask pints", "£5 IPA with any burger"; lines in
+ *     price-benchmarks.json, logic in cheap-price.ts). Judges value, not
+ *     wording. Same order as scraper/deal_sources/gate.py.
  *  3. A restricted `eligibility` (student/local_resident/under_26/over_60/
  *     member/cardholder — anything but `anyone`) PAIRED WITH a positive
  *     `saving_amount`. Covers rows whose `saving_label` is just a bare price
@@ -210,6 +215,8 @@ export function isGenuineDeal(h: {
 }): boolean {
   if (h.promo_code) return true;
   if (DISCOUNT_SHAPE_PATTERN.test(h.saving_label ?? "") || DISCOUNT_SHAPE_PATTERN.test(h.title)) return true;
+  // A fixed price at or below the good-price line for a named item ("£4 cask pints").
+  if (isCheapPrice(h.title, h.saving_label)) return true;
   if (h.eligibility !== "anyone" && typeof h.saving_amount === "number" && h.saving_amount > 0) return true;
   return false;
 }

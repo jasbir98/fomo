@@ -203,6 +203,8 @@ SOURCES: tuple[DealSource, ...] = (
         id="fort-kinnaird-offers",
         name="Fort Kinnaird offers",
         trust="commercial",
+        # Unchanged: it returned 403 from GitHub's runners on 26 Oct 2026 but 200 locally, so
+        # probably a block on the runner network, not on the page.
         status="live",
         multi_deal_pages=True,
         # The Location block of the offers page: "Newcraighall / Edinburgh / EH15 3RD".
@@ -310,6 +312,7 @@ SOURCES: tuple[DealSource, ...] = (
         id="scotrail-kids-for-a-quid",
         name="ScotRail Kids for a Quid",
         trust="official",
+        # Stays shadow: the page sits behind a Cloudflare challenge, so it cannot be read reliably.
         status="shadow",
         multi_deal_pages=True,  # up to two deals on the page
         national_ok=True,
@@ -332,7 +335,8 @@ SOURCES: tuple[DealSource, ...] = (
         multi_deal_pages=True,  # up to two deals on the page
         national_ok=True,
         national_venue="Cineworld Edinburgh (Fountain Park)",
-        discover={"kind": "urls", "urls": ["https://www.cineworld.co.uk/movies-for-juniors"]},
+        # The old /movies-for-juniors URL redirects here (checked locally).
+        discover={"kind": "urls", "urls": ["https://www.cineworld.co.uk/family/"]},
         extract_hints=(
             "Cineworld's family films page. The '£2 Family films' offer (a selection of family films for "
             "£2 per ticket, for kids and adults alike, with adults accompanied by children) is the deal: "

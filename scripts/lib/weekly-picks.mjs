@@ -66,8 +66,8 @@
  * absent, so every read of it is optional-chained/undefined-tolerant.
  *
  * GENUINE DEAL. `isGenuineDeal` below is a direct line-for-line port of
- * lib/happenings/groups.ts's `isGenuineDeal` (same three signals, same
- * order, same DISCOUNT_SHAPE_PATTERN) — ported rather than imported for the
+ * lib/happenings/groups.ts's `isGenuineDeal` (same signals, same
+ * order, same DISCOUNT_SHAPE_PATTERN, plus the cheap-price check) — ported rather than imported for the
  * same TS-from-.mjs reason as the recurrence expansion above. If that
  * predicate ever changes, this copy must change with it.
  *
@@ -77,6 +77,8 @@
  * `starts_at` clock component) — same reasoning, never guess a time that
  * isn't in the data, and never print a vague "any time" filler.
  */
+
+import { readFileSync } from "node:fs";
 
 const TIMEZONE = "Europe/London";
 const CURRENCY_SYMBOL = { GBP: "£", USD: "$", EUR: "€" };
@@ -331,12 +333,55 @@ function endedReason(h, todayDayDate) {
 
 // --- genuine-deal predicate (port of lib/happenings/groups.ts) -------------
 
+// Kept in step with DISCOUNT_SHAPE_PATTERN in lib/happenings/groups.ts and DISCOUNT_SHAPE_RE in
+// scraper/deal_sources/gate.py (including the bogof / buy-one-get-one / get-another tail).
 const DISCOUNT_SHAPE_PATTERN =
-  /\d+(\.\d+)?%|\boff\b|\bdiscount\b|\bconcession\b|half[- ]price|\bfree\b|\bsav(e|es|ing|ings)\b|\d+[- ]?for[- ]?\d+|\d+(\.\d+)?\s*tickets?\b/i;
+  /\d+(\.\d+)?%|\boff\b|\bdiscount\b|\bconcession\b|half[- ]price|\bfree\b|\bsav(e|es|ing|ings)\b|\d+[- ]?for[- ]?\d+|\d+(\.\d+)?\s*tickets?\b|\bbogof\b|\bbuy one,? get one\b|\bget (?:another|a second)\b/i;
 
-function isGenuineDeal(h) {
+// --- cheap price (port of lib/happenings/cheap-price.ts) ---------------------
+// A fixed price at or below the good-price line for a named item ("£4 cask pints").
+// Kept in step with lib/happenings/cheap-price.ts and scraper/deal_sources/gate.py. The
+// numbers are read from lib/happenings/price-benchmarks.json (the one shared copy), resolved
+// from this file's URL so it works from any working directory.
+const PRICE_BENCHMARKS = JSON.parse(
+  readFileSync(new URL("../../lib/happenings/price-benchmarks.json", import.meta.url), "utf8"),
+).items.map((item) => ({
+  max_gbp: item.max_gbp,
+  re: new RegExp(
+    "(?<![a-z0-9])(?:" +
+      [...item.terms]
+        .map((t) => t.toLowerCase())
+        .sort((a, b) => b.length - a.length)
+        .map((t) => t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"))
+        .join("|") +
+      ")(?![a-z0-9])",
+    "i",
+  ),
+}));
+const POUNDS = /£\s?(\d[\d,]*(?:\.\d+)?)/g;
+const OFF_AFTER = /^\s*off\b/i;
+const SAVE_BEFORE = /\bsav(?:e|es|ed|ing|ings)\s*(?:up to\s*)?(?:of\s*)?$/i;
+const FOR_TWO = /\bfor\s+(?:two|2)\b/i;
+
+function isCheapPrice(title, savingLabel) {
+  const text = `${savingLabel ?? ""} ${title ?? ""}`;
+  let prices = [];
+  for (const m of text.matchAll(POUNDS)) {
+    const start = m.index ?? 0;
+    if (OFF_AFTER.test(text.slice(start + m[0].length)) || SAVE_BEFORE.test(text.slice(0, start))) continue;
+    const n = Number.parseFloat(m[1].replace(/,/g, ""));
+    if (Number.isFinite(n)) prices.push(n);
+  }
+  if (prices.length === 0) return false;
+  if (FOR_TWO.test(text)) prices = prices.map((p) => p / 2);
+  const price = Math.min(...prices);
+  return PRICE_BENCHMARKS.some((item) => price <= item.max_gbp && item.re.test(text));
+}
+
+export function isGenuineDeal(h) {
   if (h.promo_code) return true;
   if (DISCOUNT_SHAPE_PATTERN.test(h.saving_label ?? "") || DISCOUNT_SHAPE_PATTERN.test(h.title)) return true;
+  if (isCheapPrice(h.title, h.saving_label)) return true;
   if (h.eligibility !== "anyone" && typeof h.saving_amount === "number" && h.saving_amount > 0) return true;
   return false;
 }

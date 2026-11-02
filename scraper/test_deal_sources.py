@@ -14,7 +14,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from deal_sources import gate  # noqa: E402
+from deal_sources import gate, quality  # noqa: E402
 from deal_sources.discover import discover, parse_sitemap_entries, parse_sitemap_locs, parse_wp_items, filter_urls  # noqa: E402
 from deal_sources.annual import Annual, annual_sources, in_window, load_annual, window_for  # noqa: E402
 from deal_sources.fetch import Response  # noqa: E402
@@ -514,6 +514,53 @@ class RunnerWiringTests(unittest.TestCase):
         self.assertTrue(result.budget_exhausted)
         self.assertEqual(result.cost_usd, 0.0)
 
+    def test_every_rejected_deal_is_written_to_out_dir(self):
+        import tempfile
+        import deal_sources.runner as runner
+
+        def fake_extract(client, model, prompt, **kw):
+            if "BOOZY20" in prompt:
+                return ExtractResult([deal()], input_tokens=10, output_tokens=10)
+            d = {
+                "title": "Kids eat free at Malones Leith", "kind": "deal", "category": "family",
+                "quote": "Up to 2 children can dine from the Kid\u2019s Menu for free with 1 adult who is dining from the main menu.",
+                "fields": {
+                    "saving_label": {"value": "Kids eat free", "quote": "Up to 2 children can dine from the Kid\u2019s Menu for free"},
+                    "starts_at": {"value": "2026-08-01", "quote": "valid daily from 01 to 31 August 2026."},
+                    "ends_at": {"value": "2026-08-31", "quote": "valid daily from 01 to 31 August 2026."},
+                },
+            }
+            return ExtractResult([d], input_tokens=10, output_tokens=10)
+
+        original = runner.extract_deals
+        runner.extract_deals = fake_extract
+        try:
+            src = DealSource("t", "Test source", "official", "shadow", {"kind": "wp_rest", "urls": ["https://edinburgh.org/x"]}, edinburgh=True)
+            with tempfile.TemporaryDirectory() as tmp:
+                result = run_deal_sources(
+                    (src,), batch_id="b", today=TODAY, now_iso=NOW.isoformat(), cap_usd=0.5, in_rate=0.28, out_rate=0.42,
+                    ledger_enabled=False, fetcher=self.FakeFetcher(), client=object(), model="m",
+                    out_dir=Path(tmp), log=lambda *_: None,
+                )
+                written = json.loads((Path(tmp) / "t-rejected.json").read_text())
+                summary = json.loads((Path(tmp) / "deal-sources-summary.json").read_text())
+        finally:
+            runner.extract_deals = original
+        self.assertEqual(sum(result.stats[0].rejected.values()), 1)
+        self.assertEqual(len(written["rejected"]), 1)
+        entry = written["rejected"][0]
+        self.assertEqual(entry["source_id"], "t")
+        self.assertTrue(entry["url"].startswith("https://edinburgh.org/"))
+        self.assertEqual(entry["title"], "Kids eat free at Malones Leith")
+        self.assertEqual(entry["saving_label"], "Kids eat free")
+        self.assertEqual(entry["reason"], "expired")
+        self.assertTrue(entry["detail"])
+        self.assertIn("Kid", entry["quotes"]["deal"])
+        self.assertEqual(entry["quotes"]["fields"]["ends_at"], "valid daily from 01 to 31 August 2026.")
+        # The report keeps its counts and examples only: the full list is not in the summary.
+        self.assertNotIn("rejected_deals", summary["sources"][0])
+        self.assertEqual(summary["sources"][0]["rejected"], {"expired": 1})
+
 
 class ReportSqlTests(unittest.TestCase):
     def test_approve_sql_covers_verified_rows_and_review_slugs(self):
@@ -767,6 +814,402 @@ class EdinburghDistrictAndWordingTests(unittest.TestCase):
         self.assertTrue(SEASONAL_RE.search("Kids Eat Free this summer"))
         self.assertTrue(SEASONAL_RE.search("all through the October holidays"))
         self.assertFalse(SEASONAL_RE.search("Summer Hall offer, every Monday"))
+
+
+
+class QuoteFormattingTests(unittest.TestCase):
+    TEXT = ("Veeno Edinburgh\nWine flight with a choice of Italian meat or cheese sharing board for two\n\nFrom\u00a329\n\n"
+            "Was \u00a345Save up to 36%\n\nOnline bookings only.\nBook now. Loading... please wait\n76 Rose Street, Edinburgh, EH2 2NN")
+
+    def p(self):
+        return gate.PageContext(url="https://www.itison.com/Edinburgh/deals/x", text=self.TEXT, single_deal=True)
+
+    def item(self, quote, label="Was \u00a345 Save up to 36%", label_quote=None):
+        return {"title": "Veeno wine flight", "kind": "deal", "category": "food", "quote": quote,
+                "fields": {"saving_label": {"value": label, "quote": label_quote or label},
+                           "address": {"value": "76 Rose Street, Edinburgh, EH2 2NN", "quote": "76 Rose Street, Edinburgh, EH2 2NN"}}}
+
+    def test_fragments_each_found_on_the_page_pass(self):
+        q = "Wine flight with a choice of Italian meat or cheese sharing board for two ... Was \u00a345Save up to 36%"
+        self.assertTrue(gate.gate_deal(self.item(q, label_quote="Was \u00a345Save up to 36%"), self.p(), today=TODAY, edinburgh_source=False).ok)
+        self.assertTrue(gate.gate_deal(self.item("\u2026 Online bookings only. \u2026 Book now."), self.p(), today=TODAY, edinburgh_source=False).ok)
+
+    def test_a_fragment_not_on_the_page_is_still_rejected(self):
+        for q in ("Wine flight with a choice of Italian meat or cheese sharing board for two ... Free dessert with every order",
+                  "Free dessert with every order ... Online bookings only.",
+                  "Online bookings only. ... Was \u00a345 Save up to 36% ... never on the page"):
+            r = gate.gate_deal(self.item(q), self.p(), today=TODAY, edinburgh_source=False)
+            self.assertEqual(r.reason, "quote_not_found", q)
+
+    def test_a_quote_with_the_pages_own_ellipsis_still_matches_whole(self):
+        self.assertTrue(gate.gate_deal(self.item("Book now. Loading... please wait"), self.p(), today=TODAY, edinburgh_source=False).ok)
+
+    def test_saving_label_ignores_whitespace_only_around_figures(self):
+        ok = gate.gate_deal(self.item("Online bookings only."), self.p(), today=TODAY, edinburgh_source=False)
+        self.assertTrue(ok.ok, ok.detail)  # "Was \u00a345 Save up to 36%" against the page's "Was \u00a345Save up to 36%"
+        bad = self.item("Online bookings only.", label="Was \u00a345 Save up to 63%")
+        self.assertEqual(gate.gate_deal(bad, self.p(), today=TODAY, edinburgh_source=False).reason, "quote_not_found")
+        # the figure must still be in the quote, and digits are never joined across a space
+        self.assertNotEqual(gate.loose_figures("save \u00a31 2"), gate.loose_figures("save \u00a312"))
+        self.assertEqual(gate.loose_figures("was \u00a345 save up to 36%"), gate.loose_figures("was \u00a345save up to 36%"))
+
+    def test_loose_matching_is_for_saving_labels_only(self):
+        item = self.item("Online bookings only.")
+        item["fields"]["address"] = {"value": "76 Rose Street, Edinburgh, EH2 2NN", "quote": "76 Rose Street,Edinburgh,EH2 2NN"}
+        self.assertEqual(gate.gate_deal(item, self.p(), today=TODAY, edinburgh_source=False).dropped.get("address") is not None, True)
+
+
+class CheapPriceTests(unittest.TestCase):
+    PASS = ["£4 cask pints", "The Lioness of Leith £5 IPA with any burger", "Patisserie Valerie afternoon tea for two £30"]
+    FAIL = ["Victoria Bar classic cocktails £8", "Patisserie Valerie lunch and patisserie £12",
+            "Splash and Glow: £29 weekday sessions", "£5 off pints"]
+
+    def test_must_pass(self):
+        for title in self.PASS:
+            self.assertTrue(gate.is_cheap_price(title, None), title)
+            self.assertTrue(gate.is_genuine_deal(title, None, None, None, "anyone"), title)
+
+    def test_must_fail(self):
+        for title in self.FAIL:
+            self.assertFalse(gate.is_cheap_price(title, None), title)
+        # "£5 off pints" still has discount wording, so it is a deal by the old rule; the others are not.
+        for title in self.FAIL[:3]:
+            self.assertFalse(gate.is_genuine_deal(title, None, None, None, "anyone"), title)
+
+    def test_reads_the_saving_label_too(self):
+        self.assertTrue(gate.is_cheap_price("Nobles of Bellfield", "£4 cask pints"))
+        self.assertFalse(gate.is_cheap_price("Nobles of Bellfield", "Save £4 on pints"))
+
+    def test_whole_words_and_for_two(self):
+        self.assertFalse(gate.is_cheap_price("£3 pinterest board", None))  # "pint" inside a word
+        self.assertTrue(gate.is_cheap_price("Cocktails for 2 £12", None))  # £6 a head, under the £7 line
+        self.assertFalse(gate.is_cheap_price("Cocktails for two £16", None))  # £8 a head
+        self.assertEqual(gate.stated_prices("Save £10, £5 off, was £30 now £20"), [30.0, 20.0])
+
+    def test_lowest_price_wins(self):
+        self.assertTrue(gate.is_cheap_price("Pints £6, or £4 on Tuesdays", None))
+
+    def test_a_cheap_price_deal_passes_the_gate_and_its_figure_must_be_quoted(self):
+        text = "The Lioness of Leith: £5 IPA with any burger every Tuesday. 3 Constitution Street, Edinburgh EH6 6RS."
+        p = gate.PageContext(url="https://example.com/x", text=text, single_deal=True)
+        item = {"title": "£5 IPA with any burger", "kind": "deal", "category": "food", "quote": "£5 IPA with any burger every Tuesday.",
+                "fields": {"saving_label": {"value": "£5 IPA with any burger", "quote": "£5 IPA with any burger"}}}
+        self.assertTrue(gate.gate_deal(item, p, today=TODAY, edinburgh_source=False).ok)
+        item["fields"]["saving_label"]["value"] = "£4 IPA with any burger"  # figure not in the quote
+        self.assertEqual(gate.gate_deal(item, p, today=TODAY, edinburgh_source=False).reason, "figure_not_in_quote")
+
+
+class QualityTests(unittest.TestCase):
+    def rec(self, **over):
+        base = {"title": "Deal", "kind": "deal", "venue_name": "Local Bar", "saving_label": None, "eligibility": "anyone",
+                "recurrence": {"type": "always"}, "verified_at": "2026-10-08T12:00:00+00:00", "validation_errors": [],
+                "extraction_status": "validated", "price_text": None, "is_free": None}
+        base.update(over)
+        return base
+
+    def test_evidence_rule(self):
+        now = datetime(2026, 11, 2, 12, 0, tzinfo=timezone.utc)
+        staged = {"title": "Cheese", "venue_name": "Local Bar", "extraction_status": "pending", "verified_at": "2026-11-02T11:59:00+00:00"}
+        live_fresh = {"title": "Cheese", "venue_name": "Local Bar", "verified_at": "2026-10-25T11:59:00.12345+00:00"}
+        live_old = {"title": "Cheese", "venue_name": "Local Bar", "verified_at": "2026-10-10T11:59:00.123456+00:00"}
+        no_stamp = {"title": "Cheese", "venue_name": "Local Bar"}
+        self.assertFalse(quality.has_evidence(staged, now))  # a fresh stamp on a staged row earns nothing
+        self.assertTrue(quality.has_evidence(live_fresh, now))
+        self.assertFalse(quality.has_evidence(live_old, now))
+        self.assertFalse(quality.has_evidence(no_stamp, now))
+        self.assertTrue(quality.has_evidence({**staged, "extraction_status": "validated"}, now))
+        self.assertTrue(quality.has_evidence({**staged, "_evidence": {"fields": {"saving_label": {"quote": "q"}}}}, now))
+        self.assertEqual(quality.score_deal(live_fresh, now=now).score - quality.score_deal(live_old, now=now).score, quality.EVIDENCE_BONUS)
+        self.assertEqual(quality.score_deal(staged, now=now).score, quality.score_deal(no_stamp, now=now).score)
+
+    def test_expired_record_routes_to_drop_with_a_reason(self):
+        today = date(2026, 11, 2)
+        for over in ({"recurrence": {"type": "dates", "dates": ["2026-09-25", "2026-10-30"]}},
+                     {"recurrence": {"type": "weekly", "days": [2], "until": "2026-09-30"}},
+                     {"recurrence": {"type": "once"}, "ends_at": "2026-09-15T23:59:59+01:00"},
+                     {"season_valid_until": "2026-09-30"}):
+            r, result = self.strong(**over)
+            self.assertGreaterEqual(result.score, quality.PUBLISH_AT)  # high score, still dropped
+            self.assertEqual(quality.route_deal(r, result, source_class="web", today=today), "drop", over)
+            self.assertIn("expired: every stated date has passed", result.reasons)
+            quality.route_deal(r, result, source_class="web", today=today)
+            self.assertEqual(result.reasons.count("expired: every stated date has passed"), 1)
+        live, result = self.strong(recurrence={"type": "weekly", "days": [2], "until": "2026-12-01"})
+        self.assertEqual(quality.route_deal(live, result, source_class="web", today=today), "publish")
+
+    def test_main_alone_is_not_a_main_course(self):
+        self.assertFalse(gate.is_cheap_price("Main Stage £5", None))
+        self.assertFalse(gate.is_cheap_price("Fringe Main Stage tickets £5", "£5"))
+        self.assertTrue(gate.is_cheap_price("Two course main course lunch £9", None) and gate.is_cheap_price("Any main course £9", None))
+        self.assertTrue(gate.is_cheap_price("Burger mains £9", None))
+
+    def test_per_person_spend_penalty(self):
+        def score(**over):
+            return quality.score_deal(self.rec(**{"title": "Cheese", "verified_at": None, "extraction_status": "pending", **over})).score
+        base = score()
+        self.assertEqual(score(saving_label="£35 a head"), base - 15)
+        self.assertEqual(score(saving_label="£39.95 per person"), base - 15)
+        self.assertEqual(score(price_text="From£45"), base - 15)
+        self.assertEqual(score(price_text="£25"), base)
+        self.assertEqual(score(title="Dinner for four £100"), base)  # £25 each
+        self.assertEqual(score(title="Dinner for four £120"), base - 15)
+        self.assertEqual(score(saving_label="Save up to 58%"), score(saving_label="Save up to 58%", price_text=None))  # no price, no penalty
+        self.assertEqual(quality.current_prices("£15 (usually £100)"), [15.0])
+        self.assertEqual(quality.current_prices("Was £98, save up to 34%, now £65 each. Worth £120, RRP £50, originally £70"), [65.0])
+        self.assertEqual(quality.current_prices("£5 off, save £10, Save up to £8"), [])
+
+    def test_was_prices_do_not_trigger_the_price_penalties(self):
+        r = self.rec(title="Health by Science Movement MOT for £15", saving_label="£15 (usually £100)", venue_name="Health by Science")
+        reasons = quality.score_deal(r).reasons
+        self.assertFalse([x for x in reasons if "poor fit" in x], reasons)
+        dear = self.rec(title="Movement MOT", saving_label="£100", venue_name="Health by Science")
+        self.assertTrue([x for x in quality.score_deal(dear).reasons if "price over" in x])
+
+    def test_locate_follows_deal_review(self):
+        L = quality.locate
+        self.assertEqual(L({"address": "1 High St, Musselburgh EH21 6AA"}), (False, "EH21 postcode"))
+        self.assertEqual(L({"address": "Leith, Edinburgh EH6 6RB", "venue_name": "Glasgow Bar"}), (True, "EH6 postcode"))  # postcode first
+        for pc in ("EH1 1AA", "EH17 8AB", "EH29 9AA", "EH91 1AA", "EH99 1SP"):
+            self.assertTrue(L({"address": pc})[0], pc)
+        for pc in ("EH18 1AA", "EH22 1AA", "G1 1AA", "KY1 1AA", "EH31 1AA"):
+            self.assertFalse(L({"address": pc})[0], pc)
+        self.assertEqual(L({"venue_name": "Lido Musselburgh"}), (False, "Musselburgh"))
+        self.assertEqual(L({"title": "Go Ape Dalkeith: 15% discount", "venue_name": "Go Ape"}), (False, "Dalkeith"))
+        self.assertIsNone(L({"venue_name": "The Lioness of Leith", "title": "Pints"}))  # Leith is inside, no data means keep
+        self.assertEqual(L({"lat": 55.95, "lng": -3.19}), (True, "pin 55.95, -3.19"))
+        self.assertFalse(L({"lat": 55.86, "lng": -4.25})[0])
+        self.assertIsNone(L({"lat": None, "lng": None}))
+
+    def test_outside_edinburgh_routes_to_drop_with_a_reason(self):
+        for over in ({"venue_name": "Lido Musselburgh"}, {"address": "Dalkeith EH22 1AA"}, {"lat": 55.86, "lng": -4.25}):
+            r, result = self.strong(**over)
+            self.assertGreaterEqual(result.score, quality.PUBLISH_AT)
+            self.assertEqual(quality.route_deal(r, result, source_class="web"), "drop", over)
+            self.assertTrue([x for x in result.reasons if x.startswith("outside Edinburgh")], over)
+        # national scope is exempt, as in deal-review.ts, and no data keeps the row
+        r, result = self.strong(venue_name="Lido Musselburgh", scope="national")
+        self.assertEqual(quality.route_deal(r, result, source_class="web"), "publish")
+        r, result = self.strong(venue_name="Local Bar", address="EH6 6RB")
+        self.assertEqual(quality.route_deal(r, result, source_class="web"), "publish")
+
+    def test_daily_limit_one_per_venue_four_per_source(self):
+        def deal(slug, score, venue, source="S", title=None):
+            return quality.RoutedDeal({"slug": slug, "venue_name": venue, "title": title or slug, "source_name": source}, quality.QualityResult(score, ["r"]), "publish")
+        routed = [deal("a1", 80, "The Blackbird"), deal("a2", 90, "Blackbird"), deal("a3", 85, "THE BLACKBIRD, Edinburgh"),
+                  deal("b1", 70, "Vaults"), deal("c1", 75, "56 North", source="T"), deal("c2", 74, "Hanover Tap", source="T"),
+                  deal("c3", 73, "Hanover  Tap!", source="T")]
+        out = quality.apply_daily_limit(routed)
+        self.assertEqual([r.route for r in out], ["digest", "publish", "digest", "publish", "publish", "publish", "digest"])
+        self.assertIn("same venue as a higher-scoring publish", out[0].result.reasons[-1])
+        self.assertIn("same venue", out[6].result.reasons[-1])
+        # a venue-less record falls back to its title
+        twins = quality.apply_daily_limit([deal("x", 80, None, title="Pizza night"), deal("y", 79, None, title="Pizza Night")])
+        self.assertEqual([r.route for r in twins], ["publish", "digest"])
+
+    def test_daily_limit_per_source_and_overall(self):
+        deals = [quality.RoutedDeal({"slug": f"s{i}", "venue_name": f"Venue {i}", "source_name": "One" if i < 6 else f"Src{i}"},
+                                    quality.QualityResult(100 - i, []), "publish") for i in range(14)]
+        out = quality.apply_daily_limit(deals)
+        self.assertEqual([r.route for r in out[:6]], ["publish"] * 4 + ["digest"] * 2)
+        self.assertIn("source limit of 4", out[4].result.reasons[-1])
+        self.assertEqual([r.route for r in out].count("publish"), 10)  # 4 + 6 others
+        self.assertIn("over the daily limit of 10", out[-1].result.reasons[-1])
+        self.assertEqual([r.route for r in out][6:12], ["publish"] * 6)
+
+    def test_benchmarks_file_is_valid(self):
+        items = gate.load_price_benchmarks()
+        self.assertEqual({i["id"] for i in items}, {"pint", "cocktail", "coffee", "lunch", "main", "brunch", "afternoon_tea", "cinema"})
+        for i in items:
+            self.assertGreater(i["max_gbp"], 0)
+            self.assertTrue(i["terms"])
+
+    def test_film_studio_hire_scores_below_70(self):
+        r = self.rec(title="20% off film studio hire", saving_label="20% off")
+        result = quality.score_deal(r)
+        self.assertLess(result.score, 70)
+        self.assertTrue(any("hire" in reason for reason in result.reasons))
+        self.assertNotEqual(quality.route_deal(r, result, source_class="web"), "publish")
+
+    def test_clinical_service_scores_lower(self):
+        plain = quality.score_deal(self.rec(title="Free check", saving_label="Free")).score
+        clinical = quality.score_deal(self.rec(title="Free spinal screening", saving_label="Free")).score
+        self.assertEqual(plain - clinical, quality.SERVICE_PENALTY)
+        self.assertEqual(quality.score_deal(self.rec(title="Free film screening", saving_label="Free")).score, plain)
+
+    def test_tuesday_cask_pints_at_a_local_venue_scores_70_plus(self):
+        r = self.rec(title="£4 cask pints", venue_name="Nobles of Bellfield", recurrence={"type": "weekly", "days": [2], "until": None})
+        result = quality.score_deal(r)
+        self.assertGreaterEqual(result.score, 70)
+        self.assertEqual(quality.route_deal(r, result, source_class="web"), "publish")
+        self.assertTrue(all(isinstance(reason, str) and reason for reason in result.reasons))
+
+    def test_components(self):
+        base = quality.score_deal(self.rec(title="Cheese", eligibility="anyone", verified_at=None, extraction_status="pending")).score  # 20 + 6 + 15 + 5
+        self.assertEqual(base, 46)
+        self.assertEqual(quality.score_deal(self.rec(title="Cheese", verified_at=None, extraction_status="pending", recurrence={"type": "weekly", "days": [1, 2]})).score, base + 20)
+        self.assertEqual(quality.score_deal(self.rec(title="Cheese", verified_at=None, extraction_status="pending", recurrence={"type": "weekly", "days": [1, 2, 3]})).score, base + 8)
+        self.assertEqual(quality.score_deal(self.rec(title="Cheese", verified_at=None, extraction_status="pending", recurrence={"type": "weekly", "days": [1, 2, 3, 4, 5]})).score, base)
+        self.assertEqual(quality.score_deal(self.rec(title="Cheese", verified_at=None, extraction_status="pending", eligibility="student")).score, base + 5)
+        self.assertEqual(quality.score_deal(self.rec(title="Cheese", verified_at=None, extraction_status="pending", eligibility="member")).score, base - 15)
+        self.assertEqual(quality.score_deal(self.rec(title="Cheese", venue_name="Nando's", verified_at=None, extraction_status="pending")).score, base - 40)
+        self.assertEqual(quality.score_deal(self.rec(title="Cheese", verified_at=None)).score, base + 10)  # validated
+        self.assertEqual(quality.score_deal(self.rec(title="Cheese", verified_at=None, extraction_status="pending", _evidence={"deal_quote": "Cheese"})).score, base + 10)
+        self.assertEqual(quality.score_deal(self.rec(title="Cheese dinner package", verified_at=None, extraction_status="pending")).score, base - 25)
+        self.assertEqual(quality.score_deal(self.rec(title="Cheese dinner £80", verified_at=None, extraction_status="pending")).score, base - 25)
+        self.assertEqual(quality.score_deal(self.rec(title="Cheese dinner for two £80", verified_at=None, extraction_status="pending")).score, base - quality.SPEND_PENALTY)  # £40 a head
+        self.assertEqual(quality.score_deal(self.rec(title="Cheese dinner for two £50", verified_at=None, extraction_status="pending")).score, base)  # £25 a head
+
+    def test_depth_is_a_port_of_deal_depth(self):
+        for text, depth in [("50% off", 50), ("up to 95% off", 90), ("2 for 1", 50), ("Free entry", 40), ("£5 off", 20), ("£4 pints", 40), ("£12 lunch", 20), ("mystery", 10)]:
+            self.assertEqual(quality.deal_depth(text, None), depth, text)
+        self.assertEqual(quality.score_deal(self.rec(title="X", saving_label="50% off", verified_at=None, extraction_status="pending")).score, 20 + 30 + 15 + 5)
+
+    def test_deep_cheap_price_is_worth_35(self):
+        shallow = quality.score_deal(self.rec(title="£4 cask pints", verified_at=None, extraction_status="pending")).score  # 4 > 70% of 4.5
+        deep = quality.score_deal(self.rec(title="£3 cask pints", verified_at=None, extraction_status="pending")).score
+        self.assertEqual(deep - shallow, 10)
+
+    def test_other_kinds_value(self):
+        free = quality.score_deal(self.rec(kind="event", title="Gallery late", is_free=True, verified_at=None, extraction_status="pending")).score
+        cheap = quality.score_deal(self.rec(kind="activity", title="Pottery", price_text="£8", verified_at=None, extraction_status="pending")).score
+        dear = quality.score_deal(self.rec(kind="tour", title="Whisky tour", price_text="£25", verified_at=None, extraction_status="pending")).score
+        self.assertEqual((free, cheap, dear), (20 + 30 + 15 + 5, 20 + 20 + 15 + 5, 20 + 15 + 5))
+
+    def test_clamped(self):
+        r = self.rec(title="£1 cask pints", recurrence={"type": "weekly", "days": [2]}, eligibility="student", _evidence={"deal_quote": "x"})
+        self.assertEqual(quality.score_deal(r).score, 100)  # 20 + 35 + 20 + 15 + 10 + 10 = 110
+        bad = self.rec(title="Hospitality package hire", venue_name="Nando's", eligibility="member", verified_at=None, extraction_status="pending")
+        self.assertEqual(quality.score_deal(bad).score, 0)
+
+    def test_drop_below_40(self):
+        bad = self.rec(title="Hospitality package", venue_name="Nando's", verified_at=None, extraction_status="pending")
+        result = quality.score_deal(bad)
+        self.assertLess(result.score, quality.DROP_BELOW)
+        self.assertEqual(quality.route_deal(bad, result, source_class="web"), "drop")
+
+    def strong(self, **over):
+        r = self.rec(**{"title": "£3 cask pints", "recurrence": {"type": "weekly", "days": [2]}, **over})
+        return r, quality.score_deal(r)
+
+    def test_a_failed_check_never_publishes(self):
+        for errors in (["quote_not_found"], ["possible duplicate of happenings 'X' (same venue)"],
+                       ["matches dormant row 'X' (same title) -- revive?"], ["commercial_source_review", "date_not_stated"]):
+            r, result = self.strong(validation_errors=errors)
+            self.assertGreaterEqual(result.score, 90)
+            self.assertEqual(quality.route_deal(r, result, source_class="web"), "digest", errors)
+        r, result = self.strong(_force_review="possible duplicate of happenings 'X' (same venue)")
+        self.assertEqual(quality.route_deal(r, result, source_class="web"), "digest")
+
+    def test_commercial_review_alone_can_publish_if_the_gate_passed(self):
+        r, result = self.strong(validation_errors=["commercial_source_review"], extraction_status="pending", _evidence={"deal_quote": "£3 cask pints"})
+        self.assertEqual(quality.route_deal(r, result, source_class="web"), "publish")
+        r, result = self.strong(validation_errors=["commercial_source_review"], extraction_status="pending")
+        self.assertEqual(quality.route_deal(r, result, source_class="web"), "digest")  # not validated, no gate evidence
+
+    def test_social_and_newsletter_never_publish(self):
+        r, result = self.strong()
+        self.assertEqual(quality.route_deal(r, result, source_class="web"), "publish")
+        for source_class in ("social", "newsletter", "anything-else"):
+            self.assertEqual(quality.route_deal(r, result, source_class=source_class), "digest")
+        low = quality.QualityResult(10, [])
+        self.assertEqual(quality.route_deal(r, low, source_class="social"), "drop")
+
+    def test_publish_threshold(self):
+        r = self.rec(title="Cheese", extraction_status="validated")
+        self.assertEqual(quality.route_deal(r, quality.QualityResult(69, []), source_class="web"), "digest")
+        self.assertEqual(quality.route_deal(r, quality.QualityResult(70, []), source_class="web"), "publish")
+        self.assertEqual(quality.route_deal(r, quality.QualityResult(40, []), source_class="web"), "digest")
+        self.assertEqual(quality.route_deal(r, quality.QualityResult(39, []), source_class="web"), "drop")
+
+    def test_apply_daily_limit(self):
+        routed = [quality.RoutedDeal({"slug": f"d{i}"}, quality.QualityResult(score, ["r"]), route)
+                  for i, (score, route) in enumerate([(80, "publish"), (95, "publish"), (72, "publish"), (88, "publish"), (60, "digest"), (30, "drop"), (72, "publish")])]
+        out = quality.apply_daily_limit(routed, limit=3)
+        self.assertEqual([r.route for r in out], ["publish", "publish", "digest", "publish", "digest", "drop", "digest"])
+        self.assertEqual(out[2].result.reasons[-1], "over the daily limit of 3: moved to digest")
+        self.assertEqual(routed[2].route, "publish")  # input untouched
+        self.assertEqual([r.route for r in quality.apply_daily_limit(routed, limit=10)], [r.route for r in routed])
+        self.assertEqual([r.route for r in quality.apply_daily_limit(routed, limit=0)].count("publish"), 0)
+
+    def test_ai_rating_caps_but_never_raises(self):
+        r, _ = self.strong()
+        uncapped = quality.score_deal(r).score
+        self.assertGreater(uncapped, 90)
+        self.assertEqual(quality.score_deal(r, ai_rating=1).score, 25)
+        self.assertEqual(quality.score_deal(r, ai_rating=2).score, 45)
+        self.assertEqual(quality.score_deal(r, ai_rating=3).score, 69)
+        self.assertEqual(quality.score_deal(r, ai_rating=4).score, uncapped)
+        self.assertEqual(quality.score_deal(r, ai_rating=5).score, uncapped)
+        self.assertEqual(quality.score_deal(r, ai_rating=None).score, uncapped)
+        weak = self.rec(title="Cheese", verified_at=None, extraction_status="pending")  # 46: below the caps for 3, 4 and 5, above the cap for 1
+        self.assertEqual(quality.score_deal(weak).score, 46)
+        self.assertEqual(quality.score_deal(weak, ai_rating=3).score, 46)
+        self.assertEqual(quality.score_deal(weak, ai_rating=5).score, 46)
+        self.assertEqual(quality.score_deal(weak, ai_rating=2).score, 45)
+        self.assertEqual(quality.score_deal(weak, ai_rating=1).score, 25)
+        # a rating of 3 stops a publish
+        self.assertEqual(quality.route_deal(r, quality.score_deal(r, ai_rating=3), source_class="web"), "digest")
+
+    def test_rate_relevance_batches_of_25_with_a_fake_client(self):
+        prompts = []
+
+        def fake(prompt):
+            prompts.append(prompt)
+            slugs = [line.split("slug: ")[1].split(" |")[0] for line in prompt.splitlines() if line.startswith("slug: ")]
+            ratings = [{"slug": s, "rating": 1 + (int(s[1:]) % 5)} for s in slugs] + [{"slug": "not-asked", "rating": 5}]
+            return quality.RatingResult(ratings)
+
+        records = [{"slug": f"s{i}", "title": f"Deal {i}", "venue_name": "V"} for i in range(60)]
+        out = quality.rate_relevance(records, fake)
+        self.assertEqual(len(prompts), 3)
+        self.assertEqual([p.count("slug: ") for p in prompts], [25, 25, 10])
+        self.assertEqual(len(out), 60)
+        self.assertEqual(out["s7"], 3)
+        self.assertNotIn("not-asked", out)
+        self.assertIn("student or young professional", quality.RATING_SYSTEM_PROMPT)
+
+    def test_rate_relevance_ignores_bad_answers(self):
+        calls = iter([quality.RatingResult([], error="boom"),
+                      quality.RatingResult([{"slug": "s26", "rating": 9}, {"slug": "s27", "rating": True}, {"slug": "s28", "rating": 4}])])
+        out = quality.rate_relevance([{"slug": f"s{i}", "title": "t"} for i in range(30)], lambda prompt: next(calls))
+        self.assertEqual(out, {"s28": 4})
+
+    def test_rating_tool_call_shape_with_a_fake_sdk_client(self):
+        seen = {}
+
+        class Stream:
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *a):
+                return False
+
+            def get_final_message(self):
+                block = type("B", (), {"type": "tool_use", "input": {"ratings": [{"slug": "a", "rating": 4}]}})()
+                usage = type("U", (), {"input_tokens": 11, "output_tokens": 3})()
+                return type("M", (), {"content": [block], "usage": usage})()
+
+        class Client:
+            class messages:
+                @staticmethod
+                def stream(**kw):
+                    seen.update(kw)
+                    return Stream()
+
+        result = quality.call_rating_tool(Client, "m", "prompt")
+        self.assertEqual(result.ratings, [{"slug": "a", "rating": 4}])
+        self.assertEqual((result.input_tokens, result.output_tokens), (11, 3))
+        self.assertEqual(seen["tool_choice"], {"type": "tool", "name": "submit_ratings"})
+        self.assertEqual(seen["thinking"], {"type": "disabled"})
+
+        class Broken:
+            class messages:
+                @staticmethod
+                def stream(**kw):
+                    raise RuntimeError("down")
+
+        self.assertIn("down", quality.call_rating_tool(Broken, "m", "p").error)
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=1)

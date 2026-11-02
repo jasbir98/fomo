@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { isKidsAimed, leadWithoutKidsAimed } from "./weekly-picks.mjs";
+import { isGenuineDeal, isKidsAimed, leadWithoutKidsAimed } from "./weekly-picks.mjs";
 
 test("isKidsAimed: stored family_fit wins, then category / eligibility fallbacks", () => {
   assert.equal(isKidsAimed({ family_fit: "kids" }), true);
@@ -35,4 +35,25 @@ test("leadWithoutKidsAimed: all kids-aimed, or empty, is unchanged; input is not
   const input = [kids("A"), normal("B")];
   leadWithoutKidsAimed(input);
   assert.deepEqual(titles(input), ["A", "B"]);
+});
+
+test("isGenuineDeal accepts a cheap price for a named item, not a plain price", () => {
+  const row = (title, saving_label = null) => ({ title, saving_label, saving_amount: null, promo_code: null, eligibility: "anyone" });
+  assert.equal(isGenuineDeal(row("£4 cask pints")), true);
+  assert.equal(isGenuineDeal(row("Tuesday beer night", "£5 IPA with any burger")), true);
+  assert.equal(isGenuineDeal(row("Patisserie Valerie afternoon tea for two £30")), true);
+  assert.equal(isGenuineDeal(row("Victoria Bar classic cocktails £8")), false);
+  assert.equal(isGenuineDeal(row("Splash and Glow: £29 weekday sessions")), false);
+  assert.equal(isGenuineDeal(row("Adult £10")), false);
+  assert.equal(isGenuineDeal(row("£5 off pints")), true); // discount wording
+});
+
+test("isGenuineDeal accepts BOGOF-style wording", () => {
+  const row = (title, saving_label = null) => ({ title, saving_label, saving_amount: null, promo_code: null, eligibility: "anyone" });
+  assert.equal(isGenuineDeal(row("BOGOF burgers")), true);
+  assert.equal(isGenuineDeal(row("Pizza night", "Buy one, get one")), true);
+  assert.equal(isGenuineDeal(row("Buy one get one on cocktails")), true);
+  assert.equal(isGenuineDeal(row("Get another pint")), true);
+  assert.equal(isGenuineDeal(row("Get a second coffee")), true);
+  assert.equal(isGenuineDeal(row("Buy one book")), false);
 });

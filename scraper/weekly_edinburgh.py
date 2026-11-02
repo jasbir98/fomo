@@ -905,9 +905,12 @@ def run_tidy() -> str | None:
     write: it never deletes and it only changes expired one-off rows.  A
     failure is reported but does not prevent fresh research from being staged.
     """
+    # Locally the keys live in .env.local; in CI there is no such file (node fails on a
+    # missing --env-file) and the workflow supplies them as environment variables.
+    env_args = ["--env-file=.env.local"] if (REPO_ROOT / ".env.local").is_file() else []
     try:
         result = subprocess.run(
-            ["node", "--env-file=.env.local", "scripts/sweep-happenings.mjs", "--apply"],
+            ["node", *env_args, "scripts/sweep-happenings.mjs", "--apply"],
             cwd=REPO_ROOT,
             text=True,
             capture_output=True,
