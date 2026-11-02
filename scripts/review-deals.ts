@@ -23,8 +23,16 @@
  * list printed: that many in a day is more likely a bug (or a recheck outage
  * that left every `verified_at` old) than reality. No AI calls.
  *
- * `--dry-run` writes nothing and always exits 0, even over the cap, so the
- * report can be read.
+ * DROUGHT ALARM. After the review, if no deal row (any status) has a `created_at`
+ * in the last 7 days (`dealDrought`), a clear "No new deals" section is printed and
+ * added to the run summary, and the process exits 1 even though everything else
+ * succeeded. The alarm is checked and printed BEFORE the writes but the exit
+ * comes AFTER them, so the retire and dormant changes are always made first (the
+ * workflow's review is its last step, so exiting non-zero only fails the job).
+ * `--dry-run` prints the same section but does not change the exit code.
+ *
+ * `--dry-run` writes nothing and always exits 0, even over the cap or in a
+ * drought, so the report can be read.
  *
  * DB ACCESS. Plain `fetch` against PostgREST with the service-role key, not
  * @supabase/supabase-js, for the reason given in scripts/finds.ts (its
@@ -34,10 +42,13 @@
 import { appendFileSync } from "node:fs";
 import { parseArgs } from "node:util";
 import {
+  DROUGHT_DAYS,
   MAX_CHANGES,
   NEW_WINDOW_HOURS,
   STALE_DORMANT_DAYS,
+  dealDrought,
   reviewDeals,
+  type DroughtResult,
   type DealVerdict,
   type ReviewableDeal,
 } from "@/lib/happenings/deal-review";
@@ -134,6 +145,38 @@ function buildReport(review: ReturnType<typeof reviewDeals>, mode: string): stri
   return sections.join("\n");
 }
 
+// --- drought alarm ---------------------------------------------------------
+
+/**
+ * The newest deal's created_at, any status. One row is enough: `dealDrought` only
+ * needs to know whether the newest is inside the window. Returns null if the read
+ * failed, so a blip in the check can never fail the job as a false alarm.
+ */
+async function checkDrought(now: Date): Promise<DroughtResult | null> {
+  try {
+    const rows = await rest<{ created_at: string | null; kind: string | null }[]>(
+      "GET",
+      "happenings?select=created_at,kind&kind=eq.deal&created_at=not.is.null&order=created_at.desc&limit=1"
+    );
+    return dealDrought(rows, now);
+  } catch (err) {
+    console.error(`[review-deals] drought check skipped: ${err instanceof Error ? err.message : err}`);
+    return null;
+  }
+}
+
+function droughtSection(d: DroughtResult): string {
+  const last = d.newest ? `${d.newest.slice(0, 10)} (${d.daysSince} days ago)` : "never";
+  return [
+    `### DROUGHT: no new deals in ${DROUGHT_DAYS} days`,
+    "",
+    `No deal row has been created in the last ${DROUGHT_DAYS} days. The newest was created ${last}.`,
+    "Nothing is reaching the feed: check the daily deals run (daily-deals.yml), the review digest and `DEAL_AUTO_PUBLISH`, and approve anything waiting.",
+    "This job fails on purpose until a deal is created, even though the review above completed.",
+    "",
+  ].join("\n");
+}
+
 // --- writes ----------------------------------------------------------------
 
 const BATCH = 50;
@@ -175,6 +218,14 @@ async function main() {
   console.log(report);
   if (process.env.GITHUB_STEP_SUMMARY) appendFileSync(process.env.GITHUB_STEP_SUMMARY, report + "\n");
 
+  const drought = await checkDrought(now);
+  const inDrought = drought?.drought === true;
+  if (inDrought) {
+    const section = droughtSection(drought);
+    console.log(section);
+    if (process.env.GITHUB_STEP_SUMMARY) appendFileSync(process.env.GITHUB_STEP_SUMMARY, section + "\n");
+  }
+
   if (DRY_RUN) return;
   if (review.overCap) {
     console.error(`[review-deals] ${review.changeCount} changes is over the cap of ${MAX_CHANGES}: wrote nothing.`);
@@ -191,6 +242,12 @@ async function main() {
     for (const id of changed) console.log(`[review-deals] ${status}  ${byId.get(id)?.deal.title} (${id}): ${byId.get(id)?.reason}`);
     const skipped = verdicts.length - changed.length;
     if (skipped > 0) console.log(`[review-deals] ${skipped} ${status} change(s) skipped: no longer live when written.`);
+  }
+
+  // Last, so the review's own writes are never skipped by the alarm.
+  if (inDrought) {
+    console.error(`::error title=No new deals::No deal created in the last ${DROUGHT_DAYS} days (newest: ${drought?.newest ?? "none"}).`);
+    process.exit(1);
   }
 }
 

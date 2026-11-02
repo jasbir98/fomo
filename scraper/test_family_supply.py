@@ -33,7 +33,7 @@ class KidsSourceRegistryTests(unittest.TestCase):
     def test_new_kids_sources_are_shadow_national_with_a_venue(self):
         expected = {
             "scotrail-kids-for-a-quid": ("official", "Edinburgh Waverley station", "https://www.scotrail.co.uk/kids-for-a-quid"),
-            "cineworld-family-films": ("commercial", "Cineworld Edinburgh (Fountain Park)", "https://www.cineworld.co.uk/movies-for-juniors"),
+            "cineworld-family-films": ("commercial", "Cineworld Edinburgh (Fountain Park)", "https://www.cineworld.co.uk/family/"),
             "picturehouse-kids-club": ("commercial", "Cameo Picturehouse", "https://www.picturehouses.com/kids-club"),
         }
         for sid, (trust, venue, url) in expected.items():
