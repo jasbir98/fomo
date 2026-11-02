@@ -63,6 +63,8 @@ SPEND_PENALTY = 15
 HIRE_PENALTY = 20
 SERVICE_PENALTY = 15  # beauty, hair, clinical and therapy services
 RATING_CAPS = {1: 25, 2: 45, 3: 69}  # an AI rating of 4 or 5 caps nothing
+NON_DEAL_CAP = PUBLISH_AT - 1  # an event, activity, free_access, festival or tour scores at most this ...
+NON_DEAL_UNCAPPED_RATING = (4, 5)  # ... unless it has a stated free or low price AND an AI rating of 4 or 5
 
 AUDIENCE_POINTS = {
     "student": 10, "under_26": 10,
@@ -358,6 +360,14 @@ def score_deal(record: dict[str, Any], *, ai_rating: int | None = None, now: dat
     if cap is not None and score > cap:
         score = cap
         reasons.append(f"AI relevance {ai_rating}/5 caps the score at {cap}")
+    # Only a deal can reach publish on its score alone. Anything else (a quiz night, a gig, a tour) needs a
+    # stated free or low price AND a good AI rating, so with no rating it can never route publish.
+    if (record.get("kind") or "deal") not in DEAL_KINDS and score > NON_DEAL_CAP:
+        rated_well = isinstance(ai_rating, int) and not isinstance(ai_rating, bool) and ai_rating in NON_DEAL_UNCAPPED_RATING
+        if not (value and rated_well):
+            score = NON_DEAL_CAP
+            why = "no stated free or low price" if not value else "no AI rating of 4 or 5"
+            reasons.append(f"not a deal: capped at {NON_DEAL_CAP} ({why})")
     return QualityResult(score, reasons)
 
 
@@ -511,6 +521,10 @@ RATING_SYSTEM_PROMPT = (
     "For each deal answer one question: would a student or young professional in Edinburgh actually care about this? "
     "Rate 1 to 5: 1 = no (a clinic, a hire service, a corporate package, something far from their life), "
     "3 = maybe, 5 = clearly yes (cheap food and drink, nights out, student offers, free things to do). "
+    "Read the summary, the notes and the page excerpt when they are given, not only the title. "
+    "A row meant for a narrow group (children or teenagers, over-60s, members, a named neighbourhood or community, "
+    "fans who have a match ticket) rates at most 2, and so does a row with a condition its title or label does not "
+    "state (a ticket you must already hold, a donation or booking fee, a minimum spend, a membership). "
     "Rate every deal once, using its slug exactly as given."
 )
 RATING_TOOL: dict[str, Any] = {
@@ -536,13 +550,26 @@ class RatingResult:
     error: str | None = None
 
 
+RATING_NOTE_KEYS = ("summary", "eligibility_note", "redemption_note", "time_note")
+RATING_NOTE_CHARS = 280
+RATING_EXCERPT_CHARS = 700
+
+
 def build_rating_prompt(batch: list[dict[str, Any]]) -> str:
+    """One line per deal: the label fields, the row's own summary and notes (who it is for, what it
+    costs, when), and, for a row whose source page was read, a short excerpt of the page around the deal
+    (`page_excerpt`, never the whole page)."""
     lines = []
     for r in batch:
         parts = [f"slug: {r.get('slug')}", f"title: {r.get('title')}"]
-        for key in ("venue_name", "saving_label", "price_text", "eligibility"):
+        for key in ("kind", "venue_name", "saving_label", "price_text", "eligibility"):
             if r.get(key):
                 parts.append(f"{key}: {r[key]}")
+        for key in RATING_NOTE_KEYS:
+            if isinstance(r.get(key), str) and r[key].strip():
+                parts.append(f"{key}: {' '.join(r[key].split())[:RATING_NOTE_CHARS]}")
+        if isinstance(r.get("page_excerpt"), str) and r["page_excerpt"].strip():
+            parts.append(f"page excerpt: {' '.join(r['page_excerpt'].split())[:RATING_EXCERPT_CHARS]}")
         lines.append(" | ".join(parts))
     return "Rate these deals.\n\n" + "\n".join(lines)
 

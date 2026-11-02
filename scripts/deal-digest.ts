@@ -16,6 +16,9 @@
  * `--max-age-days 30`, and go back to the default after that. A dry run (no --send) lists exactly
  * what would expire, so read it first.
  *
+ * Only rows whose source page was checked (scraper/page_check.py leaves "page check: ok" in
+ * quality_reasons) are emailed; the dry run says how many were held back. At most 3 per category.
+ *
  * What it does (rules in lib/review/digest.ts, all unit-tested):
  *   1. Reads happenings_staging rows routed 'digest' that nobody has decided.
  *   2. EXPIRES (--send only) rows staged more than 14 days ago: extraction_status
@@ -223,7 +226,8 @@ async function main() {
   const mode = SEND ? "SEND" : "DRY RUN";
   console.log(
     `[deal-digest] ${mode}: ${waiting.length} waiting row(s) read; ${plan.expire.length} to expire (staged over ${MAX_AGE_DAYS} days ago); ` +
-      `${plan.waitingTotal} distinct deal(s) still waiting; ${plan.items.length} for the email (max ${MAX_DIGEST_ITEMS}).`
+      `${plan.waitingTotal} distinct deal(s) still waiting; ${plan.items.length} for the email (max ${MAX_DIGEST_ITEMS}); ` +
+      `${plan.unchecked} held back because their source page was not checked.`
   );
   for (const r of plan.expire) console.log(`  expire  ${r.id}  ${r.title}  (score ${r.quality_score ?? "n/a"}, staged ${r.created_at ?? "?"})`);
   for (const r of plan.items) console.log(`  email   ${r.id}  score ${r.quality_score ?? "n/a"}  ${r.title}${r.digest_sent_at ? "  (sent before)" : ""}`);
@@ -246,7 +250,7 @@ async function main() {
   const sign = SEND
     ? (id: string, action: "approve" | "reject") => signReviewToken({ id, action, secret: SIGNING_SECRET, now: now.getTime() })
     : (_id: string, action: "approve" | "reject") => `dry-run-placeholder-${action}`;
-  const email = renderDigestEmail({ items: plan.items, waitingTotal: plan.waitingTotal, expiredCount, baseUrl: BASE_URL, sign });
+  const email = renderDigestEmail({ items: plan.items, waitingTotal: plan.waitingTotal, expiredCount, maxAgeDays: MAX_AGE_DAYS, baseUrl: BASE_URL, sign });
 
   if (!SEND) {
     console.log(`\n[deal-digest] would send to the address in REVIEW_DIGEST_TO (${DIGEST_TO ? "set" : "NOT SET"}; --send needs it):\nSubject: ${email.subject}\n\n${email.text}\n`);

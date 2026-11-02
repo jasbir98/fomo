@@ -55,6 +55,7 @@ from happenings_research import (  # noqa: E402
 from deepseek_hours import DeepSeekPeakHours, next_clear_start  # noqa: E402
 from llm_client import RESEARCH_CALL_KWARGS, default_research_model, make_research_client, research_provider  # noqa: E402
 from upsert_happenings import upsert_happenings  # noqa: E402
+import page_check  # noqa: E402
 from identity import Catalogue, reconcile  # noqa: E402
 from deal_sources.registry import get_sources as get_deal_sources  # noqa: E402
 from deal_sources import quality  # noqa: E402
@@ -1478,6 +1479,7 @@ def main() -> None:
             history=publish_history,
             history_error=history_error,
             fail_safe=auto_on,
+            page_get=page_check.make_fetcher(),
         )
         ledger.settle(routing_reserved, Usage(input_tokens=routing.rating.input_tokens, output_tokens=routing.rating.output_tokens))
     except Exception as exc:  # routing is advisory: a bug in it must not lose the run's staged rows

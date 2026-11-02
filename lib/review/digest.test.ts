@@ -4,14 +4,18 @@ import assert from "node:assert/strict";
 import {
   DIGEST_COLUMNS,
   MAX_DIGEST_ITEMS,
+  MAX_PER_BUCKET,
   evidenceQuote,
   isOver,
   isStale,
   isUnconfirmedSource,
   isWaiting,
+  pageCheckState,
+  pageUnconfirmedDetail,
   planDigest,
   safeHttpUrl,
   topReasons,
+  venueKey,
   type StagedDeal,
 } from "./digest";
 
@@ -26,6 +30,7 @@ const deal = (over: Partial<StagedDeal> = {}): StagedDeal => ({
   title: `Deal ${n}`,
   quality_route: "digest",
   quality_score: 50,
+  quality_reasons: ["base +20", "page check: ok 2026-11-02"],
   approved: false,
   extraction_status: "validated",
   happening_id: null,
@@ -122,12 +127,12 @@ test("a deal whose own dates have passed is not emailed, but still counts as wai
 });
 
 test("zero waiting rows gives an empty plan", () => {
-  assert.deepEqual(planDigest([], NOW), { expire: [], items: [], waitingTotal: 0 });
+  assert.deepEqual(planDigest([], NOW), { expire: [], items: [], waitingTotal: 0, unchecked: 0 });
   const plan = planDigest([deal({ quality_route: "publish" })], NOW);
   assert.equal(plan.items.length, 0);
 });
 
-test("topReasons takes the first few strings", () => {
+test("topReasons takes the first few strings that say something", () => {
   assert.deepEqual(topReasons(deal({ quality_reasons: ["a", " b ", "", "c", "d"] }), 3), ["a", "b", "c"]);
   assert.deepEqual(topReasons(deal({ quality_reasons: null })), []);
   assert.deepEqual(topReasons(deal({ quality_reasons: { not: "an array" } })), []);
@@ -230,4 +235,114 @@ test("safeHttpUrl only passes http(s)", () => {
   assert.equal(safeHttpUrl("data:text/html,hi"), null);
   assert.equal(safeHttpUrl(null), null);
   assert.equal(safeHttpUrl("nope"), null);
+});
+
+// --- reasons on the card --------------------------------------------------------------------
+
+test("topReasons skips base and evidence and the bookkeeping notes, and keeps the informative three", () => {
+  const reasons = [
+    "base +20",
+    "value: free +30",
+    "limited days: 1 a week +20",
+    "local +15",
+    "audience anyone +5",
+    "evidence +10",
+    "evidence assumed: passed the deal-source quote gate (stored row has no _evidence)",
+    "backlog row: publishing needs a fresh check inside a run, so it goes to the digest",
+    "page check: ok 2026-11-02",
+  ];
+  assert.deepEqual(topReasons(deal({ quality_reasons: reasons })), ["value: free +30", "limited days: 1 a week +20", "local +15"]);
+  assert.deepEqual(topReasons(deal({ quality_reasons: ["base +20", "evidence +10"] })), []);
+  assert.deepEqual(topReasons(deal({ quality_reasons: reasons }), 1), ["value: free +30"]);
+});
+
+// --- only checked rows ----------------------------------------------------------------------
+
+test("pageCheckState reads the marker in quality_reasons", () => {
+  assert.equal(pageCheckState(deal({ quality_reasons: ["page check: ok 2026-11-02"] })), "ok");
+  assert.equal(pageCheckState(deal({ quality_reasons: ["page check: unconfirmed (blocked/challenged (HTTP 403))"] })), "unconfirmed");
+  assert.equal(pageCheckState(deal({ quality_reasons: ["page check: not reached (over the page limit)"] })), "none");
+  assert.equal(pageCheckState(deal({ quality_reasons: ["value: free +30"] })), "none");
+  assert.equal(pageCheckState(deal({ quality_reasons: null })), "none");
+  assert.equal(pageUnconfirmedDetail(deal({ quality_reasons: ["page check: unconfirmed (blocked/challenged (HTTP 403))"] })), "blocked/challenged (HTTP 403)");
+  assert.equal(pageUnconfirmedDetail(deal({ quality_reasons: ["page check: ok 2026-11-02"] })), null);
+});
+
+test("a row whose page was not checked, or not reached, is held back but still counts as waiting", () => {
+  const checked = deal({ quality_score: 60 });
+  const never = deal({ quality_score: 99, quality_reasons: ["value: free +30"] });
+  const notReached = deal({ quality_score: 98, quality_reasons: ["page check: not reached (over the page limit)"] });
+  const plan = planDigest([never, checked, notReached], NOW);
+  assert.deepEqual(plan.items, [checked]);
+  assert.equal(plan.waitingTotal, 3);
+  assert.equal(plan.unchecked, 2);
+});
+
+test("unconfirmed rows only fill the places left after the confirmed ones", () => {
+  const blocked = deal({ quality_score: 99, quality_reasons: ["page check: unconfirmed (HTTP 403)"] });
+  const ok = Array.from({ length: 10 }, (_, i) => deal({ quality_score: 50 + i, category: `c${i}` }));
+  assert.ok(!planDigest([blocked, ...ok], NOW).items.includes(blocked));
+  const few = ok.slice(0, 4);
+  const plan = planDigest([blocked, ...few], NOW);
+  assert.equal(plan.items.length, 5);
+  assert.equal(plan.items[4], blocked);
+});
+
+// --- variety --------------------------------------------------------------------------------
+
+test("at most three of one category in an email; the cut rows stay waiting", () => {
+  const quizzes = Array.from({ length: 6 }, (_, i) => deal({ title: `Quiz ${i}`, kind: "event", category: "nightlife", quality_score: 100 - i }));
+  const others = Array.from({ length: 4 }, (_, i) => deal({ title: `Other ${i}`, kind: "event", category: `cat${i}`, quality_score: 60 - i }));
+  const plan = planDigest([...quizzes, ...others], NOW);
+  assert.equal(plan.items.length, 7);
+  assert.equal(plan.items.filter((r) => r.category === "nightlife").length, MAX_PER_BUCKET);
+  assert.deepEqual(plan.items.slice(0, 3).map((r) => r.title), ["Quiz 0", "Quiz 1", "Quiz 2"]);
+  assert.equal(plan.waitingTotal, 10);
+  assert.equal(plan.expire.length, 0);
+});
+
+test("a row with no category is bucketed by its kind", () => {
+  const rows = Array.from({ length: 5 }, (_, i) => deal({ kind: "event", quality_score: 90 - i }));
+  assert.equal(planDigest(rows, NOW).items.length, MAX_PER_BUCKET);
+});
+
+test("on equal scores a deal comes before an event", () => {
+  const event = deal({ kind: "event", category: "music", quality_score: 80, created_at: ago(9) });
+  const dealRow = deal({ kind: "deal", category: "food", quality_score: 80, created_at: ago(1) });
+  assert.deepEqual(planDigest([event, dealRow], NOW).items, [dealRow, event]);
+  const better = deal({ kind: "event", category: "comedy", quality_score: 81 });
+  assert.equal(planDigest([dealRow, better], NOW).items[0], better);
+});
+
+// --- one row per venue ----------------------------------------------------------------------
+
+test("venueKey normalises like the Python venue_key; no venue is its own bucket", () => {
+  assert.equal(venueKey(deal({ venue_name: "The Blackbird" })), venueKey(deal({ venue_name: "Blackbird" })));
+  assert.equal(venueKey(deal({ venue_name: "Cafe & Bar, Edinburgh" })), venueKey(deal({ venue_name: "cafe and bar" })));
+  assert.equal(venueKey(deal({ venue_name: "Malones Leith" })), venueKey(deal({ venue_name: "MALONES  LEITH!" })));
+  assert.notEqual(venueKey(deal({ venue_name: "The Stand" })), venueKey(deal({ venue_name: "The Standing Order" })));
+  const a = deal({ venue_name: null });
+  const b = deal({ venue_name: "  " });
+  assert.notEqual(venueKey(a), venueKey(b));
+  assert.equal(venueKey(a), `id:${a.id}`);
+});
+
+test("at most one row per venue in an email: the best score wins and the other stays waiting", () => {
+  const plates = deal({ title: "Plates", venue_name: "The Blackbird", category: "food", kind: "deal", quality_score: 80 });
+  const cocktails = deal({ title: "Plates and cocktails", venue_name: "Blackbird", category: "food", kind: "deal", quality_score: 82 });
+  const other = deal({ title: "Burgers", venue_name: "56 North", category: "food2", kind: "deal", quality_score: 70 });
+  const plan = planDigest([plates, cocktails, other], NOW);
+  assert.deepEqual(plan.items.map((r) => r.title), ["Plates and cocktails", "Burgers"]);
+  assert.equal(plan.waitingTotal, 3);
+  assert.equal(plan.expire.length, 0);
+});
+
+test("rows with no venue never block each other, and a venue cut does not use up a category place", () => {
+  const none = Array.from({ length: 3 }, (_, i) => deal({ title: `No venue ${i}`, venue_name: null, category: `c${i}`, quality_score: 60 - i }));
+  assert.equal(planDigest(none, NOW).items.length, 3);
+  const a = deal({ venue_name: "Bar One", category: "music", quality_score: 90 });
+  const dup = deal({ venue_name: "bar one", category: "music", quality_score: 89 });
+  const others = Array.from({ length: 3 }, (_, i) => deal({ venue_name: `Venue ${i}`, category: "music", quality_score: 80 - i }));
+  const plan = planDigest([a, dup, ...others], NOW);
+  assert.deepEqual(plan.items, [a, ...others.slice(0, 2)]);  // three music places: a plus two
 });

@@ -9,6 +9,13 @@
  *            marks it reviewed-expired so a pile-up can't form.
  *   sent     best score first, at most 10. A row already sent comes back only
  *            if still unreviewed and last sent more than 3 days ago.
+ *   checked  only rows whose source page was looked at (quality_reasons carries a "page check: ok"
+ *            or "page check: unconfirmed" marker, see scraper/page_check.py). A row that was not
+ *            reached, or never checked, stays waiting but is not emailed. Confirmed rows come first;
+ *            unconfirmed ones (the page blocked us) only fill what is left, and the card says so.
+ *   variety  at most MAX_PER_BUCKET rows share a category (the kind when there is none) in one email,
+ *            at most one row per venue (best score wins; a row with no venue is its own bucket), and on
+ *            equal scores a deal comes before an event. Rows cut for variety stay waiting.
  *   skipped  a deal whose own dates have passed is never emailed (it is left
  *            to expire like any other).
  *   one per slug  past batches stage the same deal again under the same slug. The
@@ -21,6 +28,8 @@
 export const MAX_DIGEST_ITEMS = 10;
 export const RESEND_AFTER_DAYS = 3;
 export const EXPIRE_AFTER_DAYS = 14;
+/** Most rows of one category (or kind, when a row has no category) in one email. */
+export const MAX_PER_BUCKET = 3;
 
 /** What the digest reads from happenings_staging (the script selects `*`; only these are used). */
 export type StagedDeal = {
@@ -33,6 +42,8 @@ export type StagedDeal = {
   venue_name?: string | null;
   saving_label?: string | null;
   price_text?: string | null;
+  kind?: string | null;
+  category?: string | null;
   source_name?: string | null;
   source_url?: string | null;
   booking_url?: string | null;
@@ -60,7 +71,7 @@ export type StagedDeal = {
  */
 export const DIGEST_COLUMNS = [
   "id", "slug", "batch_id", "title", "summary", "time_note", "venue_name", "saving_label", "price_text",
-  "source_name", "source_url", "booking_url", "evidence_quote", "starts_at", "ends_at", "season_valid_until",
+  "kind", "category", "source_name", "source_url", "booking_url", "evidence_quote", "starts_at", "ends_at", "season_valid_until",
   "created_at", "extraction_status", "approved", "happening_id", "quality_score", "quality_reasons",
   "quality_route", "digest_sent_at", "reviewed_at", "reviewed_action", "rejected_reason",
 ].join(",");
@@ -133,6 +144,8 @@ export type DigestPlan = {
   items: StagedDeal[];
   /** Distinct deals still waiting after expiry and de-duplication, whether or not they fit in this email. */
   waitingTotal: number;
+  /** Distinct deals due to be emailed but held back because their source page was never checked (or not reached). */
+  unchecked: number;
 };
 
 export function planDigest(
@@ -172,26 +185,101 @@ export function planDigest(
   }
 
   const unique = [...newest.entries()];
-  const items = unique
+  const due = unique
     .filter(([key, r]) => !isOver(r, now) && sentLongAgo(lastSent.get(key) ?? null, now))
-    .map(([, r]) => r)
-    // Best score first; on a tie the older row first (nearer its expiry), then id so the order is stable.
-    .sort((a, b) => scoreOf(b) - scoreOf(a) || (timeOf(a.created_at) ?? 0) - (timeOf(b.created_at) ?? 0) || a.id.localeCompare(b.id))
-    .slice(0, maxItems);
+    .map(([, r]) => r);
+  // Only rows whose source page was looked at.
+  const checked = due.filter((r) => pageCheckState(r) !== "none");
+  const items = pickVaried(checked.sort(byDigestOrder), maxItems);
 
-  return { expire, items, waitingTotal: unique.length };
+  return { expire, items, waitingTotal: unique.length, unchecked: due.length - checked.length };
+}
+
+/** Whether a row's source page was looked at: ok, unconfirmed (we could not tell), or none (never, or not reached). */
+export type PageCheckState = "ok" | "unconfirmed" | "none";
+
+export function pageCheckState(row: StagedDeal): PageCheckState {
+  const reasons = reasonStrings(row);
+  if (reasons.some((r) => r.startsWith("page check: ok"))) return "ok";
+  if (reasons.some((r) => r.startsWith("page check: unconfirmed"))) return "unconfirmed";
+  return "none";
+}
+
+/** The bracketed detail of an unconfirmed marker ("page check: unconfirmed (blocked/challenged (HTTP 403))"), for the card. */
+export function pageUnconfirmedDetail(row: StagedDeal): string | null {
+  const m = reasonStrings(row)
+    .find((r) => r.startsWith("page check: unconfirmed"))
+    ?.match(/^page check: unconfirmed(?: \((.*)\))?$/);
+  return m ? (m[1] ?? "").trim() || "could not look" : null;
+}
+
+/** The variety bucket of a row: its category, else its kind, else its own id (so it never fills a bucket). */
+function bucketOf(row: StagedDeal): string {
+  return (row.category || row.kind || `id:${row.id}`).toLowerCase();
+}
+
+/**
+ * The venue of a row, normalised like venue_key in scraper/deal_sources/quality.py: lower case, "&" as "and",
+ * punctuation gone, "the" and "edinburgh" dropped. A row with no venue is its own bucket (its id), so it
+ * never crowds out another row.
+ */
+export function venueKey(row: StagedDeal): string {
+  const words = (row.venue_name ?? "")
+    .toLowerCase()
+    .replace(/&/g, " and ")
+    .split(/[^a-z0-9]+/)
+    .filter((w) => w && w !== "the" && w !== "edinburgh");
+  return words.length > 0 ? `venue:${words.join(" ")}` : `id:${row.id}`;
+}
+
+const isDeal = (row: StagedDeal) => (row.kind ?? "") === "deal";
+
+/** Confirmed before unconfirmed, best score first, a deal before anything else on a tie, the older row first, then id. */
+function byDigestOrder(a: StagedDeal, b: StagedDeal): number {
+  return (
+    (pageCheckState(a) === "ok" ? 0 : 1) - (pageCheckState(b) === "ok" ? 0 : 1) ||
+    scoreOf(b) - scoreOf(a) ||
+    (isDeal(b) ? 1 : 0) - (isDeal(a) ? 1 : 0) ||
+    (timeOf(a.created_at) ?? 0) - (timeOf(b.created_at) ?? 0) ||
+    a.id.localeCompare(b.id)
+  );
+}
+
+/** Walk the sorted rows and keep each unless its bucket is full or its venue already has a row, until `max` are kept. */
+function pickVaried(sorted: StagedDeal[], max: number): StagedDeal[] {
+  const used = new Map<string, number>();
+  const venues = new Set<string>();
+  const out: StagedDeal[] = [];
+  for (const r of sorted) {
+    if (out.length >= max) break;
+    const bucket = bucketOf(r);
+    const venue = venueKey(r);
+    if ((used.get(bucket) ?? 0) >= MAX_PER_BUCKET || venues.has(venue)) continue;
+    used.set(bucket, (used.get(bucket) ?? 0) + 1);
+    venues.add(venue);
+    out.push(r);
+  }
+  return out;
 }
 
 // --- what the email says about one deal -----------------------------------------------------
 
-/** Up to `n` of the stored reasons, as plain strings. quality_reasons is a jsonb array of short strings. */
-export function topReasons(row: StagedDeal, n = 3): string[] {
+function reasonStrings(row: StagedDeal): string[] {
   const reasons = row.quality_reasons;
   if (!Array.isArray(reasons)) return [];
   return reasons
     .map((r) => (typeof r === "string" ? r : r && typeof r === "object" && typeof (r as { text?: unknown }).text === "string" ? (r as { text: string }).text : ""))
     .map((s) => s.trim())
-    .filter(Boolean)
+    .filter(Boolean);
+}
+
+/** Bookkeeping, not a reason a person needs: the flat starting score, the evidence bonus and its backtest note, the page-check marker and the backlog note. */
+const UNINFORMATIVE_REASON = /^(base\b|evidence\b|page check:|backlog row:)/i;
+
+/** Up to `n` of the stored reasons that say something: not "base +20" or "evidence +10", in the order they were stored (value first). */
+export function topReasons(row: StagedDeal, n = 3): string[] {
+  return reasonStrings(row)
+    .filter((s) => !UNINFORMATIVE_REASON.test(s))
     .slice(0, n);
 }
 

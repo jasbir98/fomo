@@ -4,7 +4,7 @@
  * it and the tests can read the output. Single column, inline styles only,
  * built for a phone.
  */
-import { evidenceQuote, isUnconfirmedSource, safeHttpUrl, topReasons, type StagedDeal } from "./digest";
+import { EXPIRE_AFTER_DAYS, evidenceQuote, isUnconfirmedSource, pageUnconfirmedDetail, safeHttpUrl, topReasons, type StagedDeal } from "./digest";
 import type { ReviewAction } from "./token";
 
 export type DigestEmailInput = {
@@ -13,6 +13,8 @@ export type DigestEmailInput = {
   waitingTotal: number;
   /** Rows expired by this run. */
   expiredCount: number;
+  /** The age limit that expiry used, in days (default EXPIRE_AFTER_DAYS), so the header states the real number. */
+  maxAgeDays?: number;
   /** Origin of the site, no trailing slash. */
   baseUrl: string;
   sign: (id: string, action: ReviewAction) => string;
@@ -32,7 +34,7 @@ export function reviewUrl(baseUrl: string, token: string): string {
 function headline(input: DigestEmailInput): string {
   const { items, waitingTotal, expiredCount } = input;
   const shown = items.length === waitingTotal ? "" : ` Showing the best ${items.length}.`;
-  const expired = ` ${expiredCount} expired today (unreviewed for 14 days).`;
+  const expired = ` ${expiredCount} expired today (not reviewed within ${input.maxAgeDays ?? EXPIRE_AFTER_DAYS} days).`;
   return `${plural(waitingTotal, "deal is", "deals are")} waiting for review.${shown}${expired}`;
 }
 
@@ -58,6 +60,7 @@ export function renderDigestEmail(input: DigestEmailInput): DigestEmail {
       quote: evidenceQuote(d),
       source: safeHttpUrl(d.source_url) ?? safeHttpUrl(d.booking_url),
       unconfirmed: isUnconfirmedSource(d),
+      pageNote: pageUnconfirmedDetail(d),
     };
   });
 
@@ -70,6 +73,7 @@ export function renderDigestEmail(input: DigestEmailInput): DigestEmail {
     textParts.push(`   Score: ${c.d.quality_score ?? "n/a"}`);
     for (const r of c.reasons) textParts.push(`   - ${r}`);
     if (c.unconfirmed) textParts.push("   UNCONFIRMED: from social media or a newsletter, not checked against the venue's own page.");
+    if (c.pageNote) textParts.push(`   SOURCE PAGE NOT CONFIRMED: we could not read it (${c.pageNote}). Open the link before approving.`);
     if (c.quote) textParts.push(`   "${c.quote}"`);
     if (c.source) textParts.push(`   Source: ${c.source}`);
     textParts.push(`   Approve: ${c.approve}`);
@@ -99,6 +103,11 @@ export function renderDigestEmail(input: DigestEmailInput): DigestEmail {
       if (c.unconfirmed) {
         lines.push(
           `<div style="margin-top:8px;font-size:14px;font-weight:700;color:#c2410c">Unconfirmed: from social media or a newsletter, not checked against the venue's own page.</div>`
+        );
+      }
+      if (c.pageNote) {
+        lines.push(
+          `<div style="margin-top:8px;font-size:14px;font-weight:700;color:#c2410c">Source page not confirmed: we could not read it (${escapeHtml(c.pageNote)}). Open the link before approving.</div>`
         );
       }
       if (c.quote) {

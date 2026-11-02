@@ -57,7 +57,7 @@ python3 scraper/weekly_edinburgh.py --stage --workers 1 --cap-usd 0.45 --deal-so
 - **Batch ids** are `edi-daily-YYYY-MM-DD`; promote and the artifact use them. A second run on the same day shares the batch.
 - Output: the run summary and an artifact (`daily-deals-<run number>`, 30 days).
 - **Dispatch input `mode`:** `stage` (the daily run) or `promote` (publishes rows already approved in staging, as the weekly job does; the review page triggers this). The promote dispatch uses `ref: main`, so **`daily-deals.yml` must be on `main`** before it can work.
-- **Digest job.** After the research job, even if it failed, a second job emails the deal digest (`scripts/deal-digest.ts --send`), because rows already waiting still need review.
+- **Digest job.** After the research job, even if it failed, a second job emails the deal digest (`scripts/deal-digest.ts --send --max-age-days 30`), because rows already waiting still need review. It passes `--max-age-days 30` for now: the default 14 days would expire about a hundred waiting backlog rows in one go (106 on 2 Nov). Drop the flag once the backlog has been reviewed. The email's header states the age limit actually used.
 
 ### Routes
 
@@ -69,9 +69,22 @@ After a run's records are final, each one gets a score (0 to 100, `scraper/deal_
 | Digest | Score 40 to 69, or any flag, or social/newsletter | Waits for one-tap review |
 | Drop | Below 40, expired, or outside Edinburgh | Staged with its reasons, never shown |
 
+**Only deals can score 70 or more on the score alone.** An event, activity, free_access, festival or tour is capped at 69 (just under `PUBLISH_AT`) unless it has a stated free or low price (£10 or under) **and** an AI rating of 4 or 5. With no rating it can never route publish; it goes to the digest. `PUBLISH_AT` (70) and `DROP_BELOW` (40) are unchanged.
+
 Events, activities and free access go through the same route: free and under £10 things score higher, and they get the same fresh check. (So in a shadow report, free events can take publish slots next to deals; read the per-source table.)
 
 Two rows at one venue count as one for the per-venue limit when they share a `place_id`, or when one name is the other's full name plus an Edinburgh area word ("Civerinos" and "Civerinos Portobello"). "The Stand" and "The Standing Order" stay separate.
+
+**Source page check (before the digest).** Every row that is not dropped has its source page looked at, best score first, **at most 40 pages a run** (150 for the backlog script), one request per page, the bot's User-Agent, `robots.txt` obeyed, no retries (`scraper/page_check.py`). Rows that share a URL share one request.
+
+- HTTP 404 or 410: the row routes **drop** ("page check: gone").
+- The page loaded but states dates (with a year) and every one has passed: the row routes **drop** ("series lapsed"). A page that mentions a later year, says "ongoing", "monthly" or "year-round", or has a single stale date next to a standing weekly or monthly pattern, is **not** treated as lapsed: when in doubt the row stays in the digest.
+- A block, timeout, `robots.txt` refusal or other failure: the row stays in the digest and is marked "page check: unconfirmed".
+- Over the cap: marked "page check: not reached".
+
+The result is stored as one line in `quality_reasons` ("page check: ok 2026-11-02", and so on), because that column is the only one the backlog scorer writes. **The digest email shows only rows whose reasons carry an `ok` or `unconfirmed` page check.** A row not reached (or scored before this existed) stays waiting but is held back; the dry run prints how many. Unconfirmed rows only fill places left after the confirmed ones, and their card says the source page could not be read. A new row that matches a live row on identity (`scraper/identity.py`, applied in every run before staging) already reuses the live row's slug, so the digest's live-slug check catches it.
+
+**Who it's for, and conditions.** The AI rating now sees each row's summary, its eligibility, redemption and time notes, and (for a checked row) a short excerpt of the page around the deal, not the whole page. It is told that a row for a narrow group (children, over-60s, members, a named community, fans with a match ticket) or with an unstated condition (a ticket you must hold, a donation, a booking fee, a minimum spend) rates **at most 2**. A rating can still only lower a score.
 
 **Fresh check.** A row routed publish is re-read against its source page in the same run, immediately before it can be promoted (`verify_record`: saving label, dates and weekdays still stated, the page still about the venue). A failure moves it to digest with the reason, and the next best row takes the slot. At most 30 pages are re-checked a run. This covers stale rows and anything the page has since changed.
 
@@ -98,6 +111,18 @@ The counts are in the report ("Staging guard"). `reviewed_at` and `reviewed_acti
 
 `python3 scraper/score_backlog.py` scores every waiting staged row (all kinds; the backtest's set A without the deals-only filter) and prints the table. It is a dry run unless you add `--apply`, which writes only `quality_score`, `quality_reasons` and `quality_route`, and never approves or publishes. A backlog row can't route publish (it has lost its evidence and has had no fresh check), so it goes to digest or drop. `--no-ai` skips the rating; ratings are cached in `scraper/out/score-backlog/`.
 
+What else it does, in order: (1) a row that matches a **live** happening by `scraper/identity.py` (a confident match) drops with "already live as <slug>"; a merely possible match stays digest with a note; (2) it looks at the source pages of the rows still in play, best score first, **at most 150 pages** (`--page-cap`), as above, and the day's results are cached in `scraper/out/score-backlog/page-checks.json` so `--apply` after a dry run does not hit the sites again; (3) it rates the rows with the page excerpts (`--refresh-ai` re-rates them, off-peak only); (4) it scores, applies the non-deal cap and writes. `--offline` skips (1) and (2) for tests. Re-run it (dry run, then `--apply`) whenever you want the unreached rows checked; an `ok` marker under 7 days old is reused without a request.
+
+### The digest email
+
+`scripts/deal-digest.ts` (rules in `lib/review/digest.ts`) emails up to 10 waiting rows, best score first. What decides which:
+
+- **Only rows whose source page was checked** (see "Source page check"). The rest stay waiting.
+- **At most 3 rows of one category in one email** (a row with no category counts under its kind), so a night of quizzes cannot fill it, and **at most 1 row per venue** (the best score wins; names are compared lower-case without punctuation, "the" or "edinburgh"; a row with no venue never blocks another). On equal scores a deal comes before an event. A row cut for variety is not rejected or expired; it stays waiting for a later email.
+- **Each card shows the three most informative reasons**: the stored reasons in order, leaving out "base" and "evidence" (and the page-check and backlog notes), so you read "value: free +30", "limited days: 1 a week +20", "local +15" rather than "base +20".
+- A row whose page could not be read says so on the card.
+- Expiry: waiting rows older than `--max-age-days` (default 14, the workflow passes 30 for now) are marked expired when sent. The header says "not reviewed within N days" with the real N.
+
 ### Set-up you have to do by hand
 
 1. Run `supabase/add_deal_quality.sql` (adds `quality_score`, `quality_reasons`, `quality_route`, `evidence_quote`) and `supabase/add_deal_review.sql` in the Supabase SQL editor. Until then the pipeline logs once that the columns are missing, drops them from the upsert, and carries on.
@@ -105,7 +130,7 @@ The counts are in the report ("Staging guard"). `reviewed_at` and `reviewed_acti
 3. Add the secrets the digest job reads (`RESEND_API_KEY`, `REVIEW_DIGEST_TO`, `REVIEW_SIGNING_SECRET`; `FOMO_FROM_EMAIL` as a variable or a secret).
 4. Leave `DEAL_AUTO_PUBLISH` unset for at least three days of shadow reports.
 
-Tests: `python3 scraper/test_deal_sources.py`, `test_deal_routing.py` and `test_score_backlog.py` (stdlib, no network); the workflow YAML is only checked to parse and to pass flags the script accepts.
+Tests: `python3 scraper/test_deal_sources.py`, `test_deal_routing.py`, `test_score_backlog.py` and `test_digest_quality.py` (stdlib, no network); the workflow YAML is only checked to parse and to pass flags the script accepts.
 
 ## Deal sources (`scraper/deal_sources/`)
 

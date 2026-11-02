@@ -21,6 +21,7 @@ from unittest import mock
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import deal_routing as dr  # noqa: E402
+import page_check  # noqa: E402
 import staging_guard as sg  # noqa: E402
 import upsert_happenings  # noqa: E402
 import weekly_edinburgh as weekly  # noqa: E402
@@ -45,6 +46,17 @@ def rec(slug="a-deal", **over):
 
 def passes(_record):
     return []
+
+
+class FakeResp:
+    """What deal_sources.fetch.Response carries, for the page check."""
+
+    def __init__(self, ok=True, status=200, text="<html><body><p>£3 cask pints every Wednesday at the bar</p></body></html>", reason=None):
+        self.ok, self.status, self.text, self.reason = ok, status, text, reason
+
+
+def ok_page(_url):
+    return FakeResp()
 
 
 def no_rating():
@@ -128,10 +140,18 @@ class RoutingTests(unittest.TestCase):
             seen.append(record["slug"])
             return []
 
-        out = run([event], verify=verify)
+        # A non-deal reaches publish only with a stated free or low price AND an AI rating of 4 or 5.
+        rated = lambda: (lambda prompt: quality.RatingResult([{"slug": "free-event", "rating": 5}], input_tokens=10, output_tokens=5))
+        out = run([event], verify=verify, rating=rated)
         self.assertEqual(out.final[0].route, "publish")  # free + local + validated is 20+30+15+10
         self.assertEqual(seen, ["free-event"])
         self.assertEqual([r.record["slug"] for r in out.publishable], ["free-event"])
+        # With no rating the same event is capped below publish and goes to the digest, unchecked by the fresh check.
+        seen.clear()
+        out = run([event], verify=verify)
+        self.assertEqual(out.final[0].route, "digest")
+        self.assertEqual(out.final[0].result.score, quality.NON_DEAL_CAP)
+        self.assertEqual(seen, [])
 
     def test_social_and_newsletter_rows_never_publish(self):
         insta = rec("insta", source_url="https://www.instagram.com/p/abc/")
@@ -297,6 +317,7 @@ class MainFlagTests(unittest.TestCase):
                 mock.patch.object(weekly, "attach_publisher_images", return_value=None), \
                 mock.patch.object(weekly, "verify_record", side_effect=lambda r, recheck=False: (r, [])), \
                 mock.patch.object(weekly, "make_rating_call", side_effect=RuntimeError("no rating")), \
+                mock.patch.object(page_check, "make_fetcher", return_value=ok_page), \
                 mock.patch.object(weekly, "upsert_happenings", side_effect=lambda rows: staged.append([dict(r) for r in rows]) or len(rows)), \
                 mock.patch.object(dr, "approve_staged_rows", approve), \
                 mock.patch.object(dr, "promote_staged_rows", promote), \

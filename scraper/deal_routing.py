@@ -5,6 +5,11 @@ outside world (the DeepSeek rating call, the page re-check, the database, the pr
 injected, so the tests use fakes and nothing here writes by default.
 
 Steps, in order:
+  0. page check     one request to each non-dropped row's source page, best score first, at most
+                    page_check.RUN_PAGE_CAP a run (scraper/page_check.py): a 404/410 or a lapsed series
+                    drops the row; a block or timeout leaves it in the digest marked unconfirmed. The
+                    marker goes into quality_reasons, which is how the digest knows a row was looked at.
+                    The page excerpt also goes to the rating.
   1. rate_records   one off-peak DeepSeek call per 25 records (deal_sources.quality.rate_relevance).
                     A failed call means no cap for those records; it is logged, never fatal.
   2. route_records  score_deal + route_deal per record. This must run in-process: a staged row loses
@@ -30,6 +35,7 @@ from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Callable
 
+import page_check
 from deal_sources import quality
 from deal_sources.quality import QualityResult, RoutedDeal
 
@@ -294,6 +300,8 @@ class RoutingOutcome:
     rating: RatingInfo
     evidence: dict[str, tuple[int, int]]
     publishable: list[RoutedDeal]  # routed publish AND freshly verified AND a web source (what auto-publish would touch)
+    pages: dict[str, page_check.PageCheck] = field(default_factory=dict)  # slug -> source page check (empty when not run)
+    pages_requested: int = 0
 
 
 def select_publishable(final: list[RoutedDeal], fresh_ok: set[str]) -> list[RoutedDeal]:
@@ -321,6 +329,8 @@ def run_routing(
     history: PublishHistory | None = None,
     history_error: str | None = None,
     fail_safe: bool = False,
+    page_get: Callable[[str], Any] | None = None,
+    page_cap: int = page_check.RUN_PAGE_CAP,
     log: Callable[[str], None] = print,
 ) -> RoutingOutcome:
     """Rate, score, route, limit and fresh-check `records`, and stamp the quality_* fields onto them.
@@ -330,9 +340,23 @@ def run_routing(
     with `history_error` means it could not be read. With `fail_safe` (auto-publish is on) an unreadable
     history sends every would-be publish to digest and logs it. Without it (shadow mode) the cross-run
     limits are skipped and the report says so."""
-    ratings, rating = rate_records(records, make_rating_call, in_rate=in_rate, out_rate=out_rate,
+    local_today = today or datetime.now(quality.LONDON).date()
+    checks: dict[str, page_check.PageCheck] = {}
+    pages_requested = 0
+    if page_get is not None:
+        # Looked at before rating, so the rating can read the page. Best score (without the rating) first.
+        prelim = [r for r in route_records(records, {}, today=today, now=now) if r.route != "drop"]
+        prelim.sort(key=lambda r: -r.result.score)
+        checks, pages_requested = page_check.check_rows([r.record for r in prelim], page_get, local_today, cap=page_cap)
+        by_status = Counter(c.status for c in checks.values())
+        log(f"[routing] page check: {pages_requested} page(s) requested (cap {page_cap}): "
+            + ", ".join(f"{n} {k}" for k, n in sorted(by_status.items())) + f"; {len(prelim) - len(checks)} not reached")
+    rated_records = [{**r, "page_excerpt": checks[str(r.get("slug"))].excerpt} if str(r.get("slug")) in checks else r for r in records]
+    ratings, rating = rate_records(rated_records, make_rating_call, in_rate=in_rate, out_rate=out_rate,
                                    budget_usd=rating_budget_usd, log=log)
     routed = route_records(records, ratings, today=today, now=now)
+    if page_get is not None:
+        routed = page_check.apply_checks(routed, checks, local_today)
     block_reason = None
     if history is None and fail_safe:
         block_reason = f"auto-publish limits could not be read ({history_error or 'unknown'}): publishing nothing"
@@ -340,7 +364,8 @@ def run_routing(
     final, fresh_ok, fresh = finalize(routed, verify, history=history, block_reason=block_reason)
     fresh.history_error = history_error if history is None else None
     apply_to_records(final)
-    outcome = RoutingOutcome(final, fresh_ok, fresh, rating, evidence_by_source(records), select_publishable(final, fresh_ok))
+    outcome = RoutingOutcome(final, fresh_ok, fresh, rating, evidence_by_source(records), select_publishable(final, fresh_ok),
+                             checks, pages_requested)
     counts = Counter(r.route for r in final)
     log(f"[routing] {len(final)} record(s): publish {counts['publish']}, digest {counts['digest']}, drop {counts['drop']}; "
         f"fresh checks {fresh.checked} ({fresh.failed} failed)")
@@ -469,6 +494,11 @@ def markdown_section(outcome: RoutingOutcome, *, auto_publish_on: bool, publishe
     f = outcome.fresh
     lines.append(f"- Fresh check (source page re-read just before publishing): {f.checked} checked, {f.failed} failed and moved to digest"
                  + (f", {f.skipped_over_limit} over the per-run limit of {MAX_FRESH_CHECKS}" if f.skipped_over_limit else "") + ".")
+    if outcome.pages_requested or outcome.pages:
+        by = Counter(c.status for c in outcome.pages.values())
+        lines.append(f"- Source page check (digest and publish candidates, best score first, at most {page_check.RUN_PAGE_CAP} pages a run): "
+                     f"{outcome.pages_requested} requested; ok {by['ok']}, gone {by['gone']} (dropped), lapsed {by['lapsed']} (dropped), "
+                     f"unconfirmed {by['unconfirmed']} (kept, marked); rows over the cap are not shown in the digest until checked.")
     lines.append(f"- Limits: {quality.DAILY_PUBLISH_LIMIT} a day across runs (London date), {quality.VENUE_PUBLISH_LIMIT} per venue per run, "
                  f"{quality.SOURCE_PUBLISH_LIMIT} per source per run, and a venue with an auto-published deal in the last {COOLDOWN_DAYS} days goes to digest.")
     if f.history_error:
