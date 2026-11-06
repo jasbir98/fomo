@@ -2,7 +2,7 @@
 
 import { Suspense, useEffect, useRef, useState, type FormEvent } from "react";
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { CITY } from "@/lib/city";
 import type { ExplorePin, ExplorePinType, ExploreResponse } from "@/lib/explore/types";
 import { Chip, FomoLogo, Icon, SmartImage } from "@/components/ui";
@@ -105,6 +105,7 @@ function ResultsSkeleton() {
 
 function SearchContent() {
   const router = useRouter();
+  const pathname = usePathname();
   const searchParams = useSearchParams();
   const urlQuery = searchParams.get("q") ?? "";
   const [query, setQuery] = useState(urlQuery);
@@ -127,15 +128,22 @@ function SearchContent() {
 
   // Debounce, then mirror the query into ?q= so the page is shareable and
   // survives a refresh. replace, not push: typing shouldn't build history.
+  //
+  // Opening a result pushes a detail URL on top of us via the desktop overlay
+  // (lib/detail-overlay/store.ts), which this component stays mounted under.
+  // That pushState changes `pathname`/`urlQuery` out from under this effect,
+  // so a timer armed before the click would otherwise fire afterwards and
+  // replace the detail URL back to /search?q=..., instantly closing the
+  // overlay. Only touch the address bar while it's actually showing /search.
   useEffect(() => {
     const timer = window.setTimeout(() => {
       setDebounced(q);
-      if (q !== urlQuery.trim()) {
+      if (pathname === "/search" && q !== urlQuery.trim()) {
         router.replace(q ? `/search?q=${encodeURIComponent(q)}` : "/search", { scroll: false });
       }
     }, DEBOUNCE_MS);
     return () => window.clearTimeout(timer);
-  }, [q, urlQuery, router]);
+  }, [q, urlQuery, router, pathname]);
 
   useEffect(() => {
     if (debounced.length < MIN_QUERY) return;
