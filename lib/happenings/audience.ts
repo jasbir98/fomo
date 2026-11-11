@@ -33,7 +33,7 @@ const RULES: { audience: NicheAudience; title: RegExp; description?: RegExp }[] 
     // Entitlements for children and teenagers ("National Galleries Free Entry
     // for Under-18s"). Under-26 is NOT here: that is Fomo's own audience.
     audience: "youth",
-    title: /\bunder[- ]?(?:18|16|15|14|12|11|10|8|5)s?\b|\b(?:juniors?|teens?|teenagers)\b/i,
+    title: /\bunder[- ]?(?:18|16|15|14|12|11|10|8|5)s?\b|\bjuniors? (?:tickets?|rates?|entry|prices?)\b|\bteen(?:s|age|agers)? (?:nights?|clubs?|sessions?|groups?)\b/i,
   },
   {
     // Antenatal and new-parent sessions. Kids' events themselves are
@@ -120,14 +120,20 @@ export const NARROW_ELIGIBILITY_DEAL_PENALTY = 15;
 const OFF_AUDIENCE_GROUPS: ReadonlySet<DealWhoGroup> = new Set<DealWhoGroup>(["residents", "over_60", "families"]);
 
 const SENSITIVE =
-  /\bfetish\b|\bkink(?:y|s)?\b|\bbdsm\b|\bstrip(?:per|pers|tease)\b|\berotic\w*\b|\bswingers?\b|\bsex (?:party|club|work|toys?)\b|\badults? only\b|\bxxx\b|\b18\+/i;
+  // No age gates ("18+" is every club night) and no words that are also titles
+  // (the Kinks, Kinky Boots, the film Swingers, XXX).
+  /\bfetish\b|\bkink\b|\bbdsm\b|\bstrip(?:per|pers|tease)\b|\berotic\w*\b|\bsex (?:party|club|work|toys?)\b|\badults? only\b/i;
 
 const ACCOMMODATION_PLACE = /\b(?:hotel|b&b|bed (?:and|&) breakfast|accommodation|apartments?|aparthotel|guest ?house|hostel|lodges?|resort)\b/i;
-const ACCOMMODATION_STAY = /\b(?:stay|nights?|rooms?|suite|package|breakfast|bed)\b/i;
-const ACCOMMODATION_ALONE = /\bovernight\b|\b(?:\d+|one|two|three)[- ]nights?\b|\bnight'?s? stay\b|\bhotel stay\b/i;
+// "night" and "room" are NOT stay words: a hostel hosting a quiz night, a hotel's escape room.
+const ACCOMMODATION_STAY = /\b(?:stay|suite|package)\b/i;
+const ACCOMMODATION_ALONE =
+  /\bovernight\b|\bnight'?s? stay\b|\bhotel stay\b|\b(?:\d+|one|two|three)[- ]nights?\b(?=.*\b(?:stay|hotel|b&b|accommodation|package|breakfast)\b)/i;
 
 const BEAUTY =
-  /\bhair(?:cuts?|dress\w*|care)\b|\bhair (?:salon|studio|colour|treatment)s?\b|\bsalons?\b|\bbarbershops?\b|\bbarbering\b|\bbarbers\b|\bnails?\b|\bmanicure\b|\bpedicure\b|\bbeauty\b|\bfacials?\b|\bmassages?\b|\bspa\b|\blash(?:es)?\b|\bbrows?\b|\bwaxing\b|\bblow[- ]?dry\b|\bbalayage\b|\bcheynes\b|\bcharlie miller\b|\btoni ?(?:&|and) ?guy\b|\bsupercuts\b|\bsassoon\b/i;
+  // Treatment or business words only: bare "beauty", "salon", "nails", "lash", "brow",
+  // "waxing" and "barbers" are also show titles ("Sleeping Beauty", "Literary Salon").
+  /\bhair(?:cuts?|dress\w*|care)\b|\bhair (?:salon|studio|colour|treatment)s?\b|\b(?:beauty|nail|nails) (?:salon|treatments?|bar|therapist|studio|tech)s?\b|\bsalon (?:appointment|treatment)s?\b|\bbarbershops?\b|\bbarbering\b|\bmanicure\b|\bpedicure\b|\bfacials?\b|\bmassages?\b|\bspa (?:day|treatment|package|access|entry)s?\b|\bspa\b(?=.*\b(?:treatment|massage|facial)s?\b)|\beyelash(?:es)?\b|\blash (?:lift|extensions?|tint)s?\b|\beyebrow\b|\bbrow (?:lamination|tint|bar|wax)\b|\b(?:leg|bikini|brazilian) wax(?:ing)?\b|\bwaxing (?:salon|treatment|studio)s?\b|\bblow[- ]?dry\b|\bbalayage\b|\bcheynes\b|\bcharlie miller\b|\btoni ?(?:&|and) ?guy\b|\bsupercuts\b|\bsassoon\b/i;
 
 const CORPORATE =
   /\bcorporate\b|\bteam[- ]?building\b|\bfunction rooms?\b|\bmeeting rooms?\b|\bprivate hire\b|\bvenue hire\b|\bconference packages?\b|\bhospitality packages?\b|\bparty packages?\b/i;
@@ -161,6 +167,8 @@ export interface LeadFitInput {
   venue_name?: string | null;
   saving_label?: string | null;
   is_free?: boolean | null;
+  /** Student and under-26 offers are exempt from the attraction misfit: £1 entry for under-26s is the steal this audience wants. */
+  eligibility?: HappeningEligibility | null;
 }
 
 /** The lead-slot misfit of a listing, or null when it suits the main crowd. The most penalised one wins; they never add up. */
@@ -174,7 +182,8 @@ export function leadMisfit(h: LeadFitInput): LeadMisfit | null {
   }
   if (BEAUTY.test(title) || BEAUTY.test(venue)) return "beauty";
   if (CORPORATE.test(front)) return "corporate";
-  if (!h.is_free && ATTRACTION.test((venue || title).replace(/[‘’]/g, "'"))) return "attraction";
+  const coreAudience = h.eligibility === "student" || h.eligibility === "under_26";
+  if (!h.is_free && !coreAudience && ATTRACTION.test((venue || title).replace(/[‘’]/g, "'"))) return "attraction";
   return null;
 }
 

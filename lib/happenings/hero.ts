@@ -308,7 +308,7 @@ export function happeningRecommendationScore(
 
   // --- Persona fit: hotel stays, hairdressers, corporate packages, tourist
   // attractions and adult-themed listings are marked down (audience.ts). ----
-  score -= leadMisfitPenalty({ title: h.title, description: h.summary, venue_name: h.venue_name, saving_label: h.saving_label, is_free: h.is_free });
+  score -= leadMisfitPenalty({ title: h.title, description: h.summary, venue_name: h.venue_name, saving_label: h.saving_label, is_free: h.is_free, eligibility: h.eligibility });
 
   return { score, reason: buildReason(factors) };
 }

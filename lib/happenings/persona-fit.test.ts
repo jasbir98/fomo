@@ -328,3 +328,55 @@ test("descriptor-variant title rule", () => {
   assert.equal(isDescriptorVariantAtVenue("Big Cheese", "Potterrow", "Big Cheese", "Potterrow"), false);
   assert.equal(isDescriptorVariantAtVenue("Comedy Club", "The Stand", "Comedy Club Kids Matinee", "The Stand"), false);
 });
+
+// ---- False-positive guards (review of fd77057) -----------------------------------
+
+test("age gates and show titles are not adult-themed", () => {
+  assert.equal(leadMisfit({ title: "Big Cheese Student Club Night 18+", venue_name: "Potterrow" }), null);
+  assert.equal(leadMisfit({ title: "Indie gig 18+", description: "Doors 7pm. 18+ only, ID required." }), null);
+  assert.equal(leadMisfit({ title: "The Kinks tribute night" }), null);
+  assert.equal(leadMisfit({ title: "Kinky Boots" }), null);
+  assert.equal(leadMisfit({ title: "Swingers (1996) screening" }), null);
+  assert.equal(leadMisfit({ title: "Adults only burlesque brunch" }), "sensitive");
+  assert.equal(leadMisfit({ title: "Talk", description: "An evening on kink and consent" }), "sensitive");
+});
+
+test("attraction misfit: £1 under-26 and student entry is a steal, a resident offer still is demoted", () => {
+  const castle = { title: "Edinburgh Castle £1 entry", saving_label: "£1", venue_name: "Edinburgh Castle" };
+  assert.equal(leadMisfit({ ...castle, eligibility: "under_26" }), null);
+  assert.equal(leadMisfit({ ...castle, eligibility: "student" }), null);
+  assert.equal(leadMisfit({ ...castle, eligibility: "anyone" }), "attraction");
+  assert.equal(leadMisfit({ ...britannia }), "attraction");
+  // Only the attraction rule is exempt: a student-priced haircut or hotel stay is still demoted.
+  assert.equal(leadMisfit({ ...hairCheynes, eligibility: "student" }), "beauty");
+  assert.equal(leadMisfit({ ...hotel, eligibility: "student" }), "accommodation");
+  assert.equal(leadMisfit({ title: "Traverse £1 tickets", venue_name: "Traverse Theatre", eligibility: "under_26" }), null);
+});
+
+test("beauty and salon only match treatments and businesses", () => {
+  for (const title of ["Sleeping Beauty", "Beauty and the Beast", "Literary Salon", "Hammer and Nails (band)", "Whiplash", "Waxing Lyrical", "The Barbers", "Spa Town Blues"]) {
+    assert.equal(leadMisfit({ title }), null, title);
+  }
+  assert.equal(leadMisfit({ title: "Cheynes Hairdressing 25% off cut and colour" }), "beauty");
+  assert.equal(leadMisfit({ title: "Beauty salon student offer" }), "beauty");
+  assert.equal(leadMisfit({ title: "Nail bar 2 for 1" }), "beauty");
+  assert.equal(leadMisfit({ title: "Spa day for two" }), "beauty");
+  assert.equal(leadMisfit({ title: "Brazilian waxing deal" }), "beauty");
+});
+
+test("accommodation needs a stay word: a hostel quiz night or a hotel escape room is not a hotel deal", () => {
+  assert.equal(leadMisfit({ title: "Quiz Night", venue_name: "Safestay Hostel" }), null);
+  assert.equal(leadMisfit({ title: "Escape room", venue_name: "Hotel Missoni" }), null);
+  assert.equal(leadMisfit({ title: "Three Nights of Jazz", venue_name: "The Jazz Bar" }), null);
+  assert.equal(leadMisfit({ title: "Two nights Fringe comedy showcase" }), null);
+  assert.equal(leadMisfit({ title: "2 nights hotel stay with breakfast" }), "accommodation");
+  assert.equal(leadMisfit({ title: "Weekend package", venue_name: "Apex Hotel" }), "accommodation");
+});
+
+test("youth rule does not catch artists called Junior or Teens", () => {
+  assert.equal(leadMisfit({ title: "Junior Brother live" }), null);
+  assert.equal(dealLeadPenalty({ title: "Junior Boys gig", eligibility: "anyone" }, []), 0);
+  assert.equal(dealLeadPenalty({ title: "Teen Spirit: a Nirvana tribute", eligibility: "anyone" }, []), 0);
+  assert.equal(dealLeadPenalty({ title: "Free entry for Under-18s", eligibility: "anyone" }, []), 20);
+  assert.equal(dealLeadPenalty({ title: "Junior ticket half price", eligibility: "anyone" }, []), 20);
+});
