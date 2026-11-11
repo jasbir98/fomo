@@ -7,7 +7,7 @@ import type { Place, PlacePhoto } from "@/lib/types";
 // list query embeds `place_photos` and backfills `image_url` from the
 // earliest-ordered photo — keeping list-view rendering untouched while
 // fixing the "place has real photos in Supabase but the card is blank" gap.
-const PLACE_SELECT = "*, place_photos(url, display_order)";
+export const PLACE_SELECT = "*, place_photos(url, display_order)";
 
 /**
  * PostgREST `or=` filter that drops `source = 'event-venue'` rows (null source
@@ -22,7 +22,7 @@ type PlaceRow = Place & {
   place_photos?: { url: string; display_order: number }[] | null;
 };
 
-function withThumbnail(row: PlaceRow): Place {
+export function withThumbnail(row: PlaceRow): Place {
   const { place_photos, ...place } = row;
   if (!place.image_url && place_photos && place_photos.length > 0) {
     const [first] = [...place_photos].sort((a, b) => a.display_order - b.display_order);

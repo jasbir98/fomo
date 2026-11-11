@@ -125,6 +125,11 @@ export interface Place {
   google_fetched_at: string | null;
   /** add_family_fit.sql — "kids" | "all_ages" | null. Optional: absent before that SQL ran. Read via lib/happenings/family.ts. */
   family_fit?: FamilyFit | null;
+  /** add_place_radar.sql: "Under the radar" editorial layer. Optional: absent before that SQL ran. See lib/radar. */
+  radar_why?: string | null;
+  radar_picked_at?: string | null;
+  /** The Monday (YYYY-MM-DD) of the week this pick is featured, if any. */
+  radar_featured_week?: string | null;
 }
 
 export interface OpeningHoursPeriod {

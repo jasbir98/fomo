@@ -2,6 +2,7 @@ import type { MetadataRoute } from "next";
 import { supabaseAnon } from "@/lib/supabase/anon";
 import { listLiveHappenings } from "@/lib/db/happenings";
 import { listUpcomingEvents } from "@/lib/db/events";
+import { listRadarPicks } from "@/lib/db/radar";
 import { happeningHasEnded } from "@/lib/happenings/occurrence";
 import { SITE_URL } from "@/lib/seo/site";
 
@@ -60,9 +61,10 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const db = supabaseAnon();
   const now = new Date();
 
-  const [happenings, events] = await Promise.all([
+  const [happenings, events, radarPicks] = await Promise.all([
     listLiveHappenings(db).catch(() => []),
     listUpcomingEvents(db, { limit: MAX_DYNAMIC_URLS }).catch(() => []),
+    listRadarPicks(db).catch(() => []),
   ]);
 
   // A "live" row whose dated window has passed still has a page, but it isn't
@@ -101,5 +103,11 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     lastModified: page.changesWithCatalogue ? catalogueDate : new Date(`${page.lastModified}T00:00:00Z`),
   }));
 
-  return [...staticEntries, ...happeningEntries, ...eventEntries, ...placeEntries];
+  // "Under the radar" is listed only once it has picks (the page is noindex while empty). Its date is the newest approval.
+  const radarEntries: MetadataRoute.Sitemap =
+    radarPicks.length > 0
+      ? [{ url: `${SITE_URL}/under-the-radar`, lastModified: new Date(radarPicks[0].radar_picked_at) }]
+      : [];
+
+  return [...staticEntries, ...radarEntries, ...happeningEntries, ...eventEntries, ...placeEntries];
 }

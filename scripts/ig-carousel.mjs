@@ -426,12 +426,16 @@ const HASHTAGS = [
   "#whatsoninedinburgh",
 ];
 
-function buildCaption(picks) {
+function buildCaption(picks, radar = null) {
   const lines = [];
   lines.push("This weekend in Edinburgh 👀");
   lines.push("");
   for (const p of picks) {
     lines.push(`${p.price === "FREE" ? "🆓" : p.price ? "💷" : "📍"} ${p.title}${p.when ? ` · ${p.when}` : ""}`);
+  }
+  if (radar) {
+    lines.push("");
+    lines.push(`Under the radar this week: ${radar.title}. ${radar.why}`);
   }
   lines.push("");
   lines.push("Full list + more free/cheap things every week: askfomo.com/weekend");
@@ -450,7 +454,7 @@ async function renderSlide(element, fonts) {
 }
 
 async function main() {
-  const { picks } = await getWeeklyPicks({ supabaseUrl: SUPABASE_URL, serviceRoleKey: SERVICE_ROLE_KEY });
+  const { picks, radar } = await getWeeklyPicks({ supabaseUrl: SUPABASE_URL, serviceRoleKey: SERVICE_ROLE_KEY });
 
   if (picks.length === 0) {
     console.error("[ig-carousel] No picks found for the window — nothing to render.");
@@ -500,7 +504,7 @@ async function main() {
   }
 
   const captionPath = path.join(outDir, "caption.txt");
-  await writeFile(captionPath, buildCaption(picks), "utf8");
+  await writeFile(captionPath, buildCaption(picks, radar), "utf8");
   console.log(`[ig-carousel] Wrote ${captionPath}`);
   console.log(`[ig-carousel] ${files.length} slides total (1 cover + ${picks.length} picks + 1 CTA).`);
 }

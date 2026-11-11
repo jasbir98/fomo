@@ -658,6 +658,52 @@ function mergeFindsFirst(findItems, selection, cap) {
   return [...findItems, ...rest].slice(0, cap);
 }
 
+// --- "Under the radar" featured pick (places.radar_*; see scripts/radar.ts) --
+
+/** The Monday on or before a day string. Port of lib/radar/week.ts's `mondayOf`. */
+export function mondayOf(dayDate) {
+  return addDays(dayDate, -((weekdayOf(dayDate) + 6) % 7));
+}
+
+/**
+ * The approved pick featured for the week containing `dayDate`, shaped for the
+ * email and caption, or null. Pure. Needs both the approval stamp and a reason
+ * line, matching lib/radar/picks.ts's `isRadarPick`.
+ */
+export function radarPickForWeek(places, dayDate) {
+  const week = mondayOf(dayDate);
+  const p = (places ?? []).find((x) => x.radar_picked_at && x.radar_why?.trim() && x.radar_featured_week === week);
+  if (!p) return null;
+  return {
+    id: p.id,
+    title: p.name,
+    why: p.radar_why.trim(),
+    url: `https://askfomo.com/place/${p.id}`,
+    image_url: p.image_url ?? null,
+    category: p.category ?? null,
+  };
+}
+
+/**
+ * This weekend's featured "Under the radar" pick, or null. ADDITIVE and safe:
+ * null when no pick is featured for the week, when supabase/add_place_radar.sql
+ * has not run (the radar_* columns do not exist), and on any other failure
+ * (logged), because a missing optional block must never stop the weekly send.
+ */
+async function liveRadarPick(rest, window) {
+  try {
+    const rows = await rest(
+      `places?radar_featured_week=eq.${mondayOf(window.fridayDayDate)}&radar_picked_at=not.is.null&select=*&limit=5`
+    );
+    return radarPickForWeek(rows, window.fridayDayDate);
+  } catch (err) {
+    if (!/radar_(why|picked_at|featured_week)/.test(String(err?.message ?? ""))) {
+      console.warn(`[weekly-picks] Under the radar lookup failed, skipping the block: ${String(err?.message ?? err).slice(0, 200)}`);
+    }
+    return null;
+  }
+}
+
 /**
  * The coming Fri 17:00 -> Sun 23:59:59 Europe/London window, as local day
  * strings plus their UTC instants (the latter needed for the `events`
@@ -859,12 +905,15 @@ export async function getWeeklyPicks({ supabaseUrl, serviceRoleKey, now = new Da
     deals,
     maxDeals
   );
+  const radar = await liveRadarPick(rest, window);
   const datedFromHappenings = datedPicks.filter((p) => p.source === "happening").length;
   const datedFromEvents = datedPicks.filter((p) => p.source === "event").length;
 
   return {
     picks,
     deals: dealsWithFinds,
+    /** This week's featured "Under the radar" place, or null (none featured, or SQL not run). */
+    radar,
     window,
     excludedEndedDeals,
     counts: {
