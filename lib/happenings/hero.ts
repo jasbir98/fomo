@@ -33,12 +33,13 @@ import { isNationalChain } from "@/lib/happenings/deal-score";
 import { bucketForDayDate, isStale, moneyLabel, savingBadgeLabel } from "@/lib/happenings/format";
 import { isGenuineDeal, whoGroupForEligibility, type DealWhoGroup } from "@/lib/happenings/groups";
 import { priceSignalForEvent } from "@/lib/cards/price";
-import { eventDayLabel } from "@/lib/events/format";
+import { eventDayLabel, formatEventTime } from "@/lib/events/format";
 import type { Happening, HappeningEligibility, Occurrence } from "@/lib/happenings/types";
 import type { EventItem } from "@/lib/types";
 import type { FeedCardData } from "@/lib/happenings/feed-types";
 import { familyFitForEvent, familyFitForHappening } from "@/lib/happenings/family";
-import { nicheAudience } from "@/lib/happenings/audience";
+import { leadMisfitPenalty, nicheAudiencePenalty } from "@/lib/happenings/audience";
+import { statedPrices, isCheapPrice } from "@/lib/happenings/cheap-price";
 
 /** Value's own sub-score never contributes more than this — a big saving on
  *  a mediocre-otherwise item shouldn't outrank a merely-good, well-rounded
@@ -84,22 +85,6 @@ const ONE_OFF_BONUS = 8;
 /** A happening that's a national chain's offer is marked down so the Fomo Pick
  *  is never a chain discount when a local option exists. */
 const CHAIN_HERO_PENALTY = 10;
-/** A listing for a niche audience (dementia-friendly sessions, conferences,
- *  language courses — lib/happenings/audience.ts) sits below the main crowd's
- *  picks. Not applied twice to a happening whose `eligibility` already
- *  narrows it (that's marked down above). */
-const NICHE_AUDIENCE_PENALTY = 20;
-
-/** The niche-audience markdown for `who`: an "older" listing isn't niche for an
- *  over-60, nor a "parents" one for a visitor with kids. */
-function nicheAudiencePenalty(title: string, description: string | null, who: readonly DealWhoGroup[]): number {
-  const audience = nicheAudience(title, description);
-  if (!audience) return 0;
-  if (audience === "older" && who.includes("over_60")) return 0;
-  if (audience === "parents" && who.includes("families")) return 0;
-  return NICHE_AUDIENCE_PENALTY;
-}
-
 /** Whole days from `from` to `to` ("YYYY-MM-DD" local days). UTC arithmetic,
  *  so DST can't skew it. */
 function dayDiff(from: string, to: string): number {
@@ -141,6 +126,41 @@ export function heroEligibleHappening(h: Parameters<typeof familyFitForHappening
 /** Event counterpart of `heroEligibleHappening`. */
 export function heroEligibleEvent(e: Parameters<typeof familyFitForEvent>[0]): boolean {
   return familyFitForEvent(e) !== "kids";
+}
+
+/**
+ * Whether a happening is a "steal" for the hero: free, or a stated price under
+ * `CHEAP_EVENT_MAX` (£10, the same line the cheap-and-soon bonus uses), or a
+ * fixed price that beats a price-benchmarks.json line. Curated free-access
+ * rows and activities count (free or nominal by construction); a deal, tour,
+ * festival or event needs a stated price. The route prefers steals and only
+ * falls back to the rest when none qualifies.
+ */
+export function isHeroStealHappening(h: Pick<Happening, "kind" | "is_free" | "title" | "saving_label" | "price_text">): boolean {
+  if (h.is_free) return true;
+  if (h.kind === "free_access" || h.kind === "activity") return true;
+  if (isCheapPrice(h.title, h.saving_label)) return true;
+  const prices = statedPrices(`${h.price_text ?? ""} ${h.saving_label ?? ""} ${h.title}`);
+  return prices.length > 0 && Math.min(...prices) < CHEAP_EVENT_MAX;
+}
+
+/** Event counterpart of `isHeroStealHappening`: free, or tickets under £10. */
+export function isHeroStealEvent(e: Pick<EventItem, "is_free" | "price_from">): boolean {
+  return Boolean(e.is_free) || (e.price_from != null && e.price_from < CHEAP_EVENT_MAX);
+}
+
+/**
+ * The hero candidates actually in the running, narrowed in this order, each
+ * step only while something would be left:
+ *  1. not an everyday item (a daily guided walk would lead the page every day;
+ *     it lives in "Any day" instead);
+ *  2. a steal (free or under £10);
+ *  3. photo-led (a timetable, poster or default tile is never the pick while
+ *     a photo exists, `isPhotoImage`).
+ */
+export function selectHeroPool<T extends { everyday: boolean; steal: boolean; photo: boolean }>(candidates: readonly T[]): T[] {
+  const narrow = (list: T[], keep: (c: T) => boolean) => (list.some(keep) ? list.filter(keep) : list);
+  return narrow(narrow(narrow([...candidates], (c) => !c.everyday), (c) => c.steal), (c) => c.photo);
 }
 
 function clamp(value: number, lo: number, hi: number): number {
@@ -273,6 +293,9 @@ export function happeningRecommendationScore(
     if (group && who.includes(group)) {
       score += 10;
       factors.push({ label: "You qualify", weight: 22 });
+    } else if (h.eligibility === "student" || h.eligibility === "under_26") {
+      // Fomo's own audience: no markdown, and the restriction is the reason.
+      factors.push({ label: h.eligibility === "student" ? "Student price" : "Under-26 price", weight: 16 });
     } else {
       score -= 10;
     }
@@ -282,6 +305,10 @@ export function happeningRecommendationScore(
 
   // --- National chains: same everywhere, never the Edinburgh pick. ----
   if (isNationalChain(h)) score -= CHAIN_HERO_PENALTY;
+
+  // --- Persona fit: hotel stays, hairdressers, corporate packages, tourist
+  // attractions and adult-themed listings are marked down (audience.ts). ----
+  score -= leadMisfitPenalty({ title: h.title, description: h.summary, venue_name: h.venue_name, saving_label: h.saving_label, is_free: h.is_free });
 
   return { score, reason: buildReason(factors) };
 }
@@ -323,6 +350,7 @@ export function eventRecommendationScore(
       factors.push({ label: `${moneyLabel(e.price_from, e.currency)} tickets`, weight: 20 });
     } else if (priceSignalForEvent(e) === "cheap") {
       value += 8;
+      if (e.price_from < CHEAP_EVENT_MAX) factors.push({ label: "Under £10", weight: 12 });
     }
   }
   score += Math.min(value, HERO_VALUE_CAP);
@@ -334,7 +362,9 @@ export function eventRecommendationScore(
     score += 12;
     // "today"/"tonight" (5pm cutoff) rather than always "tonight" — a 12:30
     // lunch event isn't "tonight" just because it's today.
-    factors.push({ label: (eventDayLabel(e.starts_at, now, timeZone) ?? "today").toLowerCase(), weight: 14 });
+    // A start time says more than the day (the card's own chip has the day).
+    const time = formatEventTime(e.starts_at, timeZone);
+    factors.push({ label: time ? `starts ${time}` : (eventDayLabel(e.starts_at, now, timeZone) ?? "today").toLowerCase(), weight: 14 });
   } else if (bucket === "this_weekend") {
     factors.push({ label: "this weekend", weight: 8 });
   }
@@ -351,6 +381,8 @@ export function eventRecommendationScore(
 
   // --- Audience: read from the title (no eligibility column on events). --
   score -= nicheAudiencePenalty(e.name, e.description, who);
+  // Persona fit (audience.ts): adult-themed listings and the like are marked down.
+  score -= leadMisfitPenalty({ title: e.name, description: e.description, venue_name: e.venue_name, is_free: e.is_free });
 
   // --- Presentation --------------------------------------------------
   if (isPhotoImage(eventImageUrl(e))) score += 8;

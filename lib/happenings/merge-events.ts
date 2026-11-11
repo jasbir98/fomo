@@ -274,7 +274,8 @@ export function isSameTitleAtVenue(aTitle: string, aVenue: string | null, bTitle
  */
 export function isTitleMatchAtVenue(aTitle: string, aVenue: string | null, bTitle: string, bVenue: string | null): boolean {
   if (isTitleMatch(aTitle, bTitle)) return true;
-  return isTokenSetMatch(tokensWithoutVenue(aTitle, aVenue), tokensWithoutVenue(bTitle, bVenue));
+  if (isTokenSetMatch(tokensWithoutVenue(aTitle, aVenue), tokensWithoutVenue(bTitle, bVenue))) return true;
+  return isDescriptorVariantAtVenue(aTitle, aVenue, bTitle, bVenue);
 }
 
 function cardTitle(card: MergeableCard): string {
@@ -555,7 +556,13 @@ export function dedupeHappenings(happenings: Happening[], now: Date, timeZone: s
     const matchIdx = bucket.find((idx) => {
       const other = out[idx];
       if (h.kind !== "festival" && !isSameVenue(h.venue_name, other.venue_name)) return false;
-      if (!isSameTitleAtVenue(h.title, h.venue_name, other.title, other.venue_name)) return false;
+      if (
+        !isSameTitleAtVenue(h.title, h.venue_name, other.title, other.venue_name) &&
+        // "Big Cheese" / "Big Cheese Student Club Night": same night, one decorated title.
+        !(h.kind !== "festival" && isDescriptorVariantAtVenue(h.title, h.venue_name, other.title, other.venue_name))
+      ) {
+        return false;
+      }
       const a = clockTime(h.starts_at, timeZone) && h.starts_at ? Date.parse(h.starts_at) : null;
       const b = clockTime(other.starts_at, timeZone) && other.starts_at ? Date.parse(other.starts_at) : null;
       return a == null || b == null || Math.abs(a - b) <= DEDUPE_MAX_START_GAP_MS;
@@ -576,4 +583,34 @@ export function dedupeHappenings(happenings: Happening[], now: Date, timeZone: s
     };
   }
   return out;
+}
+
+/**
+ * Words that decorate a night's title without naming a different event:
+ * "Big Cheese" and "Big Cheese Student Club Night" are one night. Anything
+ * not on this list ("Matinee", "Late", "Kids", an act's name) keeps two
+ * titles apart.
+ */
+const DESCRIPTOR_TOKENS = new Set(["student", "students", "club", "night", "nights", "party", "presents", "official", "afterparty", "special", "edition", "residency"]);
+
+/** Most descriptor words that may separate a title from its shorter twin. */
+const MAX_DESCRIPTOR_EXTRA = 3;
+
+/**
+ * Two titles at one venue (the caller checks the venue and the day) where the
+ * shorter one is wholly inside the longer and everything the longer adds is a
+ * descriptor word (`DESCRIPTOR_TOKENS`): "Big Cheese" / "Big Cheese Student
+ * Club Night". The shorter title must have at least two words after
+ * normalising, so a bare "Quiz" never absorbs "Quiz Night". Deliberately
+ * stricter than `isTitleMatch`'s Jaccard rule on the extra words and looser on
+ * the ratio, which is the one case it misses.
+ */
+export function isDescriptorVariantAtVenue(aTitle: string, aVenue: string | null, bTitle: string, bVenue: string | null): boolean {
+  const a = tokensWithoutVenue(aTitle, aVenue);
+  const b = tokensWithoutVenue(bTitle, bVenue);
+  const [smaller, larger] = a.size <= b.size ? [a, b] : [b, a];
+  if (smaller.size < 2 || smaller.size === larger.size) return false;
+  if (![...smaller].every((t) => larger.has(t))) return false;
+  const extra = [...larger].filter((t) => !smaller.has(t));
+  return extra.length <= MAX_DESCRIPTOR_EXTRA && extra.every((t) => DESCRIPTOR_TOKENS.has(t));
 }

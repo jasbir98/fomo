@@ -111,11 +111,15 @@ import {
   isPhotoImage,
   heroEligibleHappening,
   heroEligibleEvent,
+  isHeroStealHappening,
+  isHeroStealEvent,
+  selectHeroPool,
 } from "@/lib/happenings/hero";
 import { occurrenceIsPastLocalHours } from "@/lib/happenings/local-hours";
 import { categoryStyle } from "@/lib/happenings/category-style";
 import { dealFacets, isGenuineDeal } from "@/lib/happenings/groups";
-import { dealStealScore } from "@/lib/happenings/deal-score";
+import { dealLeadScore } from "@/lib/happenings/deal-score";
+import { rankFreeAnyTime } from "@/lib/happenings/free-any-time-rank";
 import { groupHappeningsIntoSeries, seriesLookup, type HappeningSeriesGroup } from "@/lib/happenings/series";
 import {
   dedupeHappenings,
@@ -376,7 +380,7 @@ function pickHero(
   // spurious "Property does not exist on type 'never'" at the read site.
   // Collecting candidates into a plain array and reducing in a second, non-
   // nested loop sidesteps that entirely.
-  const candidates: { card: FeedHeroCard; score: number; startMs: number; everyday: boolean; photo: boolean }[] = [];
+  const candidates: { card: FeedHeroCard; score: number; startMs: number; everyday: boolean; photo: boolean; steal: boolean }[] = [];
 
   for (const h of happenings) {
     if (!isDated(h)) continue;
@@ -399,6 +403,7 @@ function pickHero(
       startMs,
       everyday: isEverydayRecurrence(h.recurrence),
       photo: isPhotoImage(h.image_url),
+      steal: isHeroStealHappening(h),
     });
   }
 
@@ -408,16 +413,13 @@ function pickHero(
     if (!heroEligibleEvent(e)) continue; // kids-aimed items never take the hero slot
     if (priceSignalForEvent(e) !== "cheap") continue; // free-or-cheap only, never a guessed-cheap sports exemption
     const { score, reason } = eventRecommendationScore(e, now, timeZone, who);
-    candidates.push({ card: { kind: "event", event: e, reason }, score, startMs, everyday: false, photo: isPhotoImage(eventImageUrl(e)) });
+    candidates.push({ card: { kind: "event", event: e, reason }, score, startMs, everyday: false, photo: isPhotoImage(eventImageUrl(e)), steal: isHeroStealEvent(e) });
   }
 
-  // Something on every day (a daily guided walk, the free walking tour) is
-  // never the pick while anything else qualifies — it'd lead the page every
-  // single day. It lives in the "Any day" section instead (everyday.ts).
-  const notEveryday = candidates.some((c) => !c.everyday) ? candidates.filter((c) => !c.everyday) : candidates;
-  // Same rule for a timetable, poster or default tile: never the pick while
-  // a photo-led candidate exists (hero.ts `isPhotoImage`).
-  const pool = notEveryday.some((c) => c.photo) ? notEveryday.filter((c) => c.photo) : notEveryday;
+  // Never an everyday item (a daily guided walk lives in "Any day": everyday.ts),
+  // then a steal (free or under £10), then a photo-led one, each only while any
+  // candidate qualifies (hero.ts `selectHeroPool`).
+  const pool = selectHeroPool(candidates);
   let best: (typeof candidates)[number] | null = null;
   for (const c of pool) {
     if (!best || c.score > best.score || (c.score === best.score && c.startMs < best.startMs)) {
@@ -574,7 +576,8 @@ async function buildFreeAnyTime(
     console.error("[api/feed] free places lookup failed", err);
   }
 
-  return [...happeningItems, ...placeItems];
+  // One-off dated rows out; tip-based tours and age-restricted entitlements below the genuinely free.
+  return rankFreeAnyTime([...happeningItems, ...placeItems]);
 }
 
 /**
@@ -703,7 +706,7 @@ async function buildDealsSection(db: Db, dealCards: DealCardData[]): Promise<Dea
   // group's offers are sorted so its lead offer is its best, groups by that
   // best offer's score (more offers breaks a tie), and singles by their own.
   // `saving_amount` isn't used: it's sometimes a saving and sometimes a price.
-  const stealScore = (c: DealCardData) => dealStealScore(c.happening);
+  const stealScore = (c: DealCardData) => dealLeadScore(c.happening);
   for (const g of venueGroups) g.offers.sort((a, b) => stealScore(b) - stealScore(a));
 
   venueGroups.sort((a, b) => {
