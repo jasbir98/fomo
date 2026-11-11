@@ -27,7 +27,6 @@ export default function robots(): MetadataRoute.Robots {
         "/profile",
         "/fomo",
         "/signin",
-        "/welcome",
         "/auth",
       ],
     },

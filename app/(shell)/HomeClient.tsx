@@ -22,6 +22,7 @@ import { KIDS_RAIL_MIN, kidsRailCards } from "@/lib/happenings/kids-rail";
 import { weekendDates } from "@/lib/happenings/format";
 import { AmbientWeather } from "@/components/weather/AmbientWeather";
 import { usePrefs } from "@/lib/personalise/usePrefs";
+import { AudienceAsk, audienceLabels } from "@/components/personalise/AudienceAsk";
 import { openMakeFomoYours } from "@/lib/personalise/trigger";
 import { personalBoost, reorderWithBoost, type BoostPrefs } from "@/lib/personalise/score";
 import { useEffectiveWho } from "@/lib/personalise/useEffectiveWho";
@@ -214,7 +215,11 @@ export interface HomeClientProps {
 }
 
 /**
- * Fomo Home — a clean, tab-driven skim: a hero card → then, depending on the
+ * Fomo Home — a clean, tab-driven skim. The first mobile screen does three
+ * jobs: says what Fomo is (the h1 + intro), asks who you are (the inline
+ * audience chips, components/personalise/AudienceAsk.tsx) and starts a short
+ * ranked list (Top picks), with the weekly email form in the first scroll
+ * right after it. Then, depending on the
  * window control, either What's on (Today/Coming up) or the Book early list
  * (its own tab, not a section wedged under Coming up) → Free any time, shown
  * only on Today so it doesn't repeat itself under every tab. Every list here
@@ -237,16 +242,13 @@ export interface HomeClientProps {
  * page is presentation + the one bit of client state the route can't own
  * (the window).
  *
- * HERO: GET /api/feed's `hero` is ordinarily the best recommendation across
- * dated happenings and free/cheap provider events (lib/happenings/hero.ts),
- * rendered via FeedHero with its "why this" reason; when it's null and the
- * window's own feed has loaded, Home falls back to a compact preview of that
- * window's first few What's on cards (or an empty-state message if there are
- * none) — never a separate fallback hero. On the Book early tab this is
- * different — `heroKind === "book_early"` means `hero` is that tab's own top
- * pick instead (HappeningHero's `variant="book_early"`), and `hero: null`
- * there means no hero at all, not even the preview (a ranked-across-
- * everything pick has no business leading a "book this ahead of time" list).
+ * HERO: only on the Book early tab now. There `heroKind === "book_early"`
+ * means GET /api/feed's `hero` is that tab's own top pick (HappeningHero's
+ * `variant="book_early"`), and `hero: null` means no hero at all. On Today
+ * and Coming up the single hero card was dropped in favour of the Top picks
+ * list leading the page: the hero was the same ranking's number one
+ * (lib/happenings/hero.ts feeds both), and as one big card it filled the
+ * first screen, often with a pricey gig, where five short picks show range.
  */
 export function HomeClient({ initialFeed = null }: HomeClientProps) {
   const [feedWindow, setWindow] = useState<FeedWindow>("now");
@@ -299,10 +301,14 @@ export function HomeClient({ initialFeed = null }: HomeClientProps) {
   // was ranked and labelled with it), the real time after. See lib/useNow.tsx.
   const now = useNow();
   const prefs = usePrefs();
-  // The visitor's eligibility set. Empty while signed out: personalisation
-  // (ranking, "You qualify") needs an account. See useEffectiveWho's doc
-  // comment for why this lives in lib/personalise/, not lib/useSaved.ts.
+  // The visitor's eligibility set: the account's when signed in, this
+  // device's own answers (the audience ask under the intro) when signed out.
+  // See useEffectiveWho's doc comment.
   const dealWho = useEffectiveWho();
+  // Anyone who has answered the inline audience ask (or the sheet's
+  // eligibility questions) has no need for the "Make Fomo yours" banner.
+  const audienceAnswered = audienceLabels(prefs.draft).length > 0;
+  const showPrefsBanner = !prefs.done && !audienceAnswered;
   const affinity = useAffinity();
   const { city, source: citySource, shouldPrompt: shouldPromptCity } = useSelectedCity();
   const [cityPickerOpen, setCityPickerOpen] = useState(false);
@@ -662,14 +668,20 @@ export function HomeClient({ initialFeed = null }: HomeClientProps) {
       <div className="flex flex-col gap-3 px-4 lg:mx-auto lg:grid lg:w-full lg:max-w-[1200px] lg:grid-cols-12 lg:items-start lg:gap-8 lg:px-8">
         <div className="contents lg:col-span-8 lg:flex lg:min-w-0 lg:flex-col lg:gap-3">
         {/* The page's h1 and one-line intro (visible, real text: it's what a
-            search engine reads first). Part of the first HTML. */}
-        <div className="flex flex-col gap-1 px-1">
-          <h1 className="text-headline-md font-extrabold tracking-tight text-primary">
-            Free and cheap things to do in Edinburgh
-          </h1>
-          <p className="text-body-md text-on-surface-variant">
-            Student and local deals, plus what&rsquo;s on today, this weekend and coming up.
-          </p>
+            search engine reads first). Part of the first HTML. Straight
+            under it, the inline audience ask (Student / Under 26 / EH
+            postcode): works signed out, and flips "You qualify" badges and
+            ranking below the moment a chip is tapped. */}
+        <div className="flex flex-col gap-2 px-1">
+          <div className="flex flex-col gap-1">
+            <h1 className="text-headline-md font-extrabold tracking-tight text-primary">
+              Free and cheap things to do in Edinburgh
+            </h1>
+            <p className="text-body-md text-on-surface-variant">
+              Student and local deals, plus what&rsquo;s on today, this weekend and coming up.
+            </p>
+          </div>
+          <AudienceAsk className="-mx-1" />
         </div>
 
         {/* Window control — drives What's on, and on Book early the hero too
@@ -708,89 +720,16 @@ export function HomeClient({ initialFeed = null }: HomeClientProps) {
           ) : null}
         </div>
 
-        {showHappeningHero && feed?.hero ? (
-          // `key`'d + slid the same direction as the content below it — the
-          // hero used to be the SAME card regardless of tab (GET /api/feed's
-          // `hero` was picked window-agnostically; see app/api/feed/route.ts),
-          // which was the biggest reason a tab switch read as "nothing
-          // changed" with the viewport scrolled to the top. It's now scoped
-          // to the active window server-side, so this remount is a genuine
-          // hero change, not just a replay.
-          <div key={`hero-${feedWindow}`} className={windowSlideClass}>
-            <FeedHero card={feed.hero} variant={heroKind} surface={heroKind === "book_early" ? "book_early" : "home_whats_on"} />
-          </div>
-        ) : heroKind === "book_early" ? null : feed !== null ? (
-          // This window's own feed HAS loaded and genuinely has no hero
-          // candidate (see `pickHero`'s doc comment on `windowRange`) — a
-          // compact preview of its own first few cards, scoped to this
-          // window, rather than no hero at all.
-          whatsOnCards.length > 0 ? (
-            <div key={`hero-preview-${feedWindow}`} className={`${windowSlideClass} flex flex-col gap-2 lg:grid lg:grid-cols-2 lg:items-start lg:gap-4`}>
-              {whatsOnCards.slice(0, 3).map((card, i) => (
-                <FeedListCard key={cardKey(card)} card={card} surface="home_whats_on" position={i} />
-              ))}
-            </div>
-          ) : (
-            <div
-              key={`hero-empty-${feedWindow}`}
-              className={`${windowSlideClass} flex flex-col items-center gap-2 rounded-lg border border-dashed border-hairline-strong p-6 text-center`}
-            >
-              <Icon name="explore" size={28} className="text-outline" />
-              <p className="text-body-md text-on-surface-variant">{whatsOnEmptyMessage()}</p>
-            </div>
-          )
-        ) : feedError ? (
-          // A real GET /api/feed failure — as opposed to "still loading",
-          // which isn't an error — so this is the one case that gets a Retry
-          // instead of leaving the skeleton below on screen forever.
-          <ErrorState
-            title="Couldn't load today's pick"
-            message="Check your connection and try again."
-            onRetry={retryFeed}
-            className="p-6"
-          />
-        ) : (
-          // Still loading this window's own feed (first paint, or an
-          // uncached window switch) — a skeleton instead of a blank slot
-          // while it settles. No fallback hero here any more: when the feed
-          // genuinely has none, the "feed !== null" branch above already
-          // renders the compact preview/empty state instead of this.
-          <div
-            className="h-52 animate-pulse rounded-lg bg-surface-container motion-reduce:animate-none lg:h-[260px] lg:rounded-3xl"
-            role="status"
-            aria-live="polite"
-          >
-            <span className="sr-only">Finding something worth your while…</span>
-          </div>
-        )}
-
-        {/* Today's deals — independent of `feedWindow` (same as Book
-            early/Free any time), so it stays put across every tab rather
-            than disappearing on Coming up/Book early. Renders nothing of
-            its own accord when the day's selection is too thin (see
-            TodaysDealsStrip/todaysDeals). */}
-        <TodaysDealsStrip deals={boostedTodaysDeals} surface="home_today_deals" className="lg:hidden" />
-
-        {/* Slim, dismissible "Make Fomo yours" banner (task brief §2) —
-            shown to anyone, signed in or out, who hasn't completed or
-            skipped the card yet; hidden the instant `prefs.done` flips,
-            whether that's from this banner, the first-save trigger
-            (components/ui/SaveButton.tsx), or Profile's own Edit. */}
-        {!prefs.done ? <MakeFomoYoursBanner onDismiss={() => void prefs.dismiss()} className="lg:hidden" /> : null}
-
-        {/* "Out with the kids" — kid-friendly cards from today and this
-            weekend, for a visitor who said "I've got kids" (Make Fomo yours).
-            Hidden when fewer than KIDS_RAIL_MIN cards qualify. */}
-        {kidsRail.length >= KIDS_RAIL_MIN ? <KidsRail cards={kidsRail} /> : null}
-
-        {/* What's on — window-driven, one chronological list (see
-            app/api/feed/route.ts's doc comment on `whatsOn`). Hidden entirely
-            (heading, count badge, skeletons, empty state, all of it) on Book
-            early: that tab isn't a date window at all, it's a swap-out to the
-            Book early list below, and the route returns an empty `whatsOn`
-            for it so there'd be nothing here to show anyway. `scroll-mt-20`
-            keeps the sticky header from covering the section top when a
-            window switch scrolls it into view (see the fetch effect above). */}
+        {/* Top picks — the first content block on Today and Coming up: five
+            ranked cards, each with its one-line reason, so the first screen
+            shows the start of a short list rather than one big hero. The
+            single hero card was dropped on these two tabs (it was the same
+            ranking's number one, and often a pricey gig filling the whole
+            first screen); Book early keeps its own hero below. Hidden
+            entirely on Book early: that tab isn't a date window, and the
+            route returns an empty `whatsOn` for it. `scroll-mt-20` keeps the
+            sticky header from covering the section top when a window switch
+            scrolls it into view. */}
         {feedWindow !== "book_early" ? (
           <div ref={whatsOnSectionRef} className="relative flex scroll-mt-20 flex-col gap-2 lg:scroll-mt-24">
             {/* Thin indeterminate progress bar — cached (possibly stale)
@@ -866,12 +805,6 @@ export function HomeClient({ initialFeed = null }: HomeClientProps) {
                     />
                   </>
                 )}
-                {/* "Near you now" — today's cards and deals within a short
-                    walk, from this same feed. Today only: distance means
-                    nothing for next week's list. Asks for location only on
-                    a tap (components/happenings/NearNowSection.tsx). */}
-                {feedWindow === "now" ? <NearNowSection feed={feed} className="lg:col-span-2" /> : null}
-                <AnyDaySection cards={boostedAnyDayCards} surface="home_any_day" desktopGrid />
               </div>
             )}
           </div>
@@ -879,57 +812,102 @@ export function HomeClient({ initialFeed = null }: HomeClientProps) {
 
         {/* Book early — its own tab (user feedback: Book early deserved more
             room than a capped section wedged under Coming up, and competed
-            with What's on for the same tab's attention). The API field
-            itself stays window-independent — it's unconditionally returned
-            by GET /api/feed because /book-early, /deals and /free all fetch
-            window=now and depend on the full list — Home is just choosier
-            about when it renders it. Same cap+"See all N" link convention as
-            What's on above, out to /book-early — its own page, with its own
-            timing/category/month filters and Ask Fomo button (see that
-            page's own doc comment). */}
+            with What's on for the same tab's attention). Led by that tab's
+            own hero (`heroKind === "book_early"`, HappeningHero's
+            `variant="book_early"`); `hero: null` there means no hero at all.
+            The API field itself stays window-independent — it's
+            unconditionally returned by GET /api/feed because /book-early,
+            /deals and /free all fetch window=now and depend on the full
+            list — Home is just choosier about when it renders it. Same
+            cap+"See all N" link convention as What's on above, out to
+            /book-early — its own page, with its own timing/category/month
+            filters and Ask Fomo button (see that page's own doc comment). */}
         {feedWindow === "book_early" ? (
-          // The whole section only ever mounts on arrival at this tab (the
+          // The whole block only ever mounts on arrival at this tab (the
           // conditional above unmounts it entirely on the way out), so the
           // slide-in plays on mount here rather than needing its own
           // `key={feedWindow}` the way What's on's inner content does above.
-          <section ref={bookEarlySectionRef} className={`${windowSlideClass} flex scroll-mt-20 flex-col gap-2 lg:scroll-mt-24`}>
-            <div className="flex items-center justify-between gap-2 px-1">
-              <div className="flex items-center gap-2">
-                <Icon name="confirmation_number" size={20} className="text-accent" />
-                <h3 className="text-headline-sm font-extrabold tracking-tight text-on-surface">Book early</h3>
+          <div className={`${windowSlideClass} flex flex-col gap-3`}>
+            {showHappeningHero && heroKind === "book_early" && feed?.hero ? (
+              <FeedHero card={feed.hero} variant={heroKind} surface="book_early" />
+            ) : null}
+            <section ref={bookEarlySectionRef} className="flex scroll-mt-20 flex-col gap-2 lg:scroll-mt-24">
+              <div className="flex items-center justify-between gap-2 px-1">
+                <div className="flex items-center gap-2">
+                  <Icon name="confirmation_number" size={20} className="text-accent" />
+                  <h3 className="text-headline-sm font-extrabold tracking-tight text-on-surface">Book early</h3>
+                </div>
+                <SeeAllLink href="/book-early" total={bookEarlyAll.length} />
               </div>
-              <SeeAllLink href="/book-early" total={bookEarlyAll.length} />
-            </div>
-            {feedError ? (
-              <ErrorState title="Couldn't load Book early" onRetry={retryFeed} />
-            ) : feed === null ? (
-              <div className="flex flex-col gap-3 lg:grid lg:grid-cols-2 lg:items-start lg:gap-4" role="status" aria-live="polite">
-                <span className="sr-only">Loading Book early…</span>
-                {[0, 1].map((i) => (
-                  <div key={i} className="h-20 animate-pulse rounded-lg bg-surface-container motion-reduce:animate-none" />
-                ))}
-              </div>
-            ) : bookEarlyAll.length === 0 ? (
-              <div className="flex flex-col items-center gap-2 px-1 text-center lg:col-span-2">
-                <FomoSpot mood="meh" pose="shrug" className="h-16 w-16" />
-                <p className="text-body-sm text-on-surface-variant">
-                  Nothing worth booking early right now. Check back soon.
-                </p>
-              </div>
-            ) : (
-              <div className="flex flex-col gap-3 lg:grid lg:grid-cols-2 lg:items-start lg:gap-4">
-                {bookEarlyAll.slice(0, SECTION_CAP).map((card, i) => (
-                  <BookEarlyCard
-                    key={bookEarlyCardKey(card)}
-                    card={card}
-                    initialSubscribed={card.kind === "happening" && alertHappeningIds.has(card.happening.id)}
-                    position={i}
-                  />
-                ))}
-                <SeeAllButton href="/book-early" total={bookEarlyAll.length} shown={SECTION_CAP} className="lg:col-span-2" />
-              </div>
-            )}
-          </section>
+              {feedError ? (
+                <ErrorState title="Couldn't load Book early" onRetry={retryFeed} />
+              ) : feed === null ? (
+                <div className="flex flex-col gap-3 lg:grid lg:grid-cols-2 lg:items-start lg:gap-4" role="status" aria-live="polite">
+                  <span className="sr-only">Loading Book early…</span>
+                  {[0, 1].map((i) => (
+                    <div key={i} className="h-20 animate-pulse rounded-lg bg-surface-container motion-reduce:animate-none" />
+                  ))}
+                </div>
+              ) : bookEarlyAll.length === 0 ? (
+                <div className="flex flex-col items-center gap-2 px-1 text-center lg:col-span-2">
+                  <FomoSpot mood="meh" pose="shrug" className="h-16 w-16" />
+                  <p className="text-body-sm text-on-surface-variant">
+                    Nothing worth booking early right now. Check back soon.
+                  </p>
+                </div>
+              ) : (
+                <div className="flex flex-col gap-3 lg:grid lg:grid-cols-2 lg:items-start lg:gap-4">
+                  {bookEarlyAll.slice(0, SECTION_CAP).map((card, i) => (
+                    <BookEarlyCard
+                      key={bookEarlyCardKey(card)}
+                      card={card}
+                      initialSubscribed={card.kind === "happening" && alertHappeningIds.has(card.happening.id)}
+                      position={i}
+                    />
+                  ))}
+                  <SeeAllButton href="/book-early" total={bookEarlyAll.length} shown={SECTION_CAP} className="lg:col-span-2" />
+                </div>
+              )}
+            </section>
+          </div>
+        ) : null}
+
+        {/* The weekly email, in the first scroll: a compact form right after
+            the list (source "home_top"). The full card stays at the bottom.
+            Hidden once this browser has subscribed or dismissed it, and on
+            desktop, where the right rail already shows the full card. */}
+        <SubscribeCard source="home_top" variant="compact" className="lg:hidden" />
+
+        {/* Today's deals — independent of `feedWindow` (same as Book
+            early/Free any time), so it stays put across every tab rather
+            than disappearing on Coming up/Book early. Renders nothing of
+            its own accord when the day's selection is too thin (see
+            TodaysDealsStrip/todaysDeals). */}
+        <TodaysDealsStrip deals={boostedTodaysDeals} surface="home_today_deals" className="lg:hidden" />
+
+        {/* Slim, dismissible "Make Fomo yours" banner (task brief §2) —
+            shown to anyone, signed in or out, who hasn't completed or
+            skipped the card yet AND hasn't answered the audience ask at the
+            top; hidden the instant either happens, whether that's from this
+            banner, the inline chips, the first-save trigger
+            (components/ui/SaveButton.tsx), or Profile's own Edit. */}
+        {showPrefsBanner ? <MakeFomoYoursBanner onDismiss={() => void prefs.dismiss()} className="lg:hidden" /> : null}
+
+        {/* "Out with the kids" — kid-friendly cards from today and this
+            weekend, for a visitor who said "I've got kids" (Make Fomo yours).
+            Hidden when fewer than KIDS_RAIL_MIN cards qualify. */}
+        {kidsRail.length >= KIDS_RAIL_MIN ? <KidsRail cards={kidsRail} /> : null}
+
+        {/* "Near you now" and "Any day" — moved out from under Top picks so
+            the email form and today's deals sit in the first scroll. Near
+            you now is Today only (distance means nothing for next week's
+            list) and asks for location only on a tap
+            (components/happenings/NearNowSection.tsx). */}
+        {feedWindow !== "book_early" && feed !== null && !feedError ? (
+          <div key={`extras-${feedWindow}`} className={`${windowSlideClass} flex flex-col gap-3`}>
+            {feedWindow === "now" ? <NearNowSection feed={feed} /> : null}
+            <AnyDaySection cards={boostedAnyDayCards} surface="home_any_day" desktopGrid />
+          </div>
         ) : null}
 
         {/* Free any time — Today only. It used to render under every tab,
@@ -969,7 +947,7 @@ export function HomeClient({ initialFeed = null }: HomeClientProps) {
           className="hidden lg:sticky lg:top-[calc(var(--topbar-h)+24px)] lg:col-span-4 lg:-mx-2 lg:flex lg:max-h-[calc(100vh-var(--topbar-h)-48px)] lg:flex-col lg:gap-4 lg:overflow-y-auto lg:px-2 lg:pb-2 lg:[scrollbar-width:none] lg:[&::-webkit-scrollbar]:hidden"
         >
           <TodaysDealsStrip deals={boostedTodaysDeals} surface="home_today_deals" />
-          {!prefs.done ? <MakeFomoYoursBanner onDismiss={() => void prefs.dismiss()} /> : null}
+          {showPrefsBanner ? <MakeFomoYoursBanner onDismiss={() => void prefs.dismiss()} /> : null}
           <SubscribeCard source="home" />
         </aside>
       </div>

@@ -5,9 +5,8 @@
  * param set by whoever redirected them: proxy.ts (account-gated pages —
  * see its `SIGNIN_REASON_BY_PREFIX`) and lib/auth/send-to-signin.ts's
  * `sendToSignIn` (a signed-out tap on Save, Notify me, For you, Make Fomo
- * yours or Google place search) set it; app/welcome/page.tsx's "Skip"/finish
- * flow does not, so a visitor who went through the intro slides just sees
- * the plain form.
+ * yours or Google place search) set it. With no reason, the visitor just
+ * sees the plain form.
  *
  * Deliberately a closed, known set rather than echoing arbitrary query
  * text back into the page — an unrecognised value (typo'd, stale, or
