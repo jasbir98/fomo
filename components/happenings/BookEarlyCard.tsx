@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Icon, NavCard, SaveButton, SmartImage } from "@/components/ui";
+import { CardShareButton, Icon, NavCard, SaveButton, SmartImage } from "@/components/ui";
 import { formatEventPrice } from "@/lib/events/format";
 import { savingBadgeLabel } from "@/lib/happenings/format";
 import { defaultImageFor } from "@/lib/happenings/category-style";
@@ -143,6 +143,7 @@ export function BookEarlyCard({ card, initialSubscribed = false, position }: Boo
             <TierPill label={card.label} />
             <div className="flex items-center gap-2">
               {price ? <span className="shrink-0 text-label-sm font-extrabold text-primary">{price}</span> : null}
+              <CardShareButton kind="event" id={event.id} title={event.name} surface="book_early" className="-my-2" />
               <SaveButton subjectType="event" subjectId={event.id} className="-my-2 -mr-2" />
             </div>
           </div>
@@ -208,6 +209,7 @@ export function BookEarlyCard({ card, initialSubscribed = false, position }: Boo
           </div>
           <div className="flex items-center gap-2">
             {priceBadge ? <span className="shrink-0 text-label-sm font-extrabold text-primary">{priceBadge}</span> : null}
+            <CardShareButton kind="happening" id={happening.id} title={happening.title} surface="book_early" className="-my-2" />
             <SaveButton subjectType="happening" subjectId={happening.id} className="-my-2 -mr-2" />
           </div>
         </div>

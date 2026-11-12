@@ -124,6 +124,9 @@ const PUBLIC_PLACE_OFFERS = /^\/api\/places\/[^/]+\/offers$/;
 // app/api/events/[id]/ics/route.ts's doc comments.
 const PUBLIC_EVENT_ICS = /^\/api\/events\/[^/]+\/ics$/;
 const PUBLIC_EVENT_DETAIL = /^\/api\/events\/[^/]+$/;
+// Saved cards for a visitor's local (pre-account) saves, by id: read-only, no
+// session needed. The account list at /api/saved stays behind a session.
+const PUBLIC_SAVED_LOCAL = /^\/api\/saved\/local$/;
 
 /**
  * POST endpoints servable with no session, kept as a SEPARATE allowlist from
@@ -153,6 +156,7 @@ function isPublicApi(request: NextRequest): boolean {
     PUBLIC_PLACE_OFFERS.test(pathname) ||
     PUBLIC_EVENT_ICS.test(pathname) ||
     PUBLIC_EVENT_DETAIL.test(pathname) ||
+    PUBLIC_SAVED_LOCAL.test(pathname) ||
     PUBLIC_API_PREFIXES.some((prefix) => matchesPrefix(pathname, prefix))
   );
 }

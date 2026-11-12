@@ -15,6 +15,7 @@
 const REASON_COPY = {
   fomo: "Sign in to keep chatting with Fomo. It knows everything on this week.",
   save: "Sign in to save this for later.",
+  keep_saves: "Sign in to keep your saves across devices and get alerts.",
   profile: "Sign in to see your profile.",
   for_you: "Sign in to see all of this week's picks and what's matched to you.",
   personalise: "Sign in and Fomo will pick things for you.",

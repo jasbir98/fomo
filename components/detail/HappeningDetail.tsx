@@ -1,5 +1,6 @@
 "use client";
 
+import { SharedSubscribeCard } from "@/components/happenings/SharedSubscribeCard";
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import Link from "next/link";
 import { districtFromAddress } from "@/lib/city";
@@ -650,6 +651,7 @@ export function HappeningDetail({ id, presentation = "page", initialData }: Deta
               url={shareUrl}
               interestHint={interestForHappeningCategory(happening.category)}
               kind="happening"
+              surface="detail"
             />
           </div>
         }
@@ -1029,6 +1031,7 @@ export function HappeningDetail({ id, presentation = "page", initialData }: Deta
       {!isSeries && directionsUrl ? whereCard("hidden lg:block", directionsUrl) : null}
       </DetailAside>
       </div>
+      <SharedSubscribeCard />
     </div>
   );
 }

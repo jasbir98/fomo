@@ -40,6 +40,8 @@ export { ShareButton } from "./ShareButton";
 export type { ShareButtonProps } from "./ShareButton";
 export { ErrorState } from "./ErrorState";
 export type { ErrorStateProps } from "./ErrorState";
+export { CardShareButton } from "./CardShareButton";
+export type { CardShareButtonProps } from "./CardShareButton";
 export { SaveButton } from "./SaveButton";
 export type { SaveButtonProps } from "./SaveButton";
 export { FomoLogo } from "./FomoLogo";

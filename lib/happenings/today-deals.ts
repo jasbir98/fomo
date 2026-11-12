@@ -32,7 +32,7 @@ import {
   normalizeRecurrence,
   weekdayOf,
 } from "@/lib/happenings/occurrence";
-import { dealStealScore } from "@/lib/happenings/deal-score";
+import { dealLeadScore, dealStealScore } from "@/lib/happenings/deal-score";
 import type { Happening } from "@/lib/happenings/types";
 import { whoGroupForEligibility, type DealWhoGroup } from "@/lib/happenings/groups";
 import { groupDealsByVenue, type RankedDealItem } from "@/lib/happenings/venue-deals";
@@ -119,7 +119,12 @@ function dayNumber(dayDate: string): number {
 
 interface Candidate {
   card: DealCardData;
+  /** Plain steal score: decides what counts as a good deal (the floor). */
   score: number;
+  /** Steal score less the persona-fit penalty (audience.ts): orders the list. */
+  rank: number;
+  /** A hotel stay, a haircut, an offer for a group the visitor is not in...: never leads, never first for ending soon. */
+  penalised: boolean;
   endsSoon: boolean;
   lead: boolean;
 }
@@ -128,7 +133,7 @@ interface Candidate {
 function ranked(list: Candidate[]): Candidate[] {
   return list
     .map((c, index) => ({ c, index }))
-    .sort((a, b) => Number(b.c.endsSoon) - Number(a.c.endsSoon) || b.c.score - a.c.score || a.index - b.index)
+    .sort((a, b) => Number(b.c.endsSoon && !b.c.penalised) - Number(a.c.endsSoon && !a.c.penalised) || b.c.rank - a.c.rank || a.index - b.index)
     .map((x) => x.c);
 }
 
@@ -189,6 +194,8 @@ export function todaysDeals(deals: DealsSection, at: Date, options: TodaysDealsO
   for (const card of dealsList(deals)) {
     if (happeningHasEnded(card.happening, at, timeZone)) continue;
     const score = dealStealScore(card.happening);
+    const rank = dealLeadScore(card.happening, who);
+    const penalised = rank < score;
     if (score >= GOOD_FLOOR) catalogue++;
 
     const rec = normalizeRecurrence(card.happening.recurrence);
@@ -204,8 +211,8 @@ export function todaysDeals(deals: DealsSection, at: Date, options: TodaysDealsO
       const occ = nextOccurrence(card.happening, at, at, timeZone);
       endsSoon = (occ ? daysUntilLastChance(occ, at, timeZone) : Number.POSITIVE_INFINITY) <= ENDS_SOON_DAYS;
     }
-    const lead = score >= GOOD_FLOOR && (todayOnly || endsSoon || isNewDeal(card.happening, at));
-    candidates.push({ card, score, endsSoon, lead });
+    const lead = score >= GOOD_FLOOR && !penalised && (todayOnly || endsSoon || isNewDeal(card.happening, at));
+    candidates.push({ card, score, rank, penalised, endsSoon, lead });
   }
 
   const leadAll = ranked(candidates.filter((c) => c.lead));
@@ -213,7 +220,16 @@ export function todaysDeals(deals: DealsSection, at: Date, options: TodaysDealsO
   // Lead cards past LEAD_MAX go back into the rotation rather than vanishing.
   const pool = candidates.filter((c) => c.score >= GOOD_FLOOR && !lead.includes(c));
   const cycle = Math.max(2, Math.round(catalogue / limit));
-  const rotation = rotate(pool, Math.max(limit - lead.length, 0), cycle, today);
+  const slots = Math.max(limit - lead.length, 0);
+  // Persona-penalised deals (hotel stay, hairdresser, attraction ticket, an offer
+  // for a group the visitor isn't in) only fill what the rest can't.
+  const rotation = rotate(
+    pool.filter((c) => !c.penalised),
+    slots,
+    cycle,
+    today
+  );
+  if (rotation.length < slots) rotation.push(...ranked(pool.filter((c) => c.penalised)).slice(0, slots - rotation.length));
 
   const cards = (list: Candidate[]) => list.map((c) => c.card);
   let result = [...rankQualifyingFirst(cards(lead), who), ...rankQualifyingFirst(cards(rotation), who)];

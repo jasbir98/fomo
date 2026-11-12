@@ -4,7 +4,7 @@ import { useEffect, useState, type FormEvent, type ReactNode } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { CITY } from "@/lib/city";
-import { useSignedIn } from "@/lib/useSaved";
+import { useSaved } from "@/lib/useSaved";
 import type { WeatherCondition } from "@/lib/weather";
 import { WEATHER_THEME } from "@/lib/weatherUi";
 import { FomoLogo, Icon } from "@/components/ui";
@@ -56,7 +56,7 @@ export interface AppHeaderProps {
 
 /**
  * Shared top app bar used by every tab: Fomo wordmark, weather chip, Search
- * link, Saved bookmark (signed in only), "Get the app" chip (phones, until
+ * link, Saved bookmark (signed in, or with saves on this device), "Get the app" chip (phones, until
  * installed), Profile/Sign in.
  * Home passes its city picker pill through `leading`; other tabs skip it (it's
  * noise there, and with SUPPORTED_CITIES.length === 1 it never renders anyway,
@@ -70,7 +70,7 @@ export interface AppHeaderProps {
 export function AppHeader({ title, leading, weather: weatherProp, className = "" }: AppHeaderProps) {
   const [fetchedWeather, setFetchedWeather] = useState<HeaderWeather | null>(null);
   const weather = weatherProp !== undefined ? weatherProp : fetchedWeather;
-  const signedIn = useSignedIn();
+  const { signedIn, localSaveCount } = useSaved();
   const router = useRouter();
   const [searchText, setSearchText] = useState("");
   const { platform, installed } = useInstallState();
@@ -160,9 +160,10 @@ export function AppHeader({ title, leading, weather: weatherProp, className = ""
           >
             <Icon name="search" size={24} />
           </Link>
-          {signedIn === true ? (
+          {signedIn === true || (signedIn === false && localSaveCount > 0) ? (
             // Saved moved here from the bottom nav (12 Oct 2026, "For you" took its tab).
-            // Signed-in only: signed out it would just lead to a sign-in prompt.
+            // Signed in, or signed out with at least one save kept on this device
+            // (lib/saved/local-store.ts); with neither it would be an empty page.
             // On desktop it sits before the avatar (from lg the search field is
             // on the left, so there is no search icon beside it). It's the only
             // way to Saved on both sizes; the side nav doesn't repeat it.

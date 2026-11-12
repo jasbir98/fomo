@@ -7,7 +7,7 @@ import { track } from "@/lib/analytics/track";
 
 export interface SubscribeCardProps {
   /** Where this card is mounted — sent as `source` to POST /api/subscribe so the digest signup list can tell which surface drove a signup. */
-  source: "weekend" | "home" | "home_top" | "signup" | "finds" | "plan" | "kids";
+  source: "weekend" | "home" | "home_top" | "signup" | "finds" | "plan" | "kids" | "shared";
   /**
    * `card` (default): the full card. `compact`: one slim block for Home's
    * first scroll (the promise line, email + Join, dismiss). The compact one

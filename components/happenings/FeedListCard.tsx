@@ -1,7 +1,7 @@
 "use client";
 
 import { createContext, useContext, useMemo } from "react";
-import { Icon, NavCard, SaveButton, SmartImage } from "@/components/ui";
+import { CardShareButton, Icon, NavCard, SaveButton, SmartImage } from "@/components/ui";
 import { eventIsInProgress, eventDateLabel, formatEventPrice, formatEventTimeSpan, formatEventWhen } from "@/lib/events/format";
 import {
   ELIGIBILITY_ICON,
@@ -202,11 +202,11 @@ function CheckedAgo({ verifiedAt, now }: { verifiedAt: string; now: Date }) {
 }
 
 /**
- * The card's single footer row — provenance/time on the left, the bookmark on
- * the right, vertically centred in one 40px line (the save button used to sit
+ * The card's single footer row — provenance/time on the left, the share and
+ * bookmark controls (44px targets, pulled into a 40px line) on the right, vertically centred in one 40px line (the save button used to sit
  * on a row of its own, which read as dead whitespace).
  */
-function CardFooter({ children, save }: { children?: React.ReactNode; save: React.ReactNode }) {
+function CardFooter({ children, save, share }: { children?: React.ReactNode; save: React.ReactNode; share?: React.ReactNode }) {
   const plan = useContext(CardPlan);
   return (
     // mt-auto: in a desktop grid row the cards stretch to the tallest one,
@@ -215,6 +215,7 @@ function CardFooter({ children, save }: { children?: React.ReactNode; save: Reac
       <div className="flex min-w-0 items-center gap-2 text-label-md text-on-surface-variant">{children}</div>
       <div className="ml-auto flex shrink-0 items-center gap-1">
         {plan ? <AddToPlanButton item={basketItemForCard(plan.card, plan.days)} surface={plan.surface} /> : null}
+        {share}
         {save}
       </div>
     </div>
@@ -345,13 +346,22 @@ function HappeningRow({
       {oneLiner ? <p className="line-clamp-2 text-body-sm leading-snug text-on-surface-variant">{oneLiner}</p> : null}
 
       <CardFooter
+        share={
+          <CardShareButton
+            kind="happening"
+            id={happening.id}
+            title={happening.title}
+            surface={surface}
+            interestHint={interestForHappeningCategory(happening.category)}
+            className="-my-1.5"
+          />
+        }
         save={
           <SaveButton
             subjectType="happening"
             subjectId={happening.id}
             interestHint={interestForHappeningCategory(happening.category)}
-            compact
-            className="-my-1 -mr-2"
+            className="-my-1.5 -mr-2"
           />
         }
       >
@@ -425,13 +435,22 @@ function SeriesRow({ card, surface, position }: { card: SeriesCardData; surface?
       {oneLiner ? <p className="line-clamp-2 text-body-sm leading-snug text-on-surface-variant">{oneLiner}</p> : null}
 
       <CardFooter
+        share={
+          <CardShareButton
+            kind="happening"
+            id={lead.id}
+            title={card.title}
+            surface={surface}
+            interestHint={interestForHappeningCategory(lead.category)}
+            className="-my-1.5"
+          />
+        }
         save={
           <SaveButton
             subjectType="happening"
             subjectId={lead.id}
             interestHint={interestForHappeningCategory(lead.category)}
-            compact
-            className="-my-1 -mr-2"
+            className="-my-1.5 -mr-2"
           />
         }
       >
@@ -498,17 +517,26 @@ function RecurringRow({ card, surface, position }: { card: RecurringCardData; su
       {oneLiner ? <p className="line-clamp-2 text-body-sm leading-snug text-on-surface-variant">{oneLiner}</p> : null}
 
       <CardFooter
+        share={
+          <CardShareButton
+            kind={lead.kind}
+            id={lead.kind === "happening" ? lead.happening.id : lead.event.id}
+            title={card.title}
+            surface={surface}
+            interestHint={lead.kind === "happening" ? interestForHappeningCategory(lead.happening.category) : null}
+            className="-my-1.5"
+          />
+        }
         save={
           lead.kind === "happening" ? (
             <SaveButton
               subjectType="happening"
               subjectId={lead.happening.id}
               interestHint={interestForHappeningCategory(lead.happening.category)}
-              compact
-              className="-my-1 -mr-2"
+              className="-my-1.5 -mr-2"
             />
           ) : (
-            <SaveButton subjectType="event" subjectId={lead.event.id} compact className="-my-1 -mr-2" />
+            <SaveButton subjectType="event" subjectId={lead.event.id} className="-my-1.5 -mr-2" />
           )
         }
       >
@@ -664,7 +692,10 @@ function EventRow({ event, surface, position }: { event: EventItem; surface?: Fe
         <p className="line-clamp-2 text-body-sm leading-snug text-on-surface-variant">{oneLinerSummary(event.description)}</p>
       ) : null}
 
-      <CardFooter save={<SaveButton subjectType="event" subjectId={event.id} compact className="-my-1 -mr-2" />}>
+      <CardFooter
+        share={<CardShareButton kind="event" id={event.id} title={event.name} surface={surface} className="-my-1.5" />}
+        save={<SaveButton subjectType="event" subjectId={event.id} className="-my-1.5 -mr-2" />}
+      >
         <Icon name="schedule" size={14} className="shrink-0 text-secondary" />
         <span className="truncate">{eventTime}</span>
         {showGoodWithKids(familyFitForEvent(event), { priceText: priceLabel?.text }) ? <GoodWithKidsTag /> : null}

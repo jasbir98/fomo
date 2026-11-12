@@ -15,7 +15,7 @@ export type ShareButtonProps = {
   /** Canonical URL of the detail page (build from window.location.origin + path). */
   url: string;
   /** Icon-only circular button (default, matches PageHeader's back button) or an icon+label pill. */
-  variant?: "icon" | "labelled";
+  variant?: "icon" | "labelled" | "card";
   className?: string;
   /** This card's personalisation interest (lib/personalise/interests.ts) — feeds the implicit-learning affinity counter (lib/personalise/affinity.ts) on a completed share by a signed-in visitor, same signal SaveButton's own `interestHint` records on a save. Omit where the interest isn't readily available. */
   interestHint?: InterestKey | null;
@@ -23,10 +23,14 @@ export type ShareButtonProps = {
   kind?: string;
   /** Runs after a completed share, alongside `share_completed` — for a surface with its own event (the weekend plan's `weekend_plan_shared`). */
   onShared?: (method: "native" | "clipboard") => void;
+  /** Which UI the share came from, sent on `share_completed` as `surface` (a feed card passes its FeedCardSurface, e.g. "home_top_picks"; detail pages pass "detail"). */
+  surface?: string;
+  /** `utm_content` on the shared link: "detail" (default) for a share from a detail page, "card" for one from a feed card, so the two can be told apart in analytics. */
+  utmContent?: "detail" | "card";
 };
 
 /**
- * Share a detail page: `navigator.share` where available (mobile Safari/
+ * Share a detail page (or, with `variant="card"`, a feed card's link to it — same URL, `utm_content=card`): `navigator.share` where available (mobile Safari/
  * Chrome, installed PWA — shows the OS share sheet), else copy the URL to
  * the clipboard and show a small inline "Link copied" confirmation. There's
  * no shared toast/snackbar component in this codebase yet, so the
@@ -39,7 +43,18 @@ export type ShareButtonProps = {
  * rejection (e.g. no registered share targets) falls back to clipboard
  * rather than leaving the tap dead.
  */
-export function ShareButton({ title, text, url, variant = "icon", className = "", interestHint = null, kind, onShared }: ShareButtonProps) {
+export function ShareButton({
+  title,
+  text,
+  url,
+  variant = "icon",
+  className = "",
+  interestHint = null,
+  kind,
+  onShared,
+  surface,
+  utmContent = "detail",
+}: ShareButtonProps) {
   const [copied, setCopied] = useState(false);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   // Sharing stays open to everyone, but only a signed-in share teaches the
@@ -66,10 +81,10 @@ export function ShareButton({ title, text, url, variant = "icon", className = ""
         if (!url.searchParams.has("utm_medium")) {
           url.searchParams.set("utm_medium", medium);
         }
-        // Return relative URL if it was relative
-        if (originalUrl.startsWith("/")) {
-          return url.pathname + url.search + url.hash;
+        if (!url.searchParams.has("utm_content")) {
+          url.searchParams.set("utm_content", utmContent);
         }
+        // A relative path becomes absolute: a share sheet or a pasted link needs the full address.
         return url.toString();
       }
     } catch {
@@ -101,7 +116,7 @@ export function ShareButton({ title, text, url, variant = "icon", className = ""
         const urlWithUtm = addUtmParams(url, "native");
         await navigator.share({ title, text, url: urlWithUtm });
         if (signedIn === true) recordAffinity(interestHint);
-        track("share_completed", { method: "native", kind });
+        track("share_completed", { method: "native", kind, surface });
         onShared?.("native");
         return;
       } catch (err) {
@@ -112,7 +127,7 @@ export function ShareButton({ title, text, url, variant = "icon", className = ""
     }
     await copyToClipboard();
     if (signedIn === true) recordAffinity(interestHint);
-    track("share_completed", { method: "clipboard", kind });
+    track("share_completed", { method: "clipboard", kind, surface });
     onShared?.("clipboard");
   }
 
@@ -136,14 +151,14 @@ export function ShareButton({ title, text, url, variant = "icon", className = ""
         type="button"
         aria-label={copied ? "Link copied" : "Share"}
         onClick={handleShare}
-        className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-on-surface-variant transition-colors hover:bg-surface-container-low ${className}`}
+        className={`flex ${variant === "card" ? "h-11 w-11 hover:bg-surface-container" : "h-10 w-10 hover:bg-surface-container-low"} shrink-0 items-center justify-center rounded-full text-on-surface-variant transition-colors ${className}`}
       >
-        <Icon name={copied ? "check" : "ios_share"} />
+        <Icon name={copied ? "check" : "ios_share"} size={variant === "card" ? 22 : undefined} />
       </button>
       {copied ? (
         <span
           role="status"
-          className="pointer-events-none absolute right-0 top-full z-50 mt-1 whitespace-nowrap rounded-md bg-inverse-surface px-2.5 py-1 text-label-sm font-medium text-inverse-on-surface shadow-md"
+          className={`pointer-events-none absolute right-0 z-50 whitespace-nowrap ${variant === "card" ? "bottom-full mb-1" : "top-full mt-1"} rounded-md bg-inverse-surface px-2.5 py-1 text-label-sm font-medium text-inverse-on-surface shadow-md`}
         >
           Link copied
         </span>
