@@ -20,12 +20,20 @@ export function weekendCardKey(card: FeedCardData): string {
   return `event-${card.event.id}`;
 }
 
-export function weekendCards(now: FeedResponse, later: FeedResponse, saturday: string, sunday: string): FeedCardData[] {
+/** `keep` filters before same-night duplicates are collapsed, so a card a page drops (an adult listing on the kids page) never absorbs its twin that the page keeps. */
+export function weekendCards(
+  now: FeedResponse,
+  later: FeedResponse,
+  saturday: string,
+  sunday: string,
+  keep?: (card: FeedCardData) => boolean,
+): FeedCardData[] {
   const seen = new Set<string>();
   const out: FeedCardData[] = [];
   for (const card of [...(now.whatsOn[0]?.cards ?? []), ...(later.whatsOn[0]?.cards ?? [])]) {
     const key = weekendCardKey(card);
     if (seen.has(key) || !(cardOnDay(card, saturday) || cardOnDay(card, sunday))) continue;
+    if (keep && !keep(card)) continue;
     seen.add(key);
     out.push(card);
   }

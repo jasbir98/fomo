@@ -113,7 +113,7 @@ export function selectKidsSections(
   sunday: string,
   max: number = KIDS_SECTION_MAX,
 ): KidsSections {
-  const weekend = weekendCards(now, later, saturday, sunday).filter(isKidFriendly);
+  const weekend = weekendCards(now, later, saturday, sunday, isKidFriendly);
   const deals = kidsDeals(later.deals ?? now.deals);
   const freeAnyTime = kidsFreeAnyTime(now.freeAnyTime);
   const comingUp = kidsComingUp(now, later, today, saturday, sunday);
