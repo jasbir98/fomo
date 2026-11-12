@@ -108,6 +108,8 @@ const PUBLIC_API_PREFIXES = [
   "/api/explore",
   // Live Finds (GET only): the For you page (/for-you) and the "Picked for you" badge store.
   "/api/finds",
+  // Approved "Under the radar" places (GET only): the Explore Collections rail shows its card only when there are some.
+  "/api/radar",
   "/api/weather",
   // GET half of the Fomo Friday one-click unsubscribe link — the page
   // itself (app/unsubscribe/page.tsx) calls this on mount with no session.

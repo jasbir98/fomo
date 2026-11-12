@@ -182,7 +182,7 @@ function itemRowHtml(item) {
   </tr>`;
 }
 
-function renderHtml({ picks, deals, unsubscribeUrl }) {
+function renderHtml({ picks, deals, radar, unsubscribeUrl }) {
   const pickRows = picks.map(itemRowHtml).join("\n");
   const dealRows = deals.map(itemRowHtml).join("\n");
   const dealsSection =
@@ -193,6 +193,21 @@ function renderHtml({ picks, deals, unsubscribeUrl }) {
       </td></tr>
       <tr><td style="padding:0 24px;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">${dealRows}</table></td></tr>`
       : "";
+
+  // Optional block: only when a pick is featured for this week.
+  const radarSection = radar
+    ? `
+      <tr><td style="padding:28px 24px 4px;">
+        <div style="font-size:12px;font-weight:800;letter-spacing:0.08em;color:${NAVY};text-transform:uppercase;">Under the radar this week</div>
+      </td></tr>
+      <tr><td style="padding:0 24px;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">${itemRowHtml({
+        title: radar.title,
+        url: radar.url,
+        image_url: radar.image_url,
+        venue: radar.category,
+        why: radar.why,
+      })}</table></td></tr>`
+    : "";
 
   return `<!DOCTYPE html>
 <html lang="en">
@@ -218,6 +233,7 @@ function renderHtml({ picks, deals, unsubscribeUrl }) {
   </tr>
   <tr><td style="padding:0 24px;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">${pickRows}</table></td></tr>
   ${dealsSection}
+  ${radarSection}
   <tr>
     <td style="padding:28px 24px 8px;text-align:center;">
       <a href="${escapeHtml(withUtm("https://askfomo.com/weekend"))}" style="display:inline-block;background:${NAVY};color:#ffffff;text-decoration:none;font-weight:700;font-size:14px;padding:12px 22px;border-radius:999px;">See the full list</a>
@@ -237,7 +253,7 @@ function renderHtml({ picks, deals, unsubscribeUrl }) {
 </html>`;
 }
 
-function renderText({ picks, deals, unsubscribeUrl }) {
+function renderText({ picks, deals, radar, unsubscribeUrl }) {
   const lines = [];
   lines.push("Fomo · Edinburgh, free & cheap");
   lines.push("");
@@ -253,6 +269,13 @@ function renderText({ picks, deals, unsubscribeUrl }) {
       lines.push(`- ${d.title}${d.price ? ` [${d.price}]` : ""}${d.venue ? ` · ${d.venue}` : ""}`);
       lines.push(`  ${d.url}`);
     }
+  }
+  if (radar) {
+    lines.push("");
+    lines.push("UNDER THE RADAR THIS WEEK");
+    lines.push(`- ${radar.title}${radar.category ? ` · ${radar.category}` : ""}`);
+    lines.push(`  ${radar.why}`);
+    lines.push(`  ${withUtm(radar.url)}`);
   }
   lines.push("");
   lines.push(`Full list: ${withUtm("https://askfomo.com/weekend")}`);
@@ -311,7 +334,7 @@ function buildMessage({ to, subject, html, text, apiUnsubscribeUrl }) {
 // --- main -----------------------------------------------------------------
 
 async function main() {
-  const { picks, deals, window, excludedEndedDeals, counts } = await getWeeklyPicks({
+  const { picks, deals, radar, window, excludedEndedDeals, counts } = await getWeeklyPicks({
     supabaseUrl: SUPABASE_URL,
     serviceRoleKey: SERVICE_ROLE_KEY,
   });
@@ -353,8 +376,8 @@ async function main() {
         // doc comment.
         const unsubscribeUrl = `https://askfomo.com/unsubscribe?token=${s.unsubscribe_token}`;
         const apiUnsubscribeUrl = `https://askfomo.com/api/unsubscribe?token=${s.unsubscribe_token}`;
-        const html = renderHtml({ picks, deals, unsubscribeUrl }).replace(/\{\{SENDER_ADDRESS\}\}/g, SENDER_ADDRESS);
-        const text = renderText({ picks, deals, unsubscribeUrl }).replace(/\{\{SENDER_ADDRESS\}\}/g, SENDER_ADDRESS);
+        const html = renderHtml({ picks, deals, radar, unsubscribeUrl }).replace(/\{\{SENDER_ADDRESS\}\}/g, SENDER_ADDRESS);
+        const text = renderText({ picks, deals, radar, unsubscribeUrl }).replace(/\{\{SENDER_ADDRESS\}\}/g, SENDER_ADDRESS);
         return buildMessage({ to: s.email, subject, html, text, apiUnsubscribeUrl });
       });
       await resendSendBatch(messages);
@@ -372,8 +395,8 @@ async function main() {
   // Preview unsubscribe link uses a placeholder token in dry-run/test mode
   // — never a real subscriber's token unless actually sending to them.
   const previewUnsubscribeUrl = "https://askfomo.com/unsubscribe?token=00000000-0000-0000-0000-000000000000";
-  const html = renderHtml({ picks, deals, unsubscribeUrl: previewUnsubscribeUrl });
-  const text = renderText({ picks, deals, unsubscribeUrl: previewUnsubscribeUrl });
+  const html = renderHtml({ picks, deals, radar, unsubscribeUrl: previewUnsubscribeUrl });
+  const text = renderText({ picks, deals, radar, unsubscribeUrl: previewUnsubscribeUrl });
 
   if (DRY_RUN) {
     const outDir = path.join(process.cwd(), "scripts", "out");

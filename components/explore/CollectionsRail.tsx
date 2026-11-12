@@ -1,6 +1,9 @@
 "use client";
 
+import { useEffect, useState } from "react";
+import Link from "next/link";
 import { EXPLORE_COLLECTIONS, type ExploreCollection } from "@/lib/explore/collections";
+import { RADAR_NAME, RADAR_PATH } from "@/lib/radar/types";
 import { Icon } from "@/components/ui";
 
 export interface CollectionsRailProps {
@@ -11,6 +14,7 @@ export interface CollectionsRailProps {
 
 /** "Free museums · Rainy-day ideas · Cheap eats · Best viewpoints · Deals near you · This weekend" preset rail. Each card applies a layer/category/sort combo (see ExploreCollection) and scrolls to the map — wired up by the page, this component only renders + reorders. */
 export function CollectionsRail({ isRainy, onSelect }: CollectionsRailProps) {
+  const radarCount = useRadarCount();
   const ordered = isRainy
     ? [...EXPLORE_COLLECTIONS].sort((a, b) => (b.rainPick ? 1 : 0) - (a.rainPick ? 1 : 0))
     : EXPLORE_COLLECTIONS;
@@ -33,8 +37,39 @@ export function CollectionsRail({ isRainy, onSelect }: CollectionsRailProps) {
           ) : null}
         </button>
       ))}
+      {radarCount > 0 ? (
+        // Not a map preset: opens the page that lists the approved picks with their reasons. Hidden until there is at least one.
+        <Link
+          href={RADAR_PATH}
+          className="flex w-[132px] shrink-0 snap-start flex-col items-start gap-2 rounded-xl border border-outline-variant bg-surface-container-lowest p-3 text-left shadow-sm transition-shadow hover:shadow-md"
+        >
+          <span className="flex h-9 w-9 items-center justify-center rounded-full bg-primary-container text-on-primary-container">
+            <Icon name="explore" size={20} />
+          </span>
+          <span className="text-label-md font-semibold leading-snug text-on-surface">{RADAR_NAME}</span>
+          <span className="text-label-sm text-secondary">{radarCount} local pick{radarCount === 1 ? "" : "s"}</span>
+        </Link>
+      ) : null}
     </div>
   );
+}
+
+/** How many approved "Under the radar" places exist. 0 until loaded, and on any failure, so the card stays hidden. */
+function useRadarCount(): number {
+  const [count, setCount] = useState(0);
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/radar")
+      .then((res) => (res.ok ? res.json() : null))
+      .then((body: { picks?: unknown[] } | null) => {
+        if (!cancelled && Array.isArray(body?.picks)) setCount(body.picks.length);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+  return count;
 }
 
 export default CollectionsRail;

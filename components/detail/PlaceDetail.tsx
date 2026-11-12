@@ -15,6 +15,7 @@ import type { EventItem, Place, PlacePhoto } from "@/lib/types";
 import { Button, FomoLoader, Icon, PhotoCarousel, ScrollRail, ShareButton, StatusPill } from "@/components/ui";
 import type { CarouselPhoto } from "@/components/ui";
 import { FeedListCard } from "@/components/happenings";
+import { RadarBadge } from "@/components/radar/RadarBadge";
 import { nextOccurrence, normalizeRecurrence } from "@/lib/happenings/occurrence";
 import type { Happening } from "@/lib/happenings/types";
 import type { HappeningCardData } from "@/lib/happenings/feed-types";
@@ -425,6 +426,7 @@ export function PlaceDetail({ id, presentation = "page", initialData }: DetailPr
               ))}
             </div>
           </div>
+          <RadarBadge why={place.radar_picked_at ? place.radar_why : null} />
           {place.city ? (
             <p className="mb-1 text-label-md font-medium text-secondary">
               {place.city}

@@ -62,6 +62,32 @@ Both scripts are read-only against the DB — they never write to
 `happenings`, `events`, or `email_subscribers`. Both run on a schedule via
 `.github/workflows/weekly-content.yml` (see above for how each is triggered).
 
+## Weekly radar step ("Under the radar")
+
+One hand-picked lesser-known Edinburgh place a week, shown on `/under-the-radar`,
+in the Explore Collections rail and on the place's own page. It also adds an
+optional "Under the radar this week" block to the email and a line to the
+Instagram caption, but only when a pick is featured for that week.
+
+Before the Wednesday carousel and the Thursday email (any time that week):
+
+```bash
+npx tsx --env-file=.env.local scripts/radar.ts suggest            # numbered candidates, read-only
+npx tsx --env-file=.env.local scripts/radar.ts approve 3 --why "A courtyard cafe most people walk past"
+npx tsx --env-file=.env.local scripts/radar.ts feature <place id>   # defaults to this week
+```
+
+`feature --week YYYY-MM-DD` picks another week (any date, rounded to that
+week's Monday); featuring a pick clears any other pick for the same week. No
+AI is involved, and `approve`, `feature` and `retire` take `--dry-run`. One-off
+setup: run `supabase/add_place_radar.sql` in the Supabase SQL editor first.
+
+How the hook behaves: `getWeeklyPicks` (`scripts/lib/weekly-picks.mjs`) returns
+`radar`, the place featured for the Monday of the send weekend, or `null`. With
+no featured pick, or before the SQL has run, or if the lookup fails, `radar` is
+`null`, nothing renders and the digest is exactly what it was without it. A
+failed lookup is logged and never stops the send.
+
 ## Env vars needed
 
 | Var | Used by | Notes |
