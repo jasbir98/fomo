@@ -74,7 +74,7 @@ export function isDesktopViewport(): boolean {
 
 /**
  * Open `href` in the overlay if it's a detail URL, we're on desktop and the
- * provider is mounted (it isn't on /signin, /welcome, …). Returns false when
+ * provider is mounted (it isn't on /signin, …). Returns false when
  * the caller should navigate normally instead.
  */
 export function tryOpenDetail(href: string): boolean {

@@ -11,7 +11,7 @@ import type { SigninReason } from "@/lib/auth/signin-reason";
  *   2. read the user (see footgun #2)
  *   3. /api/*        → no user? 401 JSON, never a redirect — except the
  *                      read-only catalogue APIs in PUBLIC_API_PREFIXES
- *      passive-public (/welcome, /auth/callback, /offline) → always pass
+ *      passive-public (/auth/callback, /offline) → always pass
  *      no user        → public pages pass; account pages (SIGNED_IN_PAGE_PREFIXES)
  *                      302 /signin?next=...&reason=... (unless already on /signin)
  *      user, on /signin or under the retired /onboarding → 302 ?next or /
@@ -44,15 +44,10 @@ import type { SigninReason } from "@/lib/auth/signin-reason";
  * removed in the Fomo pivot, so `user_metadata.onboarded_at` is no longer
  * read here — a signed-in user goes straight to the page they asked for.
  *
- * WELCOME VS SIGNIN. The 3-slide intro (app/welcome/page.tsx) isn't on the
- * account-gate path any more (pre-launch fix, 2026-09) — hitting a
- * gated page signed out goes straight to /signin?next=...&reason=...
- * (lib/auth/signin-reason.ts), which reads faster for a returning visitor
- * and gives Ask Fomo/Profile a one-line reason instead of an unrelated
- * intro. /welcome itself is untouched and still reachable by direct link;
- * it remains a passive-public page (fine to view in any auth state) and
- * still self-redirects to /signin (localStorage `fomo_seen_intro`) once
- * its own "Skip"/finish flow has been seen.
+ * NO INTRO. Hitting a gated page signed out goes straight to
+ * /signin?next=...&reason=... (lib/auth/signin-reason.ts). The old 3-slide
+ * intro (app/welcome) left that path in the 2026-09 pre-launch fix, was
+ * linked from nowhere after that, and was deleted in 2026-11.
  *
  * FILE NAME. This was `middleware.ts` until the Next.js 16 rename (the
  * `middleware` file convention is deprecated in favor of `proxy` — same
@@ -171,8 +166,6 @@ function isPublicApi(request: NextRequest): boolean {
 /** Pages that are always servable regardless of auth/onboarding state. */
 function isPassivePublic(pathname: string): boolean {
   return (
-    pathname === "/welcome" ||
-    pathname.startsWith("/welcome/") ||
     pathname === "/auth/callback" ||
     pathname.startsWith("/auth/callback/") ||
     pathname === "/offline"
@@ -300,10 +293,7 @@ export async function proxy(request: NextRequest) {
     return response;
   }
 
-  // 2. Passive-public pages — always servable, in every auth state. Keeping
-  // /welcome out of the "bounce a signed-in user away" logic below is
-  // deliberate: it's harmless to view signed in, and folding it into the
-  // no-user branch would need a second flag just to avoid a self-redirect.
+  // 2. Passive-public pages — always servable, in every auth state.
   if (isPassivePublic(pathname)) {
     return response;
   }
@@ -312,11 +302,9 @@ export async function proxy(request: NextRequest) {
   // profile) send the visitor to /signin.
   if (!user) {
     // /signin is where a signed-out visitor is SUPPOSED to end up — serve it
-    // directly rather than bouncing back through /welcome. Account-gated
-    // pages (Ask Fomo, Profile, ...) go straight to /signin too, each with a
-    // `reason` (lib/auth/signin-reason.ts) explaining why, instead of the
-    // 3-slide intro — /welcome is no longer on this path (see its own file
-    // header) but stays reachable directly for anyone who lands on it.
+    // directly. Account-gated pages (Ask Fomo, Profile, ...) go straight to
+    // /signin too, each with a `reason` (lib/auth/signin-reason.ts)
+    // explaining why.
     if (isSignin || !needsAccount(pathname)) return response;
     const url = new URL("/signin", request.url);
     url.searchParams.set("next", pathWithSearch(request));

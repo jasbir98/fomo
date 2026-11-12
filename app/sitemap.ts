@@ -6,7 +6,7 @@ import { listRadarPicks } from "@/lib/db/radar";
 import { happeningHasEnded } from "@/lib/happenings/occurrence";
 import { SITE_URL } from "@/lib/seo/site";
 
-// Public, indexable static pages — anything behind auth (signin/welcome/
+// Public, indexable static pages — anything behind auth (signin/
 // profile/fomo chat) or an API route is deliberately left out, matching
 // app/robots.ts's disallow list.
 //

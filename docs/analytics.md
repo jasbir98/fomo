@@ -24,7 +24,7 @@ new: `instrumentation-client.ts` (init), `next.config.ts` (reverse proxy),
 - **Consent (UK PECR) — cookieless until "OK"**: `cookieless_mode:
   "on_reject"` + `opt_out_capturing_by_default: true`. Until the visitor
   taps **OK** on `components/analytics/ConsentBar.tsx` (mounted once in
-  `AppShell`, so never on `/signin`/`/welcome`), posthog-js captures in
+  `AppShell`, so never on `/signin`), posthog-js captures in
   cookieless mode: nothing written to cookies/localStorage, every event
   sent with the `$posthog_cookieless` distinct_id, which PostHog's servers
   replace with `hash(project, daily salt, IP, user agent, host)`. **No
@@ -72,10 +72,14 @@ new: `instrumentation-client.ts` (init), `next.config.ts` (reverse proxy),
 | `filter_used` | `filter`, `value`, `page` | Free only / For you / category / date pills on `/whats-on`; Free only on `/weekend`; WHAT/WHO on `/deals`; type/district on `/free`; timing/category/month on `/book-early` |
 | `search_submitted` | `length` | Explore's search box, on picking a suggestion (On Fomo pin or a Google place) |
 | `chat_message_sent` | `length` | Ask Fomo, on send |
-| `subscribe_submitted` | `surface` (home/weekend/signup/finds/plan) | `SubscribeCard` ("Get Fomo Friday"), on success |
+| `subscribe_submitted` | `surface` (home/home_top/weekend/signup/finds/plan/kids) | `SubscribeCard`, on success. `home_top` is Home's compact form right after Top picks; `home` the full card at the bottom |
+| `subscribe_dismissed` | `surface` (home_top) | `SubscribeCard`'s compact variant, on its close button (hidden on that browser afterwards) |
 | `tip_submitted` | `type` (tip/feedback) | `/tip` page, on success |
 | `prefs_completed` / `prefs_skipped` | — | `MakeFomoYours` — Save vs. Skip for now |
 | `kids_pref_set` | `on` | `MakeFomoYours` — on Save, when the "I've got kids" toggle changed |
+| `audience_pref_set` | `group` (students/under_26/residents), `on`, `surface` (home), `signed_in` | `AudienceAsk` — Home's inline Student / Under 26 / EH postcode chips, on each tap |
+| `audience_ask_edit_opened` | — | `AudienceAsk` — Edit on the collapsed summary |
+| `home_prefs_opened` | — | `AudienceAsk` — More, which opens the full Make Fomo yours sheet |
 | `kids_filter_toggled` | `surface` (whats_on/weekend/free/deals/explore), `on` | The "With kids" chip on `/whats-on`, `/weekend` and `/free`; the "Families" WHO chip on `/deals`; the "Kids" category chip on Explore |
 | `signin_completed` | `method` (email/google/apple) | `/signin`, once per real sign-in (see below) |
 | `pwa_installed` | — | `AppShell`'s `appinstalled` listener |

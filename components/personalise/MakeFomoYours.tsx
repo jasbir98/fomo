@@ -34,11 +34,14 @@ const BUDGET_OPTIONS: { value: FomoBudget; label: string }[] = [
  * same state shape (lib/personalise/usePrefs.ts), so there's exactly one
  * place this could ever get out of sync with itself.
  *
- * Open to everyone, but personalisation needs an account: signed out, Save
- * keeps the answers locally (they carry over and merge into the account on
- * sign-in, see usePrefs.ts) and then sends the visitor to sign in, landing
- * on /for-you. The sheet seeds from `prefs.draft` (what they have picked so
- * far) because `prefs` itself is neutral while signed out.
+ * Open to everyone. Signed out, Save keeps the answers locally (they carry
+ * over and merge into the account on sign-in, see usePrefs.ts): the
+ * eligibility answers take effect on this device straight away, taste
+ * (interests, budget) only with an account, so Save then sends the visitor
+ * to sign in, landing on /for-you. The sheet seeds from `prefs.draft` (what
+ * they have picked so far) because `prefs` leaves taste neutral while
+ * signed out. Home's inline audience ask (AudienceAsk.tsx) edits the same
+ * eligibility fields.
  *
  * Edits are staged in local state and only committed via `prefs.save()` on
  * Save — Cancel/Esc/backdrop (BottomSheet's own `onClose`) discards them,

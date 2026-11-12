@@ -11,7 +11,7 @@ export type FomoLogoProps = {
 /**
  * Brand lockup: the app icon as a mark (public/icons/icon.svg — navy tile,
  * ring, orange dot) beside a lowercase "fomo" wordmark whose last "o" is that
- * same orange dot. One component so the sign-in, welcome and app bars agree.
+ * same orange dot. One component so the sign-in and app bars agree.
  */
 export function FomoLogo({ tone = "light", size = 28, markOnly = false, className = "" }: FomoLogoProps) {
   const ink = tone === "dark" ? "#ffffff" : "#031632";

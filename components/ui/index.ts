@@ -20,8 +20,6 @@ export { FilterSheet } from "./FilterSheet";
 export type { FilterSheetProps, FilterGroupSpec, FilterOption } from "./FilterSheet";
 export { ConfirmDialog } from "./ConfirmDialog";
 export type { ConfirmDialogProps } from "./ConfirmDialog";
-export { ProgressDots } from "./ProgressDots";
-export type { ProgressDotsProps } from "./ProgressDots";
 export { PageHeader } from "./PageHeader";
 export type { PageHeaderProps } from "./PageHeader";
 export { StickyFilterBar } from "./StickyFilterBar";

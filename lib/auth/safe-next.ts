@@ -1,7 +1,7 @@
 /**
  * Validate an untrusted `?next=` value before using it as a redirect
  * target. `next` rides through the whole signed-out deep-link flow as a
- * query param — `/welcome?next=...` → `/signin?next=...` →
+ * query param — `/signin?next=...` →
  * `/auth/callback?next=...` (also as the OAuth `redirectTo`'s own query
  * param) → any post-sign-in setup/onboarding step → the final redirect —
  * and it's attacker-controlled at every hop, so every reader validates

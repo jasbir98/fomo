@@ -7,13 +7,19 @@ import { InstallSheet } from "@/components/install/InstallSheet";
 import { promptInstall } from "@/lib/pwa/install-prompt";
 import { useInstallState } from "@/lib/pwa/useInstallState";
 import { track } from "@/lib/analytics/track";
+import { subscribeSavedChanges } from "@/lib/useSaved";
 
 /** Same key ConsentBar (components/analytics/ConsentBar.tsx) writes. Only read here, never written. */
 const CONSENT_KEY = "fomo:consent";
 
 const DISMISSED_AT_KEY = "fomo:install-dismissed-at";
 const SHOWN_COUNT_KEY = "fomo:install-shown-count";
+/** Browser sessions seen on this device (localStorage), bumped once per tab session (sessionStorage flag). */
+const SESSION_COUNT_KEY = "fomo:session-count";
+const SESSION_COUNTED_KEY = "fomo:session-counted";
 
+/** A first visit never gets the hint (it would stack with the cookie bar and Home's own asks) unless the visitor saves something. */
+const MIN_SESSIONS_BEFORE_SHOWING = 2;
 const MIN_PAGES_BEFORE_SHOWING = 2;
 /** Or, for someone reading one long page: this long on the site. */
 const MIN_SECONDS_BEFORE_SHOWING = 25;
@@ -42,6 +48,20 @@ function writeStr(key: string, value: string) {
     localStorage.setItem(key, value);
   } catch {
     // Private window / blocked storage: worst case we ask again next visit.
+  }
+}
+
+/** Counts this browser session once (sessionStorage survives reloads, not a new tab or a later visit) and returns the running total. */
+function countSession(): number {
+  try {
+    if (sessionStorage.getItem(SESSION_COUNTED_KEY) === "1") return readInt(SESSION_COUNT_KEY);
+    const next = readInt(SESSION_COUNT_KEY) + 1;
+    localStorage.setItem(SESSION_COUNT_KEY, String(next));
+    sessionStorage.setItem(SESSION_COUNTED_KEY, "1");
+    return next;
+  } catch {
+    // Blocked storage: treat as a first visit, so the hint waits for a save.
+    return 1;
   }
 }
 
@@ -76,6 +96,10 @@ function subscribeConsent(cb: () => void): () => void {
  *  - a phone or tablet browser that can (or could) install: not desktop, not
  *    already running as the installed app
  *  - the cookie bar has been answered (any choice, this session or before)
+ *  - a returning visitor (a second browser session on this device,
+ *    fomo:session-count) or one who has saved something: never on a first
+ *    visit otherwise, where the cookie bar and Home's own asks already
+ *    compete for the screen
  *  - engaged: 2+ pages viewed this session, or 25s on the site
  *  - not dismissed in the last 14 days (fomo:install-dismissed-at)
  *  - shown fewer than 5 times total (fomo:install-shown-count)
@@ -105,6 +129,8 @@ export function InstallHint() {
   }
   const [timeOnSiteReached, setTimeOnSiteReached] = useState(false);
   const [storageOk, setStorageOk] = useState(false);
+  const [returning, setReturning] = useState(false);
+  const [hasSaved, setHasSaved] = useState(false);
   const [dismissed, setDismissed] = useState(false);
   const [sheetOpen, setSheetOpen] = useState(false);
   const hasTrackedShownRef = useRef(false);
@@ -119,18 +145,30 @@ export function InstallHint() {
   // codebase's standard escape hatch for react-hooks/set-state-in-effect
   // (see AmbientWeather.tsx, app/signin/page.tsx).
   useEffect(() => {
+    if (countSession() >= MIN_SESSIONS_BEFORE_SHOWING) queueMicrotask(() => setReturning(true));
     if (readInt(SHOWN_COUNT_KEY) >= MAX_TOTAL_SHOWS) return;
     const dismissedAt = readStr(DISMISSED_AT_KEY);
     if (dismissedAt && Date.now() - Number(dismissedAt) < DISMISS_COOLDOWN_MS) return;
     queueMicrotask(() => setStorageOk(true));
   }, []);
 
+  // Saving anything is a clear engagement signal. The saved set is
+  // account-backed, so this also fires for a signed-in visitor whose saves
+  // load from an earlier visit, which is fine: they're not new.
+  useEffect(
+    () =>
+      subscribeSavedChanges((keys) => {
+        if (keys.size > 0) setHasSaved(true);
+      }),
+    []
+  );
+
   const installable = platform !== null && platform !== "desktop";
   const engaged = pagesViewed >= MIN_PAGES_BEFORE_SHOWING || timeOnSiteReached;
   // Chat and search own the bottom of the screen (composer / keyboard).
   const onBusyScreen = /^\/(fomo|search)(\/|$)/.test(pathname);
   const visible =
-    !onBusyScreen && storageOk && installable && !installed && !dismissed && consent !== "pending" && consent !== null && engaged;
+    !onBusyScreen && storageOk && installable && !installed && !dismissed && consent !== "pending" && consent !== null && engaged && (returning || hasSaved);
 
   useEffect(() => {
     if (visible && !hasTrackedShownRef.current) {

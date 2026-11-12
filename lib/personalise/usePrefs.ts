@@ -12,12 +12,17 @@ import { INTEREST_ORDER, type InterestKey } from "./interests";
  * `user_metadata` (no table, same convention lib/happenings/groups.ts's
  * `fomo_who` already established). Signed-out: mirrored to localStorage
  * `fomo:prefs`, wrapped in try/catch, and merged into `user_metadata` on
- * sign-in when the account has none of this yet (task brief §1). That local
- * copy is only a carry-over for the sign-in merge: personalisation needs an
- * account, so while `signedIn !== true` the hook's `prefs` score as the
- * defaults (no interests, no budget, no eligibility) and only `done` (so a
- * dismissed Home banner stays dismissed) and `draft` (what the visitor has
- * picked in the sheet so far) read through.
+ * sign-in when the account has none of this yet (task brief §1).
+ *
+ * Signed out (`signedIn === false`), the local copy's ELIGIBILITY fields
+ * (`status`, `under26`, `residents`, `over60`, `kids`) read through, so
+ * Home's inline audience ask (components/personalise/AudienceAsk.tsx) takes
+ * effect on "You qualify" badges and ranking straight away on this device.
+ * Taste (`interests`, `budget`) still needs an account and scores as the
+ * default while signed out. `done` and `draft` (everything the visitor has
+ * picked so far) always read through. While the session check is still
+ * running (`signedIn === null`, also the server snapshot) everything but
+ * `done` is the default, so the server HTML and hydration stay neutral.
  *
  * `fomo_who` (lib/useSaved.ts's `setWhoGroups`/`who`) stays the single
  * source every "You qualify" badge and `personalBoost` eligibility check
@@ -223,7 +228,15 @@ async function load(): Promise<void> {
   // the account blank.
   const local = readLocalPrefs();
   setState({ prefs: local, signedIn: true });
-  if (local.status || local.interests.length > 0 || local.kids || local.done) {
+  if (
+    local.status ||
+    local.under26 ||
+    local.residents ||
+    local.over60 ||
+    local.interests.length > 0 ||
+    local.kids ||
+    local.done
+  ) {
     try {
       await persistToAccount(local);
     } catch (err) {
@@ -261,18 +274,29 @@ export async function dismissPrefs(): Promise<void> {
   await savePrefs({ ...state.prefs, done: true });
 }
 
+/**
+ * The prefs that score and rank: the account's when signed in; signed out,
+ * the device's own eligibility answers (not taste, see the file comment);
+ * still checking, the defaults. `done` always reads through.
+ */
+function effectivePrefs(snapshot: PrefsState): FomoPrefs {
+  if (snapshot.signedIn === true) return snapshot.prefs;
+  if (snapshot.signedIn === false) {
+    const { status, under26, residents, over60, kids, done } = snapshot.prefs;
+    return { ...DEFAULT_PREFS, status, under26, residents, over60, kids, done };
+  }
+  return { ...DEFAULT_PREFS, done: snapshot.prefs.done };
+}
+
 export function usePrefs() {
   useEffect(() => {
     ensureInitialized();
   }, []);
   const snapshot = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
-  // Signed out (or still checking): every scoring-relevant field is the
-  // default, so ranking and "You qualify" stay neutral. Only `done` reads
-  // through, from localStorage.
-  const prefs: FomoPrefs = snapshot.signedIn === true ? snapshot.prefs : { ...DEFAULT_PREFS, done: snapshot.prefs.done };
+  const prefs = effectivePrefs(snapshot);
   return {
     ...prefs,
-    /** The raw prefs behind `prefs`: the account's when signed in, otherwise the visitor's own local answers. Only the Make Fomo yours sheet should read this (to show what they've picked); anything that scores or ranks reads the top-level fields. */
+    /** The raw prefs behind `prefs`: the account's when signed in, otherwise the visitor's own local answers. Only the edit UIs (the Make Fomo yours sheet, Home's audience ask) should read this, to show what they've picked; anything that scores or ranks reads the top-level fields. */
     draft: snapshot.prefs,
     signedIn: snapshot.signedIn,
     save: savePrefs,
@@ -280,7 +304,7 @@ export function usePrefs() {
   };
 }
 
-/** Read-only peek at the current prefs without subscribing to changes — for a caller (e.g. `personalBoost`'s callers) that already has `who`/prefs from its own render and just needs the snapshot once. Same neutral-unless-signed-in rule as `usePrefs`. */
+/** Read-only peek at the current prefs without subscribing to changes — for a caller (e.g. `personalBoost`'s callers) that already has `who`/prefs from its own render and just needs the snapshot once. Same rules as `usePrefs` (see `effectivePrefs`). */
 export function getPrefsSnapshot(): FomoPrefs {
-  return state.signedIn === true ? state.prefs : { ...DEFAULT_PREFS, done: state.prefs.done };
+  return effectivePrefs(state);
 }

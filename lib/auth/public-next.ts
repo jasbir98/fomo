@@ -6,8 +6,8 @@ import { safeNext } from "./safe-next";
  * surface (proxy.ts runs at the edge; this runs in the browser). Keep the
  * two lists in sync if an account-gated route is added or removed.
  *
- * Used only to decide where the "Not now — keep browsing" buttons on
- * /welcome and /signin should land: back on `next` if a signed-out visitor
+ * Used only to decide where /signin's "Not now — keep browsing" button
+ * should land: back on `next` if a signed-out visitor
  * can actually see that page, else Home — never back onto the very page
  * that would just bounce them here again.
  */

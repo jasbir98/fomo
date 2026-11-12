@@ -568,33 +568,13 @@ body {
   }
 }
 
-/* ---- Welcome cast (components/onboarding/Characters.tsx) ----
+/* ---- Fomo cast (components/onboarding/Characters.tsx) ----
    Idle loops for the SVG characters. fill-box + centre origin makes each
    transform pivot on the drawn shape rather than the SVG canvas origin. Plain
    CSS for the same reduced-motion reason as feed-slide-in-right above. */
 @keyframes fomo-float {
   0%, 100% { transform: translateY(0); }
   50% { transform: translateY(-7px); }
-}
-@keyframes fomo-hop {
-  0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-9px); }
-}
-@keyframes fomo-bob {
-  0%, 100% { transform: rotate(-4deg); }
-  50% { transform: rotate(4deg); }
-}
-@keyframes fomo-shake {
-  0%, 50%, 100% { transform: rotate(0); }
-  10% { transform: rotate(-10deg); }
-  20% { transform: rotate(10deg); }
-  30% { transform: rotate(-8deg); }
-  40% { transform: rotate(8deg); }
-}
-@keyframes fomo-buzz {
-  0%, 20%, 100% { transform: translateX(0); }
-  4%, 12% { transform: translateX(-2px); }
-  8%, 16% { transform: translateX(2px); }
 }
 @keyframes fomo-blink {
   0%, 92%, 100% { transform: scaleY(1); }
@@ -604,54 +584,26 @@ body {
   0%, 100% { opacity: 0.35; transform: scale(0.75); }
   50% { opacity: 1; transform: scale(1.05); }
 }
-@keyframes fomo-steam {
-  0% { opacity: 0; transform: translateY(4px); }
-  50% { opacity: 0.35; }
-  100% { opacity: 0; transform: translateY(-6px); }
-}
-@keyframes fomo-dash {
-  to { stroke-dashoffset: 40; }
-}
 .fomo-float,
-.fomo-hop,
-.fomo-bob,
-.fomo-shake,
-.fomo-buzz,
 .fomo-blink,
-.fomo-twinkle,
-.fomo-steam {
+.fomo-twinkle {
   transform-box: fill-box;
   transform-origin: center;
 }
 .fomo-float { animation: fomo-float 3.6s ease-in-out infinite; }
-.fomo-hop { animation: fomo-hop 1.8s ease-in-out infinite; }
-.fomo-bob { animation: fomo-bob 3.2s ease-in-out infinite; }
-.fomo-shake { animation: fomo-shake 1.6s ease-in-out infinite; }
-.fomo-buzz { animation: fomo-buzz 2.2s linear infinite; }
 .fomo-blink { animation: fomo-blink 4.8s infinite; }
 .fomo-twinkle { animation: fomo-twinkle 2.4s ease-in-out infinite; }
-.fomo-steam { animation: fomo-steam 2.6s ease-out infinite; }
-.fomo-dash { animation: fomo-dash 0.8s linear infinite; }
-.fomo-delay-1 { animation-delay: 0.6s; }
-.fomo-delay-2 { animation-delay: 1.2s; }
 @media (prefers-reduced-motion: reduce) {
   .fomo-float,
-  .fomo-hop,
-  .fomo-bob,
-  .fomo-shake,
-  .fomo-buzz,
   .fomo-blink,
-  .fomo-twinkle,
-  .fomo-steam,
-  .fomo-dash {
+  .fomo-twinkle {
     animation: none;
   }
 }
 
 /* ---- FomoLoader (components/ui/FomoLoader.tsx) ----
-   Gentle bob+squash idle loop for the mascot — distinct from `.fomo-bob`
-   above (a rotate-only wobble tuned for the onboarding cast), this one
-   moves the whole mark up/down and squashes it on landing, the way a
+   Gentle bob+squash idle loop for the mascot: it moves the whole mark
+   up/down and squashes it on landing, the way a
    loading mascot usually reads. Plain CSS, not a Tailwind `animate-*`
    utility, for the same prefers-reduced-motion-must-win reason as every
    other `fomo-*` loop in this file. */
