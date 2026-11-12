@@ -22,18 +22,19 @@ export type SaveButtonProps = {
 /**
  * The one bookmark toggle — feed cards, detail pages and the Explore sheet.
  * State comes from lib/useSaved.ts, so it starts saved when it is saved, and
- * a signed-out tap goes to sign-in and back. Stops propagation so it works
+ * a signed-out tap saves on this device (lib/saved/local-store.ts) and
+ * merges into the account at sign-in. Stops propagation so it works
  * inside a whole-card NavCard. 44px tap target.
  *
  * Also the trigger point for "Make Fomo yours" (task brief §2: open once,
  * the first time a signed-in visitor saves something with the card not yet
  * done) and for implicit interest learning (§3: a successful save nudges
  * `interestHint`'s affinity counter) — both fire only on a genuine
- * unsaved→saved transition, never on unsave or a signed-out tap (which
- * redirects to sign-in instead of actually saving).
+ * unsaved→saved transition by a signed-in visitor, never on unsave or a
+ * save held only on this device.
  */
 export function SaveButton({ subjectType, subjectId, className = "", interestHint = null, compact = false }: SaveButtonProps) {
-  const { isSaved, toggle, signedIn } = useSaved();
+  const { isSaved, toggle } = useSaved();
   const prefs = usePrefs();
   const saved = isSaved(subjectType, subjectId);
 
@@ -46,13 +47,14 @@ export function SaveButton({ subjectType, subjectId, className = "", interestHin
         e.stopPropagation();
         e.preventDefault();
         const wasSaved = saved;
-        // Only counted once the toggle actually lands — a signed-out tap
-        // redirects to sign-in instead of saving (lib/useSaved.ts), which
-        // must never register as a save.
-        void toggle(subjectType, subjectId).then(() => {
-          if (signedIn !== true) return;
-          track(wasSaved ? "save_removed" : "save_added", { kind: subjectType, id: subjectId });
-          if (wasSaved) return;
+        // Only counted once the toggle actually lands (a failed write, or a
+        // blocked-storage redirect to sign-in, never registers as a save).
+        // `storage` tells a save on this device (signed out) from an account one.
+        void toggle(subjectType, subjectId).then(({ changed, storage }) => {
+          if (!changed) return;
+          track(wasSaved ? "save_removed" : "save_added", { kind: subjectType, id: subjectId, storage });
+          // The rest is account-only: "Make Fomo yours" and interest learning need a sign-in.
+          if (wasSaved || storage !== "account") return;
           maybeOpenOnFirstSave(prefs.done);
           recordAffinity(interestHint);
         });

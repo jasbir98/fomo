@@ -1,5 +1,6 @@
 "use client";
 
+import { SharedSubscribeCard } from "@/components/happenings/SharedSubscribeCard";
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -328,7 +329,7 @@ export function EventDetail({ id, presentation = "page", initialEvent }: DetailP
         action={
           <div className="flex items-center gap-1">
             {(event.status ?? "active") === "active" && !eventHasEnded(event) ? <AddToPlanButton item={basketItemForEvent(event)} surface="event_detail" variant="header" /> : null}
-            <ShareButton title={event.name} text={shareText} url={shareUrl} kind="event" />
+            <ShareButton title={event.name} text={shareText} url={shareUrl} kind="event" surface="detail" />
           </div>
         }
       />
@@ -623,6 +624,7 @@ export function EventDetail({ id, presentation = "page", initialEvent }: DetailP
       {mapCard("hidden lg:block")}
       </DetailAside>
       </div>
+      <SharedSubscribeCard />
     </div>
   );
 }

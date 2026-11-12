@@ -11,6 +11,7 @@ import { ConsentBar } from "@/components/analytics/ConsentBar";
 import { IdentifyUser } from "@/components/analytics/IdentifyUser";
 import { InstallHint } from "@/components/shell/InstallHint";
 import { DetailOverlayProvider } from "@/components/detail/DetailOverlayProvider";
+import { SavePrompt } from "@/components/saved/SavePrompt";
 import { PlanBar } from "@/components/plans/PlanBar";
 import { track } from "@/lib/analytics/track";
 
@@ -72,6 +73,7 @@ export function AppShell({ children }: AppShellProps) {
       <MakeFomoYours open={makeFomoYoursOpen} onClose={closeMakeFomoYours} />
       <ConsentBar />
       <InstallHint />
+      <SavePrompt />
       <DetailOverlayProvider />
     </div>
   );

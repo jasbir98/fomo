@@ -7,7 +7,7 @@ import { track } from "@/lib/analytics/track";
 
 export interface SubscribeCardProps {
   /** Where this card is mounted — sent as `source` to POST /api/subscribe so the digest signup list can tell which surface drove a signup. */
-  source: "weekend" | "home" | "signup" | "finds" | "plan" | "kids";
+  source: "weekend" | "home" | "signup" | "finds" | "plan" | "kids" | "shared";
   className?: string;
 }
 
