@@ -1,5 +1,6 @@
 "use client";
 
+import { SharedSubscribeCard } from "@/components/happenings/SharedSubscribeCard";
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -326,7 +327,7 @@ export function PlaceDetail({ id, presentation = "page", initialData }: DetailPr
       <DetailTopBar
         presentation={presentation}
         title={placeName}
-        action={<ShareButton title={placeName} text={shareText} url={shareUrl} kind="place" />}
+        action={<ShareButton title={placeName} text={shareText} url={shareUrl} kind="place" surface="detail" />}
       />
 
       <div className={detailGridClass(presentation)}>
@@ -670,6 +671,7 @@ export function PlaceDetail({ id, presentation = "page", initialData }: DetailPr
       {mapCard("hidden lg:block")}
       </DetailAside>
       </div>
+      <SharedSubscribeCard />
     </div>
   );
 }

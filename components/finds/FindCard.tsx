@@ -1,7 +1,7 @@
 "use client";
 
 import { useSyncExternalStore } from "react";
-import { Icon, NavCard, SaveButton, SmartImage } from "@/components/ui";
+import { CardShareButton, Icon, NavCard, SaveButton, SmartImage } from "@/components/ui";
 import { PriceTag } from "@/components/happenings/PriceTag";
 import { FomoLevel } from "@/components/finds/FomoLevel";
 import { occurrenceWhenLabel } from "@/components/happenings/FeedListCard";
@@ -77,7 +77,12 @@ export function FindCard({ item, reason = null, position, surface = "for_you" }:
         venue={event.venue_name}
         item={item}
         reason={reason}
-        save={<SaveButton subjectType="event" subjectId={event.id} compact className="-my-1 -mr-2" />}
+        save={
+          <>
+            <CardShareButton kind="event" id={event.id} title={event.name} surface={surface} className="-my-1.5" />
+            <SaveButton subjectType="event" subjectId={event.id} className="-my-1.5 -mr-2" />
+          </>
+        }
         onPointerDown={() => prefetchEvent(event.id)}
         onNavigate={() => {
           setEventPreview(
@@ -106,13 +111,22 @@ export function FindCard({ item, reason = null, position, surface = "for_you" }:
       item={item}
       reason={reason}
       save={
-        <SaveButton
-          subjectType="happening"
-          subjectId={happening.id}
-          interestHint={interestForHappeningCategory(happening.category)}
-          compact
-          className="-my-1 -mr-2"
-        />
+        <>
+          <CardShareButton
+            kind="happening"
+            id={happening.id}
+            title={happening.title}
+            surface={surface}
+            interestHint={interestForHappeningCategory(happening.category)}
+            className="-my-1.5"
+          />
+          <SaveButton
+            subjectType="happening"
+            subjectId={happening.id}
+            interestHint={interestForHappeningCategory(happening.category)}
+            className="-my-1.5 -mr-2"
+          />
+        </>
       }
       onPointerDown={() => prefetchHappening(happening.id)}
       onNavigate={() => {
@@ -190,7 +204,7 @@ function Shell({
         <p className="line-clamp-3 text-body-md font-semibold leading-snug text-on-surface">{item.why}</p>
         <div className="mt-auto flex items-center justify-between gap-2 pt-1">
           <FomoLevel level={item.fomoLevel} />
-          <div className="shrink-0">{save}</div>
+          <div className="flex shrink-0 items-center gap-1">{save}</div>
         </div>
       </div>
     </NavCard>
