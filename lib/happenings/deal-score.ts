@@ -14,6 +14,8 @@
  */
 import { normalizeRecurrence } from "@/lib/happenings/occurrence";
 import type { Happening } from "@/lib/happenings/types";
+import { dealLeadPenalty } from "@/lib/happenings/audience";
+import type { DealWhoGroup } from "@/lib/happenings/groups";
 
 /**
  * National chains and UK-wide schemes. Their student discounts are real but
@@ -150,4 +152,20 @@ export function dealStealScore(
   score += Math.min(Math.max((h.priority ?? 50) - 50, -15), 15);
   if (isNationalChain(h)) score -= CHAIN_PENALTY;
   return score;
+}
+
+/**
+ * `dealStealScore` with the lead-slot persona fit taken off (audience.ts
+ * `dealLeadPenalty`): a hotel stay, a haircut, a tourist-attraction ticket or
+ * an offer for a group the visitor isn't in sinks below the steals a student
+ * would actually use. `who` is the visitor's stored deals profile; a match
+ * removes the audience penalty. Used to ORDER lists only, never to hide: the
+ * "good deal" floor (`GOOD_FLOOR` in today-deals.ts) still reads the plain
+ * steal score, so a penalised deal stays in "See all" and the filters.
+ */
+export function dealLeadScore(
+  h: Pick<Happening, "title" | "summary" | "venue_name" | "saving_label" | "priority" | "recurrence" | "is_free" | "eligibility">,
+  who: readonly DealWhoGroup[] = []
+): number {
+  return dealStealScore(h) - dealLeadPenalty({ ...h, description: h.summary }, who);
 }
