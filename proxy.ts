@@ -2,6 +2,7 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { safeNext } from "@/lib/auth/safe-next";
 import type { SigninReason } from "@/lib/auth/signin-reason";
+import { blockedLanguagesFromEnv, isBlockedLanguage } from "@/lib/blocked-language";
 
 /**
  * Open browsing, account-only actions. This proxy both refreshes the Supabase
@@ -231,7 +232,26 @@ function trailingSlashRedirect(request: NextRequest): NextResponse | null {
   return NextResponse.redirect(url, 308);
 }
 
+/** Temporary owner decision: refuse visitors whose Accept-Language lists a blocked tag (default zh-CN; env BLOCKED_LANGUAGES). Runs first, before auth. */
+const LANGUAGE_BLOCK_EXEMPT = new Set(["/robots.txt", "/favicon.ico"]);
+
+function languageBlock(request: NextRequest): NextResponse | null {
+  if (LANGUAGE_BLOCK_EXEMPT.has(request.nextUrl.pathname)) return null;
+  if (!isBlockedLanguage(request.headers.get("accept-language"), blockedLanguagesFromEnv())) return null;
+  return new NextResponse("Access from this region is not available.", {
+    status: 403,
+    headers: {
+      "Cache-Control": "no-store",
+      Vary: "Accept-Language",
+      "X-Robots-Tag": "noindex",
+    },
+  });
+}
+
 export async function proxy(request: NextRequest) {
+  const blocked = languageBlock(request);
+  if (blocked) return blocked;
+
   const ingest = posthogRewrite(request);
   if (ingest) return ingest;
 
